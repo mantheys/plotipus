@@ -45,7 +45,7 @@ Kinds follow the data relationship (as in seaborn/plotly), not the use case.
 | `hist` | 1D histograms of per-event arrays | `--bins`, `--weight`, `--density`, `--hist_combine` |
 | `map` | 2D: histogram of point arrays, image of a grid (`-z`), contour layer (`--contour`) | `--norm`, `--diagonal`, `--logz`, `--contour_sigmas`, `--fill_contours` |
 | `cat` | one value per category (integrated arrays) | `--integrate_over`, `--kind point\|line\|bar` |
-| `table` | aggregated values as LaTeX (and HTML) tables | `--variables`, `--agg`, `--error_band`, `--siunitx`, `--caption_file` |
+| `table` | aggregated values as LaTeX (and HTML) tables | `--variables`, `--agg`, `--error_band`, `--clopper_pearson`, `--siunitx`, `--caption_file` |
 
 `plotipus <kind> --help` lists every option.
 

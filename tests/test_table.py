@@ -81,3 +81,18 @@ def test_legacy_translation():
     tokens = table.LEGACY["script_aggregate_table"](["--operation", "sum", "--note", "x", "-y", "V"])
     assert tokens[:2] == ["--agg", "sum"] and "--note" not in tokens
     assert "--row_group" in tokens
+
+
+def test_clopper_pearson(tmp_project):
+    # Percent efficiencies with their pass counts: 100% must not print a symmetric error past the bound.
+    rows = [{"Config": "hd_a", "Name": "sig", "Variable": variable, "Values": np.array([50, 100]),
+             "Counts": np.array([passed, passed]), "Efficiency": np.array([100 * passed / total] * 2),
+             "EfficiencyError": np.array([1.0, 1.0])}
+            for variable, passed, total in (("Z", 12974, 12974), ("X", 9140, 10739))]
+    write(tmp_project, "hd_a_sig_Eff", pd.DataFrame(rows))
+    files = run(tmp_project, "--datafile", "Eff", "--configs", "hd_a", "--names", "sig", "-x", "Values",
+                "--rangex", "90", "110", "-y", "Efficiency", "--variables", "X", "Z", "--bare",
+                "--clopper_pearson", "Counts")
+    text = files[0].read_text()
+    assert "$100.00^{+0.00}_{-0.01}$" in text
+    assert "$85.1^{+0.3}_{-0.4}$" in text and "±" not in text

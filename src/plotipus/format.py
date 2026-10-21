@@ -345,6 +345,37 @@ def format_with_band(row, args=None, threshold=1e-3):
     return f"{value} ({lo}--{hi})"
 
 
+def clopper_pearson(passed, total, confidence=0.6827):
+    """Central Clopper-Pearson interval (low, high) of the fraction
+    passed/total at the given confidence level. Exact for binomial counts and
+    always inside [0, 1]: at 0 or 100% efficiency the interval is one-sided
+    instead of a symmetric error crossing the bound (100.0 ± 0.9)."""
+    from scipy.stats import beta
+
+    alpha = 1 - confidence
+    low = beta.ppf(alpha / 2, passed, total - passed + 1) if passed > 0 else 0.0
+    high = beta.ppf(1 - alpha / 2, passed + 1, total - passed) if passed < total else 1.0
+    return float(low), float(high)
+
+
+def format_with_interval(value, low, high, args=None, threshold=1e-3):
+    """
+    Format a value with an asymmetric interval as ``$value^{+up}_{-down}$``,
+    e.g. a Clopper-Pearson efficiency. Precision follows format_with_error
+    (one significant figure) of the smaller non-zero side, so both sides stay
+    visible (a 100% efficiency prints as 100.00^{+0.00}_{-0.01}).
+    """
+    threshold = getattr(args, "threshold", threshold) if args is not None else threshold
+    if not np.isfinite(value) or abs(value) < threshold:
+        return "---"
+    up, down = max(high - value, 0.0), max(value - low, 0.0)
+    sides = [e for e in (up, down) if e > 0 and np.isfinite(e)]
+    if not sides:
+        return f"{value:.2f}"
+    decimals = max(-int(np.floor(np.log10(min(sides)))), 0)
+    return f"${value:.{decimals}f}^{{+{up:.{decimals}f}}}_{{-{down:.{decimals}f}}}$"
+
+
 def format_value(row, args=None, threshold=1e-3):
     """
     Format an aggregated value with no uncertainty, for use when the source

@@ -18,7 +18,7 @@ from rich import print as rprint
 
 from .. import registry, style
 from ..args import add_common_args
-from ..format import format_value, format_with_band, format_with_error
+from ..format import clopper_pearson, format_value, format_with_band, format_with_error, format_with_interval
 from ..io import import_data, make_name_from_args, save_table_to_paths
 from ..project import load_project
 from ..selection import filter_dataframe
@@ -91,6 +91,12 @@ def build_parser():
         "of the raw --y values")
     add("--error_column", type=str, default=None, help="Column holding the --y error when not '{y}Error'")
     add("--no_error", action="store_true", help="Show values without errors")
+    add("--clopper_pearson", nargs="+", default=None, metavar="COLUMN",
+        help="PASS [TOTAL] count columns: each cell is the pooled efficiency PASS/TOTAL with its "
+        "Clopper-Pearson interval, $value^{+up}_{-down}$ (TOTAL defaults to PASS / (--y / --efficiency_scale))")
+    add("--efficiency_scale", type=float, default=100.0,
+        help="Value of --y at 100%% efficiency, with --clopper_pearson (default 100: --y in percent)")
+    add("--confidence_level", type=float, default=0.6827, help="Coverage of the --clopper_pearson interval")
     add("--error_band", nargs=2, default=None, metavar=("LOW", "HIGH"),
         help="Columns of a band shown as 'value (LOW--HIGH)'")
     add("--error_band_variables", nargs="+", default=None, metavar="VARIABLE", help="Variables shown with the band")
@@ -272,6 +278,11 @@ def build_table(df, args):
     cols.extend(band_columns)
     if args.count_column:
         cols.append(args.count_column)
+    binomial = bool(args.clopper_pearson) and not args.no_error
+    if binomial:
+        pass_column = args.clopper_pearson[0]
+        total_column = args.clopper_pearson[1] if len(args.clopper_pearson) > 1 else None
+        cols.extend(c for c in (pass_column, total_column) if c is not None and c not in cols)
 
     lead = [group] if group else []
     row_index = ([args.row_name] if args.row_name else []) if args.drop_config else lead + ["Config"] + ([args.row_name] if args.row_name else [])
@@ -299,6 +310,12 @@ def build_table(df, args):
         points[args.x] = points[args.x].astype(float)
         print(f"Applying x-axis range filter: {args.rangex[0]} to {args.rangex[1]}")
         points = points[(points[args.x] >= args.rangex[0]) & (points[args.x] <= args.rangex[1])]
+
+    if binomial and total_column is None:
+        # Totals recovered from the stored efficiency, before any rescaling of --y.
+        total_column = f"{pass_column}Total"
+        passed, efficiency = points[pass_column].astype(float), points[y].astype(float)
+        points[total_column] = (passed * args.efficiency_scale / efficiency).round()
 
     variable_column = args.variable_name if args.variable_name in points.columns else "Variable"
     for item in args.multiply_variable or []:
@@ -341,6 +358,18 @@ def build_table(df, args):
             axis=1,
         )
         table = table.drop(columns=[(column, op) for column in band_columns])
+    elif binomial:
+        # Counts pool over the cell's rows: value and interval are those of sum(PASS)/sum(TOTAL).
+        counts = points.groupby(keys)[[pass_column, total_column]].sum()
+        scale = args.efficiency_scale * (args.multiply if args.multiply is not None else 1)
+        cells = []
+        for passed, total in zip(counts[pass_column], counts[total_column]):
+            if not total > 0:
+                cells.append("---")
+                continue
+            low, high = clopper_pearson(passed, total, args.confidence_level)
+            cells.append(format_with_interval(scale * passed / total, scale * low, scale * high, args=args))
+        table = pd.DataFrame({(y, op): cells}, index=counts.index)
     elif has_error:
         if from_spread:
             # The error comes from the spread of --y itself.
