@@ -338,6 +338,9 @@ _ESTIMATORS = {
     "sum": np.sum,
     "max": np.max,
     "min": np.min,
+    "median": np.median,
+    "std": np.std,
+    "rms": lambda values: np.sqrt(np.mean(np.square(values))),
 }
 
 

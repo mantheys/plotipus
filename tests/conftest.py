@@ -29,7 +29,8 @@ def make_project(tmp_path, monkeypatch):
 
     yield _make
     style.reset()
-    for hooks in (registry.resolvers, registry.post_load_hooks, registry.post_concat_hooks):
+    for hooks in (registry.resolvers, registry.post_load_hooks, registry.post_concat_hooks,
+                  registry.arguments, registry.figure_hooks):
         hooks.clear()
     registry.label_hooks.clear()
     registry.color_hooks.clear()

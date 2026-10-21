@@ -238,8 +238,10 @@ def run_events(df, args, spec):
     apply_common_figure_margins(fig)
     apply_note_to_figure(fig, args.note)
     from ..io import save_figure_to_paths
+    from ..panels import apply_figure_hooks
 
     name = _output_name(args, row, spec.name)
+    apply_figure_hooks(fig, args)
     save_figure_to_paths(fig, args.output, name, subfolder=args.subfolder)
     plt.close(fig)
     return name

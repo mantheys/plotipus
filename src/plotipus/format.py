@@ -24,9 +24,12 @@ def get_simple_title_from_script(args=None):
 
 def make_title_from_args(args):
     """--title when given (an empty string suppresses the title), else the
-    default title from the datafile names."""
+    default title from the datafile names (unless the style turns
+    ``plot_settings.auto_title`` off)."""
     if getattr(args, "title", None) is not None:
         return args.title
+    if not style.auto_title:
+        return ""
     return get_simple_title_from_script(args)
 
 
@@ -155,6 +158,11 @@ def _format_value_with_paren_error(base_format, value, error):
 
     match = re.match(r"^\.?\d*([a-zA-Z%])$", base_format)
     type_char = match.group(1) if match else "f"
+    if type_char in "gG":
+        # The precision of "g" counts significant figures, not decimals:
+        # resolve it to plain or scientific notation as format() would.
+        exponent = int(np.floor(np.log10(abs(value)))) if value != 0 and np.isfinite(value) else 0
+        type_char = "f" if -4 <= exponent < 6 else ("e" if type_char == "g" else "E")
 
     if type_char in "fF%":
         error_digits = int(round(abs(error) * 10**decimals))

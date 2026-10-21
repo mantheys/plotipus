@@ -93,6 +93,9 @@ def test_filter_dataframe_select_and_remove():
 
 def test_number_formatting():
     assert _format_value_with_paren_error("f", 1.234, 0.056) == "1.23(6)"
+    assert _format_value_with_paren_error(".4g", 79.88, 3.006) == "80(3)"
+    assert _format_value_with_paren_error(".4g", 0.9764, 0.0225) == "0.98(2)"
+    assert _format_value_with_paren_error(".4g", 2.5e7, 3e5) == "2.50(3)e+07"
     row = {("Y", "mean"): 12.345, ("YError", "<lambda>"): 0.12}
     assert format_with_error(row, argparse.Namespace(y="Y", operation="mean")) == "12.3 ± 0.1"
 

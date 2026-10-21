@@ -7,7 +7,7 @@ import matplotlib.pyplot as plt
 import numpy as np
 from rich import print as rprint
 
-from . import style
+from . import registry, style
 from .format import make_title_from_args
 from .io import make_name_from_args, save_figure_to_paths
 from .plot import (
@@ -220,6 +220,12 @@ def add_title_and_note(fig, args, tight_rows=1):
     apply_note_to_figure(fig, getattr(args, "note", None))
 
 
+def apply_figure_hooks(fig, args):
+    """Run the plugin figure hooks (labels, watermarks, ...) on ``fig``."""
+    for hook in registry.figure_hooks:
+        hook(fig, args)
+
+
 def save(fig, args, idx=None, suffix="plot.png", prefix=None):
     """Save under the name built from the arguments (see
     :func:`plotipus.io.make_name_from_args`) into every --output directory."""
@@ -228,6 +234,7 @@ def save(fig, args, idx=None, suffix="plot.png", prefix=None):
         suffix = f"{suffix}.{getattr(args, 'format', None) or 'png'}"
     prefix = getattr(args, "filename_prefix", None) or prefix
     output_file = make_name_from_args(args, idx, prefix=prefix, suffix=suffix)
+    apply_figure_hooks(fig, args)
     save_figure_to_paths(fig, getattr(args, "output", None), output_file, subfolder=getattr(args, "subfolder", None))
     if not getattr(args, "show", False):
         plt.close(fig)

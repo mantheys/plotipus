@@ -40,7 +40,7 @@ Kinds follow the data relationship (as in seaborn/plotly), not the use case.
 
 | Kind | Draws | Typical options |
 |---|---|---|
-| `line` | y against an ordered x, one series per `--hue` value, line style per `--style` value | `--plot_type step\|stepmid\|line\|errorbar\|plot\|bar\|barh\|box`, `--lower`, `--stacked`, `--sum_iterables`, `--merge_iterables`, `--rebin`, `--by_config`, `--fit`, `--binned --estimator mean` |
+| `line` | y against an ordered x, one series per `--hue` value, line style per `--style` value | `--plot_type step\|stepmid\|line\|errorbar\|plot\|bar\|barh\|box`, `--lower`, `--stacked`, `--sum_iterables`, `--merge_iterables`, `--rebin`, `--by_config`, `--fit`, `--binned --estimator mean\|median\|std\|rms\|sum\|max\|min` |
 | `scatter` | observations: exploded points with colour/size/marker encodings, or pairs of metrics (`--x_from Variable=Purity --y_from Variable=Completeness`) | `--colorby`, `--sizeby`, `--markerby`, `--aggregate` |
 | `hist` | 1D histograms of per-event arrays | `--bins`, `--weight`, `--density`, `--hist_combine` |
 | `map` | 2D: histogram of point arrays, image of a grid (`-z`), contour layer (`--contour`) | `--norm`, `--diagonal`, `--logz`, `--contour_sigmas`, `--fill_contours` |
@@ -118,7 +118,8 @@ default_operation = "mean"
 
 **Style files** (JSON) are merged over the defaults
 (`src/plotipus/data/style.json`): `rcparams`, `font_sizes`, `plot_settings`
-(figure layout, legend and note style), `labels` (capitalisation exceptions,
+(figure layout, legend and note style; `"auto_title": false` drops the
+title taken from the datafile name), `labels` (capitalisation exceptions,
 legend titles to drop, title short forms) and `mappings` (named
 label/colour dictionaries used by the `*_mapping` options).
 
@@ -130,6 +131,10 @@ defines `setup(registry)` and can register:
 * `registry.add_label_hook(column, f)` / `add_color_hook(column, f)`: labels and colours of a column's values;
 * `registry.config_label = f`: legend labels of config/name series;
 * `registry.table_columns[name] = f`: derived table columns;
+* `registry.add_argument(*flags, **kwargs)`: extra options for every kind
+  (read back from `args` by a hook);
+* `registry.add_figure_hook(f)`: `f(fig, args)` runs on every figure just
+  before it is saved (experiment labels, watermarks, logos);
 * `plotipus.fits.register_module(m)`: fit models referenced by stored fits;
 * a matplotlib style (import it in `setup`).
 

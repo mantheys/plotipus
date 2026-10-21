@@ -3,7 +3,7 @@
 Rows hold raw per-event arrays (``x`` and ``y`` of equal length). x is
 binned (unit bins for integer x, else ``--bins`` equal bins; ``--threshold``
 makes every bin cumulative, x >= edge) and y is reduced per bin with
-``--estimator`` (mean, sum, max, min) -- seaborn's ``lineplot(estimator=)``.
+``--estimator`` (mean, sum, max, min, median, std, rms) -- seaborn's ``lineplot(estimator=)``.
 ``--plot_type box`` draws a box per bin instead. ``--panels`` draws one x
 column per panel; with ``--compact`` the panels share one axis, their
 ``--panel_rangex`` ranges stitched side by side.
@@ -30,9 +30,9 @@ from ..plot import (
     plot_data,
 )
 from ..selection import filter_dataframe
-from ..transforms import bin_reduce, reduction_bins
+from ..transforms import _ESTIMATORS, bin_reduce, reduction_bins
 
-ESTIMATORS = ("mean", "average", "sum", "max", "min")
+ESTIMATORS = tuple(_ESTIMATORS)
 SUFFIXES = {"scatter_points": "scatter", "scatter": "scatter"}
 
 
@@ -125,7 +125,7 @@ def _reduce_cell(x, y, args, error=None):
 
 def _reduce_all(values, estimator):
     values = np.asarray(values)
-    return {"mean": values.mean, "average": values.mean, "sum": values.sum, "max": values.max, "min": values.min}[estimator.lower()]()
+    return _ESTIMATORS[estimator.lower()](values)
 
 
 def _panel_figure(df, args, kdx, config, name):

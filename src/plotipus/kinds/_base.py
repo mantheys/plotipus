@@ -8,6 +8,7 @@ import argparse
 
 import matplotlib
 
+from .. import registry
 from ..args import add_common_args
 from ..encodings import setup_legend_frame
 from ..io import prepare_import
@@ -17,6 +18,8 @@ from ..project import load_project
 def make_parser(kind, description):
     parser = argparse.ArgumentParser(prog=f"plotipus {kind}", description=description)
     parser.set_defaults(kind=kind)
+    for flags, kwargs in registry.arguments:
+        parser.add_argument(*flags, **kwargs)
     return parser
 
 

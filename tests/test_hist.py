@@ -39,3 +39,19 @@ def test_hist_legacy_translation():
     kind, args = translate(["scripts/script_compare_hist1d.py", "--datafile", "D", "-x", "A", "-i", "C", "--labely", "Counts"])
     assert kind == "hist"
     assert "--hist_combine" in args and args[args.index("--output_suffix") + 1] == "hist1d.png"
+
+
+def test_plugin_argument_and_figure_hook(tmp_path, monkeypatch):
+    from plotipus import registry
+
+    seen = []
+    registry.add_argument("--stamp", type=str, default=None)
+    registry.add_figure_hook(lambda fig, args: seen.append((len(fig.axes), args.stamp)))
+    try:
+        out = make_project(tmp_path, monkeypatch, {"Energies": _frame()})
+        hist.main(["--datafile", "Energies", "-x", "True", "--hue", "Sample", "--stamp", "Preliminary"])
+    finally:
+        registry.arguments.clear()
+        registry.figure_hooks.clear()
+    assert seen == [(1, "Preliminary")]
+    assert (out / "energies_sample_hist.png").is_file()

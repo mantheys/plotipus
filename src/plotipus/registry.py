@@ -32,6 +32,15 @@ table_columns = {}
 # Extra plot kinds: name -> module exposing ``main(argv)``.
 kinds = {}
 
+# Extra command-line options: (flags, kwargs) pairs passed to
+# ``parser.add_argument`` for every plot kind, e.g. a watermark switch read
+# back by a figure hook.
+arguments = []
+
+# figure_hook(fig, args), called on every figure just before it is saved
+# (after the title, note and margins are in place).
+figure_hooks = []
+
 # Legacy script names (basename without .py) -> (kind, [extra args]) used by
 # the runner to translate old command lines.
 legacy_scripts = {}
@@ -66,3 +75,12 @@ def add_kind(name, module):
 
 def add_legacy_script(script_name, kind, extra_args=()):
     legacy_scripts[script_name] = (kind, list(extra_args))
+
+
+def add_argument(*flags, **kwargs):
+    arguments.append((flags, kwargs))
+
+
+def add_figure_hook(func):
+    figure_hooks.append(func)
+    return func
