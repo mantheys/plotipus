@@ -530,7 +530,7 @@ def apply_legend_style_clear_of_data(
     fig.canvas.draw()
     renderer = fig.canvas.get_renderer()
     variants = _legend_variants(ax, renderer, legend_kwargs, max_height_fraction)
-    data_points = sample_axes_data_points(ax)
+    data_points = sample_axes_drawn_points(ax)
     avoid = [b for b in avoid_boxes if b is not None]
 
     best = None
@@ -570,7 +570,7 @@ def apply_legend_pair_clear_of_data(
     renderer = fig.canvas.get_renderer()
     primary_variants = _legend_variants(ax, renderer, primary_kwargs, max_height_fraction)
     secondary_variants = _legend_variants(ax, renderer, secondary_kwargs, max_height_fraction)
-    data_points = sample_axes_data_points(ax)
+    data_points = sample_axes_drawn_points(ax)
 
     primary_locs = (primary_loc,) if primary_loc else candidate_locs
     secondary_locs = (secondary_loc,) if secondary_loc else candidate_locs
