@@ -1,0 +1,14 @@
+# Default look of plotipus figures (replaced by a project's own matplotlib
+# style, e.g. one installed by a plugin).
+axes.labelsize: x-large
+axes.titlesize: x-large
+xtick.labelsize: large
+ytick.labelsize: large
+xtick.direction: in
+ytick.direction: in
+xtick.top: True
+ytick.right: True
+xtick.minor.visible: True
+ytick.minor.visible: True
+lines.linewidth: 2
+legend.frameon: False

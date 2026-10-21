@@ -1,0 +1,884 @@
+"""map: two-dimensional data as a colour map, optionally with contours.
+
+Three inputs, one row per panel (panels from ``--variables`` or ``--hue``):
+
+* raw points: ``x`` and ``y`` arrays per row, binned into a 2D histogram
+  (integer-valued data gets one bin per integer; ``--norm`` normalises rows,
+  columns or the whole map; ``--percentile`` sets the range);
+* a gridded map: ``-z`` names a 2D array cell drawn on the ``x``/``y`` grid
+  with a colour bar;
+* contours (``--contour``): gridded maps (Δχ² or significance) of every
+  ``--configs``/``--names`` entry drawn as sigma contours (lines or filled
+  bands) over a background image, optionally combined bin by bin
+  (``--combine_op squared_sum``) and projected to another exposure
+  (``--project``).
+
+Colours given as ``cycle`` (the matplotlib colour cycle) or as the name of a
+list/dict style mapping are palettes: successive contour levels take
+successive palette colours.
+"""
+
+import copy
+import json
+
+import matplotlib.pyplot as plt
+import numpy as np
+import pandas as pd
+from matplotlib.colors import LogNorm, Normalize, to_rgb, to_rgba
+from matplotlib.lines import Line2D
+from matplotlib.path import Path
+from rich import print as rprint
+
+from .. import style
+from ..args import add_common_args, map_iterable_color, map_iterable_label, parse_plot_label, resolve_axis_label
+from ..format import make_config_label_from_args, make_subtitle_from_args
+from ..io import import_data, normalize_datafiles, prepare_import
+from ..panels import add_title_and_note, create_panels, draw_overlays, save
+from ..plot import (
+    apply_legend_style,
+    apply_scientific_threshold_formatter,
+    draw_horizontal_lines,
+    draw_vertical_lines,
+    place_point_label,
+    plot_data,
+)
+from ..args import normalize_point_labels, parse_point_pairs
+from ..selection import filter_dataframe
+from . import _base
+
+KIND = "map"
+DATAFILE_LINESTYLES = ["-", "--", ":", "-."]
+NORM_LABELS = {
+    "global": "Normalized Counts",
+    "horizontal": "Normalized Counts (Rows)",
+    "vertical": "Normalized Counts (Columns)",
+    "combined": "Normalized Counts (Rows + Columns)",
+}
+
+
+# --- Arguments ---------------------------------------------------------------------
+
+
+def build_parser():
+    parser = _base.make_parser(KIND, "2D histogram or gridded map, optionally with sigma contours.")
+    add_common_args(
+        parser,
+        [
+            "datafile", "configs", "names", "variables", "x", "y", "z", "percentile", "iterable",
+            "select", "save_values", "remove_value", "filename_select", "bins", "labelx", "labely",
+            "labelz", "rangex", "rangey", "rangez", "logz", "density", "norm", "zoom", "matchx",
+            "matchy", "horizontal", "horizontal_label", "horizontal_style", "horizontal_color",
+            "vertical", "vertical_label", "vertical_style", "vertical_color", "square",
+            "square_label", "square_style", "square_color", "line", "line_label", "line_style",
+            "line_color", "title", "output", "subfolder", "point", "point_label", "note",
+            "multiply", "debug",
+        ],
+        overrides={
+            "datafile": {"required": True},
+            "x": {"required": True},
+            "y": {"required": True},
+            "bins": {"default": None, "help": "Number of bins of the 2D histogram (default: style nbins)"},
+            "percentile": {"default": [0, 100], "help": "Percentile range of the histogram axes"},
+            "density": {"help": "Normalise the histogram (or each contour map) to unit sum"},
+            "zoom": {"help": "Restrict the histogram range to the overlap of the panels' ranges"},
+            "multiply": {"help": "Multiply every -z value by this factor"},
+        },
+    )
+    add = parser.add_argument
+    add("--diagonal", action="store_true", default=False, help="Draw the y = x line.")
+    add("--cmap", type=str, default=None, help="Matplotlib colour map of -z images.")
+    add("--panel_title", nargs="+", type=parse_plot_label, default=None, help="Title of each panel.")
+    add("--compact", action="store_true", default=False, help="Hide repeated y ticks on inner panels.")
+    add("--iterable_mapping", type=str, default=None,
+        help="Mapping renaming the datafile of each overlaid contour variant in the legend.")
+    add("--iterable_color_mapping", type=str, default=None,
+        help="Mapping giving the colour of each overlaid contour variant (by datafile).")
+    add("--iterable_label_map", type=str, default=None, help="JSON {hue value: label} applied to the panel values.")
+
+    group = parser.add_argument_group("contours")
+    add = group.add_argument
+    add("--contour", action="store_true", default=False,
+        help="Contour mode: sigma contours of each config/name map over a background image (needs -z).")
+    add("--contour_sigmas", nargs="+", type=float, default=[1.0, 2.0, 3.0], help="Sigma levels drawn.")
+    add("--contour_level_mode", default="sigma_probability", choices=["z_values", "sigma_probability"],
+        help="z_values: maps are significances, contours at the sigmas; sigma_probability: maps are "
+        "delta-chi2, contours at sigma^2.")
+    add("--contour_linestyles", nargs="+", type=str, default=None, help="Line style per sigma level.")
+    add("--contour_linewidth", type=float, default=2.0)
+    add("--contour_alpha", type=float, default=0.95)
+    add("--contour_smoothing_sigma", type=float, default=0.0, help="Gaussian smoothing of the maps before contouring.")
+    add("--background_smoothing_sigma", type=float, default=0.0, help="Gaussian smoothing of the background image.")
+    add("--contour_min_vertices", type=int, default=0, help="Drop contour pieces with fewer vertices.")
+    add("--background", default="all", choices=["all", "combined", "first", "none"],
+        help="Background image: sum of all maps, the combined map, the first map or none.")
+    add("--nan_fill", default="interpolate", choices=["interpolate", "nearest", "zero", "none"],
+        help="How NaN map cells are filled.")
+    add("--nan_interp_method", default="linear", choices=["cubic", "linear"])
+    add("--fill_contours", action="store_true", default=False, help="Filled sigma bands instead of lines.")
+    add("--fill_alpha", type=float, default=None, help="Opacity of the most significant band.")
+    add("--fill_outer_alpha", type=float, default=None, help="Opacity below the lowest level (default: --fill_alpha).")
+    add("--fill_inner_alpha", type=float, default=0.0, help="Opacity above the highest level.")
+    add("--fill_outline_linewidth", type=float, default=None, help="Width of the lines on the band edges.")
+    add("--combine_op", default=None, choices=["squared_sum"],
+        help="Combine the maps bin by bin (delta-chi2 sum, or quadrature sum of significances).")
+    add("--combined_contours_only", action="store_true", default=False, help="Draw only the combined contour.")
+    add("--combined_color", type=str, default="black",
+        help="Colour of the combined contour, or a palette: 'cycle' or a list/dict style mapping name.")
+    add("--combined_linestyle", type=str, default="-")
+    add("--combined_linewidth", type=float, default=None)
+    add("--combined_alpha", type=float, default=1.0)
+    add("--combined_label", type=str, default="Combined")
+    add("--unified_colors", action="store_true", default=False,
+        help="Start every panel at the first palette colour (default: shifted per panel).")
+    add("--project", nargs="+", type=str, default=None,
+        help="Configs added again as extra maps, rescaled to --project_scale times their exposure.")
+    add("--project_datafile", type=str, default=None, help="Datafile of the --project maps (default: first --datafile).")
+    add("--project_scale", type=float, default=1, help="Exposure scale of the --project maps.")
+    add("--project_reference", type=str, default=None,
+        help="Datafile at another exposure: per-bin power law delta-chi2 ~ T^k instead of k = 1.")
+    add("--project_label", type=str, default=None, help="Legend suffix of projected contours.")
+    _base.add_output_args(parser)
+    return parser
+
+
+def main(argv=None):
+    return _base.main(__import__(__name__, fromlist=["run"]), argv)
+
+
+# --- Histogram / image panels ------------------------------------------------------------
+
+
+def normalize_hist2d(h, mode):
+    """Normalise a (nx, ny) histogram: global, horizontal (each y slice),
+    vertical (each x slice) or combined (row + column totals)."""
+    if mode is None:
+        return h
+    h = h.astype(float)
+    if mode == "global":
+        total = h.sum()
+        return h / total if total != 0 else h
+    if mode == "horizontal":
+        sums = h.sum(axis=0, keepdims=True)
+    elif mode == "vertical":
+        sums = h.sum(axis=1, keepdims=True)
+    elif mode == "combined":
+        sums = h.sum(axis=0, keepdims=True) + h.sum(axis=1, keepdims=True)
+    else:
+        raise ValueError(f"Unknown norm mode: {mode}")
+    sums[sums == 0] = 1
+    return h / sums
+
+
+def is_integer_valued(values):
+    if np.issubdtype(values.dtype, np.integer):
+        return values.size > 0
+    finite = values[np.isfinite(values)]
+    return finite.size > 0 and np.allclose(finite, np.round(finite))
+
+
+def integer_bin_edges(vmin, vmax):
+    """One bin per integer between vmin and vmax."""
+    return np.arange(int(np.floor(vmin)), int(np.ceil(vmax)) + 2) - 0.5
+
+
+def _panels(df, args):
+    """[(variable, hue)] panels and the hue values."""
+    hues = filter_dataframe(df, args)[args.iterable].unique() if args.iterable is not None else [None]
+    variables = args.variables if args.variables is not None else [None]
+    return [(v, h) for v in variables for h in hues], list(hues)
+
+
+def _panel_rows(df, args, variable, hue):
+    if variable is not None:
+        return df[df["Variable"] == variable]
+    if hue is not None:
+        return df[df[args.iterable] == hue]
+    return df
+
+
+def draw_histogram_figure(rows, args, kdx):
+    panels, hues = _panels(rows, args)
+    fig, axes, _, _ = create_panels(len(panels), grid=False)
+    ranges = None
+    cbar = None
+    subsets = []
+    for pdx, (variable, hue) in enumerate(panels):
+        ax = axes[pdx]
+        subset = filter_dataframe(_panel_rows(rows, args, variable, hue), args)
+        subsets.append(subset)
+        if len(subset[args.x].values) > 1:
+            rprint(f"[red]Error:[/red] Multiple entries found for {variable if variable is not None else f'{args.iterable}={hue}'}")
+            plt.close(fig)
+            return None
+        x = np.array(subset[args.x].values[0])
+        y = np.array(subset[args.y].values[0])
+        z = np.array(subset[args.z].values[0]) if args.z is not None else None
+        if z is None:
+            valid = np.isfinite(x) & np.isfinite(y)
+            if not valid.all():
+                rprint(f"[yellow]Warning:[/yellow] Dropping {(~valid).sum()} non-finite entries out of {len(valid)}")
+            x, y = x[valid], y[valid]
+
+        x_range = [np.percentile(x, args.percentile[0]), np.percentile(x, args.percentile[1])]
+        y_range = [np.percentile(y, args.percentile[0]), np.percentile(y, args.percentile[1])]
+        if ranges is None or not args.zoom:
+            ranges = [list(x_range), list(y_range)]
+        else:
+            ranges = [[max(ranges[0][0], x_range[0]), min(ranges[0][1], x_range[1])],
+                      [max(ranges[1][0], y_range[0]), min(ranges[1][1], y_range[1])]]
+
+        if z is not None:
+            mappable = plot_data(args, ax, x, y=y, plot_type="image", z=z,
+                                 **({"cmap": args.cmap} if args.cmap is not None else {}))
+            if args.rangez is not None:
+                mappable.set_clim(*args.rangez)
+                if args.logz:
+                    # Bins below the log floor stay blank instead of taking the lowest colour.
+                    mappable.set_cmap(mappable.get_cmap().with_extremes(under="none"))
+            cbar = fig.colorbar(mappable, ax=ax)
+            cbar.set_label(resolve_axis_label(args.labelz, args.z, subset))
+        else:
+            kwargs = {"range": (x_range, y_range), "bins": args.bins or style.nbins}
+            if is_integer_valued(x) and is_integer_valued(y):
+                kwargs["bins"] = [integer_bin_edges(*x_range), integer_bin_edges(*y_range)]
+            hist = plot_data(args, ax, x, y=y, plot_type="hist2d", **kwargs)
+            if args.norm is not None:
+                hist[3].set_array(normalize_hist2d(hist[0], args.norm).T)
+            if not args.logz:
+                values = hist[3].get_array()
+                hist[3].set_array(np.ma.masked_where(values == 0, values))
+                hist[3].set_clim(0, hist[3].get_array().max())
+            if args.rangez is not None:
+                hist[3].set_clim(*args.rangez)
+            cbar = fig.colorbar(hist[3], ax=ax)
+
+        if args.diagonal:
+            ax.plot(x_range, x_range, color="k" if args.logz else "white", linestyle="--")
+            ax.set_xlim(ranges[0])
+            ax.set_ylim(ranges[0])
+
+    if args.z is None and cbar is not None:
+        cbar.set_label(NORM_LABELS[args.norm] if args.norm else "Density" if args.density else "Counts")
+    if cbar is not None:
+        cbar.ax.yaxis.set_label_position("right")
+
+    for pdx, ((variable, hue), ax) in enumerate(zip(panels, axes)):
+        hue_index = hues.index(hue) if hue in hues else 0
+        variable_index = (args.variables or [None]).index(variable) if args.variables else 0
+        if len(panels) > 1:
+            title = (
+                args.panel_title[hue_index]
+                if args.panel_title is not None and hue_index < len(args.panel_title)
+                else make_subtitle_from_args(args, hues, plot_type="hist2d", idx=hue_index)
+            )
+            ax.set_title(title, fontsize=style.subtitlefontsize)
+        xlabel = resolve_axis_label(args.labelx, args.x, subsets[pdx])
+        ax.set_xlabel(r"Time ($\mu$s)" if xlabel == "Time" else xlabel)
+        if variable_index == 0:
+            ax.set_ylabel(resolve_axis_label(args.labely, args.y, subsets[pdx]))
+        if args.matchx:
+            ax.set_xlim(ranges[0])
+        if args.matchy:
+            ax.set_ylim(ranges[1])
+        if args.rangex is not None:
+            ax.set_xlim(args.rangex)
+        if args.rangey is not None:
+            ax.set_ylim(args.rangey)
+        apply_scientific_threshold_formatter(ax, threshold=0.1, axis="both")
+        draw_overlays(ax, args)
+
+    add_title_and_note(fig, args)
+    return save(fig, args, kdx, suffix="hist2d.png")
+
+
+# --- Contours: maps ------------------------------------------------------------------------
+
+
+def palette(color):
+    """Colour list named by ``color`` ('cycle' or a list/dict style mapping), else None."""
+    key = str(color).strip()
+    if key.lower() == "cycle":
+        return list(plt.rcParams["axes.prop_cycle"].by_key()["color"])
+    mapping = style.mappings.get(key)
+    if isinstance(mapping, list):
+        return [style.resolve_mapped_color(c) for c in mapping]
+    if isinstance(mapping, dict):
+        return [style.resolve_mapped_color(c) for c in mapping.values()]
+    return None
+
+
+def _shade(color, factor):
+    """Blend toward white (factor > 0) or black (factor < 0)."""
+    r, g, b = to_rgb(color)
+    if factor > 0:
+        return (r + (1 - r) * factor, g + (1 - g) * factor, b + (1 - b) * factor)
+    if factor < 0:
+        return (r * (1 + factor), g * (1 + factor), b * (1 + factor))
+    return (r, g, b)
+
+
+def band_hues(color, count, offset=0):
+    """``count`` colours: the palette from ``offset`` (repeated trips around
+    it alternately lightened/darkened), or ``color`` repeated."""
+    colors = palette(color)
+    if not colors:
+        return [color] * count
+    hues = []
+    for i in range(count):
+        slot = i + offset
+        base = colors[slot % len(colors)]
+        cycle = slot // len(colors)
+        if cycle == 0:
+            hues.append(base)
+        else:
+            step, sign = (cycle + 1) // 2, 1 if cycle % 2 else -1
+            hues.append(_shade(base, sign * min(0.25 * step, 0.7)))
+    return hues
+
+
+def _smooth(z, sigma):
+    z = np.asarray(z, dtype=float)
+    if sigma <= 0:
+        return z
+    from scipy.ndimage import gaussian_filter
+
+    return gaussian_filter(z, sigma=sigma)
+
+
+def fill_nan(z, x, y, strategy, method):
+    z = np.asarray(z, dtype=float)
+    if not np.isnan(z).any() or strategy == "none":
+        return z
+    if strategy == "zero":
+        return np.nan_to_num(z, nan=0.0)
+    filled = None
+    if strategy == "interpolate":
+        try:
+            from scipy.interpolate import griddata
+
+            xa, ya = np.asarray(x, dtype=float), np.asarray(y, dtype=float)
+            xx, yy = np.meshgrid(xa, ya) if xa.ndim == 1 and ya.ndim == 1 else (xa, ya)
+            valid = np.isfinite(z)
+            if not valid.any():
+                return np.zeros_like(z)
+            points, values = np.column_stack((xx[valid], yy[valid])), z[valid]
+            query = np.column_stack((xx[~valid], yy[~valid]))
+            interp = griddata(points, values, query, method=method)
+            for fallback in ("linear", "nearest"):
+                if np.isnan(interp).any():
+                    interp = np.where(np.isnan(interp), griddata(points, values, query, method=fallback), interp)
+            filled = z.copy()
+            filled[~valid] = interp
+        except Exception:
+            frame = pd.DataFrame(z).interpolate(axis=0, limit_direction="both").interpolate(axis=1, limit_direction="both")
+            filled = frame.ffill(axis=0).bfill(axis=0).ffill(axis=1).bfill(axis=1).to_numpy(dtype=float)
+    else:
+        filled = pd.DataFrame(z).ffill(axis=0).bfill(axis=0).ffill(axis=1).bfill(axis=1).to_numpy(dtype=float)
+    return np.nan_to_num(filled, nan=0.0)
+
+
+def _grid(row, args):
+    x, y, z = (np.asarray(row[c], dtype=float) for c in (args.x, args.y, args.z))
+    if z.ndim != 2:
+        raise ValueError(f"{args.z} must be a 2D array, got shape {z.shape}.")
+    if x.ndim == 1 and y.ndim == 1:
+        if z.shape != (y.size, x.size):
+            raise ValueError(f"Grid mismatch: {args.z}.shape {z.shape} != (len({args.y}), len({args.x})) {(y.size, x.size)}.")
+    elif not (x.ndim == 2 and y.ndim == 2 and x.shape == z.shape and y.shape == z.shape):
+        raise ValueError(f"{args.x} and {args.y} must both be 1D axes or 2D grids shaped like {args.z}.")
+    return x, y, z
+
+
+def _same_grid(a, b):
+    return a[0].shape == b[0].shape and a[1].shape == b[1].shape and np.allclose(a[0], b[0]) and np.allclose(a[1], b[1])
+
+
+def aggregate_grid(rows, args):
+    """Sum the maps of the rows (delta-chi2 sums re-centred on their minimum)."""
+    reference, total = None, None
+    for _, row in rows.iterrows():
+        x, y, z = _grid(row, args)
+        z = fill_nan(z, x, y, args.nan_fill, args.nan_interp_method)
+        if args.density:
+            s = np.nansum(z)
+            z = z / s if s > 0 else z
+        if reference is None:
+            reference, total = (x, y), z.copy()
+        elif not _same_grid(reference, (x, y)):
+            raise ValueError("All grids for a given selection must share the same x/y coordinates.")
+        else:
+            total = total + z
+    if reference is None:
+        return None
+    if len(rows) > 1 and args.contour_level_mode == "sigma_probability":
+        minimum = np.nanmin(total)
+        if np.isfinite(minimum) and minimum > 0:
+            total = total - minimum
+    return {"x": reference[0], "y": reference[1], "z": total}
+
+
+def _exposure(rows, label):
+    if "Exposure" not in rows.columns:
+        return None
+    values = pd.to_numeric(rows["Exposure"], errors="coerce").dropna().unique()
+    if len(values) != 1:
+        raise ValueError(f"{label}: expected one Exposure value, found {list(values)}.")
+    return float(values[0])
+
+
+def project_grid(rows, args):
+    """Rescale one map to --project_scale times its exposure in delta-chi2:
+    chi2 * scale^k with k = 1, or per bin k = ln(chi2_ref/chi2)/ln(T_ref/T)
+    (clipped to [0, 1]) with --project_reference."""
+    base_name = args.project_datafile or normalize_datafiles(args.datafile)[0]
+    base_rows = rows[rows["_Datafile"] == base_name]
+    grid = aggregate_grid(base_rows, args)
+    if grid is None:
+        return None, None
+    in_sigma = args.contour_level_mode == "z_values"
+    chi2 = np.square(grid["z"]) if in_sigma else grid["z"]
+    scale = float(args.project_scale)
+    base_exposure = _exposure(base_rows, base_name)
+    target = base_exposure * scale if base_exposure is not None else None
+    exponent = np.ones_like(chi2)
+    if args.project_reference is not None:
+        ref_rows = rows[rows["_Datafile"] == args.project_reference]
+        ref = aggregate_grid(ref_rows, args)
+        if ref is None:
+            raise ValueError(f"No {args.project_reference} map for the projection reference.")
+        if not _same_grid((grid["x"], grid["y"]), (ref["x"], ref["y"])):
+            raise ValueError("--project_reference grid does not match the --project_datafile grid.")
+        ref_exposure = _exposure(ref_rows, args.project_reference)
+        if base_exposure is None or ref_exposure is None or ref_exposure == base_exposure:
+            raise ValueError("--project_reference needs an Exposure column that differs from the base datafile's.")
+        if not min(base_exposure, ref_exposure) <= target <= max(base_exposure, ref_exposure):
+            rprint(f"[yellow]Warning:[/yellow] Projected exposure {target:g} yr lies outside "
+                   f"[{base_exposure:g}, {ref_exposure:g}] yr; the power law is extrapolated.")
+        chi2_ref = np.square(ref["z"]) if in_sigma else ref["z"]
+        valid = (chi2 > 1e-6) & (chi2_ref > 1e-6)
+        exponent[valid] = np.log(chi2_ref[valid] / chi2[valid]) / np.log(ref_exposure / base_exposure)
+        exponent = np.clip(exponent, 0.0, 1.0)
+    projected = chi2 * np.power(scale, exponent)
+    grid["z"] = np.sqrt(projected) if in_sigma else projected
+    return grid, target
+
+
+def load_projected(args, configs, names):
+    if not args.project:
+        return pd.DataFrame()
+    name_by_config = dict(zip(configs, names))
+    proj = copy.copy(args)
+    proj.configs = list(args.project)
+    proj.names = None if names[0] is None else [name_by_config.get(c, names[0]) for c in args.project]
+    proj.datafile = [args.project_datafile or normalize_datafiles(args.datafile)[0]]
+    if args.project_reference is not None:
+        proj.datafile.append(args.project_reference)
+    proj.path = normalize_datafiles(getattr(args, "path", None))[:1] or None
+    proj.name_columns = False
+    df = import_data(proj)
+    if df.empty:
+        rprint("[yellow]Warning:[/yellow] No data found for the --project configs.")
+    return df
+
+
+# --- Contours: drawing -------------------------------------------------------------------
+
+
+def contour_levels(sigmas, mode):
+    finite = [float(s) for s in sigmas if np.isfinite(s)]
+    return sorted(set(finite if mode == "z_values" else [s**2 for s in finite]))
+
+
+def sigma_labels(levels, sigmas, mode):
+    if mode == "z_values":
+        return [f"${float(level):g}\\sigma$" for level in levels]
+    ordered = sorted(float(s) for s in sigmas if np.isfinite(s))
+    if len(ordered) == len(levels):
+        return [f"${s:g}\\sigma$" for s in ordered]
+    return [f"Level {level:.3g}" for level in levels]
+
+
+def _linestyles(args, count, fallback):
+    styles = list(args.contour_linestyles or [])
+    if not styles:
+        return fallback
+    if count <= 0:
+        return styles
+    return styles[:count] if len(styles) >= count else styles + [styles[-1]] * (count - len(styles))
+
+
+def _filter_vertices(contour_set, minimum):
+    if minimum <= 0:
+        return
+    paths = []
+    for path in contour_set.get_paths():
+        pieces = [Path(p) for p in path.to_polygons(closed_only=False) if len(p) >= minimum]
+        paths.append(Path.make_compound_path(*pieces) if pieces else Path(np.empty((0, 2))))
+    contour_set.set_paths(paths)
+
+
+def draw_filled(ax, x, y, image, levels, color, alpha_max, args, zorder, offset=0):
+    """contourf bands: below the lowest level (outer), between levels, above."""
+    count = len(levels)
+    hues = band_hues(color, count + 1, offset)
+    outer, inner = hues[0], hues[1:]
+    last = args.fill_inner_alpha or 0.0
+    if count == 1:
+        alphas = [last]
+    elif palette(color):
+        alphas = [alpha_max] * (count - 1) + [last]
+    else:
+        alphas = list(np.linspace(alpha_max / (count - 1), alpha_max, count - 1)) + [last]
+    outer_alpha = alpha_max if args.fill_outer_alpha is None else args.fill_outer_alpha
+    colors = [to_rgba(outer, alpha=outer_alpha)] + [to_rgba(h, alpha=float(a)) for h, a in zip(inner, alphas)]
+    ax.contourf(x, y, image, levels=[-np.inf] + levels + [np.inf], colors=colors, zorder=zorder)
+    outline = args.fill_outline_linewidth
+    width = outline if outline is not None else (args.contour_linewidth if zorder < 6 else _combined_width(args)) + 1.0
+    lines = ax.contour(x, y, image, levels=levels, colors=band_hues(color, count, offset), linestyles="-",
+                       linewidths=width, alpha=1.0, zorder=zorder + 0.5)
+    _filter_vertices(lines, args.contour_min_vertices)
+    return width
+
+
+def legend_lines(levels, args, color, width, offset=0, prefix=None, linestyle="-"):
+    labels = sigma_labels(levels, args.contour_sigmas, args.contour_level_mode)
+    return [
+        Line2D([0], [0], color=hue, linestyle=linestyle, linewidth=width, alpha=1.0,
+               label=f"{prefix} {label}" if prefix else label)
+        for label, hue in zip(labels, band_hues(color, len(levels), offset))
+    ]
+
+
+def _combined_width(args):
+    return args.combined_linewidth if args.combined_linewidth is not None else args.contour_linewidth + 0.5
+
+
+def draw_background(ax, fig, x, y, z, args, rows):
+    image = _smooth(z, args.background_smoothing_sigma)
+    if args.logz:
+        image = np.ma.masked_less_equal(image, 0)
+    rangez = args.rangez
+    if args.logz:
+        norm = LogNorm(vmin=rangez[0], vmax=rangez[1]) if rangez is not None else LogNorm()
+    else:
+        norm = Normalize(vmin=rangez[0], vmax=rangez[1]) if rangez is not None else None
+    mesh = ax.pcolormesh(x, y, image, shading="auto", norm=norm, **({"cmap": args.cmap} if args.cmap else {}))
+    cbar = fig.colorbar(mesh, ax=ax)
+    label = args.labelz if args.labelz is not None else "Density" if args.density else resolve_axis_label(None, args.z, rows)
+    cbar.set_label(label)
+    cbar.ax.yaxis.set_label_position("right")
+
+
+def _item_label(args, config, name, hue):
+    if args.configs is None and args.names is None:
+        label = "Selection"
+        return f"{label}, {hue}" if hue is not None else label
+    if len(set(args.configs or [])) <= 1 and len(set(args.names or [])) <= 1:
+        # A single contour names both its config and its name.
+        both = copy.copy(args)
+        both.configs, both.names = [config, None], [name, None]
+        return make_config_label_from_args(both, config=config, name=name, iterable=hue)
+    return make_config_label_from_args(args, config=config, name=name, iterable=hue)
+
+
+def _items(subset, projected, args, configs, names):
+    """(index, config, name, datafile, rows, projected) per contour."""
+    items = []
+    for cdx, (config, name) in enumerate(zip(configs, names)):
+        rows = subset
+        if config is not None:
+            rows = rows[rows["Config"] == config]
+        if name is not None:
+            rows = rows[rows["Name"] == name]
+        if "_Occurrence" in rows.columns:
+            rows = rows[rows["_Occurrence"] == cdx]
+        if rows.empty:
+            continue
+        # Several --datafile variants of one config: one contour each.
+        if "_Datafile" in rows.columns and rows["_Datafile"].nunique() > 1:
+            groups = list(rows.groupby("_Datafile", sort=False))
+        else:
+            groups = [(None, rows)]
+        items += [(cdx, config, name, label, group, False) for label, group in groups]
+    if not projected.empty:
+        for pdx, config in enumerate(args.project):
+            rows = projected[projected["Config"] == config]
+            if rows.empty:
+                rprint(f"[yellow]Warning:[/yellow] No --project data for Config={config}. Skipping.")
+                continue
+            name = rows["Name"].iloc[0] if "Name" in rows.columns else None
+            items.append((len(configs) + pdx, config, name, None, rows, True))
+    return items
+
+
+def draw_contour_panel(ax, fig, panel_idx, subset, projected, args, configs, names, hue):
+    """Draw one contour panel; returns its (x, y) extent or None."""
+    config_color = style.get_mapping_dict("config_color") or {}
+    config_line = style.get_mapping_dict("config_line") or {}
+    payloads, reference, background, combined = [], None, None, None
+    needs_shared = args.background in ("all", "combined") or args.combine_op == "squared_sum"
+    for cdx, config, name, datafile, rows, is_projected in _items(subset, projected, args, configs, names):
+        try:
+            grid, exposure = project_grid(rows, args) if is_projected else (aggregate_grid(rows, args), None)
+        except ValueError as error:
+            rprint(f"[red]Error:[/red] {error}")
+            continue
+        if grid is None:
+            continue
+        x, y, z = grid["x"], grid["y"], grid["z"]
+        term = z if args.contour_level_mode == "sigma_probability" else np.square(z)
+        if reference is None:
+            reference, background, combined = (x, y), z.copy(), term.copy()
+        elif _same_grid(reference, (x, y)):
+            background, combined = background + z, combined + term
+        elif needs_shared:
+            rprint("[red]Error:[/red] Configuration grids do not share the same x/y coordinates, so they cannot be combined on one contour plot.")
+            continue
+
+        if is_projected:
+            color = style.resolve_mapped_color(config_color.get(config)) or f"C{cdx % 10}"
+            linestyle = "--"
+            suffix = args.project_label or (f"Projected, {exposure:g} yr" if exposure is not None else "Projected")
+            label = f"{_item_label(args, config, name, hue)} ({suffix})"
+        elif datafile is not None:
+            n = len(payloads)
+            color = map_iterable_color(datafile, args.iterable_color_mapping) or f"C{n % 10}"
+            linestyle = DATAFILE_LINESTYLES[n % len(DATAFILE_LINESTYLES)]
+            label = f"{_item_label(args, config, name, hue)}, {map_iterable_label(datafile, '_Datafile', args.iterable_mapping)}"
+        else:
+            color = style.resolve_mapped_color(config_color.get(config)) or f"C{cdx % 10}"
+            linestyle = config_line.get(config, "-")
+            label = _item_label(args, config, name, hue)
+        payloads.append({"x": x, "y": y, "z": z, "color": color, "linestyle": linestyle, "label": label})
+
+    if not payloads or reference is None:
+        return None
+    if args.combine_op == "squared_sum":
+        if args.contour_level_mode == "sigma_probability":
+            # Re-centre the summed delta-chi2 on the joint best fit.
+            minimum = np.nanmin(combined)
+            if np.isfinite(minimum) and minimum > 0:
+                combined = combined - minimum
+        else:
+            combined = np.sqrt(combined)
+    else:
+        combined = background
+
+    bx, by = reference
+    if args.background == "all":
+        draw_background(ax, fig, bx, by, background, args, subset)
+    elif args.background == "first":
+        draw_background(ax, fig, payloads[0]["x"], payloads[0]["y"], payloads[0]["z"], args, subset)
+    elif args.background == "combined":
+        draw_background(ax, fig, bx, by, combined, args, subset)
+
+    handles = []
+    levels = contour_levels(args.contour_sigmas, args.contour_level_mode)
+    smooth = lambda z: _smooth(_smooth(z, args.background_smoothing_sigma), args.contour_smoothing_sigma)  # noqa: E731
+    if not args.combined_contours_only and levels:
+        for p in payloads:
+            image = smooth(p["z"])
+            if args.fill_contours:
+                alpha = args.fill_alpha if args.fill_alpha is not None else args.contour_alpha
+                width = draw_filled(ax, p["x"], p["y"], image, levels, p["color"], alpha, args, zorder=5)
+                handles += legend_lines(levels, args, p["color"], width, prefix=p["label"] if len(payloads) > 1 else None)
+            else:
+                contour_set = ax.contour(p["x"], p["y"], image, levels=levels, colors=[p["color"]],
+                                         linestyles=_linestyles(args, len(levels), p["linestyle"]),
+                                         linewidths=args.contour_linewidth, alpha=args.contour_alpha, zorder=5)
+                _filter_vertices(contour_set, args.contour_min_vertices)
+                style_first = _linestyles(args, 1, p["linestyle"])
+                handles.append(Line2D([0], [0], color=p["color"], linewidth=args.contour_linewidth, label=p["label"],
+                                      linestyle=style_first[0] if isinstance(style_first, list) else style_first))
+
+    if args.combine_op == "squared_sum" and levels:
+        image = smooth(combined)
+        colors = palette(args.combined_color)
+        # Shift the palette per panel so panels do not all start at one colour.
+        offset = 0 if args.unified_colors or not colors else panel_idx % len(colors)
+        width = _combined_width(args)
+        prefix = None if args.combined_contours_only else args.combined_label
+        if args.fill_contours:
+            alpha = args.fill_alpha if args.fill_alpha is not None else args.combined_alpha
+            outline = draw_filled(ax, bx, by, image, levels, args.combined_color, alpha, args, zorder=6, offset=offset)
+            handles += legend_lines(levels, args, args.combined_color, outline, offset=offset, prefix=prefix)
+        else:
+            contour_set = ax.contour(bx, by, image, levels=levels, colors=band_hues(args.combined_color, len(levels), offset),
+                                     linestyles=_linestyles(args, len(levels), args.combined_linestyle),
+                                     linewidths=width, alpha=args.combined_alpha, zorder=6)
+            _filter_vertices(contour_set, args.contour_min_vertices)
+            style_first = _linestyles(args, 1, args.combined_linestyle)
+            style_first = style_first[0] if isinstance(style_first, list) else style_first
+            if colors:
+                handles += legend_lines(levels, args, args.combined_color, width, offset, prefix, style_first)
+            else:
+                handles.append(Line2D([0], [0], color=args.combined_color, linestyle=style_first, linewidth=width,
+                                      label=args.combined_label))
+
+    ax._contour_handles = handles
+    xs, ys = np.asarray(bx, dtype=float), np.asarray(by, dtype=float)
+    return [float(np.nanmin(xs)), float(np.nanmax(xs))], [float(np.nanmin(ys)), float(np.nanmax(ys))]
+
+
+def draw_contour_figure(df, args):
+    if args.iterable is not None and args.iterable not in df.columns:
+        rprint(f"[yellow]Warning:[/yellow] Iterable key '{args.iterable}' not found in dataframe columns. Ignoring --iterable filtering.")
+        args.iterable = None
+    if args.select is not None:
+        keep = [i for i, key in enumerate(args.select) if key in df.columns]
+        for i, key in enumerate(args.select):
+            if i not in keep:
+                rprint(f"[yellow]Warning:[/yellow] Selected key '{key}' not found in dataframe columns. Skipping this filter key.")
+        args.save_values = [args.save_values[i] for i in keep if i < len(args.save_values)] or None if args.save_values else None
+        args.remove_value = [args.remove_value[i] for i in keep if i < len(args.remove_value)] or None if args.remove_value else None
+        args.select = [args.select[i] for i in keep] or None
+        if args.select is None:
+            args.save_values = args.remove_value = None
+    if args.density and args.contour_level_mode == "sigma_probability":
+        rprint("[red]Error:[/red] --density destroys the delta-chi2 scale of --contour_level_mode sigma_probability.")
+        return None
+    if args.combined_contours_only and args.combine_op != "squared_sum":
+        rprint("[yellow]Warning:[/yellow] --combined_contours_only requires --combine_op squared_sum; ignoring the flag.")
+        args.combined_contours_only = False
+
+    configs, names = prepare_import(args)
+    configs = configs if configs is not None else [None]
+    names = names if names is not None else [None]
+    filtered = filter_dataframe(df, args)
+    projected = load_projected(args, configs, names)
+    if not projected.empty:
+        projected = filter_dataframe(projected, args)
+    if args.iterable is not None and args.iterable_label_map is not None:
+        label_map = json.loads(args.iterable_label_map)
+
+        def remap(frame):
+            if args.iterable not in frame.columns:
+                return frame
+            frame = frame.copy()
+            frame[args.iterable] = frame[args.iterable].astype(str).map(lambda v: label_map.get(str(v), str(v)))
+            return frame
+
+        filtered, projected = remap(filtered), remap(projected)
+
+    hues = list(filtered[args.iterable].unique()) if args.iterable is not None else [None]
+    variables = args.variables if args.variables is not None else [None]
+    ncols = len(variables) if args.variables is not None else len(df[args.iterable].unique()) if args.iterable is not None else 1
+    fig, axes, _, _ = create_panels(ncols, grid=False)
+    matched = [None, None]
+    line_color = "k" if args.logz else "white"
+    for vdx, variable in enumerate(variables):
+        for hdx, hue in enumerate(hues):
+            panel_idx = vdx if args.variables is not None else hdx
+            ax = axes[panel_idx]
+            subset = _panel_rows(filtered, args, variable, hue)
+            if subset.empty:
+                rprint(f"[yellow]Warning:[/yellow] No data for {variable if variable is not None else hue}. Skipping...")
+                continue
+            proj = projected
+            if not proj.empty:
+                if variable is not None:
+                    proj = proj[proj["Variable"] == variable]
+                if hue is not None and args.iterable in proj.columns:
+                    proj = proj[proj[args.iterable] == hue]
+            extent = draw_contour_panel(ax, fig, panel_idx, subset, proj, args, configs, names, hue)
+            if extent is None:
+                continue
+            x_range, y_range = extent
+            if matched[0] is None:
+                matched = [list(x_range), list(y_range)]
+            else:
+                if args.matchx:
+                    matched[0] = [min(matched[0][0], x_range[0]), max(matched[0][1], x_range[1])]
+                if args.matchy:
+                    matched[1] = [min(matched[1][0], y_range[0]), max(matched[1][1], y_range[1])]
+            if args.diagonal:
+                span = [min(x_range[0], y_range[0]), max(x_range[1], y_range[1])]
+                ax.plot(span, span, color=line_color, linestyle="--")
+            draw_horizontal_lines(ax, args.horizontal, labels=args.horizontal_label, styles=args.horizontal_style,
+                                  colors=args.horizontal_color or [line_color], fontsize=style.linelabelfontsize)
+            draw_vertical_lines(ax, args.vertical, labels=args.vertical_label, styles=args.vertical_style,
+                                colors=args.vertical_color or [line_color], fontsize=style.linelabelfontsize)
+            if ncols > 1:
+                ax.set_title(make_subtitle_from_args(args, hues, plot_type="hist2d", idx=hdx), fontsize=style.subtitlefontsize)
+            ax.set_xlabel(resolve_axis_label(args.labelx, args.x, subset))
+            if panel_idx == 0:
+                ax.set_ylabel(resolve_axis_label(args.labely, args.y, subset))
+            else:
+                ax.set_ylabel("")
+                if args.compact:
+                    ax.tick_params(labelleft=False)
+            ax.set_xlim(matched[0] if args.matchx else x_range)
+            ax.set_ylim(matched[1] if args.matchy else y_range)
+            if args.rangex is not None:
+                ax.set_xlim(args.rangex)
+            if args.rangey is not None:
+                ax.set_ylim(args.rangey)
+            apply_scientific_threshold_formatter(ax, threshold=0.1, axis="both")
+            points = parse_point_pairs(args.point)
+            point_labels, warning = normalize_point_labels(args.point_label, len(points))
+            if warning:
+                rprint(f"[yellow]Warning:[/yellow] {warning}")
+            for i, (px, py) in enumerate(points):
+                ax.scatter(px, py, color=line_color, edgecolors="white" if args.logz else "black", linewidths=1.0, s=85, zorder=100)
+                if point_labels is not None:
+                    place_point_label(ax, px, py, point_labels[i], fontsize=style.linelabelfontsize)
+            handles = getattr(ax, "_contour_handles", [])
+            if handles:
+                apply_legend_style(ax, handles=handles, capitalize_labels=args.capitalize_legend).set_zorder(10)
+
+    add_title_and_note(fig, args)
+    if args.compact and ncols > 1:
+        fig.tight_layout()
+    return save(fig, args, None, suffix="contour.png")
+
+
+# --- Entry point -------------------------------------------------------------------------
+
+
+def run(args):
+    df = import_data(args)
+    if df.empty:
+        rprint("[yellow]Warning:[/yellow] No datafiles found. Exiting...")
+        return []
+    if args.variables is not None and args.iterable is not None:
+        rprint("[red]Error:[/red] Both --variables and --iterable were given; use only one.")
+        return []
+    if args.variables is not None and "None" in args.variables and "Variable" in df.columns:
+        df["Variable"] = df["Variable"].fillna("None")
+    if args.contour:
+        if args.z is None:
+            rprint("[red]Error:[/red] --contour needs -z (the map column).")
+            return []
+        return [draw_contour_figure(df, args)]
+    if args.multiply is not None and args.z is not None:
+        df[args.z] = df[args.z].apply(lambda v: np.asarray(v) * args.multiply if v is not None else v)
+    outputs = []
+    for kdx, config, name, rows in _base.figure_groups(df, args):
+        print(f"Plotting for Config: {config}, Name: {name}")
+        outputs.append(draw_histogram_figure(rows, args, kdx))
+    return outputs
+
+
+# --- Legacy command lines ----------------------------------------------------------------
+
+
+def _legacy_hist2d(tokens):
+    return tokens + ["--output_suffix", "hist2d.png"]
+
+
+def _legacy_contour(tokens):
+    from ..legacy import rename
+
+    tokens = rename(tokens, {"--operation": "--combine_op"})
+    out = []
+    for i, token in enumerate(tokens):
+        if i > 0 and tokens[i - 1] == "--combined_color" and token.strip().upper() == "DUNE":
+            token = "cycle"
+        out.append(token)
+    return out + ["--contour", "--output_suffix", "contour.png"]
+
+
+LEGACY = {
+    "script_compare_hist2d": _legacy_hist2d,
+    "script_compare_contour": _legacy_contour,
+}

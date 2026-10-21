@@ -1,0 +1,8 @@
+{
+  "mappings": {
+    "sample_names": {"signal": "Signal", "background": "Background", "calibration": "Calibration"},
+    "sample_colors": {"signal": "C0", "background": "C1", "calibration": "C2"},
+    "config_dict": {"small": "Small Detector", "large": "Large Detector"},
+    "config_color": {"small": "C3", "large": "C4"}
+  }
+}

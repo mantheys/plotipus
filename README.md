@@ -1,0 +1,158 @@
+# plotipus
+
+Publication plots and tables from pickled pandas DataFrames, driven by plain
+text command lists.
+
+Analysis code writes its results as `.pkl` DataFrames (one row per series,
+with whole arrays in the cells); plotipus turns them into figures and LaTeX
+tables with one command each:
+
+```bash
+plotipus line --datafile Spectra -x Energy -y Counts --hue Sample --style Stage --logy
+plotipus run paper          # every command in input/plots/paper_scripts.txt
+```
+
+## Install
+
+```bash
+pip install git+https://github.com/mantheys/plotipus.git
+# or, for development
+git clone https://github.com/mantheys/plotipus.git && pip install -e "plotipus[dev]"
+```
+
+Python ≥ 3.10; depends on numpy, pandas, matplotlib, scipy, rich and jinja2.
+
+## Quick start
+
+```bash
+cd examples
+python make_data.py          # toy pickles in input/data
+plotipus run example         # figures in output/plots
+plotipus run example --tables
+```
+
+`plotipus init my_project` creates an empty project (`plotipus.toml`,
+`input/{data,plots,tables}`, `output/`).
+
+## Plot kinds
+
+Kinds follow the data relationship (as in seaborn/plotly), not the use case.
+
+| Kind | Draws | Typical options |
+|---|---|---|
+| `line` | y against an ordered x, one series per `--hue` value, line style per `--style` value | `--plot_type step\|stepmid\|line\|errorbar\|plot\|bar\|barh\|box`, `--lower`, `--stacked`, `--sum_iterables`, `--merge_iterables`, `--rebin`, `--by_config`, `--fit`, `--binned --estimator mean` |
+| `scatter` | observations: exploded points with colour/size/marker encodings, or pairs of metrics (`--x_from Variable=Purity --y_from Variable=Completeness`) | `--colorby`, `--sizeby`, `--markerby`, `--aggregate` |
+| `hist` | 1D histograms of per-event arrays | `--bins`, `--weight`, `--density`, `--hist_combine` |
+| `map` | 2D: histogram of point arrays, image of a grid (`-z`), contour layer (`--contour`) | `--norm`, `--diagonal`, `--logz`, `--contour_sigmas`, `--fill_contours` |
+| `cat` | one value per category (integrated arrays) | `--integrate_over`, `--kind point\|line\|bar` |
+| `table` | aggregated values as LaTeX (and HTML) tables | `--variables`, `--agg`, `--error_band`, `--siunitx`, `--caption_file` |
+
+`plotipus <kind> --help` lists every option.
+
+### Shared options
+
+* **Data**: `--datafile` (files `{config}_{name}_{datafile}.pkl` when
+  `--configs`/`--names` are given, else `{datafile}.pkl`), `--path` (relative
+  to the data root), `--select COL -s VALUE` / `--remove_value`,
+  `--variables` (values of the `Variable` column, one panel each).
+* **Encodings**: `--hue` (alias `--iterable`), `--style` (alias
+  `--comparable`), `--iterable_mapping`/`--iterable_color_mapping` and
+  `--comparable_mapping` (named mappings from the style file),
+  `--invert_style`, `--comparable_fill_strength`.
+* **Axes and overlays**: `--labelx/--labely/--labelz`, `--rangex/--rangey`,
+  `--logx/--logy`, `--horizontal`, `--vertical`, `--point`, `--square`,
+  `--line`, `--xtick`, `--note`, `--title`.
+* **Output**: `-o DIR [DIR ...]`, `--subfolder`, `--output_suffix`,
+  `--filename_select` (keys that must stay in the generated file name).
+
+### Lower panels
+
+A lower panel is the same kind of panel as the upper one; it plots a column
+derived from (or stored in) the same DataFrame. Each `--lower` adds one:
+
+```bash
+--lower ratio                 # every series / the reference series (--reference, --reference_value)
+--lower relative_difference   # also subtract, asymmetry, excess, excess_probability, sum, mean, rms
+--lower group --reference_group S --other_group B1 B2 --group_significance   # S/sqrt(B)
+--lower residual              # data against the stored fit (with --fit); also pull
+--lower column:Significance   # a series stored in the pickle (with SignificanceError)
+--lower events:OpHit          # event markers read from OpHit* columns
+```
+
+The lower panel is styled with the upper-panel options prefixed by `lower_`:
+`--lower_plot_type errorbar`, `--lower_labely`, `--lower_rangey`,
+`--lower_logy`, `--lower_horizontal`, ...
+
+## Python
+
+```python
+import plotipus
+
+plotipus.plot("line", "--datafile", "Spectra", "-x", "Energy", "-y", "Counts", "--hue", "Sample")
+
+from plotipus import load_frame, plot_data, create_common_subplots, format_with_error, style
+style.configure("my_style.json")
+fig, ax = create_common_subplots()
+```
+
+## Projects
+
+`plotipus.toml` (looked up from the working directory upwards):
+
+```toml
+[project]
+data_root = "input/data"
+plots = "input/plots"        # command lists <name>_scripts.txt
+tables = "input/tables"
+output = "output"
+style = ["config/style.json"]
+plugins = ["my_project.plotipus_plugin"]
+python_path = ["src"]
+
+[outputs.plots]              # extra output directories per command list
+paper = ["../paper/figures"]
+
+[settings]
+default_operation = "mean"
+```
+
+**Style files** (JSON) are merged over the defaults
+(`src/plotipus/data/style.json`): `rcparams`, `font_sizes`, `plot_settings`
+(figure layout, legend and note style), `labels` (capitalisation exceptions,
+legend titles to drop, title short forms) and `mappings` (named
+label/colour dictionaries used by the `*_mapping` options).
+
+**Plugins** adapt plotipus to a project without changing it. A plugin module
+defines `setup(registry)` and can register:
+
+* `registry.add_resolver(f)`: extra lookup locations for data files;
+* `registry.add_post_load(f)` / `add_post_concat(f)`: decorate or check loaded frames;
+* `registry.add_label_hook(column, f)` / `add_color_hook(column, f)`: labels and colours of a column's values;
+* `registry.config_label = f`: legend labels of config/name series;
+* `registry.table_columns[name] = f`: derived table columns;
+* `plotipus.fits.register_module(m)`: fit models referenced by stored fits;
+* a matplotlib style (import it in `setup`).
+
+## Command lists
+
+One command per line; blank lines and lines starting with `#` or `%` are
+skipped. A line is `<kind> [options]` or a project script (`scripts/x.py ...`,
+run with the current Python). `plotipus run LIST` accepts `--jobs N`,
+`--match TEXT`, `--dry_run` (print the commands) and `--check` (only parse
+them).
+
+Command lines written for the original plotting scripts of the
+LOWE_RECONSTRUCTION_PUBLICATION repository (`scripts/script_*.py ...`) are
+translated automatically (`plotipus translate <line>` shows the result) and
+keep their output file names.
+
+## Development
+
+```bash
+pip install -e ".[dev]"
+pytest
+```
+
+## License
+
+MIT

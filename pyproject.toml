@@ -1,0 +1,37 @@
+[build-system]
+requires = ["setuptools>=64"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "plotipus"
+version = "0.1.0"
+description = "Publication plots and tables from pickled pandas DataFrames, driven by command lists"
+readme = "README.md"
+license = { text = "MIT" }
+authors = [{ name = "Sergio Manthey", email = "sergio.manthey@gmail.com" }]
+requires-python = ">=3.10"
+dependencies = [
+    "numpy",
+    "pandas",
+    "matplotlib",
+    "scipy",
+    "rich",
+    "jinja2",
+    "tomli; python_version < '3.11'",
+]
+
+[project.optional-dependencies]
+yaml = ["pyyaml"]
+dev = ["pytest", "pyyaml"]
+
+[project.scripts]
+plotipus = "plotipus.cli:main"
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.setuptools.package-data]
+plotipus = ["data/*.json", "data/*.mplstyle"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
