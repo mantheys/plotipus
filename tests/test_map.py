@@ -195,3 +195,32 @@ def test_several_maps_legend(make_project):
     assert texts[-3:] == ["68.3% CL", "95.4% CL", "99.7% CL"] and len(texts) == 5
     assert handles[0].get_edgecolor() != handles[1].get_edgecolor()
     assert len([line for line in ax.get_lines() if line.get_marker() == "+"]) == 2
+
+
+def test_contour_shapes_and_points(make_project):
+    from matplotlib.colors import to_hex
+    from matplotlib.patches import Rectangle
+
+    ax = _contour(make_project, "--line", "0", "0", "1", "2", "--line", "0", "2", "1", "0", "--square", "0.1", "0.2",
+                  "0.3", "0.6", "--point", "0.4", "1.0", "--horizontal", "1")
+    segments = [line for line in ax.get_lines() if list(line.get_ydata()) in ([0, 2], [2, 0])]
+    assert len(segments) == 2 and all(to_hex(line.get_color()) == "#000000" for line in segments)
+    assert [p for p in ax.patches if isinstance(p, Rectangle) and np.isclose(p.get_width(), 0.2)]
+    assert to_hex(ax.collections[-1].get_facecolor()[0]) == "#000000"  # the --point marker
+    assert ax.get_xlim() == (0.0, 1.0) and ax.get_ylim() == (0.0, 2.0)  # the grid keeps the frame
+
+
+def test_contour_overlays_white_on_full_image(make_project):
+    from matplotlib.colors import to_hex
+
+    ax = _contour(make_project, "--background", "all", "--rangez", "0", "20", "--line", "0", "0", "1", "2")
+    segment = [line for line in ax.get_lines() if list(line.get_ydata()) == [0, 2]][0]
+    assert to_hex(segment.get_color()) == "#ffffff"
+
+
+def test_contour_overlays_above_fills(make_project):
+    ax = _contour(make_project, "--fill_contours", "--line", "0", "0", "1", "2", "--horizontal", "1")
+    fills = max(c.get_zorder() for c in ax.collections if type(c).__name__ == "QuadContourSet")
+    best_fit = [line for line in ax.get_lines() if line.get_marker() == "+"][0].get_zorder()
+    overlays = [line for line in ax.get_lines() if list(line.get_ydata()) in ([0, 2], [1, 1])]
+    assert len(overlays) == 2 and all(fills < line.get_zorder() < best_fit for line in overlays)

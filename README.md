@@ -122,6 +122,9 @@ significance maps with `--contour_level_mode z_values`):
   (`--no_best_fit` hides it).
 * `--background none` (default); with `all`/`combined`/`first`, a Δχ²
   background is blank beyond the outermost level and its colorbar reads Δχ².
+* `--horizontal`, `--vertical`, `--line`, `--square` and `--point` are drawn
+  above the contours, in the text colour (white on a background image that
+  fills the panel); the grid or `--rangex`/`--rangey` keeps the frame.
 
 The style file's `contours` section sets the defaults:
 `{"dof": 2, "fill_mix": [1.0, 0.55, 0.25], "linestyles": ["-", "--", ":"], "label": "cl", "background": "none"}`.

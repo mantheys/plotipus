@@ -43,11 +43,20 @@ from ..plot import (
     apply_legend_style,
     apply_scientific_threshold_formatter,
     draw_horizontal_lines,
+    draw_lines,
+    draw_squares,
     draw_vertical_lines,
     place_point_label,
     plot_data,
 )
-from ..args import normalize_point_labels, parse_point_pairs
+from ..args import (
+    normalize_line_labels,
+    normalize_point_labels,
+    normalize_square_labels,
+    parse_line_segments,
+    parse_point_pairs,
+    parse_square_quads,
+)
 from ..selection import filter_dataframe
 from . import _base
 
@@ -58,6 +67,8 @@ NORM_LABELS = {
     "vertical": "Normalized Counts (Columns)",
     "combined": "Normalized Counts (Rows + Columns)",
 }
+# Contour sets draw at zorder 5-6.5 and best-fit markers at 7.
+OVERLAY_ZORDER = 6.9
 # One-off notices already printed by this process.
 _NOTICES_SHOWN = set()
 
@@ -610,7 +621,7 @@ def draw_filled(ax, x, y, image, levels, color, args, zorder, offset=0):
     return bands
 
 
-def draw_lines(ax, x, y, image, levels, hues, linestyles, width, alpha, args, zorder):
+def draw_outlines(ax, x, y, image, levels, hues, linestyles, width, alpha, args, zorder):
     lines = ax.contour(x, y, image, levels=levels, colors=hues, linestyles=linestyles,
                        linewidths=width, alpha=alpha, zorder=zorder)
     _filter_vertices(lines, args.contour_min_vertices)
@@ -852,7 +863,7 @@ def draw_contour_panel(ax, fig, panel_idx, subset, projected, args, configs, nam
         if args.fill_contours:
             fills = draw_filled(ax, x, y, image, levels, color, args, zorder, offset)
             width, alpha = args.fill_outline_linewidth if args.fill_outline_linewidth is not None else width, 1.0
-        draw_lines(ax, x, y, image, levels, hues, styles, width, alpha, args, zorder + 0.5)
+        draw_outlines(ax, x, y, image, levels, hues, styles, width, alpha, args, zorder + 0.5)
         if not args.no_best_fit:
             draw_best_fit(ax, x, y, image, hues[0], zorder=7)
         sets.append({"label": label, "hues": hues, "styles": styles, "width": width, "fills": fills,
@@ -875,6 +886,22 @@ def draw_contour_panel(ax, fig, panel_idx, subset, projected, args, configs, nam
     ax._contour_handles = handles
     xs, ys = np.asarray(bx, dtype=float), np.asarray(by, dtype=float)
     return [float(np.nanmin(xs)), float(np.nanmax(xs))], [float(np.nanmin(ys)), float(np.nanmax(ys))]
+
+
+def draw_contour_shapes(ax, args, color):
+    """--square rectangles and --line segments of a contour panel, in
+    ``color`` unless given. Drawn before the panel limits are set, so the
+    grid (or --rangex/--rangey) keeps the frame."""
+    for parse, normalize, draw, key in ((parse_square_quads, normalize_square_labels, draw_squares, "square"),
+                                        (parse_line_segments, normalize_line_labels, draw_lines, "line")):
+        shapes = parse(getattr(args, key, None))
+        if not shapes:
+            continue
+        labels, warning = normalize(getattr(args, f"{key}_label", None), len(shapes))
+        if warning:
+            rprint(f"[yellow]Warning:[/yellow] {warning}")
+        draw(ax, shapes, labels=labels, styles=getattr(args, f"{key}_style", None),
+             colors=getattr(args, f"{key}_color", None) or [color], fontsize=style.linelabelfontsize)
 
 
 def draw_contour_figure(df, args):
@@ -928,7 +955,10 @@ def draw_contour_figure(df, args):
     colors.reserve([("config", cdx) for cdx in range(len(configs))],
                    lambda key: style.resolve_mapped_color(config_color.get(configs[key[1]])))
     matched = [None, None]
-    line_color = "k" if args.logz else "white"
+    # Overlays in white only on a linear background image that fills the panel (a delta-chi2
+    # background is blank beyond the outermost level unless --rangez is given); else in the text colour.
+    full_image = args.background != "none" and (args.contour_level_mode == "z_values" or args.rangez is not None)
+    line_color = "white" if full_image and not args.logz else plt.rcParams["text.color"]
     for vdx, variable in enumerate(variables):
         for hdx, hue in enumerate(hues):
             panel_idx = vdx if args.variables is not None else hdx
@@ -954,6 +984,7 @@ def draw_contour_figure(df, args):
                     matched[0] = [min(matched[0][0], x_range[0]), max(matched[0][1], x_range[1])]
                 if args.matchy:
                     matched[1] = [min(matched[1][0], y_range[0]), max(matched[1][1], y_range[1])]
+            contour_artists = set(ax.get_children())
             if args.diagonal:
                 span = [min(x_range[0], y_range[0]), max(x_range[1], y_range[1])]
                 ax.plot(span, span, color=line_color, linestyle="--")
@@ -961,6 +992,10 @@ def draw_contour_figure(df, args):
                                   colors=args.horizontal_color or [line_color], fontsize=style.linelabelfontsize)
             draw_vertical_lines(ax, args.vertical, labels=args.vertical_label, styles=args.vertical_style,
                                 colors=args.vertical_color or [line_color], fontsize=style.linelabelfontsize)
+            draw_contour_shapes(ax, args, line_color)
+            # Reference overlays sit above the contours, below the best-fit markers.
+            for artist in set(ax.get_children()) - contour_artists:
+                artist.set_zorder(OVERLAY_ZORDER)
             if ncols > 1:
                 ax.set_title(make_subtitle_from_args(args, hues, plot_type="hist2d", idx=hdx), fontsize=style.subtitlefontsize)
             ax.set_xlabel(resolve_axis_label(args.labelx, args.x, subset))
@@ -982,7 +1017,7 @@ def draw_contour_figure(df, args):
             if warning:
                 rprint(f"[yellow]Warning:[/yellow] {warning}")
             for i, (px, py) in enumerate(points):
-                ax.scatter(px, py, color=line_color, edgecolors="white" if args.logz else "black", linewidths=1.0, s=85, zorder=100)
+                ax.scatter(px, py, color=line_color, edgecolors="black" if line_color == "white" else _paper(), linewidths=1.0, s=85, zorder=100)
                 if point_labels is not None:
                     place_point_label(ax, px, py, point_labels[i], fontsize=style.linelabelfontsize)
             handles = getattr(ax, "_contour_handles", [])
