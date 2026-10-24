@@ -5,10 +5,14 @@ row of every (panel, hue) selection is histogrammed. Several ``-x`` columns
 are first combined point by point with ``--hist_combine`` (sum, mean,
 subtract, relative = (a - b) / last, absolute_relative, rms). Panels come
 from ``--variables``, colours from ``--hue``; ``--hue Config``/``Name`` draws
-the loaded configs/names together with the config mappings.
+the loaded configs/names together with the config mappings. Every hue of a
+panel shares one set of bin edges, spanning all of them; entries outside
+(``--rangex``, ``--percentile``) are reported and, with ``--flow``, hinted at
+or added to the edge bins.
 """
 
 import numpy as np
+from matplotlib.transforms import offset_copy
 from rich import print as rprint
 
 from .. import style
@@ -19,12 +23,13 @@ from ..io import import_data, prepare_import
 from ..palettes import ColorAllocator
 from ..panel_lines import add_panel_line_args, draw_panel_lines, panel_rangex, resolve_panel_lines
 from ..panels import add_title_and_note, create_panels, draw_overlays, save
-from ..plot import apply_legend_style, apply_scientific_threshold_formatter, plot_data
+from ..plot import _resolve_plot_style, apply_legend_style, apply_scientific_threshold_formatter
 from ..selection import filter_dataframe
 from . import _base
 
 KIND = "hist"
 COMBINE = ["sum", "mean", "subtract", "relative", "absolute_relative", "rms"]
+FLOW = ["none", "hint", "show"]
 
 
 def build_parser():
@@ -49,6 +54,9 @@ def build_parser():
     add("--hist_combine", type=str, default=None, choices=COMBINE,
         help="How several -x columns are combined point by point.")
     add("--weight", "-w", type=str, default=None, help="Array column of per-entry weights.")
+    add("--flow", type=str, default="none", choices=FLOW,
+        help="Entries outside the range: none (dropped), hint (a marker beyond the outer edge), "
+             "show (added to the first/last bin). Their number is printed in every mode.")
     add("--iterable_mapping", "--hue_mapping", dest="iterable_mapping", type=str, default=None,
         help="Mapping renaming the hue values in the legend.")
     add("--iterable_color_mapping", "--hue_color_mapping", dest="iterable_color_mapping", type=str, default=None,
@@ -91,15 +99,45 @@ def combined_values(subset, args):
     return x
 
 
-def _histogram_range(x, args, idx):
+def _histogram_range(samples, args, idx):
+    """Range of one panel: --panel_rangex, --rangex, else --percentile or the
+    extremes of all its hue samples together."""
     rangex = panel_rangex(args, idx)
     if rangex is not None:
-        return rangex
+        return tuple(rangex)
     if args.rangex is not None:
         return tuple(args.rangex)
+    x = np.concatenate(samples)
     if args.percentile is None:
         return float(np.min(x)), float(np.max(x))
     return float(np.percentile(x, args.percentile[0])), float(np.percentile(x, args.percentile[1]))
+
+
+def histogram(x, edges, weights=None, density=False, flow="none"):
+    """(counts, underflow, overflow) of *x* in *edges*. ``flow="show"`` adds the
+    outside weights to the first/last bin; density normalises what is drawn."""
+    weights = np.ones_like(x) if weights is None else weights
+    counts, _ = np.histogram(x, bins=edges, weights=weights)
+    counts = counts.astype(float)
+    under = float(np.sum(weights[x < edges[0]]))
+    over = float(np.sum(weights[x > edges[-1]]))
+    if flow == "show":
+        counts[0] += under
+        counts[-1] += over
+    if density:
+        total = np.sum(counts)
+        if total > 0:
+            counts = counts / (total * np.diff(edges))
+    return counts, under, over
+
+
+def _draw_flow_hints(ax, counts, edges, under, over, color):
+    """Small arrows just outside the outer edges, at the edge bins' height
+    (mplhep's flow="hint")."""
+    for outside, x, y, marker, dx in ((under, edges[0], counts[0], "<", -4), (over, edges[-1], counts[-1], ">", 4)):
+        if outside > 0:
+            ax.plot([x], [y], marker=marker, markersize=5, linestyle="none", color=color, clip_on=False,
+                    transform=offset_copy(ax.transData, fig=ax.figure, x=dx, units="points"))
 
 
 def _series_style(args, value, name):
@@ -108,7 +146,7 @@ def _series_style(args, value, name):
         label = make_config_label_from_args(args, config=value, name=name)
         color, linestyle = make_config_color_and_style_from_args(args, config=value, name=name)
         return label, color, linestyle
-    label = f"{value}"
+    label = None if value is None else f"{value}"
     color = None
     if args.iterable_mapping is not None:
         label = map_iterable_label(value, args.iterable, args.iterable_mapping)
@@ -135,6 +173,7 @@ def draw_figure(df, args, kdx, config, name):
 
     for idx, variable in enumerate(variables):
         ax = axes[idx]
+        series = []  # (value, x, weights) of every hue drawn in this panel
         for jdx, value in enumerate(values):
             if args.iterable is not None and len(values) > 8 and args.reduce and jdx % 2 == 1:
                 continue
@@ -147,15 +186,26 @@ def draw_figure(df, args, kdx, config, name):
             if subset.empty:
                 rprint(f"[yellow]Warning:[/yellow] No data for {args.iterable}={value}, Variable={variable}. Skipping.")
                 continue
-            x = combined_values(subset, args)
-            if idx not in ranges:
-                ranges[idx] = _histogram_range(x, args, idx)
             weights = np.asarray(subset[args.weight].values[0], dtype=float) if args.weight is not None else None
-            counts, edges = np.histogram(x, bins=args.bins, range=ranges[idx], density=density, weights=weights)
+            series.append((value, combined_values(subset, args), weights))
+        if not series:
+            continue
+        ranges[idx] = _histogram_range([x for _, x, _ in series], args, idx)
+        edges = np.histogram_bin_edges(ranges[idx], bins=args.bins, range=ranges[idx])  # the same edges for every hue
+
+        for value, x, weights in series:
+            counts, under, over = histogram(x, edges, weights, density=density, flow=args.flow)
             label, mapped, linestyle = _series_style(args, value, name)
             color = colors.color_for(value, mapped)
-            plot_data(args, ax, (edges[:-1] + edges[1:]) / 2, y=counts, label=label, color=color,
-                      linestyle=linestyle, plot_type="plot", drawstyle="steps-mid")
+            outside = int(np.sum(x < edges[0]) + np.sum(x > edges[-1]))
+            if outside:
+                what = f"{args.iterable}={value}" if value is not None else "the sample"
+                rprint(f"[yellow]Warning:[/yellow] {outside} of {len(x)} entries of {what} (Variable={variable}) "
+                       f"fall outside [{edges[0]:g}, {edges[-1]:g}] (--flow {args.flow}).")
+            ax.stairs(counts, edges, label=label, color=color, linestyle=_resolve_plot_style(linestyle) or "-",
+                      linewidth=style.default_linewidth)
+            if args.flow == "hint":
+                _draw_flow_hints(ax, counts, edges, under, over, color)
 
     for idx, variable in enumerate(variables):
         ax = axes[idx]
@@ -181,7 +231,8 @@ def draw_figure(df, args, kdx, config, name):
             ax.semilogy()
         if args.logx:
             ax.semilogx()
-        if idx == n_panels - 1 and not args.no_legend and args.draw_legend != "none":
+        # A single series without --hue needs no legend.
+        if idx == n_panels - 1 and args.iterable is not None and not args.no_legend and args.draw_legend != "none":
             apply_legend_style(ax, title=args.labelz or args.iterable, capitalize_labels=args.capitalize_legend)
         draw_overlays(ax, args)
         draw_panel_lines(ax, args, idx)
