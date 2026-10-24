@@ -1,0 +1,6 @@
+# Bug reproductions and gap-analysis probes (docs/design/bugs.md, catalogue.md).
+[project]
+data_root = "input/data"
+plots = "."
+output = "output"
+style = ["../../../examples/style.json"]

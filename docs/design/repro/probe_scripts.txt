@@ -1,0 +1,31 @@
+# Gap-analysis probes (ids as in docs/design/catalogue.md); run with: plotipus run probe
+line --datafile Spectrum -x Mass -y Counts --hue Sample --remove_value data --stacked --plot_type step --output_suffix P01.png
+line --datafile Spectrum -x Mass -y Counts --hue Sample --plot_type step --lower ratio --reference_value data --output_suffix P02.png
+line --datafile Spectrum -x Mass -y Counts --hue Sample --select Sample -s data --plot_type errorbar --errory --output_suffix P03.png
+line --datafile Fit -x X -y Counts --fit --plot_type errorbar --errory --lower residual --output_suffix P04.png
+line --datafile Fit -x X -y Counts --fit --plot_type errorbar --errory --lower pull --output_suffix P05.png
+line --datafile Limits -x Mass -y Limit --hue Kind --errory --errory_type bands --logy --output_suffix P06.png
+line --datafile Scan -x Mu -y DeltaNLL --horizontal 1 4 --horizontal_label '1σ' '2σ' --output_suffix P07.png
+line --datafile ROC -x FPR -y TPR --hue Model --plot_type line --line 0 0 1 1 --output_suffix P08.png
+line --datafile Learning -x TrainSize -y Score --hue Split --errory --errory_type bands --logx --plot_type line --output_suffix P09.png
+# expected to crash (bugs.md B07)
+cat --datafile Importance -x Feature -y Importance --hue Model --kind bar --output_suffix P10.png
+# expected to crash (bugs.md B07)
+cat --datafile Importance -x Feature -y Importance --hue Model --kind point --output_suffix P11.png
+hist --datafile Ev -x Xv --hue Group --bins 40 --output_suffix P12.png
+hist --datafile Ev -x Xv --hue Group --bins 40 --density --logy --output_suffix P13.png
+line --datafile Ev -x Xv -y Yv --hue Group --binned --estimator mean --bins 12 --plot_type box --output_suffix P14.png
+map --datafile Ev -x Xv -y Yv --iterable Group --bins 40 --output_suffix P15.png
+scatter --datafile Ev -x Xv -y Yv --hue Group --marker_size 2 --output_suffix P16.png
+map --datafile Confusion -x Pred -y True_ -z Frac --output_suffix P17.png
+line --datafile Multi -x T -y V --hue Run --variables panel0 panel1 panel2 panel3 --plot_type line --output_suffix P18.png
+line --datafile Ev -x Xv -y Yv --hue Group --binned --estimator std --bins 12 --plot_type errorbar --output_suffix P19.png
+line --datafile Spectrum -x Mass -y Counts --hue Sample --stacked --plot_type step --lower ratio --reference_value data --output_suffix P20.png
+scatter --datafile Ev -x Xv -y Yv --hue Group --marker_size 2 -z Yv --output_suffix P21.png
+line --datafile ROC -x FPR -y TPR --hue Model --plot_type line --logy --output_suffix P22.png
+line --datafile Spectrum -x Mass -y Counts --hue Sample --plot_type stepmid --fill --output_suffix P23.png
+map --datafile Ev -x Xv -y Yv --iterable Group --bins 40 --norm vertical --output_suffix P24.png
+line --datafile ROC -x FPR -y TPR --hue Model --plot_type line --rangey 1 0 --output_suffix Q1.png
+line --datafile Spectrum -x Mass -y Counts --hue Sample --plot_type step --lower ratio --reference_sum bkg_a bkg_b signal --reference_sum_label MC --output_suffix Q2.png
+hist --datafile Ev -x Xv --hue Group --bins 40 --weight Yv --output_suffix Q4.png
+line --datafile Spectrum -x Mass -y Counts --hue Sample --plot_type step --lower ratio --reference_value data --lower relative_difference --output_suffix Q6.png

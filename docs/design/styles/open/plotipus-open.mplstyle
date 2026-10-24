@@ -1,0 +1,53 @@
+# plotipus "open": sans, open L-shaped frame, ticks out, faint value grid.
+# Closest to ggplot2 theme_minimal/Wilke's cowplot; for data-science reports.
+font.family: sans-serif
+font.sans-serif: DejaVu Sans, Nimbus Sans, Liberation Sans, Arial
+font.size: 8
+mathtext.fontset: dejavusans
+axes.labelsize: large
+axes.titlesize: large
+axes.titlelocation: left
+axes.titleweight: bold
+axes.labelcolor: 262626
+axes.edgecolor: 4d4d4d
+axes.linewidth: 0.6
+axes.spines.top: False
+axes.spines.right: False
+axes.grid: True
+axes.grid.axis: y
+axes.axisbelow: True
+grid.color: e6e6e6
+grid.linewidth: 0.6
+axes.prop_cycle: cycler('color', ['0072B2', 'E69F00', '009E73', 'D55E00', 'CC79A7', '56B4E9', '000000', 'F0E442'])
+axes.formatter.use_mathtext: True
+axes.formatter.limits: -3, 5
+axes.xmargin: 0.02
+xtick.direction: out
+ytick.direction: out
+xtick.top: False
+ytick.right: False
+xtick.minor.visible: False
+ytick.minor.visible: False
+xtick.major.size: 3
+ytick.major.size: 0
+xtick.major.width: 0.6
+xtick.color: 4d4d4d
+ytick.color: 4d4d4d
+xtick.labelcolor: 404040
+ytick.labelcolor: 404040
+xtick.labelsize: medium
+ytick.labelsize: medium
+lines.linewidth: 1.4
+lines.markersize: 4
+errorbar.capsize: 0
+patch.linewidth: 0
+legend.frameon: False
+legend.fontsize: medium
+legend.title_fontsize: medium
+legend.handlelength: 1.6
+legend.labelspacing: 0.3
+image.cmap: viridis
+figure.figsize: 3.5, 2.6
+figure.dpi: 150
+savefig.dpi: 300
+savefig.pad_inches: 0.02

@@ -1,0 +1,21 @@
+{
+  "font_sizes": {
+    "titlefontsize": "large", "subtitlefontsize": "medium",
+    "legendtitlefontsize": "medium", "legendfontsize": "medium",
+    "xlabelfontsize": "large", "ylabelfontsize": "large",
+    "xsublabelfontsize": "medium", "ysublabelfontsize": "medium",
+    "linelabelfontsize": "small"
+  },
+  "plot_settings": {
+    "auto_title": false,
+    "default_linewidth": 1.2,
+    "figure_layout": {
+      "base_width": 3.5, "panel_width": 3.2, "height": 2.7,
+      "margins_inches": {"left": 0.62, "right": 0.12, "bottom": 0.42, "top": 0.22, "wspace": 0.3, "hspace": 0.08},
+      "two_panel_hspace": 0.06,
+      "panel_font_scale": {"3": 1.0}
+    },
+    "legend_style": {"fontsize": "medium", "title_fontsize": "medium", "frameon": false, "loc": "best"},
+    "note_style": {"fontsize": "medium", "bbox": {"boxstyle": "square,pad=0.3", "facecolor": "white", "alpha": 0.85, "edgecolor": "none"}}
+  }
+}

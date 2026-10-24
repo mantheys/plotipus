@@ -1,0 +1,32 @@
+# Bug reproductions (ids as in docs/design/bugs.md)
+# B01 repeated colour: Average reuses Small Detector's colour
+line --datafile Efficiency --configs small large --names signal -x Values -y Efficiency --by_config --plot_type line --errory --errory_type bands --combine_op mean --combined_label Average --output_suffix B01.png
+# B02 palette wraps after 10 hues; --hue and --style on one column give two legends
+line --datafile ManyHue -x X -y Y --hue Run --plot_type line --output_suffix B02a.png
+line --datafile ManyHue -x X -y Y --hue Run --style Run --plot_type line --output_suffix B02b.png
+# B03 contour levels, fills and legend
+map --datafile Contour -x XGrid -y YGrid -z ZGrid --contour --contour_sigmas 1 2 3 --fill_contours --output_suffix B03.png
+# B04 binned estimator without uncertainties
+line --datafile Events -x TrueEnergy -y Resolution --hue Sample --binned --estimator mean --bins 15 --plot_type errorbar --output_suffix B04.png
+# B06 legends over data (stacked, cat) and a single "Ratio" entry for several ratio series
+line --datafile Spectra -x Energy -y Counts --hue Sample --select Stage -s Raw --stacked --logy --output_suffix B06a.png
+line --datafile Spectra -x Energy -y Counts --hue Sample --select Stage -s Raw --plot_type step --logy --lower ratio --output_suffix B06b.png
+# B07 cat: line handles for bars, legend over bars; crash on scalar cells
+cat --datafile Spectra -x Stage -y Counts --integrate_over Energy --hue Sample --kind bar --output_suffix B07a.png
+cat --datafile Importance -x Feature -y Importance --hue Model --kind bar --output_suffix B07b.png
+# B08 hist2d: only the last colorbar is labelled, independent colour scales
+map --datafile Events -x TrueEnergy -y RecoEnergy --iterable Sample --logz --output_suffix B08.png
+# B09 hist: half-width edge bins, range of the first hue only, "None" legend
+hist --datafile Flat -x E --bins 10 --output_suffix B09a.png
+hist --datafile Ev -x Xv --hue Group --bins 40 --output_suffix B09b.png
+# B10 --stacked ignored for step, data stacked with the simulation
+line --datafile Spectrum -x Mass -y Counts --hue Sample --remove_value data --stacked --plot_type step --output_suffix B10a.png
+line --datafile Spectrum -x Mass -y Counts --hue Sample --stacked --lower ratio --reference_value data --output_suffix B10b.png
+# B11 --errory_type bands drawn as bars without --plot_type line
+line --datafile Limits -x Mass -y Limit --hue Kind --errory --errory_type bands --logy --output_suffix B11.png
+# B12 scatter --hue on array cells draws only the first group
+scatter --datafile Ev -x Xv -y Yv --hue Group --marker_size 2 --output_suffix B12.png
+# B13 --fit --lower pull draws the relative residual
+line --datafile Fit -x X -y Counts --fit --plot_type errorbar --errory --lower pull --output_suffix B13.png
+# B16 box plot type: garbled ticks, overlapping hue groups
+line --datafile Ev -x Xv -y Yv --hue Group --binned --estimator mean --bins 12 --plot_type box --output_suffix B16.png

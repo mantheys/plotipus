@@ -1,0 +1,53 @@
+# plotipus "hep": the collider-paper look (cf. mplhep ATLAS/CMS): Helvetica-like
+# sans, ticks in on four sides with long minor ticks, axis labels at the axis ends.
+font.family: sans-serif
+font.sans-serif: TeX Gyre Heros, Nimbus Sans, Helvetica, Arial, Liberation Sans, DejaVu Sans
+font.size: 8
+mathtext.fontset: custom
+mathtext.rm: Nimbus Sans
+mathtext.it: Nimbus Sans:italic
+mathtext.bf: Nimbus Sans:bold
+mathtext.sf: Nimbus Sans
+mathtext.fallback: stixsans
+axes.formatter.use_mathtext: True
+axes.labelsize: large
+axes.titlesize: large
+axes.linewidth: 0.8
+axes.grid: False
+axes.prop_cycle: cycler('color', ['4477AA', 'EE6677', '228833', 'CCBB44', '66CCEE', 'AA3377', 'BBBBBB'])
+axes.formatter.limits: -3, 5
+axes.xmargin: 0
+xaxis.labellocation: right
+yaxis.labellocation: top
+xtick.direction: in
+ytick.direction: in
+xtick.top: True
+ytick.right: True
+xtick.minor.visible: True
+ytick.minor.visible: True
+xtick.major.size: 5
+ytick.major.size: 5
+xtick.minor.size: 2.5
+ytick.minor.size: 2.5
+xtick.major.width: 0.8
+ytick.major.width: 0.8
+xtick.minor.width: 0.6
+ytick.minor.width: 0.6
+xtick.major.pad: 4
+ytick.major.pad: 4
+xtick.labelsize: medium
+ytick.labelsize: medium
+lines.linewidth: 1.4
+lines.markersize: 4
+errorbar.capsize: 0
+patch.linewidth: 0.8
+legend.frameon: False
+legend.fontsize: medium
+legend.title_fontsize: medium
+legend.handlelength: 1.5
+legend.labelspacing: 0.25
+image.cmap: viridis
+figure.figsize: 3.5, 2.6
+figure.dpi: 150
+savefig.dpi: 300
+savefig.pad_inches: 0.02

@@ -1,0 +1,48 @@
+# plotipus "paper": serif, boxed, ticks in. Text set in Computer Modern so it
+# matches a LaTeX article; drawn at the printed size (3.5 in column, 8 pt).
+font.family: serif
+font.serif: cmr10, Latin Modern Roman, Computer Modern Roman, DejaVu Serif
+font.size: 8
+mathtext.fontset: cm
+axes.formatter.use_mathtext: True
+axes.unicode_minus: False
+axes.labelsize: large
+axes.titlesize: large
+axes.linewidth: 0.6
+axes.labelpad: 3
+axes.grid: False
+axes.prop_cycle: cycler('color', ['3f90da', 'ffa90e', 'bd1f01', '94a4a2', '832db6', 'a96b59', 'e76300', 'b9ac70', '717581', '92dadd'])
+axes.formatter.limits: -3, 5
+axes.xmargin: 0
+xtick.direction: in
+ytick.direction: in
+xtick.top: True
+ytick.right: True
+xtick.minor.visible: True
+ytick.minor.visible: True
+xtick.major.size: 3.5
+ytick.major.size: 3.5
+xtick.minor.size: 1.8
+ytick.minor.size: 1.8
+xtick.major.width: 0.6
+ytick.major.width: 0.6
+xtick.minor.width: 0.45
+ytick.minor.width: 0.45
+xtick.labelsize: medium
+ytick.labelsize: medium
+lines.linewidth: 1.2
+lines.markersize: 3.5
+errorbar.capsize: 0
+patch.linewidth: 0.6
+hatch.linewidth: 0.5
+legend.frameon: False
+legend.fontsize: medium
+legend.title_fontsize: medium
+legend.handlelength: 1.8
+legend.labelspacing: 0.3
+legend.borderaxespad: 0.6
+image.cmap: viridis
+figure.figsize: 3.5, 2.6
+figure.dpi: 150
+savefig.dpi: 300
+savefig.pad_inches: 0.02
