@@ -62,7 +62,8 @@ from ..panels import (
     rotate_categorical_labels,
     save,
 )
-from ..plot import apply_legend_style, apply_legend_style_clear_of_data, apply_scientific_threshold_formatter, plot_data
+from ..plot import (apply_legend_style, apply_legend_style_clear_of_data, apply_scientific_threshold_formatter,
+                    errory_type, plot_data)
 from ..selection import filter_dataframe
 from ..transforms import (
     align_error_column,
@@ -182,7 +183,8 @@ def build_parser():
 
     group = parser.add_argument_group("drawing")
     add = group.add_argument
-    add("--connect", action="store_true", default=False, help="Without --plot_type: join points with steps.")
+    add("--connect", action="store_true", default=False,
+        help="Join the points: with steps without --plot_type, with lines for points with error bars.")
     add("--stacked", action="store_true", default=False, help="Stack the series as bars.")
     add("--stack_reverse", action="store_true", default=False, help="Stack in reverse order (first series on top).")
     add("--bar_width", type=str, default=None,
@@ -459,8 +461,9 @@ def _error_kwargs(s, args):
 
 def draw_series(ax, s, args, plot_type=None, stack_bottom=None, dodge_shift=0.0):
     """Draw one series with the plot type rules of the line kind: without
-    --plot_type, markers (error bars with --errory, steps with --connect,
-    lines for styled series)."""
+    --plot_type, markers (error bars with --errory, a line with
+    --errory_type bands, steps with --connect, lines for styled series).
+    Error bars on points are joined only with --connect."""
     common = dict(label=s.label, color=s.color)
     lw = {} if s.linewidth is None else {"linewidth": s.linewidth}
     fill = {}
@@ -479,10 +482,12 @@ def draw_series(ax, s, args, plot_type=None, stack_bottom=None, dodge_shift=0.0)
 
     if plot_type is None:
         if s.error is not None and args.errory:
-            if args.connect:
-                plot_data(args, ax, s.x, y=s.y, plot_type="plot", linestyle=linestyle, color=s.color)
+            if errory_type(args, "errorbar") == "bands":
+                plot_data(args, ax, s.x, y=s.y, plot_type="line", linestyle=linestyle, **common,
+                          **_error_kwargs(s, args), **lw)
             else:
-                plot_data(args, ax, s.x, y=s.y, plot_type="errorbar", errory=s.error, fmt="o", **common)
+                plot_data(args, ax, s.x, y=s.y, plot_type="errorbar", errory=s.error, fmt="o", linestyle=linestyle,
+                          **common)
         elif args.connect:
             plot_data(args, ax, s.x, x_edges=s.x_edges, y=s.y, plot_type="step", linestyle=linestyle, **common, **fill, **lw)
         elif s.comparable is not None:
@@ -499,9 +504,11 @@ def draw_series(ax, s, args, plot_type=None, stack_bottom=None, dodge_shift=0.0)
         else:
             plot_data(args, ax, s.x, y=s.y, plot_type="line", linestyle=linestyle, **common, **_error_kwargs(s, args), **lw)
     elif plot_type == "step":
-        plot_data(args, ax, s.x, x_edges=s.x_edges, y=s.y, plot_type="step", linestyle=linestyle, **common, **fill, **lw)
+        plot_data(args, ax, s.x, x_edges=s.x_edges, y=s.y, plot_type="step", linestyle=linestyle, **common, **fill,
+                  **_error_kwargs(s, args), **lw)
     elif plot_type == "stepmid":
-        plot_data(args, ax, s.x, y=s.y, plot_type="plot", drawstyle="steps-mid", linestyle=linestyle, **common, **fill, **lw)
+        plot_data(args, ax, s.x, y=s.y, plot_type="plot", drawstyle="steps-mid", linestyle=linestyle, **common, **fill,
+                  **_error_kwargs(s, args), **lw)
     elif plot_type == "errorbar":
         x = s.x
         if dodge_shift:
@@ -509,8 +516,8 @@ def draw_series(ax, s, args, plot_type=None, stack_bottom=None, dodge_shift=0.0)
         xerr = None
         if args.errory_x and s.x_edges is not None:
             xerr = np.diff(s.x_edges) / 2
-        error = s.error if args.errory or getattr(s, "show_error", False) else None
-        plot_data(args, ax, x, y=s.y, errory=error, errorx=xerr, plot_type="errorbar", fmt="o", linestyle=linestyle, **common)
+        plot_data(args, ax, x, y=s.y, errorx=xerr, plot_type="errorbar", fmt="o", linestyle=linestyle, **common,
+                  **_error_kwargs(s, args))
     elif plot_type == "scatter":
         plot_data(args, ax, s.x, y=s.y, errory=s.error, plot_type="scatter", fmt="o", **common)
     elif plot_type in ("bar", "barh"):

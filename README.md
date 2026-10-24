@@ -82,6 +82,11 @@ Kinds follow the data relationship (as in seaborn/plotly), not the use case.
   `--sum_color`, `--reference_sum_color`, default: a free colour) never
   share one. With more values than colours, colours repeat and a warning
   is printed.
+* **Errors**: `--errory` draws the `{y}Error` (or `{y}Error+/-`) column as
+  a band for `--plot_type line|step` and as bars on points;
+  `--errory_type bars|bands` picks either for any plot type. The band takes
+  the series colour at `plot_settings.band_alpha` (default 0.2). Points
+  with error bars are not joined unless `--connect` is given.
 * **Axes and overlays**: `--labelx/--labely/--labelz`, `--rangex/--rangey`,
   `--logx/--logy`, `--horizontal`, `--vertical`, `--point`, `--square`,
   `--line`, `--xtick`, `--note`, `--title`.
@@ -194,7 +199,7 @@ default_operation = "mean"
 **Style files** (JSON) are merged over the defaults
 (`src/plotipus/data/style.json`): `palette` (a `--palette` name; an
 `axes.prop_cycle` in `rcparams` is kept when `palette` is absent), `rcparams`, `font_sizes`, `plot_settings`
-(figure layout, legend and note style; `"auto_title": false` drops the
+(figure layout, legend and note style, `band_alpha` for error bands; `"auto_title": false` drops the
 title taken from the datafile name), `labels` (capitalisation exceptions,
 legend titles to drop, title short forms) and `mappings` (named
 label/colour dictionaries used by the `*_mapping` options).

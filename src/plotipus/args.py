@@ -712,10 +712,11 @@ COMMON_ARG_SPECS = {
         "flags": ["--errory_type"],
         "kwargs": {
             "type": str,
-            "default": "bars",
+            "default": None,
             "choices": ["bars", "bands"],
             "help": "Style of y-axis error display: 'bars' (errorbar) or 'bands' "
-            "(shaded fill_between)",
+            "(shaded fill_between) (default: bands for --plot_type line/step, "
+            "bars for points)",
         },
     },
 }

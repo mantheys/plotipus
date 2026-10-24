@@ -36,15 +36,15 @@ command lists.
 |---|---|---|---|
 | A Distributions | 4 | 3 | 5 |
 | B Relationships | 5 | 2 | 2 |
-| C Trends and fits | 3 | 5 | 2 |
+| C Trends and fits | 4 | 4 | 2 |
 | D Comparisons | 1 | 4 | 4 |
 | E Ratios and significance | 4 | 3 | 1 |
 | F ML diagnostics | 4 | 2 | 1 |
-| G Uncertainty | 1 | 4 | 4 |
+| G Uncertainty | 2 | 3 | 4 |
 | H Small multiples and layout | 2 | 2 | 4 |
 | I Annotations | 5 | 2 | 3 |
 | J Tables | 4 | 1 | 2 |
-| **Total (89)** | **33** | **28** | **28** |
+| **Total (89)** | **35** | **26** | **28** |
 
 Nearly half of the ◐ entries are partial only because of a bug in
 [bugs.md](bugs.md), not because an option is missing. Fixing B01–B13 moves
@@ -74,7 +74,7 @@ about 12 of them to ✅.
 | id | chart | use | famous | status | command today / what is missing | smallest change |
 |---|---|---|---|---|---|---|
 | B1 | Scatter | raw relation | F08, F22, F25 | ◐ | `scatter --datafile Events -x TrueEnergy -y Hits --colorby RecoEnergy` (example) works. With `--hue` on array cells only the first group is drawn (B12, P16). | Fix B12. |
-| B2 | Scatter with error bars | measurements with uncertainties | F08, F09, F20 | ✅ | `line --plot_type errorbar --errory` (with `--errorx` for x errors; P03, P04). Points are joined by lines unless the plot style is reset (B17). | — |
+| B2 | Scatter with error bars | measurements with uncertainties | F08, F09, F20 | ✅ | `line --plot_type errorbar --errory` (with `--errorx` for x errors; P03, P04). Points are not joined unless `--connect` is given (B17, fixed in T07). | — |
 | B3 | Scatter coloured / sized by a third variable | 3–4 variables at once | F22 | ✅ | `scatter ... --colorby RecoEnergy --sizeby Hits` (example). | — |
 | B4 | 2D histogram | dense scatter | F22 | ◐ | `map --datafile Events -x TrueEnergy -y RecoEnergy --iterable Sample --logz` (example). One shared, labelled colorbar (B08, fixed in T09). Panels are tiny in the 3-wide layout (P15). | Panel size (P15). |
 | B5 | Hexbin | dense scatter, smoother look | F22 | ✗ | — | `map --map_type hexbin` (`ax.hexbin`, same norms). |
@@ -88,7 +88,7 @@ about 12 of them to ✅.
 | id | chart | use | famous | status | command today / what is missing | smallest change |
 |---|---|---|---|---|---|---|
 | C1 | Lines, colour by hue, style by a second variable | several series vs x | F11, F13 | ✅ | `line ... --hue Sample --style Stage` (example 1). Past the palette, colours repeat with a warning (B02, fixed in T01); `--palette` picks the palette. | — |
-| C2 | Line with uncertainty band | curve ± σ | F14, F15 | ◐ | `line --errory --errory_type bands --plot_type line` (P09). Without `--plot_type line`, bars are drawn instead (B11). | Fix B11. |
+| C2 | Line with uncertainty band | curve ± σ | F14, F15 | ✅ | `line --errory --plot_type line` (bands are the default for lines and steps), or `--errory_type bands` with any plot type (P09; B11, fixed in T07). | — |
 | C3 | Stored fit over data with parameter box | publish a fit result | F06, F08, F19 | ✅ | `line --datafile Fit -x X -y Counts --fit --plot_type errorbar --errory` (P04). Fit colour hard-coded red (B13/B14). | — |
 | C4 | Fit with residual panel | fit quality | F01, F06, F07, F09 | ✅ | `... --fit --lower residual` (P04): (data−fit)/fit. This diverges in the tails (B13). | — |
 | C5 | Fit with pull panel | fit quality in σ | F01, F17 | ◐ | `--fit --lower pull` is accepted but draws the residual (B13). Without `--fit`, `--lower pull` works against stored models. | Fix B13. |
@@ -122,7 +122,7 @@ about 12 of them to ✅.
 | E4 | Several lower panels | ratio and difference together | F01 | ✅ | `--lower ratio --lower relative_difference` (Q6). | — |
 | E5 | S/√B or significance panel | optimisation | — | ✅ | `--lower group --reference_group signal --other_group ... --group_significance` (example 3). The panel's legend repeats the formula as raw text. | — |
 | E6 | Residual relative to a named model component | bump over background | F01, F09 | ◐ | `--lower subtract --reference_value bkg` works for stored curves, but not against a component of a stored fit. | `--lower residual:COMPONENT`. |
-| E7 | Local p0 scan with σ reference lines | discovery significance | F04 | ◐ | `line --logy --hue Kind --horizontal ...`; the σ lines have no right-margin labels, and the expected-curve band has B11. | `--sigma_lines 1 2 3 4 5` (p-values of nσ, labelled on the right). |
+| E7 | Local p0 scan with σ reference lines | discovery significance | F04 | ◐ | `line --logy --hue Kind --horizontal ...`; the σ lines have no right-margin labels, and the expected-curve band works (B11, fixed in T07). | `--sigma_lines 1 2 3 4 5` (p-values of nσ, labelled on the right). |
 | E8 | Pull distribution | fit validation | — | ✗ | Needs pulls computed upstream, then `hist`. | `hist --overlay_gaussian` (unit normal for comparison). |
 
 ## F. Machine-learning diagnostics
@@ -146,7 +146,7 @@ All curves are precomputed by the analysis (plotipus does not fit or score).
 | G1 | Symmetric / asymmetric error bars | measurements | F07, F09 | ✅ | `--errory` with `{y}Error`, or `{y}Error+`/`{y}Error-` columns. | — |
 | G2 | Computed Poisson (Garwood) intervals | low counts | F03, F16 | ✗ | Only stored errors are drawn. | `--errory_type poisson` (Garwood from counts, sumw2 when weighted), default for `-y Counts`. |
 | G3 | Efficiency intervals in plots | bounded efficiencies | — | ◐ | `table --clopper_pearson` exists; plots need precomputed `Error+/-`. | `line --errory_type clopper_pearson --count_column N` (reuse the table code). |
-| G4 | Single band around a curve | systematic band | F14 | ◐ | B11; band colour fixed to the series at alpha 0.2. | Fix B11. |
+| G4 | Single band around a curve | systematic band | F14 | ✅ | `line --errory --errory_type bands` (B11, fixed in T07); series colour at `plot_settings.band_alpha` (default 0.2). | — |
 | G5 | Nested ±1σ/±2σ bands (Brazil plot) | expected limits | F02, F04, F05 | ✗ | One band per series only. | `--errory_column LimitErr1 LimitErr2` (one band per column, darker inside), with `--band_colors brazil`. |
 | G6 | Hatched systematic band on a stack total | MC uncertainty | F03 | ✗ | — | Part of E3 (`--stack_total_error --error_hatch ////`). |
 | G7 | 1D likelihood scan with Δχ² = 1, 4 lines | parameter intervals | — | ◐ | `line --datafile Scan -x Mu -y DeltaNLL --horizontal 1 4 --horizontal_label 1σ 2σ` (P07). Points are drawn as markers, and the labels are misplaced (one left, one right). | Consistent right-edge labels for `--horizontal`. |

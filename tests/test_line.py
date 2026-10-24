@@ -1,7 +1,9 @@
 import numpy as np
 import pandas as pd
 import pytest
+from matplotlib.collections import PolyCollection
 from matplotlib.colors import to_hex
+from matplotlib.container import ErrorbarContainer
 from matplotlib.legend import Legend
 
 from plotipus.kinds import line
@@ -167,3 +169,104 @@ def test_hue_and_style_on_one_column_past_the_palette(make_project):
     line.main(["--datafile", "ManyHue", "-x", "X", "-y", "Y", "--hue", "Run", "--style", "Run", "--plot_type", "line"])
     pairs = _line_colors(figures[0].axes[0])
     assert len(pairs) == 12 and len(set(pairs.values())) == 12
+
+
+# --- Error display (T07) --------------------------------------------------------------
+
+
+@pytest.fixture
+def limits():
+    mass = np.linspace(110, 600, 20)
+    median = 0.6 + 0.002 * (mass - 110)
+    return pd.DataFrame([{"Mass": mass, "Limit": median, "LimitError": 0.3 * median, "Kind": "expected", "Variable": "L"},
+                         {"Mass": mass, "Limit": median * 1.1, "Kind": "observed", "Variable": "L"}])
+
+
+def _bands(ax):
+    return [c for c in ax.collections if isinstance(c, PolyCollection) and len(c.get_paths())]
+
+
+def _errorbars(ax):
+    return [c for c in ax.containers if isinstance(c, ErrorbarContainer)]
+
+
+def test_bands_without_plot_type(make_project, limits):
+    make_project({"Limits": limits})
+    figures = _capture()
+    line.main(["--datafile", "Limits", "-x", "Mass", "-y", "Limit", "--hue", "Kind", "--errory", "--errory_type", "bands",
+               "--logy"])
+    ax = figures[0].axes[0]
+    assert not _errorbars(ax)
+    bands = _bands(ax)
+    assert len(bands) == 1
+    expected = next(l for l in ax.get_lines() if l.get_label() == "expected")
+    assert to_hex(bands[0].get_facecolor()[0]) == to_hex(expected.get_color())
+    assert bands[0].get_alpha() == pytest.approx(0.2)
+    assert len(bands[0].get_edgecolor()) == 0 or bands[0].get_edgecolor()[0][3] == 0
+
+
+def test_band_default_for_line_and_step(make_project, spectra):
+    for plot_type in ("line", "step"):
+        figures = _capture()
+        run(make_project, spectra, "--hue", "Sample", "--select", "Stage", "-s", "Raw", "--errory",
+            "--plot_type", plot_type)
+        ax = figures[0].axes[0]
+        assert len(_bands(ax)) == 3 and not _errorbars(ax)
+
+
+def test_step_band_covers_the_bins(make_project, spectra):
+    figures = _capture()
+    run(make_project, spectra, "--hue", "Sample", "--select", "Stage", "-s", "Raw", "--errory", "--plot_type", "step")
+    xs = _bands(figures[0].axes[0])[0].get_paths()[0].vertices[:, 0]
+    assert xs.min() == pytest.approx(0.0) and xs.max() == pytest.approx(10.0)
+
+
+def test_bars_on_a_line_kept(make_project, spectra):
+    figures = _capture()
+    run(make_project, spectra, "--hue", "Sample", "--select", "Stage", "-s", "Raw", "--errory",
+        "--errory_type", "bars", "--plot_type", "line")
+    ax = figures[0].axes[0]
+    containers = _errorbars(ax)
+    assert len(containers) == 3 and not _bands(ax)
+    assert containers[0].lines[0].get_linestyle() == "-"
+
+
+def test_band_alpha_from_style(make_project, spectra, tmp_path):
+    (tmp_path / "style.json").write_text('{"plot_settings": {"band_alpha": 0.35}}')
+    make_project({"Spectra": spectra}, 'style = ["style.json"]\n')
+    figures = _capture()
+    line.main(["--datafile", "Spectra", "-x", "Energy", "-y", "Counts", "--hue", "Sample", "--select", "Stage",
+               "-s", "Raw", "--errory", "--plot_type", "line"])
+    assert [b.get_alpha() for b in _bands(figures[0].axes[0])] == [pytest.approx(0.35)] * 3
+
+
+def _resolution_events():
+    rng = np.random.default_rng(3)
+    rows = []
+    for sample in ("signal", "background"):
+        true = rng.uniform(1, 30, 2000)
+        reco = true * rng.normal(1, 0.1, true.size)
+        rows.append({"TrueEnergy": true, "Resolution": (reco - true) / true, "Sample": sample, "Variable": "Energy"})
+    return pd.DataFrame(rows)
+
+
+@pytest.mark.parametrize("connect", [False, True])
+def test_errorbar_points_not_joined(make_project, connect):
+    make_project({"Events": _resolution_events()})
+    figures = _capture()
+    line.main(["--datafile", "Events", "-x", "TrueEnergy", "-y", "Resolution", "--hue", "Sample", "--binned",
+               "--estimator", "mean", "--bins", "15", "--plot_type", "errorbar", *(["--connect"] if connect else [])])
+    containers = _errorbars(figures[0].axes[0])
+    assert len(containers) == 2
+    assert {c.lines[0].get_linestyle() for c in containers} == ({"-"} if connect else {"None"})
+
+
+@pytest.mark.parametrize("argv, linestyle", [([], "None"), (["--plot_type", "errorbar"], "None"),
+                                             (["--connect"], "-")])
+def test_errorbars_on_points(make_project, spectra, argv, linestyle):
+    figures = _capture()
+    run(make_project, spectra, "--hue", "Sample", "--select", "Stage", "-s", "Raw", "--errory", *argv)
+    containers = _errorbars(figures[0].axes[0])
+    assert len(containers) == 3 and not _bands(figures[0].axes[0])
+    assert {c.lines[0].get_linestyle() for c in containers} == {linestyle}
+    assert all(c.has_yerr for c in containers)

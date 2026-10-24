@@ -657,6 +657,38 @@ def probe_legend_box(ax, renderer, loc, with_entries=False, **legend_kwargs):
     return box
 
 
+# Plot types whose y errors follow --errory_type (bar charts and scatter
+# points keep their own error bars).
+_ERROR_PLOT_TYPES = ("line", "step", "plot", "errorbar")
+
+
+def errory_type(args, plot_type):
+    """--errory_type, or its default for the plot type: bands for lines and
+    steps, bars for points."""
+    selected = getattr(args, "errory_type", None)
+    if selected is not None:
+        return selected
+    return "bars" if plot_type in ("errorbar", "scatter") else "bands"
+
+
+def _draw_band(ax, x, x_edges, y, errory, color, plot_type, drawstyle=None):
+    """Shade y ± errory (1-D symmetric, or 2xN lower/upper) in the series
+    colour: stepwise across the bins for steps."""
+    y = np.asarray(y, dtype=float)
+    errory = np.asarray(errory, dtype=float)
+    low, high = (y - errory, y + errory) if errory.ndim == 1 else (y - errory[0], y + errory[1])
+    band = dict(color=color, alpha=_style.band_alpha, edgecolor="none", linewidth=0)
+    if plot_type == "step" and x_edges is not None and len(x_edges) == len(y) + 1:
+        ax.fill_between(np.asarray(x_edges, dtype=float), np.append(low, low[-1]), np.append(high, high[-1]),
+                        step="post", **band)
+    elif plot_type == "step":
+        ax.fill_between(x, low, high, step="mid", **band)
+    elif drawstyle in ("steps", "steps-pre", "steps-mid", "steps-post"):
+        ax.fill_between(x, low, high, step=drawstyle.partition("-")[2] or "pre", **band)
+    else:
+        ax.fill_between(x, low, high, **band)
+
+
 def plot_data(
     args,
     ax,
@@ -690,6 +722,21 @@ def plot_data(
     )
     resolved_plot_style = _resolve_plot_style(selected_plot_style)
 
+    # The error type is resolved before the plot type: a band (or bars on a
+    # step) is drawn here, in the series colour, and the branch below draws
+    # the central line, step or points.
+    if errory is not None and plot_type in _ERROR_PLOT_TYPES:
+        bands = errory_type(args, plot_type) == "bands"
+        if bands or plot_type in ("step", "plot"):
+            if color is None:
+                color = ax._get_lines.get_next_color()
+            if bands:
+                _draw_band(ax, x, x_edges, y, errory, color, plot_type, kwargs.get("drawstyle"))
+            else:
+                ax.errorbar(x, y, yerr=errory, fmt="none", color=color,
+                            linewidth=kwargs.get("linewidth", _style.default_linewidth))
+            errory = None
+
     if plot_type == "scatter":
         kwargs.setdefault("linewidth", _style.default_linewidth)
         ax.errorbar(
@@ -705,19 +752,7 @@ def plot_data(
 
     if plot_type == "line":
         kwargs.setdefault("linewidth", _style.default_linewidth)
-        if errory is not None and getattr(args, "errory_type", None) == "bands":
-            plot_kwargs = dict(kwargs)
-            _apply_plot_style(plot_kwargs, resolved_plot_style)
-            ax.plot(x, y, label=label, color=color, **plot_kwargs)
-            ax.fill_between(
-                x,
-                y - errory if errory_sym == "symmetric" else y - errory[0],
-                y + errory if errory_sym == "symmetric" else y + errory[1],
-                color=color,
-                alpha=0.2,
-                edgecolor="none",
-            )
-        elif errory is not None and getattr(args, "errory_type", None) == "bars":
+        if errory is not None:
             errorbar_kwargs = dict(kwargs)
             _apply_plot_style(errorbar_kwargs, resolved_plot_style)
             ax.errorbar(
@@ -819,7 +854,8 @@ def plot_data(
     if plot_type == "errorbar":
         errorbar_kwargs = dict(kwargs)
         errorbar_kwargs.setdefault("linewidth", _style.default_linewidth)
-        _apply_plot_style(errorbar_kwargs, resolved_plot_style)
+        # Measured points are not joined unless --connect is given.
+        _apply_plot_style(errorbar_kwargs, resolved_plot_style if getattr(args, "connect", False) else "none")
         return ax.errorbar(
             x,
             y,
