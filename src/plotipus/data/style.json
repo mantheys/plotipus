@@ -43,9 +43,9 @@
       "fontsize": "large",
       "bbox": {
         "boxstyle": "round,pad=0.5",
-        "facecolor": "white",
+        "facecolor": "role:paper",
         "alpha": 0.8,
-        "edgecolor": "gray",
+        "edgecolor": "role:muted",
         "linewidth": 0.5
       }
     }

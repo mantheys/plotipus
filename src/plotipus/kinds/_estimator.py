@@ -283,7 +283,7 @@ def _compact_figure(df, args, kdx, config, name):
             tick_positions.append(tick - lo + offset)
             tick_labels.append(str(int(round(tick))) if integer else f"{tick:g}")
         if pidx > 0:
-            ax.axvline(offset, color="black", linewidth=1.4, zorder=10)
+            ax.axvline(offset, color=style.role("ink"), linewidth=1.4, zorder=10)
 
         vertical = args.panel_vertical
         if vertical is not None and vertical[pidx] is not None:
@@ -298,7 +298,7 @@ def _compact_figure(df, args, kdx, config, name):
             )
         horizontal = args.panel_horizontal
         if horizontal is not None and horizontal[pidx] is not None:
-            color = args.panel_horizontal_color[pidx] if args.panel_horizontal_color is not None else "gray"
+            color = args.panel_horizontal_color[pidx] if args.panel_horizontal_color is not None else style.role("muted")
             line_style = args.panel_horizontal_style[pidx] if args.panel_horizontal_style is not None else "--"
             # Only this panel's segment of the shared axis.
             ax.hlines(horizontal[pidx], offset, offset + widths[pidx], colors=color, linestyles=line_style,

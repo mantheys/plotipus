@@ -5,16 +5,25 @@ The settings live as module attributes (``style.titlefontsize``,
 project can change them once with :func:`configure` before plotting.
 
 A style file is JSON with the sections ``rcparams``, ``font_sizes``,
-``plot_settings`` and ``mappings`` (label/colour dictionaries addressed by
-name from ``--iterable_mapping`` and friends), and the key ``palette`` (a
-name from :mod:`plotipus.palettes`, default ``petroff10``). Every section is optional and
-merged over the defaults shipped in ``plotipus/data/style.json``.
+``plot_settings``, ``roles`` and ``mappings`` (label/colour dictionaries addressed by
+name from ``--iterable_mapping`` and friends), and the keys ``palette`` (a
+name from :mod:`plotipus.palettes`, default ``petroff10``) and ``mplstyle``
+(matplotlib style files, relative to the style file, or style names; applied
+before the file's ``rcparams``). Every section is optional and merged over the
+defaults shipped in ``plotipus/data/style.json``.
+
+Colours that are not data colours come from the ``roles`` (see :func:`role`):
+``ink`` (text, data points, fit and reference lines), ``muted`` (guides),
+``faint`` (pull bands, grids), ``paper`` (background, outlines on images) and
+``accent`` (highlights). Mapping colours may name one as ``"role:ink"``.
 """
 
 import copy
 import json
 from pathlib import Path
 
+import matplotlib
+import matplotlib.colors as mcolors
 import matplotlib.pyplot as plt
 
 from . import palettes
@@ -27,9 +36,9 @@ _FALLBACK_NOTE_STYLE = {
     "fontsize": "large",
     "bbox": {
         "boxstyle": "round,pad=0.5",
-        "facecolor": "white",
+        "facecolor": "role:paper",
         "alpha": 0.8,
-        "edgecolor": "gray",
+        "edgecolor": "role:muted",
         "linewidth": 0.5,
     },
 }
@@ -44,6 +53,11 @@ _FALLBACK_MARGINS_INCHES = {
 
 # Current configuration (merged defaults + user files).
 _CONFIG = {}
+
+ROLES = ("ink", "muted", "faint", "paper", "accent")
+# Share of ink mixed into paper for the derived roles.
+_ROLE_INK_SHARE = {"muted": 0.5, "faint": 0.1}
+_DEFAULT_ACCENT = "#bd1f01"  # the red of petroff10
 
 # Label conventions a project can tune (empty by default):
 #   capitalize_exceptions: word -> display form used by --capitalize_legend
@@ -69,6 +83,83 @@ def _deep_merge(base, update):
         else:
             merged[key] = copy.deepcopy(value)
     return merged
+
+
+def _mplstyle_rcparams(entries, base_dir):
+    """rcParams set by ``plt.style.use(entries)`` over the current ones.
+
+    ``entries`` is a path, a style name, or a list of them; a path is
+    relative to ``base_dir`` (the style file's folder)."""
+    if isinstance(entries, (str, Path)):
+        entries = [entries]
+    resolved = []
+    for entry in entries:
+        candidate = Path(base_dir, Path(entry).expanduser())
+        resolved.append(str(candidate) if candidate.is_file() else entry)
+    before = dict(plt.rcParams)
+    with matplotlib.rc_context():
+        plt.style.use(resolved)
+        after = dict(plt.rcParams)
+    return {key: value for key, value in after.items() if before.get(key) != value}
+
+
+def _expand_mplstyle(config, base_dir):
+    """``config`` with its ``mplstyle`` key folded into ``rcparams`` (under the
+    file's own rcparams, so they win), so that later files override it."""
+    entries = config.get("mplstyle")
+    if not entries:
+        return config
+    config = dict(config)
+    config.pop("mplstyle")
+    config["rcparams"] = {**_mplstyle_rcparams(entries, base_dir), **config.get("rcparams", {})}
+    return config
+
+
+def _as_color(value):
+    """A style colour: matplotlib colours, ``rgb(...)``, hex without ``#``."""
+    value = resolve_mapped_color(value)
+    if isinstance(value, str) and not mcolors.is_color_like(value) and mcolors.is_color_like("#" + value):
+        return "#" + value
+    return value
+
+
+def _mix(color, other, share):
+    """``share`` of ``color`` mixed into ``other``, as a hex string."""
+    a, b = mcolors.to_rgb(color), mcolors.to_rgb(other)
+    return mcolors.to_hex([share * x + (1 - share) * y for x, y in zip(a, b)])
+
+
+def role(name):
+    """The colour of role ``name`` (one of :data:`ROLES`).
+
+    From the style's ``roles`` section; otherwise derived from the current
+    rcParams: ``ink`` is ``text.color``, ``paper`` is ``axes.facecolor``,
+    ``muted`` and ``faint`` are mixes of the two."""
+    if name not in ROLES:
+        raise ValueError(f"Unknown colour role '{name}' (expected one of {', '.join(ROLES)}).")
+    configured = (_CONFIG.get("roles") or {}).get(name)
+    if configured is not None:
+        return _as_color(configured)
+    if name == "ink":
+        return plt.rcParams["text.color"]
+    if name == "paper":
+        paper = plt.rcParams["axes.facecolor"]
+        return plt.rcParams["figure.facecolor"] if mcolors.to_rgba(paper)[3] == 0 else paper
+    if name == "accent":
+        return _DEFAULT_ACCENT
+    return _mix(role("ink"), role("paper"), _ROLE_INK_SHARE[name])
+
+
+def role_colors(value):
+    """``value`` with every ``"role:NAME"`` string (also inside dicts and
+    lists, e.g. a legend or note style) replaced by the role's colour."""
+    if isinstance(value, dict):
+        return {key: role_colors(item) for key, item in value.items()}
+    if isinstance(value, list):
+        return [role_colors(item) for item in value]
+    if isinstance(value, str) and value.strip().startswith("role:"):
+        return role(value.strip()[len("role:"):].strip())
+    return value
 
 
 def _publish():
@@ -148,14 +239,21 @@ def reset():
 def configure(config=None, **sections):
     """Merge a style file (path), a dict, and/or keyword sections over the
     current settings, e.g. ``configure("style.json")`` or
-    ``configure(font_sizes={"titlefontsize": "large"})``."""
+    ``configure(font_sizes={"titlefontsize": "large"})``. A ``.mplstyle``
+    path is applied as ``{"mplstyle": path}``; relative ``mplstyle`` paths
+    resolve against the style file's folder (the working directory for a
+    dict)."""
     global _CONFIG
     if config is not None:
+        base_dir = Path.cwd()
         if not isinstance(config, dict):
-            config = _load_json(Path(config).expanduser())
-        _CONFIG = _deep_merge(_CONFIG, config)
+            path = Path(config).expanduser()
+            # A bare .mplstyle file is a style file with only that key.
+            config = {"mplstyle": str(path)} if path.suffix == ".mplstyle" else _load_json(path)
+            base_dir = path.parent
+        _CONFIG = _deep_merge(_CONFIG, _expand_mplstyle(config, base_dir))
     if sections:
-        _CONFIG = _deep_merge(_CONFIG, sections)
+        _CONFIG = _deep_merge(_CONFIG, _expand_mplstyle(sections, Path.cwd()))
     _publish()
 
 
@@ -178,11 +276,14 @@ def get_mapping_dict(mapping_name):
 
 
 def resolve_mapped_color(color_value):
-    """Accept matplotlib colours plus ``rgb(r,g,b)`` strings (0-1 or 0-255)."""
+    """Accept matplotlib colours plus ``rgb(r,g,b)`` strings (0-1 or 0-255)
+    and roles (``role:ink``)."""
     if color_value is None or not isinstance(color_value, str):
         return color_value
 
     stripped = color_value.strip()
+    if stripped.startswith("role:"):
+        return role(stripped[len("role:"):].strip())
     if stripped.lower().startswith("rgb(") and stripped.endswith(")"):
         channels = stripped[4:-1].split(",")
         if len(channels) != 3:

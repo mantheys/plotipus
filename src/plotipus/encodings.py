@@ -7,7 +7,7 @@ Two columns encode the series of a plot:
   see :class:`plotipus.palettes.ColorAllocator`).
 * ``--comparable`` / ``--style``: one line style per value (or, with
   ``--comparable_fill_strength``, one fill opacity), explained by a second,
-  black legend.
+  ink-coloured legend.
 
 ``--invert_style`` swaps the two roles. :func:`draw_legends` places the
 primary (colour) legend and the secondary (style) legend where they cover the
@@ -235,7 +235,7 @@ def draw_legends(
         # Fill-strength mode: show each colour as a filled swatch.
         def _swatch(handle):
             getter = getattr(handle, "get_edgecolor", None) or getattr(handle, "get_color", None)
-            color = getter() if getter else "black"
+            color = getter() if getter else style.role("ink")
             if isinstance(color, (list, tuple, np.ndarray)) and len(color) and isinstance(color[0], (list, tuple, np.ndarray)):
                 color = color[0]
             rgb = matplotlib.colors.to_rgb(color)
@@ -265,8 +265,8 @@ def draw_legends(
         if alpha_map:
             proxies = [
                 mpatches.Patch(
-                    facecolor=(0.5, 0.5, 0.5, alpha),
-                    edgecolor="black",
+                    facecolor=matplotlib.colors.to_rgba(style.role("muted"), alpha),
+                    edgecolor=style.role("ink"),
                     linewidth=widths[i] if len(widths) == len(alpha_map) else 1.0,
                 )
                 for i, alpha in enumerate(alpha_map.values())
@@ -274,7 +274,7 @@ def draw_legends(
             secondary_labels = list(alpha_map.keys())
         else:
             proxies = [
-                mlines.Line2D([], [], color="black", linestyle=line_style,
+                mlines.Line2D([], [], color=style.role("ink"), linestyle=line_style,
                               linewidth=widths[i] if len(widths) == len(style_map) else 1.5)
                 for i, line_style in enumerate(style_map.values())
             ]

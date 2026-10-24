@@ -235,7 +235,9 @@ def build_parser():
         help="Group comparison only for this style value.")
     add("--lower_label_mapping", type=str, default=None,
         help="Mapping renaming the default lower label (keyed by operation or column).")
-    add("--lower_zero_line", action="store_true", default=False, help="Red reference line at y=0 on lower panels.")
+    add("--lower_zero_line", action="store_true", default=False, help="Dashed reference line at y=0 on lower panels.")
+    add("--lower_zero_color", type=str, default=None,
+        help="Colour of the y=0 lines of lower panels (default: the style's muted role; 'red' restores the old look).")
     add("--lower_log_format", choices=["scientific", "plain"], default=None)
     add("--lower_legend_loc", type=str, default=None)
     add("--no_lower_legend", action="store_true", default=False)
@@ -917,7 +919,7 @@ def _finish_lower(ax, spec, args, label, has_content):
     if getattr(args, "logx", False):
         ax.set_xscale("log")
     if args.lower_zero_line:
-        ax.axhline(y=0, color="r", zorder=-1)
+        ax.axhline(y=0, color=args.lower_zero_color or style.role("muted"), linestyle="--", zorder=-1)
     draw_horizontal_overlay(ax, args, prefix="lower_")
     if args.vertical:
         from ..plot import draw_vertical_lines
@@ -989,7 +991,7 @@ def _finish_upper(fig, upper, lower, drawn, rows, args, variables, last_x, hue_v
 
         if args.y == "Efficiency" or args.labely == "Efficiency (%)":
             ax.set_ylim(0, 105)
-            ax.axhline(100, color="gray", linestyle="--", linewidth=1)
+            ax.axhline(100, color=style.role("muted"), linestyle="--", linewidth=1)
         apply_axis_options(ax, args)
         for lower_ax in lower[idx]:
             if args.rangex is not None:
@@ -1015,11 +1017,11 @@ def _finish_upper(fig, upper, lower, drawn, rows, args, variables, last_x, hue_v
             if len(values):
                 mean, std = float(np.mean(values)), float(np.std(values))
                 decimals = max(0, 1 - int(np.floor(np.log10(std)))) if std > 0 else 2
-                ax.axhspan(mean - std, mean + std, color="gray", alpha=0.2, linewidth=0, zorder=0)
+                ax.axhspan(mean - std, mean + std, color=style.role("muted"), alpha=0.2, linewidth=0, zorder=0)
                 from ..plot import draw_horizontal_lines
 
                 draw_horizontal_lines(ax, [mean], labels=[f"Average {mean:.{decimals}f} $\\pm$ {std:.{decimals}f}"],
-                                      styles=["--"], colors=["gray"], fontsize=style.linelabelfontsize)
+                                      styles=["--"], colors=[style.role("muted")], fontsize=style.linelabelfontsize)
         vertical = vertical_per_variable.get(variable) if vertical_per_variable and variable in vertical_per_variable else None
         draw_overlays(ax, args, vertical=vertical)
 
@@ -1309,7 +1311,7 @@ def run_by_config(df, args):
             ax.set_xlim(args.rangex[0], args.rangex[1])
         if args.y == "Efficiency":
             ax.set_ylim(0, 110)
-            ax.axhline(100, color="gray", linestyle="--", linewidth=1)
+            ax.axhline(100, color=style.role("muted"), linestyle="--", linewidth=1)
         elif args.y == "RMS":
             ax.set_ylim(0, 0.5)
         if args.rangey is not None:

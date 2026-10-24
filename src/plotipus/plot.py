@@ -245,8 +245,8 @@ _LEGEND_FRAME = {}
 
 
 def enable_legend_frame(alpha=0.8):
-    """Draw every following legend on a translucent white box (--legend_frame)."""
-    _LEGEND_FRAME.update(frameon=True, facecolor="white", edgecolor="none", framealpha=alpha)
+    """Draw every following legend on a translucent paper-coloured box (--legend_frame)."""
+    _LEGEND_FRAME.update(frameon=True, facecolor="role:paper", edgecolor="none", framealpha=alpha)
 
 
 def apply_legend_style(
@@ -269,6 +269,7 @@ def apply_legend_style(
     style.update(_LEGEND_FRAME)
 
     style.update(overrides)
+    style = _style.role_colors(style)
     if is_redundant_legend_title(style.get("title")):
         style.pop("title")
 
@@ -895,13 +896,13 @@ def add_note_to_axes(ax, note_text, fontsize=None):
     text_str = str(note_text).strip()
     
     # Get note style from config
-    note_cfg = _style.note_style if isinstance(_style.note_style, dict) else {}
+    note_cfg = _style.role_colors(_style.note_style) if isinstance(_style.note_style, dict) else {}
     configured_fontsize = note_cfg.get("fontsize", "large")
     bbox_cfg = note_cfg.get("bbox", {
         "boxstyle": "round,pad=0.5",
-        "facecolor": "white",
+        "facecolor": _style.role("paper"),
         "alpha": 0.8,
-        "edgecolor": "gray",
+        "edgecolor": _style.role("muted"),
         "linewidth": 0.5,
     })
     
@@ -1143,7 +1144,7 @@ def draw_vertical_lines(ax, values, labels=None, styles=None, colors=None, fonts
 
     avoid_boxes = []
     for i, v in enumerate(vals):
-        color = _ref_line_get(colors, i, "gray")
+        color = _ref_line_get(colors, i, _style.role("muted"))
         style = _ref_line_get(styles, i, "--")
         label = _ref_line_get(labels, i, None) if labels is not None else None
         xlim = ax.get_xlim()
@@ -1175,7 +1176,7 @@ def draw_horizontal_lines(ax, values, labels=None, styles=None, colors=None, fon
 
     avoid_boxes = []
     for i, v in enumerate(vals):
-        color = _ref_line_get(colors, i, "gray")
+        color = _ref_line_get(colors, i, _style.role("muted"))
         style = _ref_line_get(styles, i, "--")
         label = _ref_line_get(labels, i, None) if labels is not None else None
         ylim = ax.get_ylim()
@@ -1203,7 +1204,7 @@ def draw_squares(ax, quads, labels=None, styles=None, colors=None, fontsize=None
     quads = list(quads)
 
     for i, (x1, y1, x2, y2) in enumerate(quads):
-        color = _ref_line_get(colors, i, "gray")
+        color = _ref_line_get(colors, i, _style.role("muted"))
         style = _ref_line_get(styles, i, "-")
         label = _ref_line_get(labels, i, None) if labels is not None else None
 
@@ -1256,7 +1257,7 @@ def draw_lines(ax, segments, labels=None, styles=None, colors=None, fontsize=Non
     segments = list(segments)
 
     for i, (x1, y1, x2, y2) in enumerate(segments):
-        color = _ref_line_get(colors, i, "gray")
+        color = _ref_line_get(colors, i, _style.role("muted"))
         style = _ref_line_get(styles, i, "--")
         label = _ref_line_get(labels, i, None) if labels is not None else None
 
@@ -1321,7 +1322,7 @@ def _label_data_halfwidth(ax, axis, label, fontsize):
 
 
 def _draw_pointer_tick_label(
-    ax, axis, position, label, fontsize=None, height=0.09, color="black", side=None, edge=None
+    ax, axis, position, label, fontsize=None, height=0.09, color=None, side=None, edge=None
 ):
     """Draw a long tick-like arrow at `position` pointing at the axis, with
     `label` placed just beyond its tail (further out than a normal tick
@@ -1338,6 +1339,8 @@ def _draw_pointer_tick_label(
     """
     if fontsize is None:
         fontsize = _style.linelabelfontsize
+    if color is None:
+        color = _style.role("ink")
 
     text_gap = min(0.012, height * 0.25)
     tail_offset = height - text_gap
@@ -1785,7 +1788,7 @@ def place_vertical_label(ax, x_value, label_text, fontsize=None, pad_fraction=0.
         ha=ha,
         va="center",
         zorder=100,
-        bbox={"facecolor": "white", "alpha": 0.8, "edgecolor": "none"},
+        bbox={"facecolor": _style.role("paper"), "alpha": 0.8, "edgecolor": "none"},
     )
 
     return text_obj
@@ -1975,7 +1978,7 @@ def place_horizontal_label(ax, y_value, label_text, fontsize=None, pad_fraction=
         ha="center",
         va=va,
         zorder=100,
-        bbox={"facecolor": "white", "alpha": 0.8, "edgecolor": "none"},
+        bbox={"facecolor": _style.role("paper"), "alpha": 0.8, "edgecolor": "none"},
     )
 
     return text_obj
@@ -2014,7 +2017,7 @@ def place_point_label(ax, point_x, point_y, label_text, fontsize=None):
         ha="left",
         va="bottom",
         zorder=100,
-        bbox={"facecolor": "white", "alpha": 0.8, "edgecolor": "none"},
+        bbox={"facecolor": _style.role("paper"), "alpha": 0.8, "edgecolor": "none"},
     )
 
     return text_obj

@@ -3,9 +3,8 @@
     python docs/design/styles/render.py [candidate ...]   # e.g. paper open+slides
 
 Each candidate directory holds ``plotipus-<name>.mplstyle`` (rcParams) and
-``style.json`` (plotipus settings). plotipus has no style-file key for a
-.mplstyle yet, so its rcParams are copied into the ``rcparams`` section of
-the project style here. Outputs: ``<candidate>/png/NN_<slug>.png`` and
+``style.json`` (plotipus settings); the project style names the .mplstyle
+with the ``mplstyle`` key. Outputs: ``<candidate>/png/NN_<slug>.png`` and
 ``compare/NN_<slug>.png`` (current look, then each candidate).
 """
 
@@ -41,17 +40,6 @@ COMMANDS = {
 }
 
 
-def read_mplstyle(path):
-    """``key: value`` lines of a .mplstyle file, as strings rcParams validates."""
-    rc = {}
-    for line in path.read_text().splitlines():
-        line = line.split("#", 1)[0].strip()
-        if line:
-            key, value = line.split(":", 1)
-            rc[key.strip()] = value.strip()
-    return rc
-
-
 def project_style(candidate):
     """Merged project style of ``candidate`` (``base+overlay`` applies an overlay folder's style.json)."""
     candidate, *overlays = candidate.split("+")
@@ -59,7 +47,7 @@ def project_style(candidate):
         return json.loads((EXAMPLES / "style.json").read_text())
     folder = HERE / candidate
     merged = json.loads((folder / "style.json").read_text())
-    merged["rcparams"] = {**read_mplstyle(folder / f"plotipus-{candidate}.mplstyle"), **merged.get("rcparams", {})}
+    merged["mplstyle"] = str(folder / f"plotipus-{candidate}.mplstyle")
     merged["mappings"] = json.loads((EXAMPLES / "style.json").read_text())["mappings"]
     for overlay in overlays:
         merged = _deep_merge(merged, json.loads((HERE / overlay / "style.json").read_text()))

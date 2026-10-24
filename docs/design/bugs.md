@@ -331,6 +331,13 @@ lines), `muted` (guides and bands), `paper` (background), `accent`
 (highlight). Use them everywhere. ggplot2 4.0 does the same with
 `ink`/`paper`/`accent` (research Part 1 §2.4).
 
+**Fixed in T11.** style.json has a `roles` section (`ink`, `muted`, `faint`,
+`paper`, `accent`, derived from `text.color`/`axes.facecolor` when absent),
+exposed as `style.role(name)` and `"role:NAME"` in mappings, and an
+`mplstyle` key. Every literal above now uses a role; the red zero lines are
+`muted` dashed and the fit line is `ink`. Restore options:
+`--lower_zero_color red`, `--fit_color red`.
+
 ## B15 Layout in fixed inches clips labels
 
 **Reproduce:** in the current style, "Mean Resolution" in `B04` touches the

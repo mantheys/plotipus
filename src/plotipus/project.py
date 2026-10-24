@@ -9,6 +9,7 @@ working directory is the project root and every setting has its default::
     tables = "input/tables"
     output = "output"               # default output/plots, output/tables
     style = ["config/style.json"]   # style files merged over the defaults
+                                    # (.json, or a matplotlib .mplstyle)
     plugins = ["my_project.plotipus_plugin"]
     python_path = ["src"]           # added to sys.path before plugins load
 

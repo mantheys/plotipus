@@ -123,8 +123,8 @@ def build_parser():
     add("--combine_op", default=None, choices=["squared_sum"],
         help="Combine the maps bin by bin (delta-chi2 sum, or quadrature sum of significances).")
     add("--combined_contours_only", action="store_true", default=False, help="Draw only the combined contour.")
-    add("--combined_color", type=str, default="black",
-        help="Colour of the combined contour, or a palette: 'cycle' or a list/dict style mapping name.")
+    add("--combined_color", type=str, default=None,
+        help="Colour of the combined contour (default: the style's ink role), or a palette: 'cycle' or a list/dict style mapping name.")
     add("--combined_linestyle", type=str, default="-")
     add("--combined_linewidth", type=float, default=None)
     add("--combined_alpha", type=float, default=1.0)
@@ -254,7 +254,7 @@ def draw_histogram_figure(rows, args, kdx):
             cbar = fig.colorbar(hist[3], ax=ax)
 
         if args.diagonal:
-            ax.plot(x_range, x_range, color="k" if args.logz else "white", linestyle="--")
+            ax.plot(x_range, x_range, color=style.role("ink") if args.logz else style.role("paper"), linestyle="--")
             ax.set_xlim(ranges[0])
             ax.set_ylim(ranges[0])
 
@@ -772,7 +772,7 @@ def draw_contour_figure(df, args):
     colors.reserve([("config", cdx) for cdx in range(len(configs))],
                    lambda key: style.resolve_mapped_color(config_color.get(configs[key[1]])))
     matched = [None, None]
-    line_color = "k" if args.logz else "white"
+    line_color = style.role("ink") if args.logz else style.role("paper")
     for vdx, variable in enumerate(variables):
         for hdx, hue in enumerate(hues):
             panel_idx = vdx if args.variables is not None else hdx
@@ -826,7 +826,7 @@ def draw_contour_figure(df, args):
             if warning:
                 rprint(f"[yellow]Warning:[/yellow] {warning}")
             for i, (px, py) in enumerate(points):
-                ax.scatter(px, py, color=line_color, edgecolors="white" if args.logz else "black", linewidths=1.0, s=85, zorder=100)
+                ax.scatter(px, py, color=line_color, edgecolors=style.role("paper") if args.logz else style.role("ink"), linewidths=1.0, s=85, zorder=100)
                 if point_labels is not None:
                     place_point_label(ax, px, py, point_labels[i], fontsize=style.linelabelfontsize)
             handles = getattr(ax, "_contour_handles", [])
@@ -856,6 +856,8 @@ def run(args):
         if args.z is None:
             rprint("[red]Error:[/red] --contour needs -z (the map column).")
             return []
+        if args.combined_color is None:
+            args.combined_color = style.role("ink")
         return [draw_contour_figure(df, args)]
     if args.multiply is not None and args.z is not None:
         df[args.z] = df[args.z].apply(lambda v: np.asarray(v) * args.multiply if v is not None else v)

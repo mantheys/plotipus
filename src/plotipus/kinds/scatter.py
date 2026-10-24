@@ -305,7 +305,7 @@ def run_paired(df, args):
                 if len(points) > 1:
                     ax.plot(*zip(*points), color=color, linestyle="--", linewidth=1, alpha=0.6, zorder=0)
         else:
-            ax.plot([p[2] for p in aggregated], [p[3] for p in aggregated], color="gray", linestyle="--", linewidth=1, zorder=0)
+            ax.plot([p[2] for p in aggregated], [p[3] for p in aggregated], color=style.role("muted"), linestyle="--", linewidth=1, zorder=0)
 
     ax.set_xlabel(resolve_axis_label(args.labelx, x_value, None), fontsize=style.xlabelfontsize)
     ax.set_ylabel(resolve_axis_label(args.labely[0] if args.labely else None, y_value, None), fontsize=style.ysublabelfontsize)
@@ -335,7 +335,7 @@ def run_paired(df, args):
                                     title=args.labelz, capitalize_labels=args.capitalize_legend, loc=color_loc, ncol=color_ncol)
         ax.add_artist(legend)
         shape_handles = [
-            mlines.Line2D([], [], marker=markers[v], linestyle="None", color="black", label=_hue_label(v, args.iterable))
+            mlines.Line2D([], [], marker=markers[v], linestyle="None", color=style.role("ink"), label=_hue_label(v, args.iterable))
             for v in all_hues
         ]
         apply_legend_style(ax, handles=shape_handles, labels=[h.get_label() for h in shape_handles],
@@ -396,7 +396,7 @@ def _add_size_legend(ax, label, vmin, vmax, base, scale, loc, n_levels=4):
     levels = np.linspace(vmin, vmax, n_levels)
     valid = not (pd.isna(vmin) or pd.isna(vmax)) and vmax != vmin
     sizes = base / scale + (levels - vmin) / (vmax - vmin) * (base * scale - base / scale) if valid else np.full(n_levels, base)
-    handles = [_proxy(ax, s=s, color="gray", alpha=0.85, linewidths=0) for s in sizes]
+    handles = [_proxy(ax, s=s, color=style.role("muted"), alpha=0.85, linewidths=0) for s in sizes]
     legend = apply_legend_style(ax, title=label, handles=handles, labels=[f"{v:.2e}" for v in levels],
                                 capitalize_labels=False, scatterpoints=1, loc=loc)
     if existing is not None:
@@ -436,9 +436,9 @@ def _add_marker_legend(ax, title, markers):
     for value in values:
         marker, hollow = markers[value]
         if hollow:
-            handles.append(_proxy(ax, s=60 * HOLLOW_AREA, marker=marker, facecolors="none", edgecolors="gray", linewidths=1.5, alpha=0.85))
+            handles.append(_proxy(ax, s=60 * HOLLOW_AREA, marker=marker, facecolors="none", edgecolors=style.role("muted"), linewidths=1.5, alpha=0.85))
         else:
-            handles.append(_proxy(ax, s=60, marker=marker, color="gray", alpha=0.85, linewidths=0))
+            handles.append(_proxy(ax, s=60, marker=marker, color=style.role("muted"), alpha=0.85, linewidths=0))
     labels = [map_iterable_label(v, title, None, len(values)) for v in values]
     legend = apply_legend_style(ax, title=title, handles=handles, labels=labels, capitalize_labels=False,
                                 scatterpoints=1, loc="lower left")
