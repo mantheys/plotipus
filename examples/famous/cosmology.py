@@ -174,8 +174,8 @@ def omega_contours():
     Omega_M + Omega_Lambda = 1 (sigma 0.03 across, 0.25 along, centred on
     0.3/0.7).
 
-    Datafiles ``{config}_{name}_OmegaContours`` (config Riess1998, names
-    SN and CMB), one row each with the grid columns ``OmegaM``,
+    Datafiles ``{config}_{name}_OmegaContours`` (configs SN and CMB, so that
+    each gets its own ``config_color``; name Riess1998), one row each with the grid columns ``OmegaM``,
     ``OmegaLambda`` and ``DeltaChi2`` (shape len(OmegaLambda) x
     len(OmegaM)).
     """
@@ -194,9 +194,9 @@ def omega_contours():
     supernova -= np.nanmin(supernova)
     om, ol = np.meshgrid(omega_m, omega_lambda)
     cmb = ((om + ol - 1.0) / 0.03) ** 2 + ((om - 0.3) / 0.25) ** 2
-    return {f"Riess1998_{name}_OmegaContours": pd.DataFrame([{
-        "OmegaM": omega_m, "OmegaLambda": omega_lambda, "DeltaChi2": grid - np.nanmin(grid), "Config": "Riess1998",
-        "Name": name, "Variable": "Omega"}]) for name, grid in (("SN", supernova), ("CMB", cmb))}
+    return {f"{config}_Riess1998_OmegaContours": pd.DataFrame([{
+        "OmegaM": omega_m, "OmegaLambda": omega_lambda, "DeltaChi2": grid - np.nanmin(grid), "Config": config,
+        "Name": "Riess1998", "Variable": "Omega"}]) for config, grid in (("SN", supernova), ("CMB", cmb))}
 
 
 GENERATORS = {"F06": firas, "F08": hubble_1929, "F09": supernova_hubble_diagram, "F10": omega_contours}

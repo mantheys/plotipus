@@ -196,6 +196,10 @@
     "anscombe_colors": {
       "Data": "#ff7f0e",
       "Fit": "#1f77b4"
+    },
+    "config_color": {
+      "SN": "#3a6fb0",
+      "CMB": "#e6550d"
     }
   },
   "font_sizes": {

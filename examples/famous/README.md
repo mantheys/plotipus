@@ -80,7 +80,7 @@ Workarounds the commands use today:
 | F06 COBE FIRAS | Fixsen et al. 1996, Figs. 4-5 | synthetic | ◐ | data markers and an error scale option (T21) |
 | F08 Hubble 1929 | PNAS 15, 168, Fig. 1 | **real** (Table 1) | ◐ | per-series markers: discs, circles, cross (T21) |
 | F09 SN Ia Hubble diagram | Riess et al. 1998, Fig. 4 | synthetic | ◐ | data markers, an open one for SN 1997ck (T21) |
-| F10 Ω_M–Ω_Λ | Riess et al. 1998, Fig. 6 | synthetic | ◐ | `--line` in contour mode (T02); 2-dof levels and contour labels (T02, T22.8); shaded region (T22.8) |
+| F10 Ω_M–Ω_Λ | Riess et al. 1998, Fig. 6 | synthetic | ◐ | reference lines and 2-dof CL levels need T02 merged (done on `task/T02-contours`, 62e018f); shaded region (T22.8) |
 | F11 rotation curves | Rubin, Ford & Thonnard 1980 | synthetic | ◐ | an ordered colour map for 21 hues (T22.5); figure layout unverified |
 | F12 NGC 3198 | van Albada et al. 1985 | synthetic | ◐ | data markers (T21) |
 | F13 Keeling curve | NOAA GML plot | synthetic | ✅ | the seasonal-cycle inset of other versions (T22.7) |
@@ -98,8 +98,7 @@ Workarounds the commands use today:
 
 | task | missing feature | figures |
 |---|---|---|
-| T02 | `map --contour` draws `--horizontal`/`--vertical` but ignores `--line` (and `--point`, `--square`) | F10 |
-| T02 | 2-dof levels with 68.3/95.4/99.7% labels | F10 |
+| T02 | ~~`--line`/`--square` in contour mode; 2-dof levels labelled 68.3/95.4/99.7% CL~~ done in 62e018f, effective once merged | F10 |
 | T12 | readable tick labels on log axes (`2×10²` instead of 200) | F05, F09 |
 | T15 | a legend in every panel; a legend below the axes | F15, F14 |
 | T17 | experiment labels as a style feature (here `--text`) | F01, F03, F04, F05 |
