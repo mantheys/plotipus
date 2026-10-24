@@ -274,6 +274,14 @@ half as wide; legend "None") and `B09b` (group C cut at x ≈ 3.8).
 - Compute the range over all hues in the panel, plus under- and overflow markers (mplhep's `flow="hint"`).
 - Use no legend for a single unnamed series.
 
+**Fixed in T04.** `hist` draws with `ax.stairs(counts, edges)`; the range is
+computed once per panel over all drawn hues (`--panel_rangex`, `--rangex`,
+`--percentile` keep their precedence) and every hue gets the same edges. New
+`--flow {none,hint,show}` (default `none`) marks or adds the entries outside
+the range, whose number is printed in every mode. A single series without
+`--hue` gets no legend and no "None" label. Restore option: none (all three
+were bugs).
+
 ## B10 `--stacked` only works for bars and stacks everything
 
 **Reproduce:** `B10a` (`--stacked --plot_type step` draws overlapping,

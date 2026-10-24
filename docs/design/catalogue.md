@@ -34,8 +34,8 @@ command lists.
 
 | Group | ✅ | ◐ | ✗ |
 |---|---|---|---|
-| A Distributions | 3 | 4 | 5 |
-| B Relationships | 4 | 3 | 2 |
+| A Distributions | 4 | 3 | 5 |
+| B Relationships | 5 | 2 | 2 |
 | C Trends and fits | 3 | 5 | 2 |
 | D Comparisons | 1 | 4 | 4 |
 | E Ratios and significance | 4 | 3 | 1 |
@@ -44,7 +44,7 @@ command lists.
 | H Small multiples and layout | 2 | 2 | 4 |
 | I Annotations | 5 | 2 | 3 |
 | J Tables | 4 | 1 | 2 |
-| **Total (89)** | **31** | **30** | **28** |
+| **Total (89)** | **33** | **28** | **28** |
 
 Nearly half of the ◐ entries are partial only because of a bug in
 [bugs.md](bugs.md), not because an option is missing. Fixing B01–B13 moves
@@ -56,7 +56,7 @@ about 12 of them to ✅.
 
 | id | chart | use | famous | status | command today / what is missing | smallest change |
 |---|---|---|---|---|---|---|
-| A1 | Histogram, step outline | compare shapes of a few samples | F03 | ◐ | `hist --datafile Ev -x Xv --hue Group --bins 40` (P12). Edge bins are drawn half-width; the range comes from the first hue only, clipping the others; an unhued series is labelled "None" (B09). | Fix B09 (`ax.stairs`, range over all hues). |
+| A1 | Histogram, step outline | compare shapes of a few samples | F03 | ✅ | `hist --datafile Ev -x Xv --hue Group --bins 40` (P12). Full-width edge bins, one range over all hues, entries outside reported and shown with `--flow hint\|show` (B09, fixed in T04). | — |
 | A2 | Histogram of pre-binned counts | analysis outputs already binned | F03, F16 | ✅ | `line --datafile Spectra -x Energy -y Counts --hue Sample --plot_type step --logy` (example 1). | — |
 | A3 | Filled / stacked histogram (stacked MC) | composition of a total | F03, F23 | ◐ | Stacking is bars only (`--stacked`, example 3); `--stacked --plot_type step` is silently unstacked (B10). | Stack in data space for step and filled step (B10). |
 | A4 | Normalised / density histogram | shapes at different statistics | — | ✅ | `hist --datafile Ev -x Xv --hue Group --bins 40 --density --logy` (P13). | — |
