@@ -17,7 +17,6 @@ Two ways to get the points:
 import re
 
 import matplotlib.lines as mlines
-import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
 from matplotlib.colors import LogNorm
@@ -28,7 +27,8 @@ from ..args import add_common_args, map_iterable_color, map_iterable_label, reso
 from ..encodings import add_legend_args
 from ..format import make_config_color_and_style_from_args, make_config_label_from_args
 from ..io import import_data, prepare_import
-from ..panels import add_title_and_note, create_panels, save
+from ..palettes import ColorAllocator
+from ..panels import add_colorbar, add_title_and_note, create_panels, save
 from ..plot import add_centered_suptitle, apply_legend_style, apply_note_to_figure
 from ..selection import filter_dataframe
 from . import _base
@@ -184,23 +184,10 @@ def _plain_mean(values, errors):
 
 
 def _fill_colors(explicit):
-    """Fill None colours from the colour cycle, skipping explicitly used ones."""
-    cycle = plt.rcParams["axes.prop_cycle"].by_key().get("color", [f"C{i}" for i in range(10)])
-
-    def normal(color):
-        if isinstance(color, str) and color.startswith("C") and color[1:].isdigit():
-            return cycle[int(color[1:]) % len(cycle)]
-        return color
-
-    used = {normal(c) for c, _ in explicit if c is not None}
-    pool = [c for c in cycle if c not in used] or cycle
-    out, i = [], 0
-    for color, linestyle in explicit:
-        if color is None:
-            color = pool[i % len(pool)]
-            i += 1
-        out.append((color, linestyle))
-    return out
+    """Fill None colours from the palette, never reusing an explicit one."""
+    colors = ColorAllocator()
+    colors.reserve(range(len(explicit)), lambda i: explicit[i][0])
+    return [(colors.color_for(i), linestyle) for i, (_, linestyle) in enumerate(explicit)]
 
 
 def _quadrants_by_density(ax, xs, ys):
@@ -513,16 +500,17 @@ def draw_points(rows, args, kdx):
                 for collection in drawn:
                     collection.set_edgecolor(collection.get_facecolors())
                     collection.set_facecolor("none")
-        colorbar = fig.colorbar(last, ax=list(axes), shrink=0.9, pad=0.02)
-        colorbar.set_label(args.labelz if args.labelz is not None else args.colorby)
+        add_colorbar(fig, last, axes, args.labelz if args.labelz is not None else args.colorby)
     elif args.iterable is not None and args.iterable in rows.columns:
         rows = rows.dropna(subset=[args.iterable])
         # Sorted, so the same value set always gets the same colours.
         values = sorted(rows[args.iterable].unique().tolist(), key=str)
+        colors = ColorAllocator()
+        colors.reserve(values, lambda hue: map_iterable_color(hue, args.iterable_color_mapping, args.iterable))
         handles, labels = [], []
-        for jdx, hue in enumerate(values):
+        for hue in values:
             group = rows[rows[args.iterable] == hue]
-            color = map_iterable_color(hue, args.iterable_color_mapping, args.iterable) or f"C{jdx}"
+            color = colors.color_for(hue)
             handles.append(_proxy(axes[0], marker="o", color=color, s=60, alpha=0.85, linewidths=0))
             labels.append(map_iterable_label(hue, args.iterable, args.iterable_mapping, len(values)))
             for value, marker_group, marker, hollow in _marker_groups(group, args.markerby, markers):

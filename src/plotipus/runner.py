@@ -7,9 +7,11 @@ project (run with the current Python); blank lines and lines starting with
 output directories configured for the list in ``plotipus.toml``.
 """
 
+import os
 import shlex
 import subprocess
 import sys
+import tempfile
 from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
 
@@ -61,7 +63,7 @@ def build_command(line, extra_outputs=(), show=False, debug=False, root=None):
     return [kind, *args]
 
 
-def _run_one(argv, cwd):
+def _run_one(argv, cwd, env=None):
     command = [sys.executable, *argv[1:]] if argv[0] == SCRIPT else [sys.executable, "-m", "plotipus", *argv]
     proc = subprocess.run(
         command,
@@ -69,6 +71,7 @@ def _run_one(argv, cwd):
         stderr=subprocess.STDOUT,
         text=True,
         cwd=cwd,
+        env=env,
     )
     return proc.returncode, proc.stdout
 
@@ -126,12 +129,16 @@ def run_list(name, tables=False, show=False, debug=False, jobs=1, dry_run=False,
             rprint(f"[red]Cannot translate:[/red] {line}\n  {message}")
         return len(failures)
 
+    # One-off notices (e.g. map's 2-dof levels) are printed once per list, not once per command.
+    notices = tempfile.TemporaryDirectory(prefix="plotipus-notices-")
+    env = dict(os.environ, PLOTIPUS_NOTICE_DIR=notices.name)
+
     def _task(item):
         line, argv = item
-        code, output = _run_one(argv, project.root)
+        code, output = _run_one(argv, project.root, env)
         return line, argv, code, output
 
-    with ThreadPoolExecutor(max_workers=max(1, jobs)) as pool:
+    with notices, ThreadPoolExecutor(max_workers=max(1, jobs)) as pool:
         for line, argv, code, output in pool.map(_task, planned):
             shown = shlex.join(["python", *argv[1:]]) if argv[0] == SCRIPT else "plotipus " + shlex.join(argv)
             rprint(f"\n[cyan]Running[/cyan] {shown}")

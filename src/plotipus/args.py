@@ -15,7 +15,7 @@ import numpy as np
 
 from rich import print as rprint
 
-from . import registry, style
+from . import palettes, registry, style
 
 
 def _auto_wrap_mathtext(value):
@@ -767,6 +767,16 @@ def add_common_args(parser, arg_names, overrides=None):
             help="Number of legend columns for all legends (e.g. 2 to halve the height of a long legend)",
         )
 
+    if "--palette" not in parser._option_string_actions:
+        parser.add_argument(
+            "--palette",
+            action=_PaletteAction,
+            choices=palettes.names(),
+            default=None,
+            help="Categorical colour palette (default: the style's palette, petroff10); tab10 restores "
+            "matplotlib's default colours.",
+        )
+
 
 class _LegendLocAction(argparse.Action):
     """Override the configured legend location (style legend_style.loc)
@@ -784,6 +794,15 @@ class _LegendNcolAction(argparse.Action):
     def __call__(self, parser, namespace, values, option_string=None):
         setattr(namespace, self.dest, values)
         style.set_legend_option("ncol", values)
+
+
+class _PaletteAction(argparse.Action):
+    """Make the named palette the colour cycle (style key palette) for
+    every figure drawn by this run."""
+
+    def __call__(self, parser, namespace, values, option_string=None):
+        setattr(namespace, self.dest, values)
+        palettes.apply(values)
 
 
 _WARNED_MAPPINGS = set()

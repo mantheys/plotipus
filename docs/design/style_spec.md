@@ -161,8 +161,9 @@ Widths are confirmed from the publishers' pages:
     tool.
   - For 6 or fewer series, use Petroff-6 (`#5790fc #f89c20 #e42536 #964a8b
     #9c9ca1 #7a21dd`). It has stronger contrast.
-  - For 11 or more series: a (colour × line style) product with a printed
-    warning. If the hue is numeric or ordered (runs, energies), use a
+  - For 11 or more series: colours repeat, with a printed warning. Line
+    styles are not added automatically; they are reserved for `--style` and
+    mapped configs (maintainer's decision, T01). If the hue is numeric or ordered (runs, energies), use a
     sequential colormap with a colorbar instead (`--hue_cmap`).
   - Named alternatives: `okabe-ito` (8, used by the "open" candidate) and
     `tol-bright` (7, used by the "hep" candidate).
@@ -209,8 +210,7 @@ Widths are confirmed from the publishers' pages:
 | 4 | `(0,(5,1,1,1,1,1))` dash-dot-dot | `v` | `...` |
 | 5 | `(0,(1,3))` loose dots | `P` plus | `---` |
 
-- `--style` never changes colour, and `--hue` never changes line style,
-  except for the overflow rule in §2.3.
+- `--style` never changes colour, and `--hue` never changes line style.
 - When `--hue` and `--style` are the same column, there is one legend whose
   entries carry both (B02).
 - Hatches are drawn in the series colour at full opacity

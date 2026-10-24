@@ -72,6 +72,12 @@ mapping first, then the next unused palette index (a per-figure
 `--combined_color` default to `None`, meaning "next free colour", or
 black/ink for a total. Remove the `two_lines` special case.
 
+**Fixed in T01.** `palettes.ColorAllocator` gives every series of a figure
+its colour (mapping first, then the next free palette slot); the
+`two_lines` branch is gone and `--combined_color`/`--sum_color`/
+`--reference_sum_color` default to the next free colour. Restore option:
+none (the reuse was a bug); `--palette tab10` restores the old colours.
+
 ## B02 Colour cycle wraps silently past 10 series
 
 **Reproduce:** `B02a` (12 runs: run10/run11 repeat run00/run01) and `B02b`.
@@ -86,6 +92,13 @@ black/ink for a total. Remove the `two_lines` special case.
 - Read the cycle length from `plt.rcParams["axes.prop_cycle"]` and drop every `% 10`.
 - When there are more values than colours, assign (colour, line style) pairs: colour cycles fastest, and the style changes on each wrap. Print a warning suggesting `--colorby` (a sequential colormap) for ordered values such as run numbers.
 - Merge the two legends when `--hue == --style`.
+
+**Fixed in T01.** No `C{n}` strings or `% 10` remain at these sites; the
+cycle length comes from the active palette (`--palette`, style key
+`palette`, default `petroff10`). Past its end colours repeat with one
+warning per figure; line styles stay reserved for `--style` and mapped
+configs (maintainer's decision: no automatic colour × line-style product).
+`--hue X --style X` draws one legend whose entries carry both encodings.
 
 ## B03 Contour plots are hard to read (the maintainer's report)
 
@@ -107,6 +120,17 @@ There are four separate root causes.
 - Use solid, dashed and dotted outlines for 1σ, 2σ and 3σ, so the levels survive greyscale and CVD.
 - Mark the minimum with a `+`.
 - Turn the background off by default for Δχ² maps (`--background none`). When it is requested, clip it at the outermost level and label the colorbar `Δχ²`.
+
+**Fixed in T02.** `--contour_dof {1,2}` (default 2: Δχ² = 2.30, 6.18,
+11.83) and `--contour_label {cl,sigma}` (default `cl`: "68.3% CL"); filled
+bands are graded from the best fit outwards (one hue mixed with the paper
+colour, style `contours.fill_mix`), outside unfilled; outlines solid, dashed
+and dotted, and legend handles carry each level's line style and fill; a `+`
+marks the minimum (`--no_best_fit`); `--background` defaults to `none`, and
+a requested Δχ² background is blank beyond the outermost level with a `Δχ²`
+colorbar. Defaults come from the style's `contours` section. Restore option:
+`--contour_dof 1 --contour_label sigma --background all` (the old fills were
+the bug); legacy translations append `--contour_dof 1`.
 
 ## B04 Binned estimators carry no uncertainty
 
@@ -216,6 +240,13 @@ major formatter of both axes by `hist.py:175`, `line.py:1283`,
 **Fix.**
 - Use one shared norm and one colorbar for the row (`fig.colorbar(mappable, ax=axes)`) when panels share a quantity, or label every bar.
 - Set `vmin` at the lowest non-empty bin and leave empty bins blank.
+
+**Fixed in T09.** Panels of one `map` figure share a norm (`vmin`/`vmax`
+over all of them) and one colorbar right of the row (`--colorbar shared`,
+default unless `--norm`); `--colorbar each` restores per-panel bars, now
+each labelled. Empty bins are masked on linear and log scales, and a log
+scale starts at the smallest non-empty bin. Bars are as tall as the axes,
+4% of their width with 2% padding (scatter `--colorby` too).
 
 ## B09 hist: edge bins, range and label
 

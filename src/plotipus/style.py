@@ -6,8 +6,11 @@ project can change them once with :func:`configure` before plotting.
 
 A style file is JSON with the sections ``rcparams``, ``font_sizes``,
 ``plot_settings`` and ``mappings`` (label/colour dictionaries addressed by
-name from ``--iterable_mapping`` and friends). Every section is optional and
-merged over the defaults shipped in ``plotipus/data/style.json``.
+name from ``--iterable_mapping`` and friends), and the key ``palette`` (a
+name from :mod:`plotipus.palettes`, default ``petroff10``), and ``contours`` (confidence
+contours of ``map --contour``: ``dof``, ``fill_mix``, ``linestyles``, ``label``,
+``background``). Every section is optional and merged over the defaults shipped in
+``plotipus/data/style.json``.
 """
 
 import copy
@@ -15,6 +18,8 @@ import json
 from pathlib import Path
 
 import matplotlib.pyplot as plt
+
+from . import palettes
 
 _DEFAULTS_PATH = Path(__file__).with_name("data") / "style.json"
 _MPLSTYLE_PATH = Path(__file__).with_name("data") / "plotipus.mplstyle"
@@ -29,6 +34,13 @@ _FALLBACK_NOTE_STYLE = {
         "edgecolor": "gray",
         "linewidth": 0.5,
     },
+}
+# Contour defaults; "dof" is left out so that a style setting it can be told apart.
+_FALLBACK_CONTOURS = {
+    "fill_mix": [1.0, 0.55, 0.25],
+    "linestyles": ["-", "--", ":"],
+    "label": "cl",
+    "background": "none",
 }
 _FALLBACK_MARGINS_INCHES = {
     "left": 0.96,
@@ -75,11 +87,17 @@ def _publish():
     global linelabelfontsize, nbins, default_linewidth, figure_base_width
     global figure_panel_width, figure_height, figure_panel_font_scale
     global figure_margins_inches, figure_two_panel_hspace, legend_style
-    global note_style, base_font_size, mappings, auto_title
+    global note_style, base_font_size, mappings, auto_title, contours
     global capitalize_exceptions, redundant_legend_titles, title_short_forms
 
     rcparams = _CONFIG.get("rcparams", {})
     plt.rcParams.update(rcparams)
+    # The colour cycle: the "palette" key, else an explicit axes.prop_cycle, else the default palette.
+    palette = _CONFIG.get("palette")
+    if palette is not None or "axes.prop_cycle" not in rcparams:
+        palettes.apply(palette or palettes.DEFAULT)
+    else:
+        palettes.active = None
     base_font_size = float(plt.rcParams["font.size"])
 
     fonts = _CONFIG.get("font_sizes", {})
@@ -125,6 +143,7 @@ def _publish():
     title_short_forms = tuple(tuple(pair) for pair in labels.get("title_short_forms", []))
 
     mappings = _CONFIG.get("mappings", {})
+    contours = {**_FALLBACK_CONTOURS, **_CONFIG.get("contours", {})}
 
 
 def reset():

@@ -35,7 +35,7 @@ command lists.
 | Group | ✅ | ◐ | ✗ |
 |---|---|---|---|
 | A Distributions | 3 | 4 | 5 |
-| B Relationships | 3 | 4 | 2 |
+| B Relationships | 4 | 3 | 2 |
 | C Trends and fits | 3 | 5 | 2 |
 | D Comparisons | 1 | 4 | 4 |
 | E Ratios and significance | 4 | 3 | 1 |
@@ -44,7 +44,7 @@ command lists.
 | H Small multiples and layout | 2 | 2 | 4 |
 | I Annotations | 5 | 2 | 3 |
 | J Tables | 4 | 1 | 2 |
-| **Total (89)** | **30** | **31** | **28** |
+| **Total (89)** | **31** | **30** | **28** |
 
 Nearly half of the ◐ entries are partial only because of a bug in
 [bugs.md](bugs.md), not because an option is missing. Fixing B01–B13 moves
@@ -76,10 +76,10 @@ about 12 of them to ✅.
 | B1 | Scatter | raw relation | F08, F22, F25 | ◐ | `scatter --datafile Events -x TrueEnergy -y Hits --colorby RecoEnergy` (example) works. With `--hue` on array cells only the first group is drawn (B12, P16). | Fix B12. |
 | B2 | Scatter with error bars | measurements with uncertainties | F08, F09, F20 | ✅ | `line --plot_type errorbar --errory` (with `--errorx` for x errors; P03, P04). Points are joined by lines unless the plot style is reset (B17). | — |
 | B3 | Scatter coloured / sized by a third variable | 3–4 variables at once | F22 | ✅ | `scatter ... --colorby RecoEnergy --sizeby Hits` (example). | — |
-| B4 | 2D histogram | dense scatter | F22 | ◐ | `map --datafile Events -x TrueEnergy -y RecoEnergy --iterable Sample --logz` (example). Colorbars: B08. Panels are tiny in the 3-wide layout (P15). | Fix B08; shared colorbar. |
+| B4 | 2D histogram | dense scatter | F22 | ◐ | `map --datafile Events -x TrueEnergy -y RecoEnergy --iterable Sample --logz` (example). One shared, labelled colorbar (B08, fixed in T09). Panels are tiny in the 3-wide layout (P15). | Panel size (P15). |
 | B5 | Hexbin | dense scatter, smoother look | F22 | ✗ | — | `map --map_type hexbin` (`ax.hexbin`, same norms). |
 | B6 | Gridded map (z on x×y) | functions, scans, images | F15 | ✅ | `map --datafile Contour -x XGrid -y YGrid -z ZGrid` (P17 for a 3×3 grid). | — |
-| B7 | Contour lines / filled contours | levels of a 2D function | F10 | ◐ | `map ... -z ZGrid --contour --contour_sigmas 1 2 3 [--fill_contours]` (example). Levels, fills and legend are wrong or unreadable (B03). | Fix B03; `--contour_levels` for non-σ levels with inline `clabel`. |
+| B7 | Contour lines / filled contours | levels of a 2D function | F10 | ✅ | `map ... -z ZGrid --contour --contour_sigmas 1 2 3 [--fill_contours]` (example). 2-dof Δχ² levels labelled by coverage, graded fills from the best fit outwards, solid/dashed/dotted outlines, `+` at the minimum (B03, fixed in T02). | Non-σ levels with inline `clabel`: I9. |
 | B8 | Pair plot / corner plot | all pairs of N variables | — | ✗ | — | `map --corner X1 X2 X3`: N×N grid, 2D hists below the diagonal, `hist` on the diagonal. |
 | B9 | Profile (mean y per x bin) | trend in a dense scatter | — | ◐ | `line --binned --estimator mean` (example 5); it draws no error bars (B04). | Fix B04 (SEM by default). |
 
@@ -87,7 +87,7 @@ about 12 of them to ✅.
 
 | id | chart | use | famous | status | command today / what is missing | smallest change |
 |---|---|---|---|---|---|---|
-| C1 | Lines, colour by hue, style by a second variable | several series vs x | F11, F13 | ✅ | `line ... --hue Sample --style Stage` (example 1). More than 10 hues wrap silently (B02). | Fix B02. |
+| C1 | Lines, colour by hue, style by a second variable | several series vs x | F11, F13 | ✅ | `line ... --hue Sample --style Stage` (example 1). Past the palette, colours repeat with a warning (B02, fixed in T01); `--palette` picks the palette. | — |
 | C2 | Line with uncertainty band | curve ± σ | F14, F15 | ◐ | `line --errory --errory_type bands --plot_type line` (P09). Without `--plot_type line`, bars are drawn instead (B11). | Fix B11. |
 | C3 | Stored fit over data with parameter box | publish a fit result | F06, F08, F19 | ✅ | `line --datafile Fit -x X -y Counts --fit --plot_type errorbar --errory` (P04). Fit colour hard-coded red (B13/B14). | — |
 | C4 | Fit with residual panel | fit quality | F01, F06, F07, F09 | ✅ | `... --fit --lower residual` (P04): (data−fit)/fit. This diverges in the tails (B13). | — |
@@ -96,7 +96,7 @@ about 12 of them to ✅.
 | C7 | Stacked area | composition over x | F23 | ✗ | `--stacked` only stacks bars (B10). | Covered by the B10 fix (`--stacked --plot_type line` → `fill_between`). |
 | C8 | Time series with dates | monitoring, Keeling curve | F13 | ◐ | Works on numeric x (decimal year); no date axis formatting. | Convert datetime64 x and use `ConciseDateFormatter`. |
 | C9 | Smoothed / rolling line | trend under noise | F13, F14 | ✗ | — | `line --smooth N [--smooth_kind rolling\|savgol]` drawn over the raw series. |
-| C10 | Many series with a sequential colour | ordered hue (runs, energies) | F11 | ◐ | Only the categorical cycle (wraps at 10, B02). | `line --hue_cmap viridis` for numeric/ordered hues, with a colorbar instead of a legend. |
+| C10 | Many series with a sequential colour | ordered hue (runs, energies) | F11 | ◐ | Only the categorical palette (past its end colours repeat with a warning, T01). | `line --hue_cmap viridis` for numeric/ordered hues, with a colorbar instead of a legend. |
 
 ## D. Comparisons across categories
 
@@ -150,7 +150,7 @@ All curves are precomputed by the analysis (plotipus does not fit or score).
 | G5 | Nested ±1σ/±2σ bands (Brazil plot) | expected limits | F02, F04, F05 | ✗ | One band per series only. | `--errory_column LimitErr1 LimitErr2` (one band per column, darker inside), with `--band_colors brazil`. |
 | G6 | Hatched systematic band on a stack total | MC uncertainty | F03 | ✗ | — | Part of E3 (`--stack_total_error --error_hatch ////`). |
 | G7 | 1D likelihood scan with Δχ² = 1, 4 lines | parameter intervals | — | ◐ | `line --datafile Scan -x Mu -y DeltaNLL --horizontal 1 4 --horizontal_label 1σ 2σ` (P07). Points are drawn as markers, and the labels are misplaced (one left, one right). | Consistent right-edge labels for `--horizontal`. |
-| G8 | 2D Δχ² confidence contours, several datasets | joint constraints | F10 | ◐ | `map --contour` with configs (B03); overlay of datasets via configs/names. | B03 fix; `--hue` over datasets. |
+| G8 | 2D Δχ² confidence contours, several datasets | joint constraints | F10 | ◐ | `map --contour` with configs: one hue per dataset, levels by line style, one legend entry per dataset and per level (B03, fixed in T02). | `--hue` over datasets. |
 | G9 | Error-bar magnification with note | tiny errors | F06, F17 | ✗ | `--multiply` scales values, not only errors. | `--error_scale K` (adds "errors ×K" to the legend). |
 
 ## H. Small multiples and layout
@@ -158,7 +158,7 @@ All curves are precomputed by the analysis (plotipus does not fit or score).
 | id | chart | use | famous | status | command today / what is missing | smallest change |
 |---|---|---|---|---|---|---|
 | H1 | Facets by a column (wrapped grid) | same plot per group | F25, F11 | ✅ | `line ... --variables panel0 panel1 panel2 panel3` (P18; any column via `--variable_column`). | — |
-| H2 | Shared axes and colour scales across facets | honest comparison | F25 | ◐ | `--compact` hides inner labels; `--matchx/--matchy` exist in `map` only; colorbars are not shared (B08). | `--sharex/--sharey` for every kind; one colorbar per row. |
+| H2 | Shared axes and colour scales across facets | honest comparison | F25 | ◐ | `--compact` hides inner labels; `--matchx/--matchy` exist in `map` only; `map` panels share one colour scale and colorbar (T09). | `--sharex/--sharey` for every kind. |
 | H3 | Facet grid (rows × columns by two columns) | two-factor comparison | F15 | ✗ | Panels come from one column only. | `--facet_row COL --facet_col COL`. |
 | H4 | Upper + lower panels | ratios, residuals | F01, F07 | ✅ | `--lower` (repeatable). | — |
 | H5 | Inset axes | zoom, second view | F02, F13, F18 | ✗ | — | `--inset X0 X1 [Y0 Y1] --inset_pos x y w h`: redraws the same series in a zoom box. |
