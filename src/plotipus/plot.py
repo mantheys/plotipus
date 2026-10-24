@@ -284,6 +284,10 @@ def apply_legend_style(
     if labels is not None and capitalize_labels:
         labels = [_capitalize_legend_label(label) for label in labels]
 
+    if handles is not None and labels is not None and not len(handles) and not len(labels):
+        # Nothing labelled: an empty legend (matplotlib 3.11 rejects empty handles together with empty labels).
+        return ax.legend(handles=[], **style)
+
     if handles is not None or labels is not None:
         return ax.legend(handles=handles, labels=labels, **style)
 

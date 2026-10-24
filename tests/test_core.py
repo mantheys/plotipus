@@ -138,3 +138,16 @@ def test_legacy_helpers():
     parser.add_argument("--names")
     parser.add_argument("--name_columns")
     assert expand_abbreviations(["--name", "a"], parser) == ["--names", "a"]
+
+
+def test_legend_without_entries():
+    import matplotlib.pyplot as plt
+
+    from plotipus.plot import apply_legend_style
+
+    fig, ax = plt.subplots()
+    ax.plot([0, 1])
+    legend = apply_legend_style(ax, title="Sample")  # nothing labelled
+    assert legend is not None and legend.get_texts() == []
+    assert apply_legend_style(ax, handles=[], labels=[]).get_texts() == []
+    plt.close(fig)
