@@ -121,6 +121,17 @@ There are four separate root causes.
 - Mark the minimum with a `+`.
 - Turn the background off by default for Δχ² maps (`--background none`). When it is requested, clip it at the outermost level and label the colorbar `Δχ²`.
 
+**Fixed in T02.** `--contour_dof {1,2}` (default 2: Δχ² = 2.30, 6.18,
+11.83) and `--contour_label {cl,sigma}` (default `cl`: "68.3% CL"); filled
+bands are graded from the best fit outwards (one hue mixed with the paper
+colour, style `contours.fill_mix`), outside unfilled; outlines solid, dashed
+and dotted, and legend handles carry each level's line style and fill; a `+`
+marks the minimum (`--no_best_fit`); `--background` defaults to `none`, and
+a requested Δχ² background is blank beyond the outermost level with a `Δχ²`
+colorbar. Defaults come from the style's `contours` section. Restore option:
+`--contour_dof 1 --contour_label sigma --background all` (the old fills were
+the bug); legacy translations append `--contour_dof 1`.
+
 ## B04 Binned estimators carry no uncertainty
 
 **Reproduce:** `B04` (examples' "Mean Resolution" plot) has `--plot_type

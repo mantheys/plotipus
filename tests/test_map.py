@@ -70,3 +70,128 @@ def test_legacy_contour_translation():
     assert argv[argv.index("--combine_op") + 1] == "squared_sum"
     assert argv[argv.index("--combined_color") + 1] == "cycle"
     assert "--contour" in argv and argv[-1] == "contour.png"
+    assert argv[argv.index("--contour_dof") + 1] == "1"
+
+
+# --- Confidence contours (T02) ----------------------------------------------------------
+
+
+def _capture():
+    from plotipus import registry
+
+    figures = []
+    registry.add_figure_hook(lambda fig, args: figures.append(fig))
+    return figures
+
+
+def _contour(make_project, *extra, frames=None):
+    make_project(frames or {"Maps": _maps()[:1]})
+    figures = _capture()
+    map_kind.main(["--datafile", "Maps", "-x", "XGrid", "-y", "YGrid", "-z", "ZGrid", "--contour", *extra])
+    return figures[0].axes[0]
+
+
+def _legend(ax):
+    legend = ax.get_legend()
+    return [t.get_text() for t in legend.get_texts()], legend.legend_handles
+
+
+def test_contour_levels_dof():
+    assert np.allclose(map_kind.contour_levels([1, 2, 3], "sigma_probability", 1), [1, 4, 9], atol=0.01)
+    assert np.allclose(map_kind.contour_levels([1, 2, 3], "sigma_probability", 2), [2.30, 6.18, 11.83], atol=0.01)
+    assert map_kind.contour_levels([1, 2, 3], "z_values", 2) == [1, 2, 3]
+
+
+def test_contour_labels():
+    levels = map_kind.contour_levels([1, 2, 3], "sigma_probability", 2)
+    assert map_kind.sigma_labels(levels, [1, 2, 3], "sigma_probability", 2, "cl") == ["68.3% CL", "95.4% CL", "99.7% CL"]
+    assert map_kind.sigma_labels(levels, [1, 2, 3], "sigma_probability", 2, "sigma")[0] == "$1\\sigma$ (2 dof)"
+    assert map_kind.sigma_labels([1, 4, 9], [1, 2, 3], "sigma_probability", 1, "sigma") == [
+        "$1\\sigma$", "$2\\sigma$", "$3\\sigma$"]
+    assert map_kind.coverage_label(5) == "99.9999% CL"
+
+
+def test_contour_lines_levels_and_legend(make_project):
+    ax = _contour(make_project)
+    lines = [c for c in ax.collections if type(c).__name__ == "QuadContourSet" and not c.filled]
+    assert np.allclose(lines[0].levels, [2.30, 6.18, 11.83], atol=0.01)
+    texts, handles = _legend(ax)
+    assert texts == ["68.3% CL", "95.4% CL", "99.7% CL"]
+    styles = [h.get_linestyle() for h in handles]
+    assert len(set(styles)) == 3
+
+
+def test_filled_contours_graded_from_best_fit(make_project):
+    from matplotlib.colors import to_rgb
+
+    ax = _contour(make_project, "--fill_contours")
+    filled = [c for c in ax.collections if type(c).__name__ == "QuadContourSet" and c.filled][0]
+    assert filled.levels[0] == -np.inf and len(filled.levels) == 4  # outside the last level: unfilled
+    lightness = [np.mean(to_rgb(c)) for c in filled.get_facecolor()]
+    assert lightness == sorted(lightness) and len(set(np.round(lightness, 3))) == 3
+    texts, handles = _legend(ax)
+    assert texts == ["68.3% CL", "95.4% CL", "99.7% CL"]
+    swatches = {(tuple(np.round(h.get_facecolor(), 3)), str(h.get_linestyle())) for h in handles}
+    assert len(swatches) == 3
+
+
+def test_best_fit_marker(make_project):
+    ax = _contour(make_project)
+    marks = [line for line in ax.get_lines() if line.get_marker() == "+"]
+    assert len(marks) == 1
+    assert np.isclose(marks[0].get_xdata()[0], 0.4, atol=0.02) and np.isclose(marks[0].get_ydata()[0], 1.0, atol=0.03)
+    assert not [line for line in _contour(make_project, "--no_best_fit").get_lines() if line.get_marker() == "+"]
+
+
+def test_background_off_by_default_and_clipped(make_project):
+    ax = _contour(make_project)
+    assert len(ax.figure.axes) == 1  # no colorbar
+    ax = _contour(make_project, "--background", "all")
+    colorbar = ax.figure.axes[1]
+    assert colorbar.get_ylabel() == r"$\Delta\chi^2$"
+    assert np.isclose(ax.collections[0].norm.vmax, 11.83, atol=0.01)
+
+
+def test_old_behaviour_options(make_project):
+    ax = _contour(make_project, "--contour_dof", "1", "--contour_label", "sigma", "--background", "all")
+    lines = [c for c in ax.collections if type(c).__name__ == "QuadContourSet"]
+    assert np.allclose(lines[0].levels, [1, 4, 9])
+    assert _legend(ax)[0] == ["$1\\sigma$", "$2\\sigma$", "$3\\sigma$"]
+
+
+def test_style_contours_section(make_project):
+    from plotipus import style
+
+    style.configure(contours={"dof": 1, "label": "sigma", "linestyles": ["-"]})
+    ax = _contour(make_project)
+    lines = [c for c in ax.collections if type(c).__name__ == "QuadContourSet"]
+    assert np.allclose(lines[0].levels, [1, 4, 9])
+    texts, handles = _legend(ax)
+    assert texts[0] == "$1\\sigma$" and {h.get_linestyle() for h in handles} == {"-"}
+    ax = _contour(make_project, "--contour_dof", "2")  # the CLI overrides the style
+    assert np.allclose([c for c in ax.collections if type(c).__name__ == "QuadContourSet"][0].levels[0], 2.30, atol=0.01)
+
+
+def test_dof_notice_once(make_project, monkeypatch, capsys):
+    from plotipus import style
+
+    monkeypatch.setattr(map_kind, "_NOTICES_SHOWN", set())
+    monkeypatch.delenv("PLOTIPUS_NOTICE_DIR", raising=False)
+    _contour(make_project)
+    _contour(make_project)
+    assert capsys.readouterr().out.count("now use 2 dof") == 1
+    monkeypatch.setattr(map_kind, "_NOTICES_SHOWN", set())
+    _contour(make_project, "--contour_dof", "2")
+    style.configure(contours={"dof": 2})
+    _contour(make_project)
+    assert "now use 2 dof" not in capsys.readouterr().out
+
+
+def test_several_maps_legend(make_project):
+    frames = {"one_s_Maps": _maps()[:1], "two_s_Maps": _maps()[1:]}
+    ax = _contour(make_project, "--configs", "one", "two", "--names", "s", "--fill_contours", frames=frames)
+    texts, handles = _legend(ax)
+    # One entry per map (its colour), then one per level (its line style).
+    assert texts[-3:] == ["68.3% CL", "95.4% CL", "99.7% CL"] and len(texts) == 5
+    assert handles[0].get_edgecolor() != handles[1].get_edgecolor()
+    assert len([line for line in ax.get_lines() if line.get_marker() == "+"]) == 2

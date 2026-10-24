@@ -56,7 +56,7 @@ Kinds follow the data relationship (as in seaborn/plotly), not the use case.
 | `line` | y against an ordered x, one series per `--hue` value, line style per `--style` value | `--plot_type step\|stepmid\|line\|errorbar\|plot\|bar\|barh\|box`, `--lower`, `--stacked`, `--sum_iterables`, `--merge_iterables`, `--rebin`, `--by_config`, `--fit`, `--binned --estimator mean\|median\|std\|rms\|sum\|max\|min` |
 | `scatter` | observations: exploded points with colour/size/marker encodings, or pairs of metrics (`--x_from Variable=Purity --y_from Variable=Completeness`) | `--colorby`, `--sizeby`, `--markerby`, `--aggregate` |
 | `hist` | 1D histograms of per-event arrays | `--bins`, `--weight`, `--density`, `--hist_combine` |
-| `map` | 2D: histogram of point arrays, image of a grid (`-z`), contour layer (`--contour`) | `--norm`, `--diagonal`, `--logz`, `--contour_sigmas`, `--fill_contours` |
+| `map` | 2D: histogram of point arrays, image of a grid (`-z`), contour layer (`--contour`) | `--norm`, `--diagonal`, `--logz`, `--contour_sigmas`, `--contour_dof`, `--contour_label`, `--fill_contours`, `--background`, `--no_best_fit` |
 | `cat` | one value per category (integrated arrays) | `--integrate_over`, `--kind point\|line\|bar` |
 | `table` | aggregated values as LaTeX (and HTML) tables | `--variables`, `--agg`, `--error_band`, `--clopper_pearson`, `--siunitx`, `--caption_file` |
 
@@ -105,6 +105,28 @@ derived from (or stored in) the same DataFrame. Each `--lower` adds one:
 The lower panel is styled with the upper-panel options prefixed by `lower_`:
 `--lower_plot_type errorbar`, `--lower_labely`, `--lower_rangey`,
 `--lower_logy`, `--lower_horizontal`, ...
+
+### Contours
+
+`map --contour -z DCHI2` draws confidence regions of Δχ² maps (or
+significance maps with `--contour_level_mode z_values`):
+
+* `--contour_dof 2` (default) puts the 1/2/3σ levels at Δχ² = 2.30, 6.18,
+  11.83, the joint region of two parameters; `--contour_dof 1` gives
+  Δχ² = 1, 4, 9.
+* `--contour_label cl` (default) labels levels "68.3% CL", "95.4% CL",
+  "99.7% CL"; `sigma` labels them "1σ" (or "1σ (2 dof)").
+* `--fill_contours` fills one hue per map, darkest at the best fit and lighter
+  outwards (`--fill_alpha`, `--fill_outer_alpha`). Outlines are solid, dashed
+  and dotted (`--contour_linestyles`), and a `+` marks the minimum
+  (`--no_best_fit` hides it).
+* `--background none` (default); with `all`/`combined`/`first`, a Δχ²
+  background is blank beyond the outermost level and its colorbar reads Δχ².
+
+The style file's `contours` section sets the defaults:
+`{"dof": 2, "fill_mix": [1.0, 0.55, 0.25], "linestyles": ["-", "--", ":"], "label": "cl", "background": "none"}`.
+`--contour_dof 1 --contour_label sigma --background all` restores the
+levels, labels and background used before.
 
 ## Python
 

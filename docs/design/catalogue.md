@@ -35,7 +35,7 @@ command lists.
 | Group | ✅ | ◐ | ✗ |
 |---|---|---|---|
 | A Distributions | 3 | 4 | 5 |
-| B Relationships | 3 | 4 | 2 |
+| B Relationships | 4 | 3 | 2 |
 | C Trends and fits | 3 | 5 | 2 |
 | D Comparisons | 1 | 4 | 4 |
 | E Ratios and significance | 4 | 3 | 1 |
@@ -44,7 +44,7 @@ command lists.
 | H Small multiples and layout | 2 | 2 | 4 |
 | I Annotations | 5 | 2 | 3 |
 | J Tables | 4 | 1 | 2 |
-| **Total (89)** | **30** | **31** | **28** |
+| **Total (89)** | **31** | **30** | **28** |
 
 Nearly half of the ◐ entries are partial only because of a bug in
 [bugs.md](bugs.md), not because an option is missing. Fixing B01–B13 moves
@@ -79,7 +79,7 @@ about 12 of them to ✅.
 | B4 | 2D histogram | dense scatter | F22 | ◐ | `map --datafile Events -x TrueEnergy -y RecoEnergy --iterable Sample --logz` (example). Colorbars: B08. Panels are tiny in the 3-wide layout (P15). | Fix B08; shared colorbar. |
 | B5 | Hexbin | dense scatter, smoother look | F22 | ✗ | — | `map --map_type hexbin` (`ax.hexbin`, same norms). |
 | B6 | Gridded map (z on x×y) | functions, scans, images | F15 | ✅ | `map --datafile Contour -x XGrid -y YGrid -z ZGrid` (P17 for a 3×3 grid). | — |
-| B7 | Contour lines / filled contours | levels of a 2D function | F10 | ◐ | `map ... -z ZGrid --contour --contour_sigmas 1 2 3 [--fill_contours]` (example). Levels, fills and legend are wrong or unreadable (B03). | Fix B03; `--contour_levels` for non-σ levels with inline `clabel`. |
+| B7 | Contour lines / filled contours | levels of a 2D function | F10 | ✅ | `map ... -z ZGrid --contour --contour_sigmas 1 2 3 [--fill_contours]` (example). 2-dof Δχ² levels labelled by coverage, graded fills from the best fit outwards, solid/dashed/dotted outlines, `+` at the minimum (B03, fixed in T02). | Non-σ levels with inline `clabel`: I9. |
 | B8 | Pair plot / corner plot | all pairs of N variables | — | ✗ | — | `map --corner X1 X2 X3`: N×N grid, 2D hists below the diagonal, `hist` on the diagonal. |
 | B9 | Profile (mean y per x bin) | trend in a dense scatter | — | ◐ | `line --binned --estimator mean` (example 5); it draws no error bars (B04). | Fix B04 (SEM by default). |
 
@@ -150,7 +150,7 @@ All curves are precomputed by the analysis (plotipus does not fit or score).
 | G5 | Nested ±1σ/±2σ bands (Brazil plot) | expected limits | F02, F04, F05 | ✗ | One band per series only. | `--errory_column LimitErr1 LimitErr2` (one band per column, darker inside), with `--band_colors brazil`. |
 | G6 | Hatched systematic band on a stack total | MC uncertainty | F03 | ✗ | — | Part of E3 (`--stack_total_error --error_hatch ////`). |
 | G7 | 1D likelihood scan with Δχ² = 1, 4 lines | parameter intervals | — | ◐ | `line --datafile Scan -x Mu -y DeltaNLL --horizontal 1 4 --horizontal_label 1σ 2σ` (P07). Points are drawn as markers, and the labels are misplaced (one left, one right). | Consistent right-edge labels for `--horizontal`. |
-| G8 | 2D Δχ² confidence contours, several datasets | joint constraints | F10 | ◐ | `map --contour` with configs (B03); overlay of datasets via configs/names. | B03 fix; `--hue` over datasets. |
+| G8 | 2D Δχ² confidence contours, several datasets | joint constraints | F10 | ◐ | `map --contour` with configs: one hue per dataset, levels by line style, one legend entry per dataset and per level (B03, fixed in T02). | `--hue` over datasets. |
 | G9 | Error-bar magnification with note | tiny errors | F06, F17 | ✗ | `--multiply` scales values, not only errors. | `--error_scale K` (adds "errors ×K" to the legend). |
 
 ## H. Small multiples and layout
