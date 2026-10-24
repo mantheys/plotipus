@@ -344,17 +344,114 @@ _ESTIMATORS = {
 }
 
 
+def _sigma(values):
+    """Sample standard deviation (ddof=1); NaN below two entries."""
+    return np.std(values, ddof=1) if len(values) > 1 else np.nan
+
+
+def _rms_error(values):
+    rms = np.sqrt(np.mean(np.square(values)))
+    # Delta method: var(mean(x²)) = var(x²)/n and d√m/dm = 1/(2√m).
+    return _sigma(np.square(values)) / (2 * rms * np.sqrt(len(values))) if rms > 0 else np.nan
+
+
+# Standard error of each estimator from the bin's own spread.
+_ESTIMATOR_ERRORS = {
+    "mean": lambda values: _sigma(values) / np.sqrt(len(values)),
+    "average": lambda values: _sigma(values) / np.sqrt(len(values)),
+    # √Σy²: √n for unit entries (counts), √Σw² when the entries are weights.
+    "sum": lambda values: np.sqrt(np.sum(np.square(values))),
+    "max": lambda values: np.nan,
+    "min": lambda values: np.nan,
+    # √(π/2) = 1.2533: asymptotic efficiency of the median for a normal sample.
+    "median": lambda values: np.sqrt(np.pi / 2) * _sigma(values) / np.sqrt(len(values)),
+    "std": lambda values: _sigma(values) / np.sqrt(2 * (len(values) - 1)) if len(values) > 1 else np.nan,
+    "rms": _rms_error,
+}
+
+
+def _propagated_error(values, errors, estimator):
+    """First-order propagation of stored per-event errors through the
+    estimator, the events taken as independent: mean √Σe²/n, sum √Σe²,
+    median 1.2533·√Σe²/n, std and rms through their derivatives, max/min the
+    error of the selected event. NaN where the propagation is undefined
+    (std of identical values, rms of zeros)."""
+    values = np.asarray(values, dtype=float)
+    errors = np.asarray(errors, dtype=float)
+    n = len(values)
+    if estimator in ("mean", "average"):
+        return np.sqrt(np.sum(np.square(errors))) / n
+    if estimator == "sum":
+        return np.sqrt(np.sum(np.square(errors)))
+    if estimator == "median":
+        return np.sqrt(np.pi / 2) * np.sqrt(np.sum(np.square(errors))) / n
+    if estimator == "max":
+        return errors[np.argmax(values)]
+    if estimator == "min":
+        return errors[np.argmin(values)]
+    if estimator == "std":
+        sigma = _sigma(values)
+        if not sigma > 0:
+            return np.nan
+        return np.sqrt(np.sum(np.square((values - values.mean()) * errors))) / ((n - 1) * sigma)
+    if estimator == "rms":
+        rms = np.sqrt(np.mean(np.square(values)))
+        return np.sqrt(np.sum(np.square(values * errors))) / (n * rms) if rms > 0 else np.nan
+    return np.nan
+
+
+def estimate(values, estimator="mean", errors=None, error_mode="sem"):
+    """(value, error) of ``estimator`` over ``values``.
+
+    ``error_mode``: ``sem`` the standard error of the statistic, propagated
+    from stored per-event ``errors`` when given (see
+    :func:`_propagated_error`; the statistical error where that is
+    undefined), else from the spread of the values; ``std`` the spread
+    itself (sample σ); ``none`` no error (NaN)."""
+    estimator = estimator.lower()
+    values = np.asarray(values)
+    if values.size == 0:
+        return np.nan, np.nan
+    value = _ESTIMATORS[estimator](values)
+    if error_mode == "none":
+        return value, np.nan
+    if error_mode == "std":
+        return value, _sigma(values)
+    error = np.nan if errors is None else _propagated_error(values, errors, estimator)
+    if not np.isfinite(error):
+        error = _ESTIMATOR_ERRORS[estimator](values)
+    return value, error
+
+
+def _bin_masks(x, edges, cumulative):
+    for i in range(len(edges) - 1):
+        yield x >= edges[i] if cumulative else (x >= edges[i]) & (x < edges[i + 1])
+
+
 def bin_reduce(x, y, edges, estimator="mean", cumulative=False):
     """``estimator`` of the y values falling in each bin of ``edges`` (bins
     are [lo, hi); with ``cumulative`` every value with x >= lo). Without an
     estimator, the list of per-bin y arrays (e.g. for box plots)."""
     x = np.asarray(x)
     y = np.asarray(y)
-    groups = []
-    for i in range(len(edges) - 1):
-        mask = x >= edges[i] if cumulative else (x >= edges[i]) & (x < edges[i + 1])
-        groups.append(y[mask])
+    groups = [y[mask] for mask in _bin_masks(x, edges, cumulative)]
     if estimator is None:
         return groups
     function = _ESTIMATORS[estimator.lower()]
     return np.array([function(group) for group in groups])
+
+
+def bin_estimate(x, y, edges, estimator="mean", cumulative=False, errors=None, error_mode="sem"):
+    """(values, errors, counts) per bin: :func:`bin_reduce` with each bin's
+    error from :func:`estimate` and its number of entries. ``errors`` are
+    optional stored per-event errors of ``y``."""
+    x = np.asarray(x)
+    y = np.asarray(y)
+    errors = None if errors is None else np.asarray(errors)
+    values, uncertainties, counts = [], [], []
+    for mask in _bin_masks(x, edges, cumulative):
+        value, error = estimate(y[mask], estimator, None if errors is None else errors[mask], error_mode)
+        values.append(value)
+        uncertainties.append(error)
+        counts.append(int(np.count_nonzero(mask)))
+    return np.array(values, dtype=float), np.array(uncertainties, dtype=float), np.array(counts)

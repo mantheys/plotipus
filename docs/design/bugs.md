@@ -147,6 +147,12 @@ Propagate stored per-event errors as √Σe²/n for the mean. Add
 or `--note`. Drop bins with fewer than `--min_count` (default 5) entries
 instead of drawing a meaningless value (std = 0 for one event).
 
+**Fixed in T03.** Each estimator returns `(value, error)`
+(`transforms.estimate`/`bin_estimate`); stored errors are propagated;
+`--estimator_error`, `--min_count` and the y-label suffix
+(`--no_error_label`) are in. Joined points under an explicit `--plot_type
+errorbar` are B17 (T07).
+
 ## B05 Tick labels like `4e-2`
 
 **Reproduce:** the examples' `hist` (`4e-2`, `3.5e-2`, …) and `B04`

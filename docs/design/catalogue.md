@@ -35,7 +35,7 @@ command lists.
 | Group | ✅ | ◐ | ✗ |
 |---|---|---|---|
 | A Distributions | 3 | 4 | 5 |
-| B Relationships | 3 | 4 | 2 |
+| B Relationships | 4 | 3 | 2 |
 | C Trends and fits | 3 | 5 | 2 |
 | D Comparisons | 1 | 4 | 4 |
 | E Ratios and significance | 4 | 3 | 1 |
@@ -44,7 +44,7 @@ command lists.
 | H Small multiples and layout | 2 | 2 | 4 |
 | I Annotations | 5 | 2 | 3 |
 | J Tables | 4 | 1 | 2 |
-| **Total (89)** | **30** | **31** | **28** |
+| **Total (89)** | **31** | **30** | **28** |
 
 Nearly half of the ◐ entries are partial only because of a bug in
 [bugs.md](bugs.md), not because an option is missing. Fixing B01–B13 moves
@@ -81,7 +81,7 @@ about 12 of them to ✅.
 | B6 | Gridded map (z on x×y) | functions, scans, images | F15 | ✅ | `map --datafile Contour -x XGrid -y YGrid -z ZGrid` (P17 for a 3×3 grid). | — |
 | B7 | Contour lines / filled contours | levels of a 2D function | F10 | ◐ | `map ... -z ZGrid --contour --contour_sigmas 1 2 3 [--fill_contours]` (example). Levels, fills and legend are wrong or unreadable (B03). | Fix B03; `--contour_levels` for non-σ levels with inline `clabel`. |
 | B8 | Pair plot / corner plot | all pairs of N variables | — | ✗ | — | `map --corner X1 X2 X3`: N×N grid, 2D hists below the diagonal, `hist` on the diagonal. |
-| B9 | Profile (mean y per x bin) | trend in a dense scatter | — | ◐ | `line --binned --estimator mean` (example 5); it draws no error bars (B04). | Fix B04 (SEM by default). |
+| B9 | Profile (mean y per x bin) | trend in a dense scatter | — | ✅ | `line --binned --estimator mean` (example 5): standard error of each bin's statistic, small bins dropped (B04, fixed in T03). | — |
 
 ## C. Trends, fits and time series
 
