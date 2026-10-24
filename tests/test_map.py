@@ -224,3 +224,82 @@ def test_contour_overlays_above_fills(make_project):
     best_fit = [line for line in ax.get_lines() if line.get_marker() == "+"][0].get_zorder()
     overlays = [line for line in ax.get_lines() if list(line.get_ydata()) in ([0, 2], [1, 1])]
     assert len(overlays) == 2 and all(fills < line.get_zorder() < best_fit for line in overlays)
+
+
+# --- Colorbars (T09) -----------------------------------------------------------------
+
+
+def _two_samples():
+    rng = np.random.default_rng(1)
+    rows = []
+    for sample, n in (("signal", 400), ("background", 4000)):
+        x = rng.uniform(0, 10, n)
+        rows.append({"Sample": sample, "X": x, "Y": x + rng.normal(scale=1.0, size=n)})
+    return pd.DataFrame(rows)
+
+
+def _render(make_project, frame, *argv):
+    from plotipus import registry
+
+    make_project({"Events": frame})
+    figures = []
+    registry.add_figure_hook(lambda fig, args: figures.append(fig))
+    map_kind.main(["--datafile", "Events", "-x", "X", "-y", "Y", "--iterable", "Sample", *argv])
+    fig = figures[0]
+    colorbars = [ax._colorbar for ax in fig.axes if hasattr(ax, "_colorbar")]
+    panels = [ax for ax in fig.axes if not hasattr(ax, "_colorbar") and ax.collections]
+    return colorbars, [ax.collections[0] for ax in panels]
+
+
+def test_shared_colorbar_and_norm(make_project):
+    colorbars, meshes = _render(make_project, _two_samples(), "--logz")
+    assert len(colorbars) == 1 and colorbars[0].ax.get_ylabel() == "Counts"
+    assert len(meshes) == 2 and meshes[0].norm is meshes[1].norm
+    smallest = min(m.get_array().compressed().min() for m in meshes)
+    assert meshes[0].norm.vmin == smallest > 0
+    assert meshes[0].norm.vmax == max(m.get_array().max() for m in meshes)
+
+
+def test_each_colorbar_labelled(make_project):
+    colorbars, meshes = _render(make_project, _two_samples(), "--colorbar", "each", "--labelz", "Events")
+    assert [c.ax.get_ylabel() for c in colorbars] == ["Events", "Events"]
+    assert meshes[0].norm is not meshes[1].norm
+
+
+def test_norm_defaults_to_one_colorbar_per_panel(make_project):
+    colorbars, _ = _render(make_project, _two_samples(), "--norm", "vertical")
+    assert [c.ax.get_ylabel() for c in colorbars] == ["Normalized Counts (Columns)"] * 2
+
+
+def test_empty_bins_masked(make_project):
+    for argv in (["--logz"], []):
+        _, meshes = _render(make_project, _two_samples(), *argv)
+        values = meshes[0].get_array()
+        assert np.ma.is_masked(values)
+        assert values.compressed().min() > 0
+
+
+def test_colorbar_geometry(make_project):
+    colorbars, meshes = _render(make_project, _two_samples(), "--colorbar", "each")
+    fig = colorbars[0].ax.figure
+    for colorbar, mesh in zip(colorbars, meshes):
+        panel = mesh.axes.get_position()
+        bar = colorbar.ax.get_position()
+        assert np.isclose(bar.height, panel.height)
+        assert 0.035 < bar.width / panel.width < 0.05
+        # Ticks and label stay inside the figure.
+        assert colorbar.ax.get_tightbbox().transformed(fig.transFigure.inverted()).x1 <= 1
+
+
+def test_contour_backgrounds_share_a_colorbar(make_project):
+    from plotipus import registry
+
+    make_project({"Maps": _maps()})
+    figures = []
+    registry.add_figure_hook(lambda fig, args: figures.append(fig))
+    map_kind.main(["--datafile", "Maps", "-x", "XGrid", "-y", "YGrid", "-z", "ZGrid", "--contour",
+                   "--iterable", "Config", "--background", "first"])
+    colorbars = [ax._colorbar for ax in figures[0].axes if hasattr(ax, "_colorbar")]
+    panels = [ax for ax in figures[0].axes if not hasattr(ax, "_colorbar") and ax.get_visible()]
+    assert len(panels) == 2
+    assert len(colorbars) == 1 and colorbars[0].ax.get_ylabel() == r"$\Delta\chi^2$"

@@ -84,6 +84,48 @@ def _stacked_figure(ncols, height_ratios):
     return fig, grid
 
 
+# Colorbar geometry (style_spec §2.9): as tall as the axes, 4% of one axes'
+# width, 2% of it as padding.
+COLORBAR_WIDTH = 0.04
+COLORBAR_PAD = 0.02
+
+
+def add_colorbar(fig, mappable, axes, label=None):
+    """Colorbar right of ``axes`` (one axes, or a row sharing it), labelled
+    on its right."""
+    axes = list(np.atleast_1d(axes))
+    boxes = [ax.get_position() for ax in axes]
+    width = boxes[0].width
+    span = max(b.x1 for b in boxes) - min(b.x0 for b in boxes)
+    fig_width, fig_height = fig.get_size_inches()
+    aspect = boxes[0].height * fig_height / (COLORBAR_WIDTH * width * fig_width)
+    cbar = fig.colorbar(mappable, ax=axes if len(axes) > 1 else axes[0], fraction=COLORBAR_WIDTH * width / span,
+                        pad=COLORBAR_PAD * width / span, shrink=1.0, aspect=aspect)
+    if label is not None:
+        cbar.set_label(label)
+    cbar.ax.yaxis.set_label_position("right")
+    _fit_colorbar(fig, cbar, axes, max(b.x1 for b in boxes))
+    return cbar
+
+
+def _fit_colorbar(fig, cbar, axes, right):
+    """Move the colorbar left, narrowing ``axes``, until its ticks and label
+    end at ``right`` (the panels' original right edge) instead of in the
+    margin, where they would be cut."""
+    fig.canvas.draw()
+    to_figure = fig.transFigure.inverted()
+    overflow = cbar.ax.get_tightbbox().transformed(to_figure).x1 - right
+    if overflow <= 0:
+        return
+    boxes = [ax.get_position() for ax in axes]
+    left, edge = min(b.x0 for b in boxes), max(b.x1 for b in boxes)
+    scale = (edge - left - overflow) / (edge - left)
+    for ax, box in zip(axes, boxes):
+        ax.set_position([left + (box.x0 - left) * scale, box.y0, box.width * scale, box.height])
+    bar = cbar.ax.get_position(original=True)
+    cbar.ax.set_position([bar.x0 - overflow, bar.y0, bar.width, bar.height])
+
+
 def apply_axis_options(ax, args, prefix="", x=True):
     """Ranges and log scales from ``--{prefix}rangey``, ``--{prefix}logy``
     (and the shared x options when ``x``)."""

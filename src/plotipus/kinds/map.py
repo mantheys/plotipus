@@ -38,7 +38,7 @@ from ..args import add_common_args, map_iterable_color, map_iterable_label, pars
 from ..format import make_config_label_from_args, make_subtitle_from_args
 from ..io import import_data, normalize_datafiles, prepare_import
 from ..palettes import ColorAllocator
-from ..panels import add_title_and_note, create_panels, draw_overlays, save
+from ..panels import add_colorbar, add_title_and_note, create_panels, draw_overlays, save
 from ..plot import (
     apply_legend_style,
     apply_scientific_threshold_formatter,
@@ -104,6 +104,9 @@ def build_parser():
     add = parser.add_argument
     add("--diagonal", action="store_true", default=False, help="Draw the y = x line.")
     add("--cmap", type=str, default=None, help="Matplotlib colour map of -z images.")
+    add("--colorbar", default=None, choices=["shared", "each"],
+        help="One colorbar and colour scale for the row of panels (shared, the default unless --norm) "
+        "or one per panel (each).")
     add("--panel_title", nargs="+", type=parse_plot_label, default=None, help="Title of each panel.")
     add("--compact", action="store_true", default=False, help="Hide repeated y ticks on inner panels.")
     add("--iterable_mapping", type=str, default=None,
@@ -233,7 +236,7 @@ def draw_histogram_figure(rows, args, kdx):
     panels, hues = _panels(rows, args)
     fig, axes, _, _ = create_panels(len(panels), grid=False)
     ranges = None
-    cbar = None
+    colorbars = []  # (ax, mappable, label) per panel
     subsets = []
     for pdx, (variable, hue) in enumerate(panels):
         ax = axes[pdx]
@@ -263,37 +266,39 @@ def draw_histogram_figure(rows, args, kdx):
         if z is not None:
             mappable = plot_data(args, ax, x, y=y, plot_type="image", z=z,
                                  **({"cmap": args.cmap} if args.cmap is not None else {}))
+            if args.logz:
+                mappable.set_array(np.ma.masked_less_equal(mappable.get_array(), 0))
             if args.rangez is not None:
                 mappable.set_clim(*args.rangez)
                 if args.logz:
                     # Bins below the log floor stay blank instead of taking the lowest colour.
                     mappable.set_cmap(mappable.get_cmap().with_extremes(under="none"))
-            cbar = fig.colorbar(mappable, ax=ax)
-            cbar.set_label(resolve_axis_label(args.labelz, args.z, subset))
+            colorbars.append((ax, mappable, resolve_axis_label(args.labelz, args.z, subset)))
         else:
             kwargs = {"range": (x_range, y_range), "bins": args.bins or style.nbins}
             if is_integer_valued(x) and is_integer_valued(y):
                 kwargs["bins"] = [integer_bin_edges(*x_range), integer_bin_edges(*y_range)]
             hist = plot_data(args, ax, x, y=y, plot_type="hist2d", **kwargs)
+            mesh = hist[3]
             if args.norm is not None:
-                hist[3].set_array(normalize_hist2d(hist[0], args.norm).T)
-            if not args.logz:
-                values = hist[3].get_array()
-                hist[3].set_array(np.ma.masked_where(values == 0, values))
-                hist[3].set_clim(0, hist[3].get_array().max())
+                mesh.set_array(normalize_hist2d(hist[0], args.norm).T)
+            # Empty bins are blank on linear and log scales alike.
+            mesh.set_array(np.ma.masked_less_equal(mesh.get_array(), 0))
+            if args.logz:
+                mesh.autoscale()  # vmin at the smallest non-empty bin
+            else:
+                mesh.set_clim(0, mesh.get_array().max())
             if args.rangez is not None:
-                hist[3].set_clim(*args.rangez)
-            cbar = fig.colorbar(hist[3], ax=ax)
+                mesh.set_clim(*args.rangez)
+            label = args.labelz or (NORM_LABELS[args.norm] if args.norm else "Density" if args.density else "Counts")
+            colorbars.append((ax, mesh, label))
 
         if args.diagonal:
             ax.plot(x_range, x_range, color="k" if args.logz else "white", linestyle="--")
             ax.set_xlim(ranges[0])
             ax.set_ylim(ranges[0])
 
-    if args.z is None and cbar is not None:
-        cbar.set_label(NORM_LABELS[args.norm] if args.norm else "Density" if args.density else "Counts")
-    if cbar is not None:
-        cbar.ax.yaxis.set_label_position("right")
+    draw_colorbars(fig, colorbars, args)
 
     for pdx, ((variable, hue), ax) in enumerate(zip(panels, axes)):
         hue_index = hues.index(hue) if hue in hues else 0
@@ -322,6 +327,33 @@ def draw_histogram_figure(rows, args, kdx):
 
     add_title_and_note(fig, args)
     return save(fig, args, kdx, suffix="hist2d.png")
+
+
+def colorbar_mode(args):
+    """shared or each: panels share one colorbar unless --norm normalises
+    each panel on its own scale (or --colorbar each asks for one per panel)."""
+    return args.colorbar or ("each" if args.norm else "shared")
+
+
+def draw_colorbars(fig, entries, args):
+    """Colorbars of ``entries`` [(ax, mappable, label)]: one per panel, or a
+    shared one right of the row when the panels show the same quantity (one
+    label), with one norm spanning every panel."""
+    if not entries:
+        return
+    labels = {label for _, _, label in entries}
+    if colorbar_mode(args) == "shared" and len(entries) > 1 and len(labels) == 1:
+        mappables = [mappable for _, mappable, _ in entries]
+        for mappable in mappables:
+            mappable.autoscale_None()
+        norm = type(mappables[0].norm)(vmin=min(m.norm.vmin for m in mappables),
+                                       vmax=max(m.norm.vmax for m in mappables))
+        for mappable in mappables:
+            mappable.set_norm(norm)
+        add_colorbar(fig, mappables[0], [ax for ax, _, _ in entries], labels.pop())
+        return
+    for ax, mappable, label in entries:
+        add_colorbar(fig, mappable, ax, label)
 
 
 # --- Contours: maps ------------------------------------------------------------------------
@@ -655,7 +687,8 @@ def _combined_width(args):
 
 def draw_background(ax, fig, x, y, z, args, rows, levels):
     """The background image. Delta-chi2 maps are clipped at the outermost
-    level (blank beyond it) and their colour bar is labelled delta-chi2."""
+    level (blank beyond it) and their colour bar is labelled delta-chi2. The
+    colorbar is drawn with the figure's others (:func:`draw_colorbars`)."""
     image = _smooth(z, args.background_smoothing_sigma)
     if args.logz:
         image = np.ma.masked_less_equal(image, 0)
@@ -671,7 +704,6 @@ def draw_background(ax, fig, x, y, z, args, rows, levels):
     if delta_chi2 and args.rangez is None:
         # Cells outside the outermost contour stay blank.
         mesh.set_cmap(mesh.get_cmap().with_extremes(over="none"))
-    cbar = fig.colorbar(mesh, ax=ax)
     if args.labelz is not None:
         label = args.labelz
     elif args.density:
@@ -680,8 +712,7 @@ def draw_background(ax, fig, x, y, z, args, rows, levels):
         label = r"$\Delta\chi^2$"
     else:
         label = resolve_axis_label(None, args.z, rows)
-    cbar.set_label(label)
-    cbar.ax.yaxis.set_label_position("right")
+    ax._background_colorbar = (mesh, label)
 
 
 def contour_legend(sets, labels):
@@ -1024,6 +1055,7 @@ def draw_contour_figure(df, args):
             if handles:
                 apply_legend_style(ax, handles=handles, capitalize_labels=args.capitalize_legend).set_zorder(10)
 
+    draw_colorbars(fig, [(ax, *ax._background_colorbar) for ax in axes if hasattr(ax, "_background_colorbar")], args)
     add_title_and_note(fig, args)
     if args.compact and ncols > 1:
         fig.tight_layout()

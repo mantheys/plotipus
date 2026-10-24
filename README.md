@@ -56,7 +56,7 @@ Kinds follow the data relationship (as in seaborn/plotly), not the use case.
 | `line` | y against an ordered x, one series per `--hue` value, line style per `--style` value | `--plot_type step\|stepmid\|line\|errorbar\|plot\|bar\|barh\|box`, `--lower`, `--stacked`, `--sum_iterables`, `--merge_iterables`, `--rebin`, `--by_config`, `--fit`, `--binned --estimator mean\|median\|std\|rms\|sum\|max\|min` |
 | `scatter` | observations: exploded points with colour/size/marker encodings, or pairs of metrics (`--x_from Variable=Purity --y_from Variable=Completeness`) | `--colorby`, `--sizeby`, `--markerby`, `--aggregate` |
 | `hist` | 1D histograms of per-event arrays | `--bins`, `--weight`, `--density`, `--hist_combine` |
-| `map` | 2D: histogram of point arrays, image of a grid (`-z`), contour layer (`--contour`) | `--norm`, `--diagonal`, `--logz`, `--contour_sigmas`, `--contour_dof`, `--contour_label`, `--fill_contours`, `--background`, `--no_best_fit` |
+| `map` | 2D: histogram of point arrays, image of a grid (`-z`), contour layer (`--contour`) | `--norm`, `--diagonal`, `--logz`, `--colorbar`, `--contour_sigmas`, `--contour_dof`, `--contour_label`, `--fill_contours`, `--background`, `--no_best_fit` |
 | `cat` | one value per category (integrated arrays) | `--integrate_over`, `--kind point\|line\|bar` |
 | `table` | aggregated values as LaTeX (and HTML) tables | `--variables`, `--agg`, `--error_band`, `--clopper_pearson`, `--siunitx`, `--caption_file` |
 
@@ -105,6 +105,15 @@ derived from (or stored in) the same DataFrame. Each `--lower` adds one:
 The lower panel is styled with the upper-panel options prefixed by `lower_`:
 `--lower_plot_type errorbar`, `--lower_labely`, `--lower_rangey`,
 `--lower_logy`, `--lower_horizontal`, ...
+
+### Colorbars
+
+`map` panels showing the same quantity share one colour scale and one
+colorbar right of the row (`--colorbar shared`, the default unless `--norm`
+normalises each panel); `--colorbar each` draws one per panel. Every bar is
+labelled: `--labelz`, else the `--norm` label, else "Counts"/"Density", else
+the `-z` column. Empty bins are blank, and with `--logz` the scale starts at
+the smallest non-empty bin.
 
 ### Contours
 
