@@ -104,15 +104,16 @@ def test_by_config_distinct_colours_and_config_color(make_project, tmp_path):
     assert colors[:2] == [to_hex("C3"), to_hex("C4")]
 
 
-def test_many_hues_get_distinct_pairs(make_project, capsys):
+def test_many_hues_repeat_colours_with_a_warning(make_project, capsys):
     x = np.linspace(0, 10, 20)
     frame = pd.DataFrame([{"X": x, "Y": np.sin(x + i), "Run": f"run{i:02d}"} for i in range(12)])
     make_project({"ManyHue": frame})
     figures = _capture()
     line.main(["--datafile", "ManyHue", "-x", "X", "-y", "Y", "--hue", "Run", "--plot_type", "line"])
     pairs = _line_colors(figures[0].axes[0])
-    assert len(pairs) == 12 and len(set(pairs.values())) == 12
-    assert pairs["run10"] == (pairs["run00"][0], "--")
+    assert len(pairs) == 12 and len({color for color, _ in pairs.values()}) == 10
+    assert pairs["run10"] == pairs["run00"]
+    assert {linestyle for _, linestyle in pairs.values()} == {"-"}
     assert capsys.readouterr().out.count("More categories") == 1
 
 

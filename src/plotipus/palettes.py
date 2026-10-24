@@ -4,8 +4,8 @@ A palette is a list of hex colours. :func:`apply` makes one the colour cycle
 (``axes.prop_cycle``), so ``Cn`` colours and plain matplotlib calls follow
 it. :class:`ColorAllocator` hands out the colours of one figure: a category
 keeps its colour in every panel, a user-mapped colour is never given to
-another category, and past the end of the palette the line style changes
-instead of the colour silently repeating.
+another category, and past the end of the palette the colours repeat with a
+warning instead of silently.
 """
 
 import matplotlib.pyplot as plt
@@ -53,9 +53,6 @@ PALETTES = {
     "root": ["#000000", "#ff0000", "#00ff00", "#0000ff", "#ffff00", "#ff00ff", "#00ffff", "#59d454", "#5954d9"],
 }
 
-# Line styles taken in turn each time the categories wrap past the palette.
-OVERFLOW_LINESTYLES = ["-", "--", ":", "-."]
-
 # Name of the palette set by apply(); None when the cycle came from elsewhere (an rcParams key).
 active = None
 
@@ -94,15 +91,14 @@ def _key(color):
 class ColorAllocator:
     """Colours of one figure, shared by all its panels and lower panels.
 
-    :meth:`style_for` returns ``(colour, linestyle)``. The line style is None
-    while the palette lasts; past its end, colour cycles fastest and each
-    wrap advances the line style (``-``, ``--``, ``:``, ``-.``).
+    Past the end of the palette the colours repeat (line styles are left to
+    the encodings that ask for them) and one warning is printed.
     """
 
     def __init__(self, colors=None):
         self.colors = list(colors) if colors is not None else current_colors()
-        self._assigned = {}  # category -> (colour, linestyle)
-        self._slots = set()  # taken slots; slot k is colour k % n with line style k // n
+        self._assigned = {}  # category -> colour
+        self._slots = set()  # taken slots; slot k is colour k % n
         self._mapped = set()  # hex of user-mapped colours, kept away from unmapped categories
         self._warned = False
 
@@ -115,13 +111,13 @@ class ColorAllocator:
         for category in categories:
             color = mapping(category)
             if color is not None:
-                self.style_for(category, color)
+                self.color_for(category, color)
 
-    def style_for(self, category, mapping=None):
-        """``(colour, linestyle)`` of ``category``: ``mapping`` (the user's
-        colour) when given, else its colour so far, else the next free slot."""
+    def color_for(self, category, mapping=None):
+        """Colour of ``category``: ``mapping`` (the user's colour) when
+        given, else its colour so far, else the next free slot."""
         if mapping is not None:
-            self._assigned[category] = (mapping, None)
+            self._assigned[category] = mapping
             key = _key(mapping)
             self._mapped.add(key)
             self._slots.update(k for k, c in enumerate(self.colors) if _key(c) == key)
@@ -130,15 +126,12 @@ class ColorAllocator:
             self._assigned[category] = self._take()
         return self._assigned[category]
 
-    def color_for(self, category, mapping=None):
-        return self.style_for(category, mapping)[0]
-
     def next_free(self, category=None):
         """A colour no category has: for combined, sum and reference-sum
         series. Given a ``category``, it is remembered like any other."""
         if category is not None:
             return self.color_for(category)
-        return self._take()[0]
+        return self._take()
 
     def _take(self):
         n = len(self.colors)
@@ -147,11 +140,10 @@ class ColorAllocator:
         while slot in self._slots or slot % n not in usable:
             slot += 1
         self._slots.add(slot)
-        wrap = slot // n
-        if wrap and not self._warned:
+        if slot >= n and not self._warned:
             self._warned = True
             palette = f"the '{active}' palette" if active else "the colour cycle"
-            rprint(f"[yellow]Warning:[/yellow] More categories than the {n} colours of {palette}: colours repeat "
-                   "with a new line style. For ordered values (runs, energies) a sequential colormap reads better "
+            rprint(f"[yellow]Warning:[/yellow] More categories than the {n} colours of {palette}: colours repeat. "
+                   "For ordered values (runs, energies) a sequential colormap reads better "
                    "(--hue_cmap); --palette picks a longer palette.")
-        return self.colors[slot % n], OVERFLOW_LINESTYLES[wrap % len(OVERFLOW_LINESTYLES)] if wrap else None
+        return self.colors[slot % n]

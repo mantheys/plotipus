@@ -714,9 +714,9 @@ def _allocate_colors(hue_values, comparable_values, args, invert):
         values, reverse = [v for v in hue_values if not isinstance(v, _SumSlot)], args.iterable_reverse
     colors.reserve(values, lambda value: map_iterable_color(value, args.iterable_color_mapping))
     for value in values[::-1] if reverse else values:
-        colors.style_for(value)
+        colors.color_for(value)
     if args.sum_iterables and not (invert and comparable_values):
-        colors.style_for(_SUM_KEY, args.sum_color or map_iterable_color(args.sum_label, args.iterable_color_mapping))
+        colors.color_for(_SUM_KEY, args.sum_color or map_iterable_color(args.sum_label, args.iterable_color_mapping))
     return colors
 
 
@@ -737,8 +737,7 @@ def _encode(s, args, hue_values, colors, style_index, n_style, comparable, compa
         index = len(style_index) if s.is_sum else style_index.get(s.hue, 0)
         s.linestyle = resolve_linestyle(index, args, n_total=n_style, reverse=args.iterable_reverse)
     else:
-        # Past the end of the palette the allocator also gives a line style.
-        s.color, overflow_linestyle = colors.style_for(_SUM_KEY if s.is_sum else s.hue)
+        s.color = colors.color_for(_SUM_KEY if s.is_sum else s.hue)
         if s.comparable is not None:
             s.linestyle = resolve_linestyle(sdx, args, n_total=n_comparable)
         elif same_column:
@@ -746,7 +745,7 @@ def _encode(s, args, hue_values, colors, style_index, n_style, comparable, compa
             index = len(style_index) if s.is_sum else style_index.get(s.hue, 0)
             s.linestyle = resolve_linestyle(index, args, n_total=n_style)
         else:
-            s.linestyle = overflow_linestyle
+            s.linestyle = None
 
     if s.comparable is not None:
         s.linewidth = resolve_linewidth(sdx, args, n_total=n_comparable)
@@ -1268,15 +1267,15 @@ def run_by_config(df, args):
 
                 key = (iterable, ldx, config, name)
                 mapped, base_linestyle = make_config_color_and_style_from_args(args, config=config, name=name)
-                color, overflow_linestyle = colors.style_for(key, mapped)
+                color = colors.color_for(key, mapped)
                 if key not in linestyles:
                     many = len(set(prefixes)) > 1 or len(args.configs or []) > 1 or len(args.names or []) > 2
                     used = list(line_colors.values())
-                    if color in used and many:
+                    if mapped is not None and color in used and many:
                         # The same mapped colour again: tell the lines apart by style.
                         linestyles[key] = {1: "--", 2: ":", 3: "-."}.get(used.count(color), base_linestyle or "-")
                     else:
-                        linestyles[key] = overflow_linestyle or "-"
+                        linestyles[key] = "-"
                     line_colors[key] = color
                 linestyle = linestyles[key]
 

@@ -95,8 +95,9 @@ none (the reuse was a bug); `--palette tab10` restores the old colours.
 
 **Fixed in T01.** No `C{n}` strings or `% 10` remain at these sites; the
 cycle length comes from the active palette (`--palette`, style key
-`palette`, default `petroff10`). Past its end the allocator returns
-(colour, line style) pairs, colour fastest, with one warning per figure.
+`palette`, default `petroff10`). Past its end colours repeat with one
+warning per figure; line styles stay reserved for `--style` and mapped
+configs (maintainer's decision: no automatic colour × line-style product).
 `--hue X --style X` draws one legend whose entries carry both encodings.
 
 ## B03 Contour plots are hard to read (the maintainer's report)

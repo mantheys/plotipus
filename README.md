@@ -67,8 +67,8 @@ Kinds follow the data relationship (as in seaborn/plotly), not the use case.
   keeps its colour in every panel and lower panel, a mapped colour is never
   given to another value, and the combined/sum series (`--combined_color`,
   `--sum_color`, `--reference_sum_color`, default: a free colour) never
-  share one. With more values than colours, colours repeat with a new line
-  style and a warning is printed.
+  share one. With more values than colours, colours repeat and a warning
+  is printed.
 * **Axes and overlays**: `--labelx/--labely/--labelz`, `--rangex/--rangey`,
   `--logx/--logy`, `--horizontal`, `--vertical`, `--point`, `--square`,
   `--line`, `--xtick`, `--note`, `--title`.

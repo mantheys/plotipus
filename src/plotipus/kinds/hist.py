@@ -153,8 +153,7 @@ def draw_figure(df, args, kdx, config, name):
             weights = np.asarray(subset[args.weight].values[0], dtype=float) if args.weight is not None else None
             counts, edges = np.histogram(x, bins=args.bins, range=ranges[idx], density=density, weights=weights)
             label, mapped, linestyle = _series_style(args, value, name)
-            color, overflow_linestyle = colors.style_for(value, mapped)
-            linestyle = linestyle or overflow_linestyle
+            color = colors.color_for(value, mapped)
             plot_data(args, ax, (edges[:-1] + edges[1:]) / 2, y=counts, label=label, color=color,
                       linestyle=linestyle, plot_type="plot", drawstyle="steps-mid")
 

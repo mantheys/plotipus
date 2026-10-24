@@ -87,7 +87,7 @@ about 12 of them to ✅.
 
 | id | chart | use | famous | status | command today / what is missing | smallest change |
 |---|---|---|---|---|---|---|
-| C1 | Lines, colour by hue, style by a second variable | several series vs x | F11, F13 | ✅ | `line ... --hue Sample --style Stage` (example 1). Past the palette, colours repeat with a new line style and a warning (B02, fixed in T01); `--palette` picks the palette. | — |
+| C1 | Lines, colour by hue, style by a second variable | several series vs x | F11, F13 | ✅ | `line ... --hue Sample --style Stage` (example 1). Past the palette, colours repeat with a warning (B02, fixed in T01); `--palette` picks the palette. | — |
 | C2 | Line with uncertainty band | curve ± σ | F14, F15 | ◐ | `line --errory --errory_type bands --plot_type line` (P09). Without `--plot_type line`, bars are drawn instead (B11). | Fix B11. |
 | C3 | Stored fit over data with parameter box | publish a fit result | F06, F08, F19 | ✅ | `line --datafile Fit -x X -y Counts --fit --plot_type errorbar --errory` (P04). Fit colour hard-coded red (B13/B14). | — |
 | C4 | Fit with residual panel | fit quality | F01, F06, F07, F09 | ✅ | `... --fit --lower residual` (P04): (data−fit)/fit. This diverges in the tails (B13). | — |
@@ -96,7 +96,7 @@ about 12 of them to ✅.
 | C7 | Stacked area | composition over x | F23 | ✗ | `--stacked` only stacks bars (B10). | Covered by the B10 fix (`--stacked --plot_type line` → `fill_between`). |
 | C8 | Time series with dates | monitoring, Keeling curve | F13 | ◐ | Works on numeric x (decimal year); no date axis formatting. | Convert datetime64 x and use `ConciseDateFormatter`. |
 | C9 | Smoothed / rolling line | trend under noise | F13, F14 | ✗ | — | `line --smooth N [--smooth_kind rolling\|savgol]` drawn over the raw series. |
-| C10 | Many series with a sequential colour | ordered hue (runs, energies) | F11 | ◐ | Only the categorical palette (past its end: colour × line style with a warning, T01). | `line --hue_cmap viridis` for numeric/ordered hues, with a colorbar instead of a legend. |
+| C10 | Many series with a sequential colour | ordered hue (runs, energies) | F11 | ◐ | Only the categorical palette (past its end colours repeat with a warning, T01). | `line --hue_cmap viridis` for numeric/ordered hues, with a colorbar instead of a legend. |
 
 ## D. Comparisons across categories
 

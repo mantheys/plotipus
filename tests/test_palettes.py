@@ -80,10 +80,9 @@ def test_next_free_skips_taken_colours():
     assert colors.next_free("combined") == combined
 
 
-def test_overflow_pairs_and_single_warning(capsys):
+def test_overflow_repeats_colours_with_single_warning(capsys):
     colors = ColorAllocator(palettes.get("petroff10"))
-    pairs = [colors.style_for(i) for i in range(12)]
-    assert len(set(pairs)) == 12
-    assert all(linestyle is None for _, linestyle in pairs[:10])
-    assert pairs[10] == (pairs[0][0], "--") and pairs[11] == (pairs[1][0], "--")
+    assigned = [colors.color_for(i) for i in range(12)]
+    assert len(set(assigned[:10])) == 10
+    assert assigned[10:] == assigned[:2]
     assert capsys.readouterr().out.count("Warning") == 1
