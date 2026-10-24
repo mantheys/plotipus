@@ -38,7 +38,6 @@ from ..encodings import (
     iterable_legend_title,
     legend_selection,
     order_values,
-    resolve_cycle_color,
     resolve_linestyle,
     resolve_linewidth,
 )
@@ -52,6 +51,7 @@ from ..lower import (
     pairwise,
     parse_lower,
 )
+from ..palettes import ColorAllocator
 from ..panels import (
     add_title_and_note,
     apply_axis_options,
@@ -148,7 +148,8 @@ def build_parser():
     add("--sum_iterables", nargs="+", default=None,
         help="Hue values drawn as one summed series (per style value) instead of individually.")
     add("--sum_label", type=str, default="Combined", help="Legend label of the --sum_iterables series.")
-    add("--sum_color", type=str, default=None, help="Colour of the --sum_iterables series.")
+    add("--sum_color", type=str, default=None,
+        help="Colour of the --sum_iterables series (default: a palette colour no hue value has).")
     add("--rebin", type=int, default=None, help="Merge every N consecutive points of each series.")
     add("--rebin_sum", action="store_true", default=False,
         help="With --rebin: sum merged y values (counts) instead of averaging them.")
@@ -167,7 +168,8 @@ def build_parser():
         help="How --combine merges values at equal x.")
     add("--combine_op", type=str, default=None, choices=["sum", "squared_sum", "mean"],
         help="With --by_config: also draw the combination of all series.")
-    add("--combined_color", type=str, default="C0")
+    add("--combined_color", type=str, default=None,
+        help="Colour of the --combine_op series (default: a palette colour no config has).")
     add("--combined_linestyle", type=str, default="-")
     add("--combined_linewidth", type=float, default=None)
     add("--combined_alpha", type=float, default=1.0)
@@ -212,7 +214,8 @@ def build_parser():
         help="With --lower_across comparable: index of the style value compared with the reference.")
     add("--reference_sum", nargs="+", default=None, help="Hue values summed into one series before the operation.")
     add("--reference_sum_label", type=str, default=None)
-    add("--reference_sum_color", type=str, default=None)
+    add("--reference_sum_color", type=str, default=None,
+        help="Colour of the --reference_sum series (default: a palette colour no hue value has).")
     add("--reference_group", nargs="+", default=None,
         help="Hue values summed (weighted) into the left side of a group comparison (with --other_group).")
     add("--reference_group_weights", nargs="+", type=float, default=None)
@@ -583,16 +586,19 @@ def draw_figure(rows, args, kdx=None):
     regular = [v for v in hue_values if not isinstance(v, _SumSlot)]
     reduce_active = args.reduce and len(hue_values) > 8
     drawn_hues = [v for j, v in enumerate(hue_values) if not (reduce_active and j % 2 == 1)]
-    color_index = {v: i for i, v in enumerate(v for v in drawn_hues if not isinstance(v, _SumSlot))}
-    style_index = dict(color_index)
+    style_index = {v: i for i, v in enumerate(v for v in drawn_hues if not isinstance(v, _SumSlot))}
     n_style = len(style_index) + (1 if args.sum_iterables else 0)
 
     comparable = args.comparable if args.comparable is not None and args.comparable in rows.columns else None
+    # --hue X --style X: one series per value, drawn in its own colour and line style under one legend.
+    same_column = comparable is not None and comparable == args.iterable
+    if same_column:
+        comparable = None
     comparable_values = list(filtered[comparable].dropna().unique()) if comparable else []
     if args.comparable_order_reverse:
         comparable_values = comparable_values[::-1]
-    n_comparable = len(comparable_values)
-    invert = args.invert_style
+    invert = args.invert_style and not same_column
+    colors = _allocate_colors(drawn_hues, comparable_values, args, invert)
 
     style_map, alpha_map = ({}, {}) if invert else comparable_maps(comparable_values, comparable, args)
     iterable_style_map = {}
@@ -641,7 +647,8 @@ def draw_figure(rows, args, kdx=None):
                 s.hue = hue
                 s.comparable = comparable_value
                 s.comparable_index = sdx
-                _encode(s, args, hue_values, color_index, style_index, n_style, comparable, comparable_values, invert)
+                _encode(s, args, hue_values, colors, style_index, n_style, comparable, comparable_values, invert,
+                        same_column)
                 key = s.comparable if invert and comparable_value is not None else hue
                 if idx == legend_panel and key not in labeled and not (invert and s.is_sum and comparable_value is not None):
                     s.label = s.comparable_label if invert and comparable_value is not None else s.hue_label
@@ -683,7 +690,7 @@ def draw_figure(rows, args, kdx=None):
 
     for idx, specs_axes in enumerate(lower):
         for spec, lower_ax in zip(specs, specs_axes):
-            _draw_lower(lower_ax, spec, drawn[idx], args, comparable, comparable_values)
+            _draw_lower(lower_ax, spec, drawn[idx], args, comparable, comparable_values, colors)
 
     _finish_upper(fig, upper, lower, drawn, rows, args, variables, last_x, hue_values, comparable,
                   style_map, alpha_map, iterable_style_map, extrapolated_axes, nrows, ncols)
@@ -692,13 +699,33 @@ def draw_figure(rows, args, kdx=None):
     return save(fig, args, kdx, suffix=suffix)
 
 
-def _encode(s, args, hue_values, color_index, style_index, n_style, comparable, comparable_values, invert):
+_SUM_KEY = ("sum",)
+
+
+def _allocate_colors(hue_values, comparable_values, args, invert):
+    """The figure's :class:`ColorAllocator` with the hue values (with
+    --invert_style, the comparable values) assigned in draw order: mapped
+    colours first, the palette for the rest (from its end with
+    --iterable_reverse/--comparable_reverse), the sum series after them."""
+    colors = ColorAllocator()
+    if invert and comparable_values:
+        values, reverse = list(comparable_values), args.comparable_reverse
+    else:
+        values, reverse = [v for v in hue_values if not isinstance(v, _SumSlot)], args.iterable_reverse
+    colors.reserve(values, lambda value: map_iterable_color(value, args.iterable_color_mapping))
+    for value in values[::-1] if reverse else values:
+        colors.color_for(value)
+    if args.sum_iterables and not (invert and comparable_values):
+        colors.color_for(_SUM_KEY, args.sum_color or map_iterable_color(args.sum_label, args.iterable_color_mapping))
+    return colors
+
+
+def _encode(s, args, hue_values, colors, style_index, n_style, comparable, comparable_values, invert, same_column=False):
     """Colour, line style, width and fill of a series."""
     n_comparable = len(comparable_values)
     sdx = s.comparable_index
     if s.is_sum:
         s.hue_label = args.sum_label
-        sum_color = args.sum_color or map_iterable_color(args.sum_label, args.iterable_color_mapping) or f"C{len(color_index)}"
     else:
         s.hue_label = map_iterable_label(s.hue, args.iterable, args.iterable_mapping, len(hue_values)) if args.iterable else None
     s.comparable_label = (
@@ -706,22 +733,19 @@ def _encode(s, args, hue_values, color_index, style_index, n_style, comparable, 
     )
 
     if invert and s.comparable is not None:
-        s.color = (
-            (args.sum_color if s.is_sum else None)
-            or map_iterable_color(s.comparable, args.iterable_color_mapping)
-            or resolve_cycle_color(sdx, n_comparable, args.comparable_reverse)
-        )
+        s.color = (args.sum_color if s.is_sum else None) or colors.color_for(s.comparable)
         index = len(style_index) if s.is_sum else style_index.get(s.hue, 0)
         s.linestyle = resolve_linestyle(index, args, n_total=n_style, reverse=args.iterable_reverse)
     else:
-        if s.is_sum:
-            s.color = sum_color
+        s.color = colors.color_for(_SUM_KEY if s.is_sum else s.hue)
+        if s.comparable is not None:
+            s.linestyle = resolve_linestyle(sdx, args, n_total=n_comparable)
+        elif same_column:
+            # Line style by position: with 10 colours and 4 styles, distinct pairs for up to 20 values.
+            index = len(style_index) if s.is_sum else style_index.get(s.hue, 0)
+            s.linestyle = resolve_linestyle(index, args, n_total=n_style)
         else:
-            s.color = (
-                map_iterable_color(s.hue, args.iterable_color_mapping)
-                or resolve_cycle_color(color_index.get(s.hue, 0), len(color_index), args.iterable_reverse)
-            )
-        s.linestyle = resolve_linestyle(sdx, args, n_total=n_comparable) if s.comparable is not None else None
+            s.linestyle = None
 
     if s.comparable is not None:
         s.linewidth = resolve_linewidth(sdx, args, n_total=n_comparable)
@@ -764,7 +788,7 @@ def _lower_series(x, y, error, color, linestyle, label, linewidth=None, x_edges=
     return s
 
 
-def _draw_lower(ax, spec, series, args, comparable, comparable_values):
+def _draw_lower(ax, spec, series, args, comparable, comparable_values, colors):
     """Compute and draw one lower panel from the series of its upper panel."""
     plot_type = _resolved_plot_type(args, "lower_")
     label = _lower_label(spec, args)
@@ -810,11 +834,13 @@ def _draw_lower(ax, spec, series, args, comparable, comparable_values):
             errors = [None if s.error is None or np.ndim(s.error) != 1 else s.error for s in aligned]
             for diff_label, values, errors_out in group_difference(labels, arrays, errors, **group_kwargs):
                 if args.show_stat_error:
-                    lower_s = _lower_series(x, values, errors_out, args.reference_sum_color or f"C{sdx}", None,
+                    color = args.reference_sum_color or colors.next_free(("group", value))
+                    lower_s = _lower_series(x, values, errors_out, color, None,
                                             f"{diff_label} ({aligned[0].comparable_label})" if value is not None else diff_label)
                     lower_s.forced_type = "errorbar"
                 else:
-                    lower_s = _lower_series(x, values, None, args.reference_sum_color, aligned[0].linestyle,
+                    color = args.reference_sum_color or colors.next_free(("group",))
+                    lower_s = _lower_series(x, values, None, color, aligned[0].linestyle,
                                             diff_label if sdx == 0 else None, aligned[0].linewidth)
                 out.append(lower_s)
     elif spec.kind == "column":
@@ -865,12 +891,17 @@ def _draw_lower(ax, spec, series, args, comparable, comparable_values):
                     reference_index = [str(s.hue) for s in aligned].index(str(args.reference_value))
                 except ValueError:
                     rprint(f"[yellow]Warning:[/yellow] reference value '{args.reference_value}' not found; using index {args.reference}.")
-            colors = {str(s.hue_label): s.color for s in aligned}
+            series_colors = {str(s.hue_label): s.color for s in aligned}
             if args.reference_sum:
-                colors[str(args.reference_sum_label or " + ".join(map(str, args.reference_sum)))] = args.reference_sum_color
+                sum_label = str(args.reference_sum_label or " + ".join(map(str, args.reference_sum)))
+                series_colors[sum_label] = args.reference_sum_color or colors.next_free(("reference_sum", sum_label))
             for out_label, values in operation_series(labels, [s.y for s in aligned], spec.name, reference_index,
                                                       args.reference_sum, args.reference_sum_label):
-                color = None if spec.name in ("sum", "mean", "rms") else colors.get(out_label)
+                # A sum/mean/rms of every series is a new series: it takes a colour of its own.
+                if spec.name in ("sum", "mean", "rms"):
+                    color = colors.next_free((spec.name,))
+                else:
+                    color = series_colors.get(out_label)
                 out.append(_lower_series(x, values, None, color, aligned[0].linestyle, label if first else None,
                                          aligned[0].linewidth))
                 first = False
@@ -1134,13 +1165,19 @@ def run_by_config(df, args):
     iterables = (
         [v for v in filtered_all[args.iterable].unique() if str(v) not in exclude] if args.iterable is not None else [None]
     )
-    used_colors = []
+    # One colour per (hue value, config/name) in every panel; mapped colours are reserved first.
+    colors = ColorAllocator()
+    if args.combine != "prefix":
+        configs, names = prepare_import(args)
+        pairs = list(enumerate(zip(configs if configs is not None else [None], names if names is not None else [None])))
+        for iterable in iterables:
+            colors.reserve([(iterable, ldx, config, name) for ldx, (config, name) in pairs],
+                           lambda key: make_config_color_and_style_from_args(args, config=key[2], name=key[3])[0])
+    linestyles, line_colors = {}, {}  # per series, so every panel draws it alike
     plotted = set()
-    kdx = -1
     for idx, variable in enumerate(variables):
         ax = upper[idx]
         for iterable in iterables:
-            kdx += 1
             subset = _panel_rows(filtered_all, variable)
             if iterable is not None:
                 subset = subset[subset[args.iterable] == iterable]
@@ -1150,8 +1187,6 @@ def run_by_config(df, args):
             if args.combine == "prefix":
                 subset, configs, names = _combine_by_prefix(subset, configs, names, args)
             prefixes = [str(c).split("_")[0] if c is not None else "" for c in configs]
-            two_lines = len(configs) == 2 and len(names) == 2
-            single = len(configs) == 1 and len(names) == 1
             pending = []  # (x, y, error) for --combine_op
             grids = []
             if args.combine_op is not None:
@@ -1160,7 +1195,6 @@ def run_by_config(df, args):
                     if x is not None:
                         grids.append(x + args.shift_offset if _is_shifted(config, name, args) else x)
             grid = union_grid(grids)
-            offset = 1 if args.combine_op is not None else 0
             last_edges = None
             for ldx, (prefix, config, name) in enumerate(zip(prefixes, configs, names)):
                 rows = _config_rows(subset, config, name, ldx)
@@ -1231,20 +1265,19 @@ def run_by_config(df, args):
                     edges = edges_from_centers(unique) if len(unique) > 1 else np.array([unique[0] - 0.5, unique[0] + 0.5])
                 last_edges = edges
 
-                if two_lines:
-                    color, linestyle = f"C{ldx}", "-"
-                elif single:
-                    color, linestyle = f"C{(kdx + offset) % 10}", "-"
-                else:
-                    color, base_linestyle = make_config_color_and_style_from_args(args, config=config, name=name)
-                    color = color or f"C{(kdx + offset) % 10}"
-                    linestyle = base_linestyle or "-"
+                key = (iterable, ldx, config, name)
+                mapped, base_linestyle = make_config_color_and_style_from_args(args, config=config, name=name)
+                color = colors.color_for(key, mapped)
+                if key not in linestyles:
                     many = len(set(prefixes)) > 1 or len(args.configs or []) > 1 or len(args.names or []) > 2
-                    if color in used_colors and many:
-                        linestyle = {1: "--", 2: ":", 3: "-."}.get(used_colors.count(color), linestyle)
+                    used = list(line_colors.values())
+                    if mapped is not None and color in used and many:
+                        # The same mapped colour again: tell the lines apart by style.
+                        linestyles[key] = {1: "--", 2: ":", 3: "-."}.get(used.count(color), base_linestyle or "-")
                     else:
-                        linestyle = "-"
-                used_colors.append(color)
+                        linestyles[key] = "-"
+                    line_colors[key] = color
+                linestyle = linestyles[key]
 
                 if args.show_configs is None or config in args.show_configs:
                     y_drawn = y
@@ -1263,7 +1296,8 @@ def run_by_config(df, args):
                     kwargs["linewidth"] = args.combined_linewidth
                 plot_data(args, ax, grid, edges_from_centers(grid), values, error,
                           "asymmetric" if np.ndim(error) == 2 else "symmetric",
-                          args.combined_label if idx == ncols - 1 else None, args.combined_color,
+                          args.combined_label if idx == ncols - 1 else None,
+                          args.combined_color or colors.next_free(("combined", iterable)),
                           args.combined_linestyle, plot_type=args.plot_type or "step", **kwargs)
 
         if ncols > 1:

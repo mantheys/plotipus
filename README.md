@@ -15,9 +15,13 @@ plotipus run paper          # every command in input/plots/paper_scripts.txt
 ## Install
 
 ```bash
-pip install git+https://github.com/mantheys/plotipus.git
-# or, for development
-git clone https://github.com/mantheys/plotipus.git && pip install -e "plotipus[dev]"
+# use the CLI
+pipx install git+https://github.com/mantheys/plotipus.git
+
+# development
+git clone https://github.com/mantheys/plotipus.git && cd plotipus
+python3 -m venv .venv && source .venv/bin/activate   # Debian/Ubuntu: apt install python3-venv
+pip install -e ".[dev]"
 ```
 
 Python ≥ 3.10; depends on numpy, pandas, matplotlib, scipy, rich and jinja2.
@@ -29,6 +33,15 @@ cd examples
 python make_data.py          # toy pickles in input/data
 plotipus run example         # figures in output/plots
 plotipus run example --tables
+```
+
+To regenerate the examples from scratch after a change (`examples/Makefile`;
+it uses `.venv/bin/python` when present):
+
+```bash
+make -C examples             # delete generated data and outputs, then rebuild all
+make -C examples clean       # only delete them (input/data/*.pkl, output/)
+make -C examples plots       # rebuild data and plots without deleting first
 ```
 
 `plotipus init my_project` creates an empty project (`plotipus.toml`,
@@ -58,7 +71,17 @@ Kinds follow the data relationship (as in seaborn/plotly), not the use case.
 * **Encodings**: `--hue` (alias `--iterable`), `--style` (alias
   `--comparable`), `--iterable_mapping`/`--iterable_color_mapping` and
   `--comparable_mapping` (named mappings from the style file),
-  `--invert_style`, `--comparable_fill_strength`.
+  `--invert_style`, `--comparable_fill_strength`. `--hue X --style X` draws
+  one legend whose entries carry both the colour and the line style.
+* **Colours**: `--palette NAME` picks the categorical palette (default
+  `petroff10`; also `petroff6`, `petroff8`, `okabe-ito`, `tol-bright`,
+  `tol-muted`, `tab10` (matplotlib's default, the colours before this
+  change), `seaborn-colorblind`, `tableau-colorblind10`, `root`). A value
+  keeps its colour in every panel and lower panel, a mapped colour is never
+  given to another value, and the combined/sum series (`--combined_color`,
+  `--sum_color`, `--reference_sum_color`, default: a free colour) never
+  share one. With more values than colours, colours repeat and a warning
+  is printed.
 * **Axes and overlays**: `--labelx/--labely/--labelz`, `--rangex/--rangey`,
   `--logx/--logy`, `--horizontal`, `--vertical`, `--point`, `--square`,
   `--line`, `--xtick`, `--note`, `--title`.
@@ -117,7 +140,8 @@ default_operation = "mean"
 ```
 
 **Style files** (JSON) are merged over the defaults
-(`src/plotipus/data/style.json`): `rcparams`, `font_sizes`, `plot_settings`
+(`src/plotipus/data/style.json`): `palette` (a `--palette` name; an
+`axes.prop_cycle` in `rcparams` is kept when `palette` is absent), `rcparams`, `font_sizes`, `plot_settings`
 (figure layout, legend and note style; `"auto_title": false` drops the
 title taken from the datafile name), `labels` (capitalisation exceptions,
 legend titles to drop, title short forms) and `mappings` (named

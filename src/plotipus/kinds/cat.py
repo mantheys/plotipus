@@ -18,6 +18,7 @@ from .. import style
 from ..args import add_common_args, map_iterable_color, map_iterable_label, resolve_axis_label
 from ..encodings import LINESTYLES
 from ..io import import_data, prepare_import
+from ..palettes import ColorAllocator
 from ..panels import add_title_and_note, create_panels, draw_horizontal_overlay, save
 from ..plot import apply_legend_style, plot_data
 from ..selection import filter_dataframe
@@ -115,9 +116,12 @@ def draw_figure(rows, args, kdx, comparable):
     fig, axes, _, _ = create_panels(1)
     ax = axes[0]
 
+    colors = ColorAllocator()
+    colors.reserve(hues, lambda hue: map_iterable_color(hue, args.iterable_color_mapping, args.iterable))
     hue_handles, style_handles = [], []
     for idx, hue in enumerate(hues):
-        color = map_iterable_color(hue, args.iterable_color_mapping, args.iterable) or f"C{idx % 10}"
+        # Hue values past the palette repeat a colour but keep their own marker.
+        color = colors.color_for(hue)
         marker = MARKERS[idx % len(MARKERS)]
         hue_handles.append(mlines.Line2D([], [], color=color, linestyle="-", marker=marker,
                                          label=map_iterable_label(hue, args.iterable, args.iterable_mapping)))
