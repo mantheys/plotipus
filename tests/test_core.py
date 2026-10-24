@@ -1,8 +1,15 @@
 import argparse
+import json
 import pickle
+import re
+from pathlib import Path
 
+import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
+import pytest
+from matplotlib.colors import to_hex
+from matplotlib.legend import Legend
 
 from plotipus import registry, style
 from plotipus.args import map_iterable_color, map_iterable_label
@@ -30,6 +37,96 @@ def test_style_configure_and_mappings():
     style.configure(mappings={"c": {"a": "rgb(255, 0, 0)"}})
     assert map_iterable_color("a", "c") == (1.0, 0.0, 0.0)
     style.reset()
+
+
+def test_style_mplstyle_key(tmp_path):
+    (tmp_path / "local.mplstyle").write_text("font.size: 7\n")
+    (tmp_path / "style.json").write_text(json.dumps({"mplstyle": ["dark_background", "local.mplstyle"],
+                                                     "rcparams": {"lines.linewidth": 3}}))
+    try:
+        style.configure(tmp_path / "style.json")
+        assert to_hex(plt.rcParams["axes.facecolor"]) == "#000000"
+        assert plt.rcParams["font.size"] == 7 and plt.rcParams["lines.linewidth"] == 3
+        assert to_hex(style.role("ink")) == "#ffffff" and to_hex(style.role("paper")) == "#000000"
+        # A later file's mplstyle overrides an earlier file's rcparams.
+        style.configure({"mplstyle": "default"})
+        assert plt.rcParams["font.size"] == 10 and to_hex(plt.rcParams["axes.facecolor"]) == "#ffffff"
+    finally:
+        style.reset()
+
+
+def test_style_roles_default_and_explicit():
+    assert to_hex(style.role("ink")) == "#000000" and to_hex(style.role("paper")) == "#ffffff"
+    assert style.role("muted") == "#808080" and style.role("faint") == "#e6e6e6"
+    try:
+        style.configure(roles={"muted": "rgb(255, 0, 0)", "accent": "00ff00"},
+                        mappings={"c": {"a": "role:muted"}})
+        assert style.role("muted") == (1.0, 0.0, 0.0) and to_hex(style.role("accent")) == "#00ff00"
+        assert map_iterable_color("a", "c") == (1.0, 0.0, 0.0)
+        with pytest.raises(ValueError):
+            style.role("background")
+    finally:
+        style.reset()
+
+
+def _figures():
+    figures = []
+    registry.add_figure_hook(lambda fig, args: figures.append(fig))
+    return figures
+
+
+def _spectra_frame():
+    x = np.arange(0.5, 10, 1.0)
+    return pd.DataFrame([{"Energy": x, "Counts": s * np.exp(-x / 3), "Sample": sample, "Stage": stage}
+                         for sample, s in (("A", 1.0), ("B", 2.0)) for stage in ("Raw", "Smooth")])
+
+
+def test_ink_role_colours_style_handles_and_fit(make_project, tmp_path):
+    from plotipus.kinds import line
+
+    (tmp_path / "style.json").write_text('{"roles": {"ink": "#ff00ff"}}')
+    x = np.linspace(-5, 5, 41)
+    fits = pd.DataFrame([{"Values": x, "Counts": 10 * np.exp(-0.5 * x ** 2), "FitFunctionLabel": "Gaussian",
+                          "Params": [10.0, 0.0, 1.0], "ParamsError": [0.1, 0.1, 0.1],
+                          "ParamsLabel": ["A", "mu", "sigma"], "ParamsUnit": ["", "", ""]}])
+    make_project({"Spectra": _spectra_frame(), "Fits": fits}, 'style = ["style.json"]\n')
+    figures = _figures()
+    line.main(["--datafile", "Spectra", "-x", "Energy", "-y", "Counts", "--hue", "Sample", "--style", "Stage",
+               "--plot_type", "line"])
+    legends = [a for a in figures[0].axes[0].get_children() if isinstance(a, Legend)]
+    style_legend = next(lg for lg in legends if [t.get_text() for t in lg.get_texts()] == ["Raw", "Smooth"])
+    assert {to_hex(h.get_color()) for h in style_legend.legend_handles} == {"#ff00ff"}
+
+    line.main(["--datafile", "Fits", "-x", "Values", "-y", "Counts", "--fit", "--lower", "residual"])
+    upper = figures[1].axes[0]
+    fit_line = next(ln for ln in upper.get_lines() if ln.get_label() == "Fit")
+    assert to_hex(fit_line.get_color()) == "#ff00ff"
+
+
+def test_lower_zero_line_is_muted_dashed(make_project):
+    from plotipus.kinds import line
+
+    make_project({"Spectra": _spectra_frame()})
+    figures = _figures()
+    common = ["--datafile", "Spectra", "-x", "Energy", "-y", "Counts", "--hue", "Sample", "--select", "Stage",
+              "-s", "Raw", "--lower", "ratio", "--lower_zero_line"]
+    line.main(common)
+    line.main([*common, "--lower_zero_color", "red"])
+
+    def zero_line(fig):
+        return next(ln for ln in fig.axes[1].get_lines() if list(ln.get_ydata()) == [0, 0])
+
+    assert to_hex(zero_line(figures[0]).get_color()) == "#808080"
+    assert zero_line(figures[0]).get_linestyle() == "--"
+    assert to_hex(zero_line(figures[1]).get_color()) == "#ff0000"
+
+
+def test_no_hard_coded_colours_in_source():
+    source = Path(style.__file__).parent
+    pattern = re.compile(r'color="(black|k|r|red|gray|grey|white)"')
+    hits = [f"{path.relative_to(source)}:{n}" for path in sorted(source.rglob("*.py"))
+            for n, text in enumerate(path.read_text().splitlines(), 1) if pattern.search(text)]
+    assert hits == []
 
 
 def test_label_hook_used_without_mapping():

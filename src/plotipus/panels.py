@@ -170,7 +170,7 @@ def draw_overlays(ax, args, vertical=None, labels=True):
     if warning:
         rprint(f"[yellow]Warning:[/yellow] {warning}")
     for i, (px, py) in enumerate(points):
-        ax.scatter(px, py, color="gray", s=40, zorder=6)
+        ax.scatter(px, py, color=style.role("muted"), s=40, zorder=6)
         if point_labels is not None:
             place_point_label(ax, px, py, point_labels[i], fontsize=style.linelabelfontsize)
 

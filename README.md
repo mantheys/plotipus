@@ -109,7 +109,9 @@ derived from (or stored in) the same DataFrame. Each `--lower` adds one:
 
 The lower panel is styled with the upper-panel options prefixed by `lower_`:
 `--lower_plot_type errorbar`, `--lower_labely`, `--lower_rangey`,
-`--lower_logy`, `--lower_horizontal`, ...
+`--lower_logy`, `--lower_horizontal`, ... `--lower_zero_line` draws a
+dashed y = 0 line in the style's `muted` colour (`--lower_zero_color red`
+for the old red line); `--fit_color` sets the fit line (default `ink`).
 
 ### Colorbars
 
@@ -203,6 +205,27 @@ default_operation = "mean"
 title taken from the datafile name), `labels` (capitalisation exceptions,
 legend titles to drop, title short forms) and `mappings` (named
 label/colour dictionaries used by the `*_mapping` options).
+
+* `mplstyle`: a matplotlib style, or a list of them, applied with
+  `plt.style.use` before the file's `rcparams`. An entry is a `.mplstyle`
+  path (relative to the style file) or a style name (`"dark_background"`).
+  Files are merged in order, so a later file's `mplstyle` overrides an
+  earlier file's `rcparams`. A `.mplstyle` file can also be listed directly
+  in `style = [...]` of `plotipus.toml`.
+* `roles`: the colours plotipus draws with besides the data colours:
+  `ink` (text, data points, fit, reference lines and line-style legend
+  handles), `muted` (guides: y = 1, the 100% efficiency line, Δχ² lines,
+  mean bands, zero lines), `faint` (pull bands, grids), `paper` (background,
+  outlines on images) and `accent` (highlights). Missing roles follow the
+  rcParams: `ink` is `text.color`, `paper` is `axes.facecolor`, `muted` and
+  `faint` are 50% and 10% of ink mixed into paper, so a dark `mplstyle` gives
+  light guides without further settings. Any colour in `mappings`,
+  `legend_style` or `note_style` may name a role: `"role:muted"`.
+
+```json
+{"mplstyle": "dark_background", "roles": {"accent": "#ff7f0e"},
+ "mappings": {"config_color": {"total": "role:ink"}}}
+```
 
 **Plugins** adapt plotipus to a project without changing it. A plugin module
 defines `setup(registry)` and can register:

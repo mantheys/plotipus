@@ -160,7 +160,7 @@ def draw_figure(rows, args, kdx, comparable):
                 else:
                     plot_data(args, ax, xs, y=ys, color=color, plot_type=plot_type, linestyle=linestyle, **kwargs)
             if value is not None and cdx >= len(style_handles):
-                style_handles.append(mlines.Line2D([], [], color="black", linestyle=linestyle,
+                style_handles.append(mlines.Line2D([], [], color=style.role("ink"), linestyle=linestyle,
                                                    label=map_iterable_label(value, comparable, args.comparable_mapping)))
 
     ax.set_xticks(positions)

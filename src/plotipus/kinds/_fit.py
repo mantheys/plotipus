@@ -41,6 +41,8 @@ def add_fit_args(parser):
     add("--no-fit_errors", dest="fit_errors", action="store_false", help="Hide parameter errors.")
     add("--fit_type_subtitle", action="store_true", default=True, help="Panel title '<model> Fit' (default).")
     add("--no-fit_type_subtitle", dest="fit_type_subtitle", action="store_false", help="No model subtitle.")
+    add("--fit_color", type=str, default=None,
+        help="Colour of the fit line (default: the style's ink role; 'red' restores the old look).")
     add("--fitindex", type=int, default=0, help="Index of the hue value whose fit is drawn.")
     add("--fit_rangex", nargs=2, type=float, default=None, help="x range of the drawn fit and residuals.")
     add("--max_fit_params", type=int, default=None, help="Show at most this many parameters.")
@@ -162,7 +164,7 @@ def _draw_fit_rows(ax_top, ax_bottom, rows, args, kind):
 
     lo, hi = args.fit_rangex if args.fit_rangex is not None else (np.min(x), np.max(x))
     fit_x = np.linspace(lo, hi, 1000)
-    plot_data(args, ax_top, fit_x, y=function(fit_x, *params), label="Fit", color="red", plot_type="plot", linestyle="-")
+    plot_data(args, ax_top, fit_x, y=function(fit_x, *params), label="Fit", color=args.fit_color or style.role("ink"), plot_type="plot", linestyle="-")
 
     diff = y - fit
     mask = np.isfinite(fit) & (fit != 0) & np.isfinite(diff)
@@ -188,7 +190,7 @@ def _draw_fit_rows(ax_top, ax_bottom, rows, args, kind):
 
     if ax_bottom is not None:
         plot_data(args, ax_bottom, x, y=residuals, errory=residual_error if args.errory else None,
-                  color="black", plot_type=plot_type, **style_kwargs)
+                  color=style.role("ink"), plot_type=plot_type, **style_kwargs)
         ax_bottom.set_ylim(-limit, limit)
 
     if "Chi2" in rows.columns and pd.notna(rows["Chi2"].iloc[0]):
@@ -202,16 +204,17 @@ def _draw_fit_rows(ax_top, ax_bottom, rows, args, kind):
 
 
 def _residual_reference(ax, args):
+    color = getattr(args, "lower_zero_color", None) or style.role("muted")
     if args.fit_rangex is None:
-        ax.axhline(y=0, color="r", zorder=-1)
+        ax.axhline(y=0, color=color, linestyle="--", zorder=-1)
         return
     lo, hi = args.fit_rangex
     xmin, xmax = ax.get_xlim()
     if xmin < lo:
-        ax.plot([xmin, lo], [0, 0], color="r", linestyle="--", zorder=-1)
-    ax.plot([max(xmin, lo), min(xmax, hi)], [0, 0], color="r", linestyle="-", zorder=-1)
+        ax.plot([xmin, lo], [0, 0], color=color, linestyle="--", zorder=-1)
+    ax.plot([max(xmin, lo), min(xmax, hi)], [0, 0], color=color, linestyle="-", zorder=-1)
     if xmax > hi:
-        ax.plot([hi, xmax], [0, 0], color="r", linestyle="--", zorder=-1)
+        ax.plot([hi, xmax], [0, 0], color=color, linestyle="--", zorder=-1)
     ax.set_xlim(xmin, xmax)
 
 
