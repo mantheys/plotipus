@@ -6,3 +6,5 @@ build/
 dist/
 examples/output/
 examples/input/data/*.pkl
+examples/famous/output/
+examples/famous/input/data/*.pkl

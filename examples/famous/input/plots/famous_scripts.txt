@@ -1,0 +1,106 @@
+# Famous plots (docs/design/research.md, Part 3): one block per figure.
+# Build the data first: python make_data.py; then: plotipus run famous
+# A commented command marked "needs Txx" is the intended form once that task
+# lands; the command below it is the best approximation that works today.
+
+# F01 ATLAS 2012 H->gamma gamma: data, stored S+B fit, residual panel
+# needs T22.14 (residual against the background component of the fit)
+# line --datafile HiggsDiphoton -x Mass -y Events --select Component -s Data --select Weighting -s Unweighted --fit --errory --lower residual:diphoton_background --labelx '$m_{\gamma\gamma}$ (GeV)' --labely 'Events / 2 GeV'
+line --datafile HiggsDiphoton -x Mass -y Events --select Component -s Data --select Weighting -s Unweighted --fit --errory --lower residual --labelx '$m_{\gamma\gamma}$ (GeV)' --labely 'Events / 2 GeV'
+line --datafile HiggsDiphoton -x Mass -y Events --select Component -s Data --select Weighting -s Weighted --fit --errory --lower residual --labelx '$m_{\gamma\gamma}$ (GeV)' --labely '$\Sigma$ weights / 2 GeV'
+# needs T21 (data as points, fit and background as lines)
+# line --datafile HiggsDiphoton -x Mass -y Events --hue Component --series_type Data=errorbar --plot_type line --errory --select Weighting -s Unweighted --lower column:DataMinusBackground --lower_labely 'Events - Bkg' --labelx '$m_{\gamma\gamma}$ (GeV)' --labely 'Events / 2 GeV' --output_suffix components.png
+line --datafile HiggsDiphoton -x Mass -y Events --style Component --plot_type line --errory --select Weighting -s Unweighted --lower column:DataMinusBackground --lower_labely 'Events - Bkg' --draw_legend comparable --labelx '$m_{\gamma\gamma}$ (GeV)' --labely 'Events / 2 GeV' --output_suffix components.png
+
+# F03 H->ZZ*->4l: stacked backgrounds and signal, Poisson data on top
+# needs T18, T19 (stack in data space, data overlay, Garwood errors, MC band)
+# line --datafile FourLepton -x Mass -y Events --hue Sample --stacked --plot_type fill --overlay Data --errory_type poisson --stack_total_error --labelx '$m_{4\ell}$ (GeV)' --labely 'Events / 3 GeV'
+line --datafile FourLepton -x Mass -y Events --hue Sample --plot_type step --labelx '$m_{4\ell}$ (GeV)' --labely 'Events / 3 GeV'
+
+# F04 local p0 scan: observed and expected with a +-1 sigma band, sigma lines
+# needs T20 (labelled sigma lines at the right edge), T07 (band style)
+# line --datafile HiggsLocalP0 -x Mass -y P0 --hue Hypothesis --style Hypothesis --plot_type line --errory --errory_type bands --logy --rangey 1e-11 1 --sigma_lines 1 2 3 4 5 6 --labelx '$m_H$ (GeV)' --labely 'Local $p_0$'
+line --datafile HiggsLocalP0 -x Mass -y P0 --hue Hypothesis --style Hypothesis --plot_type line --errory --errory_type bands --logy --rangey 1e-11 1 --horizontal 0.1587 0.02275 1.35e-3 3.17e-5 2.87e-7 9.87e-10 --horizontal_label '1$\sigma$' '2$\sigma$' '3$\sigma$' '4$\sigma$' '5$\sigma$' '6$\sigma$' --labelx '$m_H$ (GeV)' --labely 'Local $p_0$'
+
+# F05 Brazil band: observed and expected 95% CL limits on mu
+# needs T20 (two nested bands, brazil colours)
+# line --datafile HiggsLimit -x Mass -y MuLimit --hue Limit --style Limit --plot_type line --errory --errory_column MuLimit1Sigma MuLimit2Sigma --band_colors brazil --logy --logx --horizontal 1 --labelx '$m_H$ (GeV)' --labely '95% CL limit on $\sigma/\sigma_{SM}$'
+line --datafile HiggsLimit -x Mass -y MuLimit --hue Limit --style Limit --plot_type line --errory --errory_type bands --logy --logx --horizontal 1 --labelx '$m_H$ (GeV)' --labely '95% CL limit on $\sigma/\sigma_{SM}$'
+line --datafile HiggsLimit -x Mass -y MuLimit --hue Limit --style Limit --plot_type line --errory --errory_type bands --errory_bounds MuLimit2SigmaLow MuLimit2SigmaHigh --logy --logx --horizontal 1 --labelx '$m_H$ (GeV)' --labely '95% CL limit on $\sigma/\sigma_{SM}$' --output_suffix 2sigma.png
+
+# F06 COBE FIRAS: blackbody fit and residuals
+line --datafile FIRAS -x Wavenumber -y Intensity --select Component -s 'FIRAS data' --fit --errory --lower residual --labelx 'Frequency (cm$^{-1}$)' --labely 'Intensity (MJy/sr)'
+# needs T21 (data as points with errors x400 and a legend note, model as a line)
+# line --datafile FIRAS -x Wavenumber -y Intensity --hue Component --series_type 'FIRAS data=errorbar' --plot_type line --errory --error_scale 400 --lower column:Residual --lower_labely 'Residual (kJy/sr)' --labelx 'Frequency (cm$^{-1}$)' --labely 'Intensity (MJy/sr)' --output_suffix residual.png
+line --datafile FIRAS -x Wavenumber -y Intensity --style Component --plot_type line --errory --errory_column IntensityErrorX400 --lower column:Residual --lower_labely 'Residual (kJy/sr)' --draw_legend comparable --labelx 'Frequency (cm$^{-1}$)' --labely 'Intensity (MJy/sr), errors x400' --output_suffix residual.png
+
+# F08 Hubble 1929 (real data): individual nebulae and groups with K = 465 and 513 km/s/Mpc
+# needs T21 (points for the data, lines for the two fits)
+# line --datafile Hubble1929 -x Distance -y Velocity --hue Sample --style Type --series_type 'Individual nebulae=errorbar' Groups=errorbar --plot_type line --labelx 'Distance (Mpc)' --labely 'Velocity (km/s)' --output_suffix lines.png
+line --datafile Hubble1929 -x Distance -y Velocity --hue Sample --select Type -s Data --fit --no-fit_type_subtitle --labelx 'Distance (Mpc)' --labely 'Velocity (km/s)'
+
+# F09 SN Ia Hubble diagram: three cosmologies, residuals to (0.20, 0)
+# needs T21 (supernovae as points, cosmologies as lines)
+# line --datafile SupernovaHubble -x Redshift -y DistanceModulus --hue Series --series_type 'Nearby SNe=errorbar' 'High-z SNe=errorbar' 'SN 1997ck=errorbar' --plot_type line --errory --logx --lower column:DeltaMu --lower_labely '$\Delta(m-M)$' --labelx 'z' --labely '$m-M$ (mag)'
+line --datafile SupernovaHubble -x Redshift -y DistanceModulus --hue Series --errory --logx --lower column:DeltaMu --lower_labely '$\Delta(m-M)$' --labelx 'z' --labely '$m-M$ (mag)'
+
+# F10 Omega_M-Omega_Lambda: SN confidence regions, and SN with a CMB-like ellipse
+# needs T02 (2-dof levels and CL labels), T22.8 (region labels, reference lines)
+map --datafile OmegaContours --configs Riess1998 --names SN -x OmegaM -y OmegaLambda -z DeltaChi2 --contour --contour_sigmas 1 2 3 --fill_contours --background none --line 0 1 2.5 -1.5 --horizontal 0 --labelx '$\Omega_M$' --labely '$\Omega_\Lambda$'
+map --datafile OmegaContours --configs Riess1998 Riess1998 --names SN CMB -x OmegaM -y OmegaLambda -z DeltaChi2 --contour --contour_sigmas 1 2 3 --fill_contours --background none --labelx '$\Omega_M$' --labely '$\Omega_\Lambda$'
+
+# F11 Rubin, Ford & Thonnard 1980: 21 flat rotation curves
+# needs T22.5 (one colour map for 21 ordered galaxies instead of a cycling palette)
+line --datafile RotationCurves -x Radius -y Velocity --hue Galaxy --style Type --plot_type line --no_legend --labelx 'R (kpc)' --labely 'V (km/s)'
+line --datafile RotationCurves -x Radius -y Velocity --hue Galaxy --variables '$R_{max}$ < 12 kpc' '12-35 kpc' '$R_{max}$ > 35 kpc' --plot_type line --no_legend --labelx 'R (kpc)' --labely 'V (km/s)' --output_suffix panels.png
+
+# F12 NGC 3198: data and disk, gas, halo and total components
+# needs T21 (data as points, components as lines)
+# line --datafile NGC3198 -x Radius -y Velocity --hue Component --series_type Data=errorbar --plot_type line --errory --labelx 'R (kpc)' --labely 'V (km/s)'
+line --datafile NGC3198 -x Radius -y Velocity --hue Component --style Component --plot_type line --errory --draw_legend iterable --labelx 'R (kpc)' --labely 'V (km/s)'
+
+# F13 Keeling curve, and its seasonal cycle (the usual inset)
+# needs T22.7 (the seasonal cycle as an inset)
+line --datafile Keeling -x DecimalDate -y CO2 --hue Series --plot_type line --labelx 'Year' --labely 'CO$_2$ (ppm)'
+line --datafile Keeling -x MonthOfYear -y Detrended --select Series -s 'Monthly mean' --binned --estimator mean --bins 13 --labelx 'Month' --labely 'Seasonal anomaly (ppm)' --output_suffix cycle.png
+
+# F14 MBH99 hockey stick: reconstruction with 1 sigma band, 40-year mean, instrumental record
+line --datafile HockeyStick -x Year -y Anomaly --hue Series --plot_type line --errory --errory_type bands --horizontal 0 --labelx 'Year' --labely 'Temperature anomaly ($^\circ$C)'
+
+# F15 GW150914: strain, reconstruction and residual per detector; time-frequency maps
+# needs T22.6 (rows x detector columns), T20 (two grey 90% bands)
+# line --datafile GW150914 -x Time -y Strain --hue Component --facet_row Variable --facet_col Detector --sharex --errory --errory_column StrainTemplate StrainWavelet --plot_type line --labelx 'Time (s)' --labely 'Strain ($10^{-21}$)'
+line --datafile GW150914 -x Time -y Strain --hue Component --select Detector -s H1 --variables 'Whitened strain' Reconstructed Residual --plot_type line --errory --errory_type bands --labelx 'Time (s)' --labely 'Strain ($10^{-21}$)'
+line --datafile GW150914 -x Time -y Strain --hue Component --select Detector -s L1 --variables 'Whitened strain' Reconstructed Residual --plot_type line --errory --errory_type bands --labelx 'Time (s)' --labely 'Strain ($10^{-21}$)'
+map --datafile GW150914Spectrogram -x Time -y FrequencyGrid -z Amplitude --iterable Name --labelx 'Time (s)' --labely 'Frequency (Hz)' --labelz 'Normalised amplitude'
+
+# F16 KamLAND: survival probability in equal-probability L0/E bins
+# needs T21 (data as points with bin-width x errors, expectation as steps and a curve)
+# line --datafile KamLAND -x LOverE -y SurvivalProbability --hue Component --series_type 'Data - BG - Geo $\nu_e$=errorbar' 'Expectation (histogram)=step' --plot_type line --errory --errory_x --rangey 0 1.1 --labelx '$L_0/E_{\bar\nu_e}$ (km/MeV)' --labely 'Survival probability'
+line --datafile KamLAND -x LOverE -y SurvivalProbability --hue Component --errory --rangey 0 1.1 --labelx '$L_0/E_{\bar\nu_e}$ (km/MeV)' --labely 'Survival probability'
+
+# F17 LEP Z lineshape: errors x10 and N_nu = 2, 3, 4
+# needs T21 (--error_scale 10, model curves as lines), T22.8 (labels on the curves)
+# line --datafile ZLineshape -x Energy -y CrossSection --hue Model --series_type Data=errorbar --plot_type line --errory --error_scale 10 --direct_labels --labelx '$E_{cm}$ (GeV)' --labely '$\sigma_{had}$ (nb)'
+line --datafile ZLineshape -x Energy -y CrossSection --hue Model --errory --errory_column CrossSectionErrorX10 --labelx '$E_{cm}$ (GeV)' --labely '$\sigma_{had}$ (nb), errors x10'
+line --datafile ZLineshape -x Energy -y CrossSection --hue Model --errory --lower pull --labelx '$E_{cm}$ (GeV)' --labely '$\sigma_{had}$ (nb)' --output_suffix pull.png
+
+# F19 Geiger-Marsden: counts vs angle with the Rutherford law, gold and silver
+line --datafile GeigerMarsden -x Angle -y Counts --hue Foil --fit --errory --logy --lower residual --chi2 --labelx 'Scattering angle (deg)' --labely 'Scintillations'
+line --datafile GeigerMarsden -x Angle -y Counts --hue Foil --fit --fitindex 1 --errory --logy --lower residual --chi2 --labelx 'Scattering angle (deg)' --labely 'Scintillations' --output_suffix silver.png
+
+# F20 Moseley's law: K alpha and L alpha lines, gaps at Z = 43, 61, 75
+line --datafile Moseley -x AtomicNumber -y SqrtFrequency --hue Series --fit --errory --vertical 43 61 75 --labelx 'Atomic number Z' --labely '$\sqrt{\nu}$ ($10^{8}$ Hz$^{1/2}$)'
+line --datafile Moseley -x AtomicNumber -y SqrtFrequency --hue Series --fit --fitindex 1 --errory --vertical 43 61 75 --labelx 'Atomic number Z' --labely '$\sqrt{\nu}$ ($10^{8}$ Hz$^{1/2}$)' --output_suffix lalpha.png
+
+# F21 Leavitt: magnitude at maximum and minimum vs log period, y inverted
+line --datafile Leavitt -x LogPeriod -y Magnitude --hue Brightness --fit --rangey 17 10 --labelx 'log P (days)' --labely 'Apparent magnitude'
+line --datafile Leavitt -x LogPeriod -y Magnitude --hue Brightness --fit --fitindex 1 --rangey 17 10 --labelx 'log P (days)' --labely 'Apparent magnitude' --output_suffix minimum.png
+
+# F22 Hertzsprung-Russell diagram, Gaia style (2D histogram, log colour, M_G inverted)
+map --datafile HRDiagram -x BPRP -y MG --logz --bins 120 --rangey 16 -4 --labelx '$G_{BP}-G_{RP}$' --labely '$M_G$'
+
+# F25 Anscombe's quartet (real data): small multiples, and the shared regression line
+# needs T22.6 (shared axes), T22.11 (the same-statistics table with --agg corr)
+line --datafile Anscombe -x X -y Y --variables I II III IV --labelx 'x' --labely 'y'
+line --datafile Anscombe -x X -y Y --hue Dataset --fit --labelx 'x' --labely 'y'
