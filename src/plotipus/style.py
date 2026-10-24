@@ -6,7 +6,8 @@ project can change them once with :func:`configure` before plotting.
 
 A style file is JSON with the sections ``rcparams``, ``font_sizes``,
 ``plot_settings`` and ``mappings`` (label/colour dictionaries addressed by
-name from ``--iterable_mapping`` and friends). Every section is optional and
+name from ``--iterable_mapping`` and friends), and the key ``palette`` (a
+name from :mod:`plotipus.palettes`, default ``petroff10``). Every section is optional and
 merged over the defaults shipped in ``plotipus/data/style.json``.
 """
 
@@ -15,6 +16,8 @@ import json
 from pathlib import Path
 
 import matplotlib.pyplot as plt
+
+from . import palettes
 
 _DEFAULTS_PATH = Path(__file__).with_name("data") / "style.json"
 _MPLSTYLE_PATH = Path(__file__).with_name("data") / "plotipus.mplstyle"
@@ -80,6 +83,12 @@ def _publish():
 
     rcparams = _CONFIG.get("rcparams", {})
     plt.rcParams.update(rcparams)
+    # The colour cycle: the "palette" key, else an explicit axes.prop_cycle, else the default palette.
+    palette = _CONFIG.get("palette")
+    if palette is not None or "axes.prop_cycle" not in rcparams:
+        palettes.apply(palette or palettes.DEFAULT)
+    else:
+        palettes.active = None
     base_font_size = float(plt.rcParams["font.size"])
 
     fonts = _CONFIG.get("font_sizes", {})

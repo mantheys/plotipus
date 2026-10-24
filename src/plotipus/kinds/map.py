@@ -33,6 +33,7 @@ from .. import style
 from ..args import add_common_args, map_iterable_color, map_iterable_label, parse_plot_label, resolve_axis_label
 from ..format import make_config_label_from_args, make_subtitle_from_args
 from ..io import import_data, normalize_datafiles, prepare_import
+from ..palettes import ColorAllocator
 from ..panels import add_title_and_note, create_panels, draw_overlays, save
 from ..plot import (
     apply_legend_style,
@@ -611,8 +612,9 @@ def _items(subset, projected, args, configs, names):
     return items
 
 
-def draw_contour_panel(ax, fig, panel_idx, subset, projected, args, configs, names, hue):
-    """Draw one contour panel; returns its (x, y) extent or None."""
+def draw_contour_panel(ax, fig, panel_idx, subset, projected, args, configs, names, hue, colors):
+    """Draw one contour panel; returns its (x, y) extent or None. ``colors``
+    is the figure's :class:`ColorAllocator`."""
     config_color = style.get_mapping_dict("config_color") or {}
     config_line = style.get_mapping_dict("config_line") or {}
     payloads, reference, background, combined = [], None, None, None
@@ -636,17 +638,17 @@ def draw_contour_panel(ax, fig, panel_idx, subset, projected, args, configs, nam
             continue
 
         if is_projected:
-            color = style.resolve_mapped_color(config_color.get(config)) or f"C{cdx % 10}"
+            color = colors.color_for(("projected", config), style.resolve_mapped_color(config_color.get(config)))
             linestyle = "--"
             suffix = args.project_label or (f"Projected, {exposure:g} yr" if exposure is not None else "Projected")
             label = f"{_item_label(args, config, name, hue)} ({suffix})"
         elif datafile is not None:
             n = len(payloads)
-            color = map_iterable_color(datafile, args.iterable_color_mapping) or f"C{n % 10}"
+            color = colors.color_for(("datafile", cdx, datafile), map_iterable_color(datafile, args.iterable_color_mapping))
             linestyle = DATAFILE_LINESTYLES[n % len(DATAFILE_LINESTYLES)]
             label = f"{_item_label(args, config, name, hue)}, {map_iterable_label(datafile, '_Datafile', args.iterable_mapping)}"
         else:
-            color = style.resolve_mapped_color(config_color.get(config)) or f"C{cdx % 10}"
+            color = colors.color_for(("config", cdx), style.resolve_mapped_color(config_color.get(config)))
             linestyle = config_line.get(config, "-")
             label = _item_label(args, config, name, hue)
         payloads.append({"x": x, "y": y, "z": z, "color": color, "linestyle": linestyle, "label": label})
@@ -764,6 +766,11 @@ def draw_contour_figure(df, args):
     variables = args.variables if args.variables is not None else [None]
     ncols = len(variables) if args.variables is not None else len(df[args.iterable].unique()) if args.iterable is not None else 1
     fig, axes, _, _ = create_panels(ncols, grid=False)
+    # One colour per config in every panel; config_color entries are reserved first.
+    colors = ColorAllocator()
+    config_color = style.get_mapping_dict("config_color") or {}
+    colors.reserve([("config", cdx) for cdx in range(len(configs))],
+                   lambda key: style.resolve_mapped_color(config_color.get(configs[key[1]])))
     matched = [None, None]
     line_color = "k" if args.logz else "white"
     for vdx, variable in enumerate(variables):
@@ -780,7 +787,7 @@ def draw_contour_figure(df, args):
                     proj = proj[proj["Variable"] == variable]
                 if hue is not None and args.iterable in proj.columns:
                     proj = proj[proj[args.iterable] == hue]
-            extent = draw_contour_panel(ax, fig, panel_idx, subset, proj, args, configs, names, hue)
+            extent = draw_contour_panel(ax, fig, panel_idx, subset, proj, args, configs, names, hue, colors)
             if extent is None:
                 continue
             x_range, y_range = extent

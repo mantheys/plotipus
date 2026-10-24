@@ -16,6 +16,7 @@ from ..args import add_common_args, map_iterable_color, map_iterable_label, reso
 from ..encodings import add_legend_args
 from ..format import make_config_color_and_style_from_args, make_config_label_from_args, make_subtitle_from_args
 from ..io import import_data, prepare_import
+from ..palettes import ColorAllocator
 from ..panel_lines import add_panel_line_args, draw_panel_lines, panel_rangex, resolve_panel_lines
 from ..panels import add_title_and_note, create_panels, draw_overlays, save
 from ..plot import apply_legend_style, apply_scientific_threshold_formatter, plot_data
@@ -101,13 +102,14 @@ def _histogram_range(x, args, idx):
     return float(np.percentile(x, args.percentile[0])), float(np.percentile(x, args.percentile[1]))
 
 
-def _series_style(args, value, jdx, name, two_lines):
+def _series_style(args, value, name):
+    """(label, mapped colour or None, line style or None) of one hue value."""
     if args.iterable == "Config":
         label = make_config_label_from_args(args, config=value, name=name)
         color, linestyle = make_config_color_and_style_from_args(args, config=value, name=name)
-        return label, (f"C{jdx}" if two_lines else color), linestyle
+        return label, color, linestyle
     label = f"{value}"
-    color = f"C{jdx}" if two_lines else None
+    color = None
     if args.iterable_mapping is not None:
         label = map_iterable_label(value, args.iterable, args.iterable_mapping)
     if args.iterable_color_mapping is not None:
@@ -127,7 +129,8 @@ def draw_figure(df, args, kdx, config, name):
             values = [v for v in args.iterable_order if v in values] + [v for v in values if v not in args.iterable_order]
     else:
         values = [None]
-    two_lines = len(values) == 2
+    colors = ColorAllocator()
+    colors.reserve(values, lambda value: _series_style(args, value, name)[1])
     density = args.density or args.labely == "Density"
 
     for idx, variable in enumerate(variables):
@@ -149,7 +152,9 @@ def draw_figure(df, args, kdx, config, name):
                 ranges[idx] = _histogram_range(x, args, idx)
             weights = np.asarray(subset[args.weight].values[0], dtype=float) if args.weight is not None else None
             counts, edges = np.histogram(x, bins=args.bins, range=ranges[idx], density=density, weights=weights)
-            label, color, linestyle = _series_style(args, value, jdx, name, two_lines)
+            label, mapped, linestyle = _series_style(args, value, name)
+            color, overflow_linestyle = colors.style_for(value, mapped)
+            linestyle = linestyle or overflow_linestyle
             plot_data(args, ax, (edges[:-1] + edges[1:]) / 2, y=counts, label=label, color=color,
                       linestyle=linestyle, plot_type="plot", drawstyle="steps-mid")
 

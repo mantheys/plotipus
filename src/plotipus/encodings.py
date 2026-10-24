@@ -3,7 +3,8 @@
 Two columns encode the series of a plot:
 
 * ``--iterable`` / ``--hue``: one colour per value (from
-  ``--iterable_color_mapping`` or the colour cycle ``C0, C1, ...``).
+  ``--iterable_color_mapping``, else the next free colour of the palette,
+  see :class:`plotipus.palettes.ColorAllocator`).
 * ``--comparable`` / ``--style``: one line style per value (or, with
   ``--comparable_fill_strength``, one fill opacity), explained by a second,
   black legend.
@@ -147,11 +148,6 @@ def resolve_hatch(index, args, n_total=None):
     hatches = list(getattr(args, "comparable_hatches", None) or HATCHES)
     index = _reverse_index(index, n_total, getattr(args, "comparable_reverse", False))
     return hatches[index % len(hatches)]
-
-
-def resolve_cycle_color(index, n_total=None, reverse=False):
-    """``C{index}``, counted from the end when ``reverse``."""
-    return f"C{_reverse_index(index, n_total, reverse)}"
 
 
 def fill_options(index, args, n_total):
