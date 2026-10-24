@@ -8,10 +8,11 @@ Three inputs, one row per panel (panels from ``--variables`` or ``--hue``):
 * a gridded map: ``-z`` names a 2D array cell drawn on the ``x``/``y`` grid
   with a colour bar;
 * contours (``--contour``): gridded maps (Δχ² or significance) of every
-  ``--configs``/``--names`` entry drawn as sigma contours (lines or filled
-  bands) over a background image, optionally combined bin by bin
-  (``--combine_op squared_sum``) and projected to another exposure
-  (``--project``).
+  ``--configs``/``--names`` entry drawn as confidence contours (2-dof Δχ²
+  levels by default, ``--contour_dof``), lines or graded filled bands, with a
+  ``+`` at the best fit and an optional background image, optionally combined
+  bin by bin (``--combine_op squared_sum``) and projected to another exposure
+  (``--project``). Defaults come from the style's ``contours`` section.
 
 Colours given as ``cycle`` (the matplotlib colour cycle) or as the name of a
 list/dict style mapping are palettes: successive contour levels take
@@ -20,12 +21,15 @@ successive palette colours.
 
 import copy
 import json
+import os
 
 import matplotlib.pyplot as plt
+from matplotlib import patheffects
 import numpy as np
 import pandas as pd
 from matplotlib.colors import LogNorm, Normalize, to_rgb, to_rgba
 from matplotlib.lines import Line2D
+from matplotlib.patches import Patch
 from matplotlib.path import Path
 from rich import print as rprint
 
@@ -39,22 +43,34 @@ from ..plot import (
     apply_legend_style,
     apply_scientific_threshold_formatter,
     draw_horizontal_lines,
+    draw_lines,
+    draw_squares,
     draw_vertical_lines,
     place_point_label,
     plot_data,
 )
-from ..args import normalize_point_labels, parse_point_pairs
+from ..args import (
+    normalize_line_labels,
+    normalize_point_labels,
+    normalize_square_labels,
+    parse_line_segments,
+    parse_point_pairs,
+    parse_square_quads,
+)
 from ..selection import filter_dataframe
 from . import _base
 
 KIND = "map"
-DATAFILE_LINESTYLES = ["-", "--", ":", "-."]
 NORM_LABELS = {
     "global": "Normalized Counts",
     "horizontal": "Normalized Counts (Rows)",
     "vertical": "Normalized Counts (Columns)",
     "combined": "Normalized Counts (Rows + Columns)",
 }
+# Contour sets draw at zorder 5-6.5 and best-fit markers at 7.
+OVERLAY_ZORDER = 6.9
+# One-off notices already printed by this process.
+_NOTICES_SHOWN = set()
 
 
 # --- Arguments ---------------------------------------------------------------------
@@ -103,29 +119,45 @@ def build_parser():
     add("--contour_sigmas", nargs="+", type=float, default=[1.0, 2.0, 3.0], help="Sigma levels drawn.")
     add("--contour_level_mode", default="sigma_probability", choices=["z_values", "sigma_probability"],
         help="z_values: maps are significances, contours at the sigmas; sigma_probability: maps are "
-        "delta-chi2, contours at sigma^2.")
-    add("--contour_linestyles", nargs="+", type=str, default=None, help="Line style per sigma level.")
+        "delta-chi2, contours at the delta-chi2 of each sigma's coverage (see --contour_dof).")
+    add("--contour_dof", type=int, default=None, choices=[1, 2],
+        help="Degrees of freedom of the sigma_probability levels: 2 (default; joint region of the two "
+        "parameters, delta-chi2 = 2.30, 6.18, 11.83) or 1 (delta-chi2 = sigma^2, the old levels). "
+        "Default: style contours.dof, else 2.")
+    add("--contour_label", default=None, choices=["cl", "sigma"],
+        help="Level labels: coverage ('68.3%% CL', default) or significance ('1σ', '1σ (2 dof)'). "
+        "Default: style contours.label.")
+    add("--contour_linestyles", nargs="+", type=str, default=None,
+        help="Line style per sigma level (default: style contours.linestyles, solid, dashed, dotted).")
     add("--contour_linewidth", type=float, default=2.0)
     add("--contour_alpha", type=float, default=0.95)
     add("--contour_smoothing_sigma", type=float, default=0.0, help="Gaussian smoothing of the maps before contouring.")
     add("--background_smoothing_sigma", type=float, default=0.0, help="Gaussian smoothing of the background image.")
     add("--contour_min_vertices", type=int, default=0, help="Drop contour pieces with fewer vertices.")
-    add("--background", default="all", choices=["all", "combined", "first", "none"],
-        help="Background image: sum of all maps, the combined map, the first map or none.")
+    add("--background", default=None, choices=["all", "combined", "first", "none"],
+        help="Background image: sum of all maps, the combined map, the first map or none (default: style "
+        "contours.background, none). Delta-chi2 backgrounds are clipped at the outermost level.")
+    add("--no_best_fit", action="store_true", default=False, help="Do not mark the map minimum with a '+'.")
     add("--nan_fill", default="interpolate", choices=["interpolate", "nearest", "zero", "none"],
         help="How NaN map cells are filled.")
     add("--nan_interp_method", default="linear", choices=["cubic", "linear"])
-    add("--fill_contours", action="store_true", default=False, help="Filled sigma bands instead of lines.")
-    add("--fill_alpha", type=float, default=None, help="Opacity of the most significant band.")
-    add("--fill_outer_alpha", type=float, default=None, help="Opacity below the lowest level (default: --fill_alpha).")
-    add("--fill_inner_alpha", type=float, default=0.0, help="Opacity above the highest level.")
-    add("--fill_outline_linewidth", type=float, default=None, help="Width of the lines on the band edges.")
+    add("--fill_contours", action="store_true", default=False,
+        help="Filled sigma bands: one hue per map mixed with the paper colour (style contours.fill_mix), "
+        "darkest at the best fit, lighter outwards, unfilled outside.")
+    add("--fill_alpha", type=float, default=None, help="Opacity of the bands (of the innermost one, default 1).")
+    add("--fill_outer_alpha", type=float, default=None,
+        help="Opacity of the outermost band (default: --fill_alpha); the bands between are interpolated.")
+    add("--fill_inner_alpha", type=float, default=0.0,
+        help="Opacity above the highest level, outside the outermost contour (default 0, unfilled).")
+    add("--fill_outline_linewidth", type=float, default=None,
+        help="Width of the lines on the band edges (default: --contour_linewidth).")
     add("--combine_op", default=None, choices=["squared_sum"],
         help="Combine the maps bin by bin (delta-chi2 sum, or quadrature sum of significances).")
     add("--combined_contours_only", action="store_true", default=False, help="Draw only the combined contour.")
     add("--combined_color", type=str, default="black",
         help="Colour of the combined contour, or a palette: 'cycle' or a list/dict style mapping name.")
-    add("--combined_linestyle", type=str, default="-")
+    add("--combined_linestyle", type=str, default=None,
+        help="One line style for every level of the combined contour (default: per-level styles).")
     add("--combined_linewidth", type=float, default=None)
     add("--combined_alpha", type=float, default=1.0)
     add("--combined_label", type=str, default="Combined")
@@ -485,27 +517,89 @@ def load_projected(args, configs, names):
 # --- Contours: drawing -------------------------------------------------------------------
 
 
-def contour_levels(sigmas, mode):
+def contour_levels(sigmas, mode, dof=2):
+    """Contour levels of the sigmas: the significances themselves (z_values),
+    or the delta-chi2 whose chi2(dof) CDF is each sigma's two-sided Gaussian
+    coverage (sigma_probability; sigma^2 for 1 dof)."""
     finite = [float(s) for s in sigmas if np.isfinite(s)]
-    return sorted(set(finite if mode == "z_values" else [s**2 for s in finite]))
-
-
-def sigma_labels(levels, sigmas, mode):
     if mode == "z_values":
-        return [f"${float(level):g}\\sigma$" for level in levels]
-    ordered = sorted(float(s) for s in sigmas if np.isfinite(s))
-    if len(ordered) == len(levels):
-        return [f"${s:g}\\sigma$" for s in ordered]
-    return [f"Level {level:.3g}" for level in levels]
+        return sorted(set(finite))
+    if dof == 1:
+        return sorted(set(s**2 for s in finite))
+    from scipy.stats import chi2
+
+    return sorted(set(float(chi2.ppf(chi2.cdf(s**2, 1), dof)) for s in finite))
 
 
-def _linestyles(args, count, fallback):
-    styles = list(args.contour_linestyles or [])
-    if not styles:
-        return fallback
-    if count <= 0:
-        return styles
-    return styles[:count] if len(styles) >= count else styles + [styles[-1]] * (count - len(styles))
+def coverage_label(sigma):
+    """'68.3% CL' for 1 sigma: the two-sided Gaussian coverage, with as many
+    decimals as it takes not to round to 100%."""
+    from scipy.stats import chi2
+
+    percent = 100 * chi2.cdf(sigma**2, 1)
+    decimals = 1
+    while decimals < 6 and round(percent, decimals) >= 100:
+        decimals += 1
+    return f"{percent:.{decimals}f}% CL"
+
+
+def sigma_labels(levels, sigmas, mode, dof=2, label="cl"):
+    ordered = sorted(set(float(s) for s in sigmas if np.isfinite(s)))
+    if len(ordered) != len(levels):
+        return [f"Level {level:.3g}" for level in levels]
+    if label == "cl":
+        return [coverage_label(s) for s in ordered]
+    # 1 dof levels (sigma^2) read as sigmas; 2 dof ones are named.
+    suffix = f" ({dof} dof)" if mode == "sigma_probability" and dof != 1 else ""
+    return [f"${s:g}\\sigma${suffix}" for s in ordered]
+
+
+def _per_level(values, count):
+    values = list(values)
+    if count <= 0 or not values:
+        return values
+    return values[:count] if len(values) >= count else values + [values[-1]] * (count - len(values))
+
+
+def level_linestyles(args, count, single=None):
+    """Line style per level: --contour_linestyles, else ``single`` for every
+    level (an explicit per-map style), else style contours.linestyles."""
+    if args.contour_linestyles:
+        return _per_level(args.contour_linestyles, count)
+    if single is not None:
+        return [single] * count
+    return _per_level(style.contours.get("linestyles") or ["-"], count)
+
+
+def fill_mix(count):
+    """Hue fraction of each band from the best fit outwards (style
+    contours.fill_mix, halved past its end)."""
+    mix = [float(m) for m in style.contours.get("fill_mix") or [1.0]]
+    return [mix[i] if i < len(mix) else mix[-1] * 0.5 ** (i - len(mix) + 1) for i in range(count)]
+
+
+def _paper():
+    color = to_rgba(plt.rcParams["axes.facecolor"])
+    return color[:3] if color[3] > 0 else (1.0, 1.0, 1.0)
+
+
+def mix_paper(color, fraction):
+    """``fraction`` of ``color`` mixed with the paper (axes background) colour."""
+    paper, rgb = _paper(), to_rgb(color)
+    return tuple(fraction * c + (1 - fraction) * p for c, p in zip(rgb, paper))
+
+
+def band_colors(color, count, args, offset=0):
+    """RGBA fill of the ``count`` bands from the best fit outwards, plus the
+    fill outside the outermost level (None when unfilled)."""
+    hues = band_hues(color, count + 1, offset)
+    mix = fill_mix(count + 1)
+    inner = 1.0 if args.fill_alpha is None else args.fill_alpha
+    outer = inner if args.fill_outer_alpha is None else args.fill_outer_alpha
+    alphas = np.linspace(inner, outer, count) if count > 1 else [inner]
+    bands = [to_rgba(mix_paper(h, m), alpha=float(a)) for h, m, a in zip(hues, mix, alphas)]
+    outside = to_rgba(mix_paper(hues[-1], mix[-1]), alpha=args.fill_inner_alpha) if args.fill_inner_alpha else None
+    return bands, outside
 
 
 def _filter_vertices(contour_set, minimum):
@@ -518,56 +612,140 @@ def _filter_vertices(contour_set, minimum):
     contour_set.set_paths(paths)
 
 
-def draw_filled(ax, x, y, image, levels, color, alpha_max, args, zorder, offset=0):
-    """contourf bands: below the lowest level (outer), between levels, above."""
-    count = len(levels)
-    hues = band_hues(color, count + 1, offset)
-    outer, inner = hues[0], hues[1:]
-    last = args.fill_inner_alpha or 0.0
-    if count == 1:
-        alphas = [last]
-    elif palette(color):
-        alphas = [alpha_max] * (count - 1) + [last]
-    else:
-        alphas = list(np.linspace(alpha_max / (count - 1), alpha_max, count - 1)) + [last]
-    outer_alpha = alpha_max if args.fill_outer_alpha is None else args.fill_outer_alpha
-    colors = [to_rgba(outer, alpha=outer_alpha)] + [to_rgba(h, alpha=float(a)) for h, a in zip(inner, alphas)]
-    ax.contourf(x, y, image, levels=[-np.inf] + levels + [np.inf], colors=colors, zorder=zorder)
-    outline = args.fill_outline_linewidth
-    width = outline if outline is not None else (args.contour_linewidth if zorder < 6 else _combined_width(args)) + 1.0
-    lines = ax.contour(x, y, image, levels=levels, colors=band_hues(color, count, offset), linestyles="-",
-                       linewidths=width, alpha=1.0, zorder=zorder + 0.5)
+def draw_filled(ax, x, y, image, levels, color, args, zorder, offset=0):
+    """contourf bands from the best fit (below the lowest level) outwards;
+    returns the band colours."""
+    bands, outside = band_colors(color, len(levels), args, offset)
+    edges = [-np.inf] + list(levels) + ([np.inf] if outside is not None else [])
+    ax.contourf(x, y, image, levels=edges, colors=bands + ([outside] if outside is not None else []), zorder=zorder)
+    return bands
+
+
+def draw_outlines(ax, x, y, image, levels, hues, linestyles, width, alpha, args, zorder):
+    lines = ax.contour(x, y, image, levels=levels, colors=hues, linestyles=linestyles,
+                       linewidths=width, alpha=alpha, zorder=zorder)
     _filter_vertices(lines, args.contour_min_vertices)
-    return width
 
 
-def legend_lines(levels, args, color, width, offset=0, prefix=None, linestyle="-"):
-    labels = sigma_labels(levels, args.contour_sigmas, args.contour_level_mode)
-    return [
-        Line2D([0], [0], color=hue, linestyle=linestyle, linewidth=width, alpha=1.0,
-               label=f"{prefix} {label}" if prefix else label)
-        for label, hue in zip(labels, band_hues(color, len(levels), offset))
-    ]
+def draw_best_fit(ax, x, y, image, color, zorder):
+    """A '+' at the grid minimum, haloed in the paper colour so it shows on
+    a fill of its own hue."""
+    image = np.asarray(image, dtype=float)
+    if not np.isfinite(image).any():
+        return
+    i, j = np.unravel_index(np.nanargmin(image), image.shape)
+    xa, ya = np.asarray(x, dtype=float), np.asarray(y, dtype=float)
+    bx = xa[i, j] if xa.ndim == 2 else xa[j]
+    by = ya[i, j] if ya.ndim == 2 else ya[i]
+    size, width = 2.5 * plt.rcParams["lines.markersize"], max(1.5, plt.rcParams["lines.linewidth"])
+    ax.plot([bx], [by], linestyle="none", marker="+", color=color, markersize=size, markeredgewidth=width,
+            zorder=zorder, path_effects=[patheffects.withStroke(linewidth=width + 2, foreground=_paper())])
+
+
+def level_handle(label, color, linestyle, width, fill=None):
+    """Legend handle of one level: its line style, and its fill when filled."""
+    if fill is None:
+        return Line2D([0], [0], color=color, linestyle=linestyle, linewidth=width, label=label)
+    return Patch(facecolor=fill, edgecolor=color, linestyle=linestyle, linewidth=width, label=label)
 
 
 def _combined_width(args):
     return args.combined_linewidth if args.combined_linewidth is not None else args.contour_linewidth + 0.5
 
 
-def draw_background(ax, fig, x, y, z, args, rows):
+def draw_background(ax, fig, x, y, z, args, rows, levels):
+    """The background image. Delta-chi2 maps are clipped at the outermost
+    level (blank beyond it) and their colour bar is labelled delta-chi2."""
     image = _smooth(z, args.background_smoothing_sigma)
     if args.logz:
         image = np.ma.masked_less_equal(image, 0)
     rangez = args.rangez
+    delta_chi2 = args.contour_level_mode == "sigma_probability" and bool(levels)
+    if rangez is None and delta_chi2:
+        rangez = [None, max(levels)]
     if args.logz:
         norm = LogNorm(vmin=rangez[0], vmax=rangez[1]) if rangez is not None else LogNorm()
     else:
         norm = Normalize(vmin=rangez[0], vmax=rangez[1]) if rangez is not None else None
     mesh = ax.pcolormesh(x, y, image, shading="auto", norm=norm, **({"cmap": args.cmap} if args.cmap else {}))
+    if delta_chi2 and args.rangez is None:
+        # Cells outside the outermost contour stay blank.
+        mesh.set_cmap(mesh.get_cmap().with_extremes(over="none"))
     cbar = fig.colorbar(mesh, ax=ax)
-    label = args.labelz if args.labelz is not None else "Density" if args.density else resolve_axis_label(None, args.z, rows)
+    if args.labelz is not None:
+        label = args.labelz
+    elif args.density:
+        label = "Density"
+    elif delta_chi2:
+        label = r"$\Delta\chi^2$"
+    else:
+        label = resolve_axis_label(None, args.z, rows)
     cbar.set_label(label)
     cbar.ax.yaxis.set_label_position("right")
+
+
+def contour_legend(sets, labels):
+    """Legend handles. A lone contour set gets one handle per level. Several
+    get one handle per set (its colour) and one per level (its line style and
+    fill, in the text colour); a set coloured by a palette keeps one handle
+    per level, prefixed with its label."""
+    if not sets:
+        return []
+    count = len(labels)
+
+    def per_level(s, prefix=None, hues=None):
+        fills = s["fills"] or [None] * count
+        return [level_handle(f"{prefix} {label}" if prefix else label, hue, ls, s["width"], fill)
+                for label, hue, ls, fill in zip(labels, hues or s["hues"], s["styles"], fills)]
+
+    if len(sets) == 1:
+        return per_level(sets[0])
+    handles = []
+    for s in sets:
+        if s["palette"]:
+            handles += per_level(s, prefix=s["label"])
+        else:
+            fill = s["fills"][0] if s["fills"] else None
+            handles.append(level_handle(s["label"], s["hues"][0], s["styles"][0], s["width"], fill))
+    neutral = plt.rcParams["text.color"]
+    reference = next((s for s in sets if not s["palette"]), sets[0])
+    filled = dict(reference, fills=[mix_paper(neutral, m) for m in fill_mix(count)] if reference["fills"] else None)
+    return handles + per_level(filled, hues=[neutral] * count)
+
+
+def _first_notice(key):
+    """True the first time ``key`` is noticed in this run: once per process, or
+    once per command list under ``plotipus run`` (which shares a marker
+    directory, PLOTIPUS_NOTICE_DIR, between its commands)."""
+    if key in _NOTICES_SHOWN:
+        return False
+    _NOTICES_SHOWN.add(key)
+    folder = os.environ.get("PLOTIPUS_NOTICE_DIR")
+    if not folder:
+        return True
+    try:
+        os.close(os.open(os.path.join(folder, key), os.O_CREAT | os.O_EXCL | os.O_WRONLY))
+    except FileExistsError:
+        return False
+    except OSError:
+        return True
+    return True
+
+
+def resolve_contour_options(args):
+    """Fill --contour_dof, --contour_label and --background from the style's
+    contours section; print the one-off notice about the 2-dof default."""
+    settings = style.contours
+    if args.contour_dof is None:
+        args.contour_dof = int(settings.get("dof", 2))
+        if "dof" not in settings and args.contour_level_mode == "sigma_probability" and _first_notice("contour_dof"):
+            levels = ", ".join(f"{level:.2f}" for level in contour_levels(args.contour_sigmas, args.contour_level_mode, 2))
+            rprint(f"[yellow]Notice:[/yellow] contour levels now use 2 dof (Δχ² = {levels}); "
+                   "pass --contour_dof 1 for the previous levels")
+    if args.contour_label is None:
+        args.contour_label = settings.get("label", "cl")
+    if args.background is None:
+        args.background = settings.get("background", "none")
 
 
 def _item_label(args, config, name, hue):
@@ -639,17 +817,16 @@ def draw_contour_panel(ax, fig, panel_idx, subset, projected, args, configs, nam
 
         if is_projected:
             color = colors.color_for(("projected", config), style.resolve_mapped_color(config_color.get(config)))
-            linestyle = "--"
+            linestyle = None
             suffix = args.project_label or (f"Projected, {exposure:g} yr" if exposure is not None else "Projected")
             label = f"{_item_label(args, config, name, hue)} ({suffix})"
         elif datafile is not None:
-            n = len(payloads)
             color = colors.color_for(("datafile", cdx, datafile), map_iterable_color(datafile, args.iterable_color_mapping))
-            linestyle = DATAFILE_LINESTYLES[n % len(DATAFILE_LINESTYLES)]
+            linestyle = None
             label = f"{_item_label(args, config, name, hue)}, {map_iterable_label(datafile, '_Datafile', args.iterable_mapping)}"
         else:
             color = colors.color_for(("config", cdx), style.resolve_mapped_color(config_color.get(config)))
-            linestyle = config_line.get(config, "-")
+            linestyle = config_line.get(config)
             label = _item_label(args, config, name, hue)
         payloads.append({"x": x, "y": y, "z": z, "color": color, "linestyle": linestyle, "label": label})
 
@@ -667,59 +844,64 @@ def draw_contour_panel(ax, fig, panel_idx, subset, projected, args, configs, nam
         combined = background
 
     bx, by = reference
+    levels = contour_levels(args.contour_sigmas, args.contour_level_mode, args.contour_dof)
     if args.background == "all":
-        draw_background(ax, fig, bx, by, background, args, subset)
+        draw_background(ax, fig, bx, by, background, args, subset, levels)
     elif args.background == "first":
-        draw_background(ax, fig, payloads[0]["x"], payloads[0]["y"], payloads[0]["z"], args, subset)
+        draw_background(ax, fig, payloads[0]["x"], payloads[0]["y"], payloads[0]["z"], args, subset, levels)
     elif args.background == "combined":
-        draw_background(ax, fig, bx, by, combined, args, subset)
+        draw_background(ax, fig, bx, by, combined, args, subset, levels)
 
-    handles = []
-    levels = contour_levels(args.contour_sigmas, args.contour_level_mode)
+    # Each contour set: filled bands (best fit outwards), outlines per level, a '+' at the minimum.
+    sets = []
     smooth = lambda z: _smooth(_smooth(z, args.background_smoothing_sigma), args.contour_smoothing_sigma)  # noqa: E731
+
+    def draw_set(x, y, image, color, label, linestyle, width, alpha, zorder, offset=0, palette_colors=False):
+        hues = band_hues(color, len(levels), offset)
+        styles = level_linestyles(args, len(levels), linestyle)
+        fills = None
+        if args.fill_contours:
+            fills = draw_filled(ax, x, y, image, levels, color, args, zorder, offset)
+            width, alpha = args.fill_outline_linewidth if args.fill_outline_linewidth is not None else width, 1.0
+        draw_outlines(ax, x, y, image, levels, hues, styles, width, alpha, args, zorder + 0.5)
+        if not args.no_best_fit:
+            draw_best_fit(ax, x, y, image, hues[0], zorder=7)
+        sets.append({"label": label, "hues": hues, "styles": styles, "width": width, "fills": fills,
+                     "palette": palette_colors})
+
     if not args.combined_contours_only and levels:
         for p in payloads:
-            image = smooth(p["z"])
-            if args.fill_contours:
-                alpha = args.fill_alpha if args.fill_alpha is not None else args.contour_alpha
-                width = draw_filled(ax, p["x"], p["y"], image, levels, p["color"], alpha, args, zorder=5)
-                handles += legend_lines(levels, args, p["color"], width, prefix=p["label"] if len(payloads) > 1 else None)
-            else:
-                contour_set = ax.contour(p["x"], p["y"], image, levels=levels, colors=[p["color"]],
-                                         linestyles=_linestyles(args, len(levels), p["linestyle"]),
-                                         linewidths=args.contour_linewidth, alpha=args.contour_alpha, zorder=5)
-                _filter_vertices(contour_set, args.contour_min_vertices)
-                style_first = _linestyles(args, 1, p["linestyle"])
-                handles.append(Line2D([0], [0], color=p["color"], linewidth=args.contour_linewidth, label=p["label"],
-                                      linestyle=style_first[0] if isinstance(style_first, list) else style_first))
+            draw_set(p["x"], p["y"], smooth(p["z"]), p["color"], p["label"], p["linestyle"],
+                     args.contour_linewidth, args.contour_alpha, zorder=5)
 
     if args.combine_op == "squared_sum" and levels:
-        image = smooth(combined)
         colors = palette(args.combined_color)
         # Shift the palette per panel so panels do not all start at one colour.
         offset = 0 if args.unified_colors or not colors else panel_idx % len(colors)
-        width = _combined_width(args)
-        prefix = None if args.combined_contours_only else args.combined_label
-        if args.fill_contours:
-            alpha = args.fill_alpha if args.fill_alpha is not None else args.combined_alpha
-            outline = draw_filled(ax, bx, by, image, levels, args.combined_color, alpha, args, zorder=6, offset=offset)
-            handles += legend_lines(levels, args, args.combined_color, outline, offset=offset, prefix=prefix)
-        else:
-            contour_set = ax.contour(bx, by, image, levels=levels, colors=band_hues(args.combined_color, len(levels), offset),
-                                     linestyles=_linestyles(args, len(levels), args.combined_linestyle),
-                                     linewidths=width, alpha=args.combined_alpha, zorder=6)
-            _filter_vertices(contour_set, args.contour_min_vertices)
-            style_first = _linestyles(args, 1, args.combined_linestyle)
-            style_first = style_first[0] if isinstance(style_first, list) else style_first
-            if colors:
-                handles += legend_lines(levels, args, args.combined_color, width, offset, prefix, style_first)
-            else:
-                handles.append(Line2D([0], [0], color=args.combined_color, linestyle=style_first, linewidth=width,
-                                      label=args.combined_label))
+        draw_set(bx, by, smooth(combined), args.combined_color, args.combined_label, args.combined_linestyle,
+                 _combined_width(args), args.combined_alpha, zorder=6, offset=offset, palette_colors=bool(colors))
 
+    labels = sigma_labels(levels, args.contour_sigmas, args.contour_level_mode, args.contour_dof, args.contour_label)
+    handles = contour_legend(sets, labels)
     ax._contour_handles = handles
     xs, ys = np.asarray(bx, dtype=float), np.asarray(by, dtype=float)
     return [float(np.nanmin(xs)), float(np.nanmax(xs))], [float(np.nanmin(ys)), float(np.nanmax(ys))]
+
+
+def draw_contour_shapes(ax, args, color):
+    """--square rectangles and --line segments of a contour panel, in
+    ``color`` unless given. Drawn before the panel limits are set, so the
+    grid (or --rangex/--rangey) keeps the frame."""
+    for parse, normalize, draw, key in ((parse_square_quads, normalize_square_labels, draw_squares, "square"),
+                                        (parse_line_segments, normalize_line_labels, draw_lines, "line")):
+        shapes = parse(getattr(args, key, None))
+        if not shapes:
+            continue
+        labels, warning = normalize(getattr(args, f"{key}_label", None), len(shapes))
+        if warning:
+            rprint(f"[yellow]Warning:[/yellow] {warning}")
+        draw(ax, shapes, labels=labels, styles=getattr(args, f"{key}_style", None),
+             colors=getattr(args, f"{key}_color", None) or [color], fontsize=style.linelabelfontsize)
 
 
 def draw_contour_figure(df, args):
@@ -739,6 +921,7 @@ def draw_contour_figure(df, args):
     if args.density and args.contour_level_mode == "sigma_probability":
         rprint("[red]Error:[/red] --density destroys the delta-chi2 scale of --contour_level_mode sigma_probability.")
         return None
+    resolve_contour_options(args)
     if args.combined_contours_only and args.combine_op != "squared_sum":
         rprint("[yellow]Warning:[/yellow] --combined_contours_only requires --combine_op squared_sum; ignoring the flag.")
         args.combined_contours_only = False
@@ -772,7 +955,10 @@ def draw_contour_figure(df, args):
     colors.reserve([("config", cdx) for cdx in range(len(configs))],
                    lambda key: style.resolve_mapped_color(config_color.get(configs[key[1]])))
     matched = [None, None]
-    line_color = "k" if args.logz else "white"
+    # Overlays in white only on a linear background image that fills the panel (a delta-chi2
+    # background is blank beyond the outermost level unless --rangez is given); else in the text colour.
+    full_image = args.background != "none" and (args.contour_level_mode == "z_values" or args.rangez is not None)
+    line_color = "white" if full_image and not args.logz else plt.rcParams["text.color"]
     for vdx, variable in enumerate(variables):
         for hdx, hue in enumerate(hues):
             panel_idx = vdx if args.variables is not None else hdx
@@ -798,6 +984,7 @@ def draw_contour_figure(df, args):
                     matched[0] = [min(matched[0][0], x_range[0]), max(matched[0][1], x_range[1])]
                 if args.matchy:
                     matched[1] = [min(matched[1][0], y_range[0]), max(matched[1][1], y_range[1])]
+            contour_artists = set(ax.get_children())
             if args.diagonal:
                 span = [min(x_range[0], y_range[0]), max(x_range[1], y_range[1])]
                 ax.plot(span, span, color=line_color, linestyle="--")
@@ -805,6 +992,10 @@ def draw_contour_figure(df, args):
                                   colors=args.horizontal_color or [line_color], fontsize=style.linelabelfontsize)
             draw_vertical_lines(ax, args.vertical, labels=args.vertical_label, styles=args.vertical_style,
                                 colors=args.vertical_color or [line_color], fontsize=style.linelabelfontsize)
+            draw_contour_shapes(ax, args, line_color)
+            # Reference overlays sit above the contours, below the best-fit markers.
+            for artist in set(ax.get_children()) - contour_artists:
+                artist.set_zorder(OVERLAY_ZORDER)
             if ncols > 1:
                 ax.set_title(make_subtitle_from_args(args, hues, plot_type="hist2d", idx=hdx), fontsize=style.subtitlefontsize)
             ax.set_xlabel(resolve_axis_label(args.labelx, args.x, subset))
@@ -826,7 +1017,7 @@ def draw_contour_figure(df, args):
             if warning:
                 rprint(f"[yellow]Warning:[/yellow] {warning}")
             for i, (px, py) in enumerate(points):
-                ax.scatter(px, py, color=line_color, edgecolors="white" if args.logz else "black", linewidths=1.0, s=85, zorder=100)
+                ax.scatter(px, py, color=line_color, edgecolors="black" if line_color == "white" else _paper(), linewidths=1.0, s=85, zorder=100)
                 if point_labels is not None:
                     place_point_label(ax, px, py, point_labels[i], fontsize=style.linelabelfontsize)
             handles = getattr(ax, "_contour_handles", [])
@@ -882,7 +1073,8 @@ def _legacy_contour(tokens):
         if i > 0 and tokens[i - 1] == "--combined_color" and token.strip().upper() == "DUNE":
             token = "cycle"
         out.append(token)
-    return out + ["--contour", "--output_suffix", "contour.png"]
+    # The legacy scripts drew 1-dof levels (delta-chi2 = sigma^2).
+    return out + ["--contour", "--contour_dof", "1", "--output_suffix", "contour.png"]
 
 
 LEGACY = {
