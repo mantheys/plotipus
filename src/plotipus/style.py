@@ -75,7 +75,7 @@ def _publish():
     """Expose the merged configuration as module attributes."""
     global titlefontsize, subtitlefontsize, legendtitlefontsize, legendfontsize
     global xlabelfontsize, ylabelfontsize, xsublabelfontsize, ysublabelfontsize
-    global linelabelfontsize, nbins, default_linewidth, figure_base_width
+    global linelabelfontsize, nbins, default_linewidth, band_alpha, figure_base_width
     global figure_panel_width, figure_height, figure_panel_font_scale
     global figure_margins_inches, figure_two_panel_hspace, legend_style
     global note_style, base_font_size, mappings, auto_title
@@ -105,6 +105,8 @@ def _publish():
     settings = _CONFIG.get("plot_settings", {})
     nbins = settings.get("nbins", 50)
     default_linewidth = settings.get("default_linewidth", 2)
+    # Opacity of --errory_type bands (series colour, no edge).
+    band_alpha = float(settings.get("band_alpha", 0.2))
     # Title from the datafile name when --title is not given.
     auto_title = bool(settings.get("auto_title", True))
 

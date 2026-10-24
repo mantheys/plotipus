@@ -280,6 +280,11 @@ simulation).
 **Fix.** Read `--errory_type` before dispatching on plot type: bands for
 `line`/`step`/default, bars only for points.
 
+**Fixed in T07.** `plot_data` resolves `--errory_type` before the plot
+type: bands (stepwise across the bins for steps) for `line`/`step` and
+`--errory_type bands`, bars for points by default. Restore option:
+`--errory_type bars`.
+
 ## B12 scatter `--hue` drops all but the first group
 
 **Reproduce:** `B12`. Three groups are requested, and only group A is drawn;
@@ -372,6 +377,10 @@ coloured by group.
   _fit.py:105 already works around this ("Points only (the line kind's
   --plot_style default would join them)"). Measured points with error bars
   should not be joined unless `--connect` is given.
+
+  **Fixed in T07** (this point; output resolution is T12). Error bars on
+  points use `linestyle="none"`; `--connect` restores the joined look, and
+  the `_fit.py` workaround is gone.
 - **Low resolution.** `savefig.dpi` is unset, so PNGs are written at the
   100 dpi figure DPI: 800×600 px for an 8×6 in figure. Use vector output
   (PDF) for papers and `savefig.dpi: 300` for PNG.

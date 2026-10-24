@@ -16,6 +16,7 @@
   "plot_settings": {
     "nbins": 50,
     "default_linewidth": 2,
+    "band_alpha": 0.2,
     "figure_layout": {
       "base_width": 8,
       "panel_width": 5,

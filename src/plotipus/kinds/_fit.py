@@ -101,9 +101,6 @@ def _data_style(args):
         return "plot", {"drawstyle": "steps-mid"}
     if plot_type == "plot":
         return "plot", {"marker": "o", "linestyle": "None"}
-    if plot_type == "errorbar":
-        # Points only (the line kind's --plot_style default would join them).
-        return plot_type, {"plot_style": "none"}
     return plot_type, {}
 
 
