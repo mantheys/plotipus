@@ -15,9 +15,13 @@ plotipus run paper          # every command in input/plots/paper_scripts.txt
 ## Install
 
 ```bash
-pip install git+https://github.com/mantheys/plotipus.git
-# or, for development
-git clone https://github.com/mantheys/plotipus.git && pip install -e "plotipus[dev]"
+# use the CLI
+pipx install git+https://github.com/mantheys/plotipus.git
+
+# development
+git clone https://github.com/mantheys/plotipus.git && cd plotipus
+python3 -m venv .venv && source .venv/bin/activate   # Debian/Ubuntu: apt install python3-venv
+pip install -e ".[dev]"
 ```
 
 Python ≥ 3.10; depends on numpy, pandas, matplotlib, scipy, rich and jinja2.
@@ -29,6 +33,15 @@ cd examples
 python make_data.py          # toy pickles in input/data
 plotipus run example         # figures in output/plots
 plotipus run example --tables
+```
+
+To regenerate the examples from scratch after a change (`examples/Makefile`;
+it uses `.venv/bin/python` when present):
+
+```bash
+make -C examples             # delete generated data and outputs, then rebuild all
+make -C examples clean       # only delete them (input/data/*.pkl, output/)
+make -C examples plots       # rebuild data and plots without deleting first
 ```
 
 `plotipus init my_project` creates an empty project (`plotipus.toml`,
