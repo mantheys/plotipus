@@ -64,9 +64,10 @@ def gw150914():
     The real filtered series are public (LIGO DCC G1600204, GWOSC).
 
     Datafiles: ``GW150914`` (rows ``Detector`` x ``Component``, panels by
-    ``Variable``: Whitened strain, Reconstructed, Residual; the numerical
-    relativity rows have the bands as ``StrainTemplate+``/``-``,
-    ``StrainWavelet+``/``-`` and ``StrainError`` = the template band) and
+    ``Variable``: Whitened strain, Reconstructed, Residual; the two 90%
+    bands are rows of their own (``StrainError``) so that they can be
+    drawn in grey, and the numerical relativity rows also carry them as
+    ``StrainTemplate+``/``-`` and ``StrainWavelet+``/``-``) and
     ``GW150914Spectrogram`` (``Name`` H1/L1, grids ``Time``,
     ``FrequencyGrid``, ``Amplitude``).
     """
@@ -91,9 +92,13 @@ def gw150914():
         rows += [
             {"Time": time, "Strain": noisy[window], "Detector": detector, "Component": f"{detector} observed",
              "Variable": "Whitened strain"},
+            {"Time": time, "Strain": signal[window], "Detector": detector, "Component": "Reconstructed (wavelet)",
+             "Variable": "Reconstructed", "StrainError": wavelet},
+            {"Time": time, "Strain": signal[window], "Detector": detector, "Component": "Reconstructed (template)",
+             "Variable": "Reconstructed", "StrainError": template},
             {"Time": time, "Strain": signal[window], "Detector": detector, "Component": "Numerical relativity",
-             "Variable": "Reconstructed", "StrainError": template, "StrainTemplate+": template,
-             "StrainTemplate-": template, "StrainWavelet+": wavelet, "StrainWavelet-": wavelet},
+             "Variable": "Reconstructed", "StrainTemplate+": template, "StrainTemplate-": template,
+             "StrainWavelet+": wavelet, "StrainWavelet-": wavelet},
             {"Time": time, "Strain": noisy[window] - signal[window], "Detector": detector, "Component": "Residual",
              "Variable": "Residual"},
         ]
@@ -102,7 +107,7 @@ def gw150914():
         maps.append({"Time": time[::4], "FrequencyGrid": frequencies, "Amplitude": amplitude,
                      "Config": "GW150914", "Name": detector})
     # The L1 panel also shows the H1 data shifted by 6.9 ms and inverted.
-    rows.insert(3, {"Time": time, "Strain": -np.interp(full + delay, full, observed["H1"])[window], "Detector": "L1",
+    rows.insert(6, {"Time": time, "Strain": -np.interp(full + delay, full, observed["H1"])[window], "Detector": "L1",
                     "Component": "H1 observed (shifted, inverted)", "Variable": "Whitened strain"})
     return {"GW150914": pd.DataFrame(rows), "GW150914Spectrogram": pd.DataFrame(maps)}
 

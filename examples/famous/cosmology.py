@@ -41,7 +41,8 @@ def firas():
          "IntensityError": sigma / 1000, "IntensityErrorX400": 400 * sigma / 1000, "Residual": residual,
          "ResidualError": sigma, "Component": "FIRAS data", **fit},
         {"Wavenumber": curve, "Frequency": curve * 29.9792458,
-         "Intensity": models.planck_spectrum(curve, fit["Params"][0]), "Component": "Blackbody"},
+         "Intensity": models.planck_spectrum(curve, fit["Params"][0]), "Residual": np.zeros_like(curve),
+         "Component": "Blackbody"},
     ]
     return {"FIRAS": pd.DataFrame(rows)}
 
@@ -73,11 +74,11 @@ def hubble_1929():
     (individual nebulae) and K = 513 +- 60 km/s/Mpc (9 groups), drawn as
     lines through the origin (the solar-motion terms are left out).
     Ours: the 9-group membership (consecutive distances; the paper does not
-    list it, unverified). The cross of the figure (mean of 22 further
-    nebulae) is not included: its values were not transcribed.
+    list it, unverified). The cross of the figure: 745 km/s at 1.4 Mpc, the
+    mean of 22 further nebulae (read from the paper's text, p. 172).
 
-    Rows: ``Sample`` (Individual nebulae, Groups, and the two fitted
-    lines), ``Type`` (Data, Fit).
+    Rows: ``Sample`` (Individual nebulae, Groups, Mean of 22 nebulae, and
+    the two fitted lines), ``Type`` (Data, Fit).
     """
     names, distance, velocity = (np.array(v) for v in zip(*HUBBLE_TABLE))
     distance, velocity = distance.astype(float), velocity.astype(float)
@@ -89,7 +90,8 @@ def hubble_1929():
         return {"FitFunction": "proportional", "FitFunctionLabel": label, "Params": [k], "ParamsError": [error],
                 "ParamsLabel": ["$K$"], "ParamsUnit": ["km/s/Mpc"], "ParamsFormat": [".0f"]}
 
-    line = np.array([0.0, 2.2])
+    # The fitted lines reach past the axis range (0-2.2 Mpc) on both sides.
+    line = np.array([-1.0, 3.0])
     rows = [
         {"Distance": distance, "Velocity": velocity, "Object": names, "Sample": "Individual nebulae",
          "Type": "Data", **fit(465.0, 50.0, "Individual")},
@@ -97,6 +99,8 @@ def hubble_1929():
          "Type": "Data", **fit(513.0, 60.0, "Groups")},
         {"Distance": line, "Velocity": 465.0 * line, "Sample": "K = 465 (individual)", "Type": "Fit"},
         {"Distance": line, "Velocity": 513.0 * line, "Sample": "K = 513 (groups)", "Type": "Fit"},
+        {"Distance": np.array([1.4]), "Velocity": np.array([745.0]), "Sample": "Mean of 22 nebulae",
+         "Type": "Data"},
     ]
     return {"Hubble1929": pd.DataFrame(rows)}
 
@@ -111,8 +115,8 @@ COSMOLOGIES = {
 def _supernovae():
     """The synthetic SN Ia sample shared by F09 and F10."""
     rng = rng_for("F09")
-    z_near = np.sort(10 ** rng.uniform(-2, -1, 27))
-    z_far = np.sort(rng.uniform(0.16, 0.83, 15))
+    z_near = np.sort(10 ** rng.uniform(np.log10(0.0085), np.log10(0.13), 27))
+    z_far = np.sort(rng.uniform(0.3, 0.62, 15))
     z = np.concatenate([z_near, z_far, [0.97]])
     peculiar = 5 / np.log(10) * 400 / (models.C_KMS * z)
     sigma = np.sqrt(np.where(z < 0.15, 0.15, rng.uniform(0.2, 0.3, z.size)) ** 2 + peculiar**2)
@@ -131,7 +135,8 @@ def supernova_hubble_diagram():
     panel Delta(m - M) relative to (0.20, 0), the open symbol for SN 1997ck
     (z = 0.97), 27 nearby SNe (research.md) and 16 high-z ones (as recalled
     from the abstract, unverified).
-    Synthetic: the redshifts, the distances (true cosmology Omega_M = 0.28,
+    Synthetic: the redshifts (0.0085-0.13 and 0.3-0.62, as in Fig. 4), the
+    distances (true cosmology Omega_M = 0.28,
     Omega_Lambda = 0.72, H0 = 65 km/s/Mpc) and the errors (0.15 mag nearby,
     0.2-0.3 mag high-z, plus 400 km/s peculiar velocities). The real
     distances are public (Union2.1, or Riess Tables 5, 6, 10).
@@ -147,7 +152,7 @@ def supernova_hubble_diagram():
         rows.append({"Redshift": z[index], "DistanceModulus": mu[index], "DistanceModulusError": sigma[index],
                      "DeltaMu": mu[index] - reference[index], "DeltaMuError": sigma[index],
                      "Series": series, "Type": "Data"})
-    curve = np.logspace(-2, 0, 200)
+    curve = np.logspace(np.log10(0.005), np.log10(1.5), 200)
     curve_reference = models.distance_modulus(curve, 0.20, 0.0)
     for series, (omega_m, omega_lambda) in COSMOLOGIES.items():
         model = models.distance_modulus(curve, omega_m, omega_lambda)

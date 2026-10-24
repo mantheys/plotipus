@@ -1,0 +1,205 @@
+{
+  "rcparams": {
+    "axes.prop_cycle": "cycler('color', ['black', '#e41a1c', '#377eb8', '#4daf4a', '#ff7f00', '#984ea3', '#a65628', '#f781bf', '#999999'])",
+    "errorbar.capsize": 0,
+    "image.cmap": "inferno"
+  },
+  "plot_settings": {
+    "auto_title": false,
+    "legend_style": {
+      "fontsize": "large",
+      "title_fontsize": "large",
+      "frameon": false,
+      "loc": "best"
+    }
+  },
+  "labels": {
+    "redundant_legend_titles": [
+      "component",
+      "sample",
+      "series",
+      "model",
+      "limit",
+      "hypothesis",
+      "foil",
+      "brightness",
+      "dataset",
+      "galaxy",
+      "type",
+      "name",
+      "detector"
+    ]
+  },
+  "mappings": {
+    "hgg_labels": {
+      "Data": "Data",
+      "Sig+Bkg Fit": "Sig+Bkg Fit ($m_H$=126.5 GeV)",
+      "Bkg (4th order polynomial)": "Bkg (4th order polynomial)"
+    },
+    "hgg_weighted_labels": {
+      "Data": "Data S/B Weighted",
+      "Sig+Bkg Fit": "Sig+Bkg Fit ($m_H$=126.5 GeV)",
+      "Bkg (4th order polynomial)": "Bkg (4th order polynomial)"
+    },
+    "hgg_colors": {
+      "Data": "black",
+      "Sig+Bkg Fit": "red",
+      "Bkg (4th order polynomial)": "red"
+    },
+    "hgg_weighted_colors": {
+      "Data": "black",
+      "Sig+Bkg Fit": "blue",
+      "Bkg (4th order polynomial)": "blue"
+    },
+    "zz_colors": {
+      "Z+X": "#5f9c5f",
+      "ZZ": "#99ccff",
+      "Signal": "#ff3300",
+      "Data": "black"
+    },
+    "zz_labels": {
+      "Z+X": "Z+X",
+      "ZZ": "Z$\\gamma^*$, ZZ",
+      "Signal": "$m_H$=125 GeV",
+      "Data": "Data"
+    },
+    "p0_colors": {
+      "Expected +-1 sigma": "#0099ff",
+      "Expected": "black",
+      "Observed": "black"
+    },
+    "p0_labels": {
+      "Expected +-1 sigma": "$\\pm1\\sigma$",
+      "Expected": "Exp.",
+      "Observed": "Obs."
+    },
+    "limit_colors": {
+      "Expected +-2 sigma": "#ffcc00",
+      "Expected +-1 sigma": "#00cc00",
+      "Expected": "black",
+      "Observed": "black"
+    },
+    "limit_labels": {
+      "Expected +-2 sigma": "$\\pm$ 2$\\sigma$",
+      "Expected +-1 sigma": "$\\pm$ 1$\\sigma$",
+      "Expected": "Bkg. Expected",
+      "Observed": "Observed"
+    },
+    "firas_colors": {
+      "FIRAS data": "black",
+      "Blackbody": "black"
+    },
+    "firas_labels": {
+      "FIRAS data": "FIRAS (errors $\\times$400)",
+      "Blackbody": "Blackbody, $T$ = 2.725 K"
+    },
+    "hubble_colors": {
+      "Individual nebulae": "black",
+      "Groups": "#888888",
+      "Mean of 22 nebulae": "#d62728",
+      "K = 465 (individual)": "black",
+      "K = 513 (groups)": "#888888"
+    },
+    "sn_colors": {
+      "Nearby SNe": "black",
+      "High-z SNe": "black",
+      "SN 1997ck": "#888888",
+      "$\\Omega_M$=0.24, $\\Omega_\\Lambda$=0.76": "black",
+      "$\\Omega_M$=0.20, $\\Omega_\\Lambda$=0": "black",
+      "$\\Omega_M$=1.00, $\\Omega_\\Lambda$=0": "black"
+    },
+    "ngc3198_colors": {
+      "Data": "black",
+      "Disk": "black",
+      "Gas": "black",
+      "Halo": "black",
+      "Total": "black"
+    },
+    "ngc3198_labels": {
+      "Data": "NGC 3198 (HI)",
+      "Disk": "disk",
+      "Gas": "gas",
+      "Halo": "halo",
+      "Total": "total"
+    },
+    "keeling_colors": {
+      "Monthly mean": "red",
+      "Deseasonalized": "black"
+    },
+    "mbh_colors": {
+      "Reconstruction": "black",
+      "Instrumental": "#999999",
+      "40-year smoothed": "black",
+      "Linear trend": "black"
+    },
+    "mbh_labels": {
+      "Reconstruction": "reconstruction (AD 1000-1980)",
+      "Instrumental": "instrumental data (AD 1902-1998)",
+      "40-year smoothed": "reconstruction (40 year smoothed)",
+      "Linear trend": "linear trend (AD 1000-1850)"
+    },
+    "ligo_h1_colors": {
+      "Reconstructed (wavelet)": "#aaaaaa",
+      "Reconstructed (template)": "#333333",
+      "H1 observed": "#e41a1c",
+      "Numerical relativity": "#e41a1c",
+      "Residual": "#e41a1c"
+    },
+    "ligo_l1_colors": {
+      "Reconstructed (wavelet)": "#aaaaaa",
+      "Reconstructed (template)": "#333333",
+      "H1 observed (shifted, inverted)": "#f4a582",
+      "L1 observed": "#2c4ea3",
+      "Numerical relativity": "#2c4ea3",
+      "Residual": "#2c4ea3"
+    },
+    "kamland_colors": {
+      "Expectation (curve)": "#a6b4f5",
+      "Expectation (histogram)": "#4a5ef0",
+      "Data - BG - Geo $\\nu_e$": "black"
+    },
+    "kamland_labels": {
+      "Expectation (curve)": "Expectation based on osci. parameters",
+      "Expectation (histogram)": "determined by KamLAND",
+      "Data - BG - Geo $\\nu_e$": "Data - BG - Geo $\\bar\\nu_e$"
+    },
+    "lep_colors": {
+      "2$\\nu$": "red",
+      "4$\\nu$": "red",
+      "3$\\nu$": "#00dd00",
+      "Data": "red"
+    },
+    "lep_labels": {
+      "2$\\nu$": "2$\\nu$",
+      "4$\\nu$": "4$\\nu$",
+      "3$\\nu$": "3$\\nu$",
+      "Data": "average measurements,\nerror bars increased by factor 10"
+    },
+    "rutherford_colors": {
+      "Gold": "black",
+      "Gold, $A/\\sin^4(\\phi/2)$": "black",
+      "Silver": "#888888",
+      "Silver, $A/\\sin^4(\\phi/2)$": "#888888"
+    },
+    "moseley_colors": {
+      "K$\\alpha$": "black",
+      "K$\\alpha$ fit": "black",
+      "L$\\alpha$": "#d62728",
+      "L$\\alpha$ fit": "#d62728"
+    },
+    "leavitt_colors": {
+      "Maximum": "black",
+      "Maximum fit": "black",
+      "Minimum": "#888888",
+      "Minimum fit": "#888888"
+    },
+    "anscombe_colors": {
+      "Data": "#ff7f0e",
+      "Fit": "#1f77b4"
+    }
+  },
+  "font_sizes": {
+    "legendfontsize": "large",
+    "legendtitlefontsize": "large"
+  }
+}

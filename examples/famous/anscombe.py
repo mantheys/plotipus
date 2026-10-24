@@ -28,18 +28,22 @@ def anscombe_quartet():
     summary statistics (``MeanX``, ``MeanY``, ``VarianceX``,
     ``VarianceY``, ``Correlation``).
 
-    Rows: ``Dataset`` (I-IV, also ``Variable`` for --variables panels),
-    x ``X``, y ``Y``.
+    Rows: ``Dataset`` (I-IV and their regression lines), ``Variable``
+    (I-IV, for --variables panels), ``Type`` (Data, Fit), x ``X``, y ``Y``.
     """
     rows = []
     for name, (x, y) in QUARTET.items():
         x, y = np.array(x, dtype=float), np.array(y, dtype=float)
         params, covariance = np.polyfit(x, y, 1, cov=True)
-        rows.append({"X": x, "Y": y, "Dataset": name, "Variable": name, "FitFunction": "straight_line",
-                     "FitFunctionLabel": "Linear", "Params": list(params),
+        rows.append({"X": x, "Y": y, "Dataset": name, "Variable": name, "Type": "Data",
+                     "FitFunction": "straight_line", "FitFunctionLabel": "Linear", "Params": list(params),
                      "ParamsError": list(np.sqrt(np.diag(covariance))), "ParamsLabel": ["slope", "intercept"],
                      "ParamsFormat": [".3f", ".2f"], "MeanX": x.mean(), "MeanY": y.mean(),
                      "VarianceX": x.var(ddof=1), "VarianceY": y.var(ddof=1), "Correlation": np.corrcoef(x, y)[0, 1]})
+        # The regression line, reaching past the axis range (x 0-20) on both sides.
+        line = np.array([-5.0, 25.0])
+        rows.append({"X": line, "Y": np.polyval(params, line), "Dataset": f"{name} fit", "Variable": name,
+                     "Type": "Fit"})
     return {"Anscombe": pd.DataFrame(rows)}
 
 

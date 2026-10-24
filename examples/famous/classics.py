@@ -26,12 +26,14 @@ def geiger_marsden():
     hold), A x (47/79)^2 for silver (equal atoms per area), Poisson
     counts. The stored fits are fitted to these counts.
 
-    Rows: ``Foil`` (Gold, Silver), x ``Angle`` (degrees), y ``Counts``,
-    ``CountsSin4`` = N sin^4(phi/2).
+    Rows: ``Foil`` (Gold, Silver, and the fitted law of each), ``Type``
+    (Data, Model), x ``Angle`` (degrees), y ``Counts``, ``CountsSin4`` =
+    N sin^4(phi/2).
     """
     rng = rng_for("F19")
     angle = np.array([15, 22.5, 30, 37.5, 45, 60, 75, 105, 120, 135, 150])
     sin4 = np.sin(np.radians(angle) / 2) ** 4
+    curve = np.linspace(10, 160, 151)
     rows = []
     for foil, a in (("Gold", 26.0), ("Silver", 26.0 * (47 / 79) ** 2)):
         counts = rng.poisson(models.rutherford(angle, a)).astype(float)
@@ -39,7 +41,9 @@ def geiger_marsden():
         fit = stored_fit(models.rutherford, angle, counts, error, [a], ["$A$"], "Rutherford",
                          formats=[".2f"], formula=r"$A / \sin^4(\phi/2)$")
         rows.append({"Angle": angle, "Counts": counts, "CountsError": error, "CountsSin4": counts * sin4,
-                     "CountsSin4Error": error * sin4, "Foil": foil, **fit})
+                     "CountsSin4Error": error * sin4, "Foil": foil, "Type": "Data", **fit})
+        rows.append({"Angle": curve, "Counts": models.rutherford(curve, fit["Params"][0]),
+                     "Foil": f"{foil}, $A/\\sin^4(\\phi/2)$", "Type": "Model"})
     return {"GeigerMarsden": pd.DataFrame(rows)}
 
 
@@ -67,8 +71,9 @@ def moseley():
     Synthetic: 0.3% scatter and errors. The stored straight-line fits are
     fitted to these values.
 
-    Rows: ``Series`` (K alpha, L alpha), x ``AtomicNumber``, y
-    ``SqrtFrequency`` in 1e8 Hz^1/2, ``Element`` symbols.
+    Rows: ``Series`` (K alpha, L alpha and their fitted lines), ``Type``
+    (Data, Fit), x ``AtomicNumber``, y ``SqrtFrequency`` in 1e8 Hz^1/2,
+    ``Element`` symbols.
     """
     rng = rng_for("F20")
     rydberg = 3.2898419603e15  # R_inf c in Hz
@@ -85,7 +90,11 @@ def moseley():
         fit = stored_fit(models.straight_line, z, value, error, [a / 1e8, -a * screening / 1e8],
                          ["slope", "intercept"], "Linear", formats=[".4f", ".3f"])
         rows.append({"AtomicNumber": z, "SqrtFrequency": value, "SqrtFrequencyError": error,
-                     "Element": np.array([ELEMENTS[int(v)] for v in z]), "Series": name, **fit})
+                     "Element": np.array([ELEMENTS[int(v)] for v in z]), "Series": name, "Type": "Data", **fit})
+        # The fitted line, reaching past the axis range (Z 10-82) on both sides.
+        line = np.array([0.0, 100.0])
+        rows.append({"AtomicNumber": line, "SqrtFrequency": models.straight_line(line, *fit["Params"]),
+                     "Series": f"{name} fit", "Type": "Fit"})
     return {"Moseley": pd.DataFrame(rows)}
 
 
@@ -102,8 +111,9 @@ def leavitt():
     m_min about 1.2 mag fainter (slope illustrative, unverified). The
     stored fits are fitted to these values.
 
-    Rows: ``Brightness`` (Maximum, Minimum), x ``LogPeriod`` (also
-    ``Period`` in days), y ``Magnitude``.
+    Rows: ``Brightness`` (Maximum, Minimum and their fitted lines),
+    ``Type`` (Data, Fit), x ``LogPeriod`` (also ``Period`` in days), y
+    ``Magnitude``.
     """
     rng = rng_for("F21")
     log_period = np.sort(rng.uniform(0.1, 2.1, 25))
@@ -115,16 +125,20 @@ def leavitt():
         fit = stored_fit(models.straight_line, log_period, magnitude, error, [-2, 15], ["slope", "intercept"],
                          "Linear", formats=[".2f", ".2f"])
         rows.append({"LogPeriod": log_period, "Period": 10**log_period, "Magnitude": magnitude,
-                     "MagnitudeError": error, "Brightness": name, **fit})
+                     "MagnitudeError": error, "Brightness": name, "Type": "Data", **fit})
+        # The fitted line, reaching past the axis range (log P 0-2.2).
+        line = np.array([-1.0, 3.0])
+        rows.append({"LogPeriod": line, "Magnitude": models.straight_line(line, *fit["Params"]),
+                     "Brightness": f"{name} fit", "Type": "Fit"})
     return {"Leavitt": pd.DataFrame(rows)}
 
 
 MAIN_SEQUENCE = np.array([(-0.1, 0.8), (0.0, 1.3), (0.3, 2.5), (0.5, 3.4), (0.82, 4.67), (1.0, 5.5), (1.5, 7.3),
-                          (2.0, 8.8), (2.5, 10.3), (3.0, 11.7), (3.5, 12.8), (4.0, 13.8)])
+                          (2.0, 8.8), (2.5, 10.3), (3.0, 11.7), (3.5, 12.8), (4.0, 13.8), (4.6, 14.6)])
 GIANT_BRANCH = np.array([(0.75, 3.7), (1.0, 3.6), (1.05, 2.5), (1.2, 1.2), (1.5, -0.4), (2.0, -1.8)])
 
 
-def hertzsprung_russell(n_stars=40_000):
+def hertzsprung_russell(n_stars=80_000):
     """F22: Hertzsprung-Russell diagram, M_G vs BP - RP.
 
     Sources: H. N. Russell, Nature 93, 252 (1914); Gaia Collaboration,
@@ -137,15 +151,16 @@ def hertzsprung_russell(n_stars=40_000):
     anchors including the Sun (0.82, 4.67), 0.15 mag width and 25%
     unresolved binaries (up to 0.75 mag brighter); a giant branch from the
     subgiants to M_G = -1.8; a red clump at (1.2, 0.5); white dwarfs from
-    (-0.4, 10.2) to (1.2, 15). Fractions 86/5/4/5%.
+    (-0.4, 10.2) to (1.2, 15). Fractions 86/5/4/5% of 80,000 stars.
 
-    One row with per-star arrays ``BPRP``, ``MG`` and ``Population``.
+    One row with per-star arrays ``BPRP``, ``MG`` and ``Population`` (an
+    index into ``PopulationNames``).
     """
     rng = rng_for("F22")
     counts = rng.multinomial(n_stars, [0.86, 0.05, 0.04, 0.05])
 
     n = counts[0]
-    colour = np.where(rng.random(n) < 0.35, rng.normal(0.9, 0.3, n), rng.normal(2.2, 0.6, n)).clip(-0.1, 4.0)
+    colour = np.where(rng.random(n) < 0.35, rng.normal(0.9, 0.3, n), rng.normal(2.2, 0.7, n)).clip(-0.1, 4.6)
     magnitude = np.interp(colour, *MAIN_SEQUENCE.T) + rng.normal(0, 0.15, n)
     magnitude -= np.where(rng.random(n) < 0.25, 0.75 * np.sqrt(rng.random(n)), 0)
     populations = {"Main sequence": (colour, magnitude)}
@@ -161,9 +176,10 @@ def hertzsprung_russell(n_stars=40_000):
                                    10.2 + 4.8 * t + rng.normal(0, 0.25, counts[3]))
     colour = np.concatenate([c for c, _ in populations.values()]).astype(np.float32)
     magnitude = np.concatenate([m for _, m in populations.values()]).astype(np.float32)
-    population = np.repeat(list(populations), [len(c) for c, _ in populations.values()])
+    population = np.repeat(np.arange(len(populations), dtype=np.int8), [len(c) for c, _ in populations.values()])
     return {"HRDiagram": pd.DataFrame([{"BPRP": colour, "MG": magnitude, "Population": population,
-                                        "Config": "Synthetic", "Name": "Solar neighbourhood"}])}
+                                        "PopulationNames": list(populations), "Config": "Synthetic",
+                                        "Name": "Solar neighbourhood"}])}
 
 
 GENERATORS = {"F19": geiger_marsden, "F20": moseley, "F21": leavitt, "F22": hertzsprung_russell}

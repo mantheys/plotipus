@@ -61,16 +61,18 @@ def hockey_stick():
 
     From the paper: the span (reconstruction 1000-1980, instrumental
     1902-1998), a slow cooling then a sharp 20th-century rise, the
-    uncertainty growing back in time, and a smoothed curve. The smoothing
-    window and the band level of the original figure are (unverified); here
-    the band is 1 sigma and the smoothing a 40-year running mean.
+    uncertainty growing back in time; Fig. 3(a) and its caption: two
+    standard error limits (shaded), a 40-year smoothed reconstruction, a
+    linear trend over AD 1000-1850, the calibration-period (1902-1980) mean
+    and the 1998 instrumental value (about +0.8 deg C).
     Synthetic: every value. Trend -0.02 - 0.00025 (t - 1000) to 1900, then
     +0.0055/yr; AR(1) noise (0.07); five volcanic dips; sigma 0.25 before
-    1400, 0.2 to 1600, 0.15 to 1850, 0.1 after. The real series is public
-    (NOAA paleo study 6276).
+    1400, 0.2 to 1600, 0.18 to 1850, 0.12 after; an instrumental series
+    with the 1998 peak. The real series is public (NOAA paleo study 6276).
 
-    Rows: ``Series`` (Reconstruction, 40-year mean, Instrumental), x
-    ``Year``, y ``Anomaly`` (deg C, relative to 1902-1980).
+    Rows: ``Series`` (Reconstruction, 40-year smoothed, Instrumental,
+    Linear trend), x ``Year``, y ``Anomaly`` (deg C, relative to
+    1902-1980). ``AnomalyError`` is two standard errors.
     """
     rng = rng_for("F14")
     year = np.arange(1000, 1981)
@@ -81,19 +83,22 @@ def hockey_stick():
     for eruption in (1258, 1453, 1600, 1815, 1883):
         noise -= 0.35 * np.exp(-np.clip(year - eruption, 0, None) / 2.0) * (year >= eruption)
     reconstruction = trend + noise
-    sigma = np.select([year < 1400, year < 1600, year < 1850], [0.25, 0.2, 0.15], 0.1)
+    sigma = np.select([year < 1400, year < 1600, year < 1850], [0.25, 0.2, 0.18], 0.12)
     smoothed = pd.Series(reconstruction).rolling(40, center=True, min_periods=20).mean().to_numpy()
 
     instrumental_year = np.arange(1902, 1999)
     instrumental = (np.where(instrumental_year < 1940, -0.25 + 0.008 * (instrumental_year - 1902),
                              np.where(instrumental_year < 1975, 0.05 - 0.002 * (instrumental_year - 1940),
-                                      -0.02 + 0.017 * (instrumental_year - 1975)))
-                    + rng.normal(0, 0.09, instrumental_year.size))
+                                      -0.05 + 0.02 * (instrumental_year - 1975)))
+                    + 0.3 * (instrumental_year == 1998) + rng.normal(0, 0.09, instrumental_year.size))
     reference = instrumental[instrumental_year <= 1980].mean()
+    early = year <= 1850
+    slope, intercept = np.polyfit(year[early], reconstruction[early], 1)
     rows = [
-        {"Year": year, "Anomaly": reconstruction, "AnomalyError": sigma, "Series": "Reconstruction"},
-        {"Year": year, "Anomaly": smoothed, "Series": "40-year mean"},
+        {"Year": year, "Anomaly": reconstruction, "AnomalyError": 2 * sigma, "Series": "Reconstruction"},
+        {"Year": year, "Anomaly": smoothed, "Series": "40-year smoothed"},
         {"Year": instrumental_year, "Anomaly": instrumental - reference, "Series": "Instrumental"},
+        {"Year": year[early], "Anomaly": slope * year[early] + intercept, "Series": "Linear trend"},
     ]
     return {"HockeyStick": pd.DataFrame(rows)}
 

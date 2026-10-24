@@ -111,7 +111,7 @@ def test_hubble_table_is_the_published_one(frames):
 
 
 def test_anscombe_statistics(frames):
-    quartet = frames["Anscombe"]
+    quartet = frames["Anscombe"].query("Type == 'Data'")
     assert np.allclose(quartet["MeanY"], 7.50, atol=0.01)
     assert np.allclose(quartet["Correlation"], 0.816, atol=0.001)
     assert np.allclose([p[0] for p in quartet["Params"]], 0.500, atol=0.001)
@@ -130,7 +130,8 @@ def test_physics_anchors(frames):
 
 @pytest.mark.parametrize("command", COMMANDS, ids=[f"{i:02d}" for i in range(len(COMMANDS))])
 def test_command_renders(command, frames, make_project):
-    config = f'python_path = ["{FAMOUS.as_posix()}"]\nplugins = ["models"]\n'
+    config = (f'python_path = ["{FAMOUS.as_posix()}"]\nplugins = ["models", "annotations"]\n'
+              f'style = ["{(FAMOUS / "style.json").as_posix()}"]\n')
     out = make_project(frames, config=config)
     kind, *argv = build_command(command)
     try:
