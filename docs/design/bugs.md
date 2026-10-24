@@ -241,6 +241,13 @@ major formatter of both axes by `hist.py:175`, `line.py:1283`,
 - Use one shared norm and one colorbar for the row (`fig.colorbar(mappable, ax=axes)`) when panels share a quantity, or label every bar.
 - Set `vmin` at the lowest non-empty bin and leave empty bins blank.
 
+**Fixed in T09.** Panels of one `map` figure share a norm (`vmin`/`vmax`
+over all of them) and one colorbar right of the row (`--colorbar shared`,
+default unless `--norm`); `--colorbar each` restores per-panel bars, now
+each labelled. Empty bins are masked on linear and log scales, and a log
+scale starts at the smallest non-empty bin. Bars are as tall as the axes,
+4% of their width with 2% padding (scatter `--colorby` too).
+
 ## B09 hist: edge bins, range and label
 
 **Reproduce:** `B09a` (flat distribution: the first and last bins are drawn

@@ -76,7 +76,7 @@ about 12 of them to ✅.
 | B1 | Scatter | raw relation | F08, F22, F25 | ◐ | `scatter --datafile Events -x TrueEnergy -y Hits --colorby RecoEnergy` (example) works. With `--hue` on array cells only the first group is drawn (B12, P16). | Fix B12. |
 | B2 | Scatter with error bars | measurements with uncertainties | F08, F09, F20 | ✅ | `line --plot_type errorbar --errory` (with `--errorx` for x errors; P03, P04). Points are joined by lines unless the plot style is reset (B17). | — |
 | B3 | Scatter coloured / sized by a third variable | 3–4 variables at once | F22 | ✅ | `scatter ... --colorby RecoEnergy --sizeby Hits` (example). | — |
-| B4 | 2D histogram | dense scatter | F22 | ◐ | `map --datafile Events -x TrueEnergy -y RecoEnergy --iterable Sample --logz` (example). Colorbars: B08. Panels are tiny in the 3-wide layout (P15). | Fix B08; shared colorbar. |
+| B4 | 2D histogram | dense scatter | F22 | ◐ | `map --datafile Events -x TrueEnergy -y RecoEnergy --iterable Sample --logz` (example). One shared, labelled colorbar (B08, fixed in T09). Panels are tiny in the 3-wide layout (P15). | Panel size (P15). |
 | B5 | Hexbin | dense scatter, smoother look | F22 | ✗ | — | `map --map_type hexbin` (`ax.hexbin`, same norms). |
 | B6 | Gridded map (z on x×y) | functions, scans, images | F15 | ✅ | `map --datafile Contour -x XGrid -y YGrid -z ZGrid` (P17 for a 3×3 grid). | — |
 | B7 | Contour lines / filled contours | levels of a 2D function | F10 | ✅ | `map ... -z ZGrid --contour --contour_sigmas 1 2 3 [--fill_contours]` (example). 2-dof Δχ² levels labelled by coverage, graded fills from the best fit outwards, solid/dashed/dotted outlines, `+` at the minimum (B03, fixed in T02). | Non-σ levels with inline `clabel`: I9. |
@@ -158,7 +158,7 @@ All curves are precomputed by the analysis (plotipus does not fit or score).
 | id | chart | use | famous | status | command today / what is missing | smallest change |
 |---|---|---|---|---|---|---|
 | H1 | Facets by a column (wrapped grid) | same plot per group | F25, F11 | ✅ | `line ... --variables panel0 panel1 panel2 panel3` (P18; any column via `--variable_column`). | — |
-| H2 | Shared axes and colour scales across facets | honest comparison | F25 | ◐ | `--compact` hides inner labels; `--matchx/--matchy` exist in `map` only; colorbars are not shared (B08). | `--sharex/--sharey` for every kind; one colorbar per row. |
+| H2 | Shared axes and colour scales across facets | honest comparison | F25 | ◐ | `--compact` hides inner labels; `--matchx/--matchy` exist in `map` only; `map` panels share one colour scale and colorbar (T09). | `--sharex/--sharey` for every kind. |
 | H3 | Facet grid (rows × columns by two columns) | two-factor comparison | F15 | ✗ | Panels come from one column only. | `--facet_row COL --facet_col COL`. |
 | H4 | Upper + lower panels | ratios, residuals | F01, F07 | ✅ | `--lower` (repeatable). | — |
 | H5 | Inset axes | zoom, second view | F02, F13, F18 | ✗ | — | `--inset X0 X1 [Y0 Y1] --inset_pos x y w h`: redraws the same series in a zoom box. |

@@ -28,7 +28,7 @@ from ..encodings import add_legend_args
 from ..format import make_config_color_and_style_from_args, make_config_label_from_args
 from ..io import import_data, prepare_import
 from ..palettes import ColorAllocator
-from ..panels import add_title_and_note, create_panels, save
+from ..panels import add_colorbar, add_title_and_note, create_panels, save
 from ..plot import add_centered_suptitle, apply_legend_style, apply_note_to_figure
 from ..selection import filter_dataframe
 from . import _base
@@ -500,8 +500,7 @@ def draw_points(rows, args, kdx):
                 for collection in drawn:
                     collection.set_edgecolor(collection.get_facecolors())
                     collection.set_facecolor("none")
-        colorbar = fig.colorbar(last, ax=list(axes), shrink=0.9, pad=0.02)
-        colorbar.set_label(args.labelz if args.labelz is not None else args.colorby)
+        add_colorbar(fig, last, axes, args.labelz if args.labelz is not None else args.colorby)
     elif args.iterable is not None and args.iterable in rows.columns:
         rows = rows.dropna(subset=[args.iterable])
         # Sorted, so the same value set always gets the same colours.
