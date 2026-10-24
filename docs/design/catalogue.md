@@ -81,7 +81,7 @@ about 12 of them to ✅.
 | B6 | Gridded map (z on x×y) | functions, scans, images | F15 | ✅ | `map --datafile Contour -x XGrid -y YGrid -z ZGrid` (P17 for a 3×3 grid). | — |
 | B7 | Contour lines / filled contours | levels of a 2D function | F10 | ✅ | `map ... -z ZGrid --contour --contour_sigmas 1 2 3 [--fill_contours]` (example). 2-dof Δχ² levels labelled by coverage, graded fills from the best fit outwards, solid/dashed/dotted outlines, `+` at the minimum (B03, fixed in T02). | Non-σ levels with inline `clabel`: I9. |
 | B8 | Pair plot / corner plot | all pairs of N variables | — | ✗ | — | `map --corner X1 X2 X3`: N×N grid, 2D hists below the diagonal, `hist` on the diagonal. |
-| B9 | Profile (mean y per x bin) | trend in a dense scatter | — | ◐ | `line --binned --estimator mean` (example 5); it draws no error bars (B04). | Fix B04 (SEM by default). |
+| B9 | Profile (mean y per x bin) | trend in a dense scatter | — | ✅ | `line --binned --estimator mean` (example 5): standard error of each bin's statistic, small bins dropped (B04, fixed in T03). | — |
 
 ## C. Trends, fits and time series
 

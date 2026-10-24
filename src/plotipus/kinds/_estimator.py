@@ -4,6 +4,10 @@ Rows hold raw per-event arrays (``x`` and ``y`` of equal length). x is
 binned (unit bins for integer x, else ``--bins`` equal bins; ``--threshold``
 makes every bin cumulative, x >= edge) and y is reduced per bin with
 ``--estimator`` (mean, sum, max, min, median, std, rms) -- seaborn's ``lineplot(estimator=)``.
+Each bin carries the standard error of its statistic (``--estimator_error``;
+stored per-event errors from ``--errory`` are propagated, see
+:func:`plotipus.transforms.estimate`) and bins with fewer than
+``--min_count`` entries are dropped.
 ``--plot_type box`` draws a box per bin instead. ``--panels`` draws one x
 column per panel; with ``--compact`` the panels share one axis, their
 ``--panel_rangex`` ranges stitched side by side.
@@ -30,10 +34,11 @@ from ..plot import (
     plot_data,
 )
 from ..selection import filter_dataframe
-from ..transforms import _ESTIMATORS, bin_reduce, reduction_bins
+from ..transforms import _ESTIMATORS, bin_estimate, bin_reduce, estimate, reduction_bins
 
 ESTIMATORS = tuple(_ESTIMATORS)
 SUFFIXES = {"scatter_points": "scatter", "scatter": "scatter"}
+ERROR_MODES = ("sem", "std", "none")
 
 
 def add_estimator_args(parser):
@@ -45,6 +50,13 @@ def add_estimator_args(parser):
         help="Reduction of y per bin (default: project setting default_operation, else mean).")
     add("--bins", "-b", type=int, default=None, help="Number of bin edges for non-integer x (default: style nbins).")
     add("--threshold", action="store_true", default=False, help="Cumulative bins: every point with x >= edge.")
+    add("--estimator_error", type=str, default="sem", choices=ERROR_MODES,
+        help="Error drawn per bin: sem the standard error of the statistic (stored --errory errors propagated), "
+             "std the bin's spread σ, none no error (default: sem).")
+    add("--min_count", type=int, default=5,
+        help="Drop bins with fewer entries than this (default: 5; 1 draws every non-empty bin).")
+    add("--no_error_label", action="store_true", default=False,
+        help="Do not append the error description, e.g. '(mean ± s.e.m.)', to the y label.")
     add("--panels", nargs="+", type=str, default=None, help="x columns, one per panel (replaces -x).")
     add_panel_line_args(parser)
 
@@ -103,8 +115,10 @@ def run_estimator(df, args):
 
 
 def _reduce_cell(x, y, args, error=None):
-    """(centres, values, errors) or None; scalar cells are already reduced."""
+    """(centres, values, errors) or None; scalar cells are already reduced.
+    errors is None when no bin has one; bins under --min_count are dropped."""
     estimator = _estimator(args)
+    mode = getattr(args, "estimator_error", "sem")
     if np.ndim(x) != 0 and np.ndim(y) == 0:
         rprint(f"[yellow]Warning:[/yellow] x is an array but '{args.y}' is a single value; skipping.")
         return None
@@ -112,20 +126,41 @@ def _reduce_cell(x, y, args, error=None):
         centres = np.asarray([float(x)])
         if np.ndim(y) == 0:
             return centres, np.asarray([float(y)]), None if error is None else np.asarray([float(error)])
-        reduced_error = None if error is None else np.asarray([_reduce_all(error, estimator)])
-        return centres, np.asarray([_reduce_all(y, estimator)]), reduced_error
-    if x.size == 0:
+        # A single stored error cannot be shared out over the events.
+        value, value_error = estimate(y, estimator, error if np.ndim(error) != 0 else None, mode)
+        values, errors, counts = np.asarray([value]), np.asarray([value_error]), np.asarray([np.size(y)])
+    elif x.size == 0:
         rprint("[yellow]Warning:[/yellow] No x values found. Skipping.")
         return None
-    edges, centres = reduction_bins(x, args.bins if args.bins is not None else style.nbins, args.reduce)
-    values = bin_reduce(x, y, edges, estimator, cumulative=args.threshold)
-    errors = bin_reduce(x, error, edges, estimator, cumulative=args.threshold) if error is not None else None
-    return centres, values, errors
+    else:
+        edges, centres = reduction_bins(x, args.bins if args.bins is not None else style.nbins, args.reduce)
+        values, errors, counts = bin_estimate(x, y, edges, estimator, cumulative=args.threshold, errors=error,
+                                              error_mode=mode)
+    min_count = max(getattr(args, "min_count", 1), 1)
+    keep = counts >= min_count
+    dropped = int(np.count_nonzero((counts > 0) & ~keep))
+    if dropped:
+        rprint(f"[yellow]Note:[/yellow] '{args.y}': dropped {dropped} of {np.count_nonzero(counts)} bins "
+               f"with fewer than {min_count} entries (--min_count).")
+    centres, values, errors = centres[keep], values[keep], errors[keep]
+    return centres, values, errors if np.isfinite(errors).any() else None
 
 
-def _reduce_all(values, estimator):
-    values = np.asarray(values)
-    return _ESTIMATORS[estimator.lower()](values)
+def _error_label(args, propagated):
+    """'(mean ± s.e.m.)' and the like, for the y label of drawn errors."""
+    name = {"average": "mean", "rms": "RMS"}.get(_estimator(args).lower(), _estimator(args).lower())
+    if getattr(args, "estimator_error", "sem") == "std":
+        return f"({name} $\\pm$ $\\sigma$)"
+    if propagated:
+        return f"({name} $\\pm$ propagated error)"
+    return f"({name} $\\pm$ s.e.m.)" if name == "mean" else f"({name} $\\pm$ s.e.)"
+
+
+def _ylabel(args, subset, errors_drawn, propagated):
+    label = resolve_axis_label(args.labely, args.y, subset)
+    if errors_drawn and args.note is None and not getattr(args, "no_error_label", False):
+        label = f"{label} {_error_label(args, propagated)}" if label else _error_label(args, propagated)
+    return label
 
 
 def _panel_figure(df, args, kdx, config, name):
@@ -135,6 +170,7 @@ def _panel_figure(df, args, kdx, config, name):
     variables = [None] * len(args.panels) if args.panels is not None else (args.variables or [None])
     hues = group[args.iterable].unique() if args.iterable is not None else [None]
     first_subset = {}
+    errors_drawn = propagated = False
 
     for idx, variable in enumerate(variables):
         ax = axes[idx]
@@ -175,6 +211,9 @@ def _panel_figure(df, args, kdx, config, name):
                 continue
             centres, values, errors = reduced
             plot_type = args.plot_type or ("errorbar" if errors is not None else "scatter_points")
+            if errors is not None:
+                errors_drawn = True
+                propagated = propagated or error is not None
             if variable is not None:
                 label = f"{args.y}: {variable}"
             elif args.iterable is not None:
@@ -183,7 +222,7 @@ def _panel_figure(df, args, kdx, config, name):
                 label = f"{args.y} vs {args.x}"
             color = map_iterable_color(hue, args.iterable_color_mapping) if args.iterable is not None else None
             plot_data(args, ax, centres, y=values, errory=errors, label=label, color=color,
-                      marker="o" if plot_type == "scatter_points" else None, **resolve_plot_kwargs(plot_type))
+                      **_marker_kwargs(args, plot_type), **resolve_plot_kwargs(plot_type))
 
     for idx, _ in enumerate(variables):
         ax = axes[idx]
@@ -194,7 +233,7 @@ def _panel_figure(df, args, kdx, config, name):
         x_col = args.panels[idx] if args.panels is not None else args.x
         ax.set_xlabel(resolve_axis_label(_first(args.labelx), x_col, subset))
         if idx == 0:
-            ax.set_ylabel(resolve_axis_label(args.labely, args.y, subset))
+            ax.set_ylabel(_ylabel(args, subset, errors_drawn, propagated))
         if len(ax.get_xticks()) > 10 and args.reduce:
             ticks = ax.get_xticks()
             ax.set_xticks(ticks[:: max(1, len(ticks) // 10)])
@@ -226,6 +265,15 @@ def _panel_figure(df, args, kdx, config, name):
     return save(fig, args, kdx, suffix=_suffix(args))
 
 
+def _marker_kwargs(args, plot_type):
+    """Markers for scatter points; the default error bars sit on markers, not joined."""
+    if plot_type == "scatter_points":
+        return {"marker": "o"}
+    if plot_type == "errorbar" and args.plot_type is None:
+        return {"ls": "none"}
+    return {}
+
+
 def _first(value):
     if isinstance(value, (list, tuple)):
         return value[0] if value else None
@@ -237,8 +285,6 @@ def _compact_figure(df, args, kdx, config, name):
     ranges = [panel_rangex(args, i) for i in range(len(args.panels))]
     widths = [hi - lo for lo, hi in ranges]
     offsets = list(np.concatenate([[0.0], np.cumsum(widths)[:-1]]))
-    plot_type = args.plot_type or "scatter_points"
-    plot_kwargs = resolve_plot_kwargs(plot_type)
     cycle = plt.rcParams["axes.prop_cycle"].by_key().get("color", ["C0"])
 
     fig, ax = plt.subplots(nrows=1, ncols=1, figsize=get_common_figsize(ncols=1, nrows=1), constrained_layout=False)
@@ -250,6 +296,7 @@ def _compact_figure(df, args, kdx, config, name):
     hues = group[args.iterable].unique() if args.iterable is not None else [None]
     colors = {hue: map_iterable_color(hue, args.iterable_color_mapping) or cycle[j % len(cycle)] for j, hue in enumerate(hues)}
     tick_positions, tick_labels = [], []
+    errors_drawn = propagated = False
 
     for pidx, x_col in enumerate(args.panels):
         lo, hi = ranges[pidx]
@@ -262,20 +309,26 @@ def _compact_figure(df, args, kdx, config, name):
                 continue
             row = _first_row_with(subset, x_col)
             x, y = subset[x_col].values[row], subset[args.y].values[row]
+            error = subset["Error"].values[row] if args.errory and "Error" in subset.columns else None
             if isinstance(x, list):
                 continue
             if integer is None and np.ndim(x) != 0:
                 integer = bool(np.issubdtype(np.asarray(x).dtype, np.integer))
-            reduced = _reduce_cell(x, y, args)
+            reduced = _reduce_cell(x, y, args, error)
             if reduced is None:
                 continue
-            centres, values, _ = reduced
+            centres, values, errors = reduced
             keep = (centres >= lo) & (centres <= hi)
             if not keep.any():
                 continue
+            plot_type = args.plot_type or ("errorbar" if errors is not None else "scatter_points")
+            if errors is not None:
+                errors_drawn = True
+                propagated = propagated or error is not None
             label = map_iterable_label(hue, args.iterable, args.iterable_mapping, len(hues)) if args.iterable is not None and pidx == 0 else None
-            plot_data(args, ax, centres[keep] - lo + offset, y=values[keep], label=label, color=colors[hue],
-                      marker="o" if plot_type == "scatter_points" else None, **plot_kwargs)
+            plot_data(args, ax, centres[keep] - lo + offset, y=values[keep],
+                      errory=None if errors is None else errors[keep], label=label, color=colors[hue],
+                      **_marker_kwargs(args, plot_type), **resolve_plot_kwargs(plot_type))
 
         locator = MaxNLocator(nbins=4 if args.reduce else 6, integer=bool(integer), steps=[1, 2, 2.5, 5, 10])
         ticks = locator.tick_values(lo, hi)
@@ -321,14 +374,15 @@ def _compact_figure(df, args, kdx, config, name):
     ax.set_xticks(tick_positions)
     ax.set_xticklabels(tick_labels)
     ax.set_xlabel("")
-    ax.set_ylabel(resolve_axis_label(args.labely, args.y, group))
+    ax.set_ylabel(_ylabel(args, group, errors_drawn, propagated))
     if args.rangey is not None:
         ax.set_ylim(args.rangey[0], args.rangey[1])
     # y only: the x ticks carry the per-panel values set above.
     apply_scientific_threshold_formatter(ax, threshold=0.1, axis="y")
     if args.logy:
         ax.semilogy()
-    if not args.no_legend:
+    # Without --hue no series is labelled; an empty legend fails on matplotlib >= 3.11.
+    if not args.no_legend and ax.get_legend_handles_labels()[0]:
         apply_legend_style(ax, title=args.labelz if args.labelz is not None else args.iterable,
                            capitalize_labels=args.capitalize_legend)
     draw_overlays(ax, args)

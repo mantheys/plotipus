@@ -53,7 +53,7 @@ Kinds follow the data relationship (as in seaborn/plotly), not the use case.
 
 | Kind | Draws | Typical options |
 |---|---|---|
-| `line` | y against an ordered x, one series per `--hue` value, line style per `--style` value | `--plot_type step\|stepmid\|line\|errorbar\|plot\|bar\|barh\|box`, `--lower`, `--stacked`, `--sum_iterables`, `--merge_iterables`, `--rebin`, `--by_config`, `--fit`, `--binned --estimator mean\|median\|std\|rms\|sum\|max\|min` |
+| `line` | y against an ordered x, one series per `--hue` value, line style per `--style` value | `--plot_type step\|stepmid\|line\|errorbar\|plot\|bar\|barh\|box`, `--lower`, `--stacked`, `--sum_iterables`, `--merge_iterables`, `--rebin`, `--by_config`, `--fit`, `--binned --estimator mean\|median\|std\|rms\|sum\|max\|min` (see [Binned estimators](#binned-estimators)) |
 | `scatter` | observations: exploded points with colour/size/marker encodings, or pairs of metrics (`--x_from Variable=Purity --y_from Variable=Completeness`) | `--colorby`, `--sizeby`, `--markerby`, `--aggregate` |
 | `hist` | 1D histograms of per-event arrays | `--bins`, `--weight`, `--density`, `--hist_combine` |
 | `map` | 2D: histogram of point arrays, image of a grid (`-z`), contour layer (`--contour`) | `--norm`, `--diagonal`, `--logz`, `--colorbar`, `--contour_sigmas`, `--contour_dof`, `--contour_label`, `--fill_contours`, `--background`, `--no_best_fit` |
@@ -139,6 +139,24 @@ The style file's `contours` section sets the defaults:
 `{"dof": 2, "fill_mix": [1.0, 0.55, 0.25], "linestyles": ["-", "--", ":"], "label": "cl", "background": "none"}`.
 `--contour_dof 1 --contour_label sigma --background all` restores the
 levels, labels and background used before.
+
+### Binned estimators
+
+`line --binned` bins raw per-event x/y arrays and draws `--estimator` of y
+per x bin, as error bars on markers (not joined) unless `--plot_type` says
+otherwise:
+
+* **Errors** (`--estimator_error`): `sem` (default) is the standard error
+  of the statistic: mean σ/√n, median 1.2533·σ/√n, std σ/√(2(n−1)), rms by
+  the delta method, sum √Σy² (√n for counts, √Σw² for weights), none for
+  max/min (σ is the bin's sample standard deviation). With `--errory`, the
+  stored per-event errors are propagated instead (mean √Σe²/n, sum √Σe²,
+  median 1.2533·√Σe²/n, std/rms to first order, max/min the selected
+  event's error). `std` draws the bin's spread σ; `none` the bare values.
+* **Small bins**: bins with fewer than `--min_count` entries (default 5)
+  are dropped, with a note; `--min_count 1` keeps every non-empty bin.
+* **Label**: the y label gets the error's name, e.g. "(mean ± s.e.m.)",
+  unless `--note` is given or `--no_error_label` is passed.
 
 ## Python
 
