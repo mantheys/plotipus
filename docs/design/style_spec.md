@@ -5,6 +5,40 @@ justified by a complaint theme from [research.md](research.md) (Part 2).
 Concrete values follow, then the three prototyped candidates and what
 remains for code rather than style files.
 
+## 0. Decisions that shape this spec (2026-10-24)
+
+The maintainer chose the `paper` visual language, with **slides as the
+default medium** (decision D1 in [roadmap.md](roadmap.md)). A style is
+therefore the combination of three choices:
+
+| axis | values | default |
+|---|---|---|
+| language | `plotipus` (the `paper` candidate: ticks in, mirrored, no grid), `open` (web), `classic` (the pre-redesign look, pinned for compatibility) | `plotipus` |
+| medium | `slides`, `paper`, `web` | `slides` |
+| theme | `light`, `dark` | `light` |
+
+Plus optional layers: an experiment preset (ATLAS, CMS, LHCb, ALICE, DUNE,
+…) and a watermark/status label.
+
+The user-facing names are combinations of these:
+
+| name | language | medium | theme |
+|---|---|---|---|
+| `slides` | plotipus | slides | light |
+| `slides-dark` | plotipus | slides | dark |
+| `paper` | plotipus | paper | light |
+| `open` | open | web | light |
+| `open-dark` | open | web | dark |
+| `classic` | — | — | — |
+
+One command list renders to any medium: `plotipus run analysis` writes
+slides, and `plotipus run analysis --medium paper` writes the publication
+versions next to them.
+
+The prototypes in §3 predate this decision. Their `slides` overlay sits on
+`open`; the shipped `slides` style uses the plotipus language with
+sans-serif type for projection.
+
 ## 1. Principles
 
 1. **Draw at the printed size.** A figure is defined by its target width and
@@ -48,8 +82,10 @@ remains for code rather than style files.
    - They have a reference line, a symmetric range and few ticks.
    - Their colours match the upper panel.
    - Why: Part 2 §1 (ratio panels).
-10. **Variants are overlays.** "slides", "dark" and journal presets change
-    sizes and colours only. The visual language stays the same.
+10. **Media and themes are overlays.** Slides, paper, web, dark, experiment
+    presets and journal presets change sizes, type and colours only. The
+    visual language and the colour of each category stay the same, so a
+    slide and its published figure read as the same plot.
 
 ## 2. Concrete rules
 
@@ -68,11 +104,11 @@ Widths are confirmed from the publishers' pages:
 
 | preset (`--width`) | width | height (default aspect 0.75) | base font | use |
 |---|---|---|---|---|
-| `single` (default) | 3.4 in (8.6 cm) | 2.55 in | 8 pt | APS/Elsevier column |
+| `single` (default for `--medium paper`) | 3.4 in (8.6 cm) | 2.55 in | 8 pt | APS/Elsevier column |
 | `onehalf` | 5.3 in (13.5 cm) | 3.6 in | 8 pt | 1.5 column |
 | `double` | 6.8 in (17.2 cm) | 3.0 in per row | 8 pt | full width; 2–3 panels |
 | `nature` | 3.5 in (89 mm) | 2.6 in | 7 pt | Nature-family limits |
-| `slide` | 8 in (16:9 at 1280 px) | 4.5 in | 14 pt | talks, via the slides overlay |
+| `slide` (default; `--medium slides`) | 8 in (16:9 at 1280 px) | 4.5 in | 14 pt | talks; `half-slide` is 4 in wide, for two plots side by side |
 
 - **Panels.** A row of N panels keeps the preset's total width, so the
   panels get narrower. Text is never scaled to compensate; this replaces
@@ -260,14 +296,22 @@ lines unless `--connect` is given (B17).
 - The y label is short ("Data / MC", "Pull") and set at the same size as
   the upper label. Labels are aligned (`fig.align_ylabels`).
 
-### 2.11 Variants (overlays)
+### 2.11 Media and themes
 
-- **slides**: 8×4.5 in, 14 pt base, line width 2.4, markers 7 pt, a light
-  y grid, titles allowed. The cycle switches to Okabe–Ito, which is brighter
-  on projectors.
+- **slides** (the default medium):
+  - 8×4.5 in, 14 pt base, line width 2.4, markers 7 pt.
+  - Sans type (DejaVu Sans, or Nimbus Sans/Heros when present), with math in
+    the same face.
+  - The plotipus frame: ticks in, mirrored, no grid. Titles are allowed.
+  - The cycle stays Petroff-10, in the same order, so a category keeps its
+    colour between the light slide, the dark slide and the paper.
+  - On a dark background, the darkest entries (#bd1f01, #832db6, #717581)
+    are replaced by lightened twins of the same hue rather than reordered.
+    Their contrast against `#1b1d22` must be at least 3:1, a check that T16
+    automates.
 - **dark**: the `paper`/`ink` roles swap. Background `#1b1d22`. The
-  categorical cycle is re-ordered to start with its lightest colours.
-  Diverging maps become `berlin`/`vanimo`. (Prototyped together with slides
+  categorical cycle keeps its order, with the lightened twins described
+  above. Diverging maps become `berlin`/`vanimo`. (Prototyped together with slides
   in [styles/slides/](styles/slides/).)
 - **Journal presets** (`nature`, `aps`, `elsevier`) only set width, base
   font and family.

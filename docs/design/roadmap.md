@@ -157,23 +157,42 @@ grid of the PNGs.
 | M4 "HEP essentials" | 4.1–4.5 + their gallery entries | ~1.5 weeks |
 | M5 "breadth" | 4.6–4.15 + remaining gallery | ~3 weeks |
 
-## Decisions needed from the maintainer
+## Decisions (maintainer, 2026-10-24)
 
-- **D1 Default identity.** `paper` (recommended), `open`, `hep`, or a blend.
-  The comparison sheets are in [styles/compare/](styles/compare/).
-- **D2 Default categorical cycle.** Petroff-10 (recommended), Okabe–Ito or
-  Tol bright. Also: past the palette, overflow to line styles (recommended)
-  or raise an error.
-- **D3 Contour default.** 2-dof levels (recommended, statistically standard
-  for a joint 2D region) or keep 1-dof levels with explicit labels. This
-  changes existing plots.
-- **D4 Physical sizing as the default.** `--width single` at 8 pt
-  (recommended), with the current 8×6 in look kept as `classic`. Also:
-  whether figures keep titles by default (recommended: no, `auto_title`
-  off).
-- **D5 Compatibility policy.** Change defaults in one release with a
-  `classic` style to pin the old look (recommended), or opt in per project.
-- **D6 Examples data.** Synthetic only (recommended for the build), or allow
-  an optional fetch of public datasets (NOAA, Union2.1).
-- **D7 Scope.** Whether polar, geographic and flow charts (Nightingale,
-  Snow, Minard) stay out of scope (recommended).
+These decisions supersede the recommendations above where they differ.
+They are implemented by the briefs in [tasks/](tasks/).
+
+- **D1 Identity and default medium.**
+  - **Slides first.** Most workflows present plots in talks before
+    publishing them, so the engine is built around rendering the same
+    command list for several media.
+  - **Default medium:** `slides`, with the `paper` visual language (ticks
+    in, mirrored, no grid). It comes as `slides` (light) and `slides-dark`.
+  - **Publication:** `paper` re-renders the same commands at column width
+    with LaTeX-matching type.
+  - **Web pages:** `open` and `open-dark`, provided in parallel. They are
+    not the first priority.
+  - **Later, in each category:** experiment presets (ATLAS, CMS, LHCb,
+    ALICE, DUNE, …) and optional watermarks ("Work In Progress",
+    "Preliminary", …).
+  - Briefs: T14, T16, T17.
+- **D2 Palettes.** Petroff-10 is the default, with line-style overflow past
+  the palette. Ship the other common palettes by name: Petroff-6/8,
+  Okabe–Ito, Tol bright/muted, matplotlib tab10, seaborn colorblind,
+  tableau-colorblind10, and ROOT. Brief: T01.
+- **D3 Contours.** 2-dof levels are the default, **with backwards
+  compatibility**:
+  - `--contour_dof 1` restores the old levels;
+  - the `classic` style pins 1 dof;
+  - command lines translated from the legacy scripts keep 1 dof;
+  - a one-line notice is printed when an old-looking command now gets
+    different levels.
+  - Brief: T02.
+- **D4 Physical sizing.** Accepted. Figures are drawn at their target size,
+  and paper figures carry no titles. Brief: T14.
+- **D5 Compatibility.** Accepted. Defaults change in one release, and a
+  `classic` style pins the current look. Brief: T16.
+- **D6 Data.** Synthetic data only for now. A custom dataset for reproducing
+  famous plots will follow. Briefs: T23, T24.
+- **D7 Scope.** Polar, geographic and flow charts are out of scope for now,
+  recorded in [TODO.md](TODO.md).

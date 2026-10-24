@@ -1,8 +1,9 @@
 # plotipus design notes: examples, coverage and visual style
 
 Research and proposals for redesigning plotipus's examples and default
-style. Nothing in `src/` or `examples/` has been changed yet: these notes
-are for choosing a direction first.
+style. Nothing in `src/` or `examples/` has been changed yet. The direction is
+chosen (roadmap § Decisions), and the work is split into the briefs in
+[tasks/](tasks/00-README.md).
 
 | file | contents |
 |---|---|
@@ -11,7 +12,9 @@ are for choosing a direction first.
 | [bugs.md](bugs.md) | 17 reproduced bugs with root causes (file:line) and proposed fixes |
 | [style_spec.md](style_spec.md) | Phase 4: the plotipus style language and three prototyped candidates |
 | [styles/](styles/) | candidate style files, renders, and the side-by-side sheets in `styles/compare/` |
-| [roadmap.md](roadmap.md) | ordered implementation work with effort and risk, and the decisions needed |
+| [roadmap.md](roadmap.md) | ordered implementation work with effort and risk, and the maintainer's decisions |
+| [tasks/](tasks/00-README.md) | one brief per agent session (T01–T24): order, parallel waves, definition of done |
+| [TODO.md](TODO.md) | charts and features left out of scope for now |
 | [repro/](repro/) | data generator and command lists that reproduce every bug and probe |
 
 To regenerate the renders and reproductions (from the repository root):
