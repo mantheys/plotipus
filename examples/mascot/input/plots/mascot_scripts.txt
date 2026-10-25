@@ -1,0 +1,17 @@
+# The plotipus mascot in five steps (docs/tutorial.md). Every command reads the same
+# DataFrame, input/data/Mascot.pkl: one row per shape, drawn in row order.
+
+# 1. The points: every outline vertex, coloured by layer (line without --plot_type draws markers).
+line --datafile Mascot -x X -y Y --hue Layer --select Layer Layer Layer Layer Layer -s water base shade texture detail --capitalize_legend --legend_loc 'upper center' --legend_ncol 5 --axis equal off --rangex -6.1 6.1 --rangey -5.6 6.6 --title None --output_suffix points.png
+
+# 2. A colouring-book page: closed shapes filled with paper and edged with ink.
+line --datafile Mascot -x X -y Y --hue Part --select Layer Layer Layer -s water base detail --plot_type fill --plot_type_column Mode --facecolor role:paper --edgecolor role:ink --no_legend --axis equal off --rangex -5.6 5.6 --rangey -5.6 5.6 --title None --output_suffix outline.png
+
+# 3. Flat colours: faces, edges and widths taken from the data, plus the bold silhouette.
+line --datafile Mascot -x X -y Y --hue Part --select Layer Layer Layer Layer -s water silhouette base detail --plot_type fill --plot_type_column Mode --color_column Face --edgecolor_column Edge --linewidth_column Width --no_legend --axis equal off --rangex -5.6 5.6 --rangey -5.6 5.6 --title None --output_suffix flat.png
+
+# 4. Light and shade.
+line --datafile Mascot -x X -y Y --hue Part --select Layer Layer Layer Layer Layer -s water silhouette base shade detail --plot_type fill --plot_type_column Mode --color_column Face --edgecolor_column Edge --linewidth_column Width --no_legend --axis equal off --rangex -5.6 5.6 --rangey -5.6 5.6 --title None --output_suffix shaded.png
+
+# 5. Everything: the fur strokes too.
+line --datafile Mascot -x X -y Y --hue Part --plot_type fill --plot_type_column Mode --color_column Face --edgecolor_column Edge --linewidth_column Width --no_legend --axis equal off --rangex -5.6 5.6 --rangey -5.6 5.6 --title None --output_suffix mascot.png
