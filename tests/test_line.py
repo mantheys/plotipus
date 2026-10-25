@@ -371,3 +371,16 @@ def test_stack_error_style(make_project, tmp_path):
     (band,) = [p for p in ax.patches if isinstance(p, StepPatch) and not p.get_fill()]
     assert band.get_label() == "MC stat." and band.get_hatch() == "xx"
     assert to_hex(band.get_edgecolor()) == "#ff0000"
+
+
+def test_stacked_binned_series_are_filled_histograms(make_project, spectra):
+    """--stacked over binned x stacks filled steps; --bar_width keeps bars."""
+    from matplotlib.patches import Rectangle, StepPatch
+
+    figures = _capture()
+    run(make_project, spectra, "--hue", "Sample", "--select", "Stage", "-s", "Raw", "--stacked")
+    patches = figures[-1].axes[0].patches
+    filled = [p for p in patches if isinstance(p, StepPatch) and p.get_fill()]
+    assert len(filled) == 3 and np.allclose(filled[1].get_data().baseline, spectra["Counts"].iloc[0])
+    run(make_project, spectra, "--hue", "Sample", "--select", "Stage", "-s", "Raw", "--stacked", "--bar_width", "auto")
+    assert any(isinstance(p, Rectangle) for p in figures[-1].axes[0].patches)

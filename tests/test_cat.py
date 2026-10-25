@@ -42,3 +42,20 @@ def test_cat_legacy_translation():
     kind, args = translate(["scripts/script_compare_integral.py", "--datafile", "D", "-x", "S", "-y", "C", "-i", "K",
                             "--plot_type", "scatter"])
     assert kind == "cat" and args[args.index("--kind") + 1] == "point"
+
+
+def test_bar_legend_shows_patches(make_project):
+    """--kind bar: the legend shows filled patches, not line-and-marker handles."""
+    from matplotlib.patches import Patch
+
+    from plotipus import registry
+
+    x = np.arange(0.5, 5, 1.0)
+    frame = pd.DataFrame([{"Stage": stage, "Sample": sample, "Counts": k * np.ones_like(x), "Energy": x}
+                          for stage in ("Raw", "Cut") for k, sample in ((1, "A"), (2, "B"))])
+    figures = []
+    registry.add_figure_hook(lambda fig, args: figures.append(fig))
+    make_project({"Spectra": frame})
+    cat.main(["--datafile", "Spectra", "-x", "Stage", "-y", "Counts", "--hue", "Sample", "--kind", "bar"])
+    handles = figures[-1].axes[0].get_legend().legend_handles
+    assert len(handles) == 2 and all(isinstance(h, Patch) for h in handles)

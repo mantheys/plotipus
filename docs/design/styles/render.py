@@ -31,7 +31,7 @@ CANDIDATES = ["paper", "open", "hep"]
 COMMANDS = {
     "01_hue_style": "line --datafile Distributions -x Bin -y Counts --hue Distribution --style Sample --select Distribution -s Exponential Landau Chi-squared --plot_type step --labelx x",
     "02_ratio": "line --datafile Distributions -x Bin -y Counts --hue Sample --select Distribution -s Landau --plot_type step --lower ratio --reference_value Simulation --labelx x --lower_labely 'Data / Sim.'",
-    "03_stacked_significance": "line --datafile Distributions -x Bin -y Counts --hue Sample --select Distribution Sample -s Resonance Background Signal --stacked --bar_width auto --lower group --reference_group Signal --other_group Background --group_significance --lower_labely '$S/\\sqrt{B}$' --labelx 'Mass (GeV)'",
+    "03_stacked_significance": "line --datafile Distributions -x Bin -y Counts --hue Sample --select Distribution Sample -s Resonance Background Signal --stacked --lower group --reference_group Signal --other_group Background --group_significance --lower_labely '$S/\\sqrt{B}$' --labelx 'Mass (GeV)'",
     "04_data_stack": "line --datafile Distributions -x Bin -y Counts --hue Sample --select Distribution -s Resonance --data_hue Data --stacked --errory --lower ratio --labelx 'Mass (GeV)'",
     "05_binned_std": "line --datafile Distributions -x Value -y Residual --binned --estimator std --hue Sample --select Distribution -s Exponential --bins 11 --rangex 0 10",
     "06_hist2d": "map --datafile Distributions -x Value -y Smeared --select Distribution -s Exponential --iterable Sample --diagonal --logz",

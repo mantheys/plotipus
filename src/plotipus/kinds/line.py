@@ -183,7 +183,9 @@ def build_parser():
     add = group.add_argument
     add("--connect", action="store_true", default=False,
         help="Join the points: with steps without --plot_type, with lines for points with error bars.")
-    add("--stacked", action="store_true", default=False, help="Stack the series as bars.")
+    add("--stacked", action="store_true", default=False,
+        help="Stack the series: filled histograms over binned x, bars over categories, with --bar_width or "
+        "with --plot_type bar.")
     add("--data_hue", nargs="+", default=None, metavar="VALUE",
         help="Hue values drawn as data: points with error bars in the ink colour, first in the legend, never "
         "stacked. The other series are drawn as steps (bars with --stacked), with error bands with --errory, and "
@@ -191,7 +193,8 @@ def build_parser():
         "the values are configs, names or hue values.")
     add("--stack_reverse", action="store_true", default=False, help="Stack in reverse order (first series on top).")
     add("--bar_width", type=str, default=None,
-        help="Width of stacked bars: a number, or 'auto' for the x spacing without edges (default 0.8).")
+        help="Stack as bars of this width: a number, or 'auto' for the x spacing without edges (default: "
+        "filled histograms over binned x, bars of width 0.8 over categories).")
     add("--dodge", type=float, default=0.0,
         help="With --plot_type errorbar: shift each hue value sideways by this amount.")
     add("--step_open", action="store_true", default=False,
@@ -491,8 +494,9 @@ def draw_series(ax, s, args, plot_type=None, stack_bottom=None, dodge_shift=0.0)
         fill = {"fill_alpha": s.fill_alpha, "fill_hatch": s.fill_hatch, "fill_hatch_color": args.fill_hatch_color}
     linestyle = s.linestyle if s.linestyle is not None else args.plot_style
 
-    if args.stacked and stack_bottom is not None and args.data_hue and plot_type is None and s.x_edges is not None:
-        # Against data, the simulation stacks as filled histograms.
+    if (args.stacked and stack_bottom is not None and plot_type is None and args.bar_width is None
+            and s.x_edges is not None and not s.categorical):
+        # Binned series stack as filled histograms (bars with --bar_width or --plot_type bar).
         bottom = np.array(stack_bottom, dtype=float)  # a copy: the running stack grows in place
         ax.stairs(bottom + np.asarray(s.y, dtype=float), s.x_edges, baseline=bottom, fill=True, **common)
         return
@@ -1111,9 +1115,7 @@ def _finish_upper(fig, upper, lower, drawn, rows, args, variables, last_x, hue_v
             for label, color in extrapolated_axes.get(ax, []):
                 handles.append(mlines.Line2D([], [], color=color, linestyle=EXTRAPOLATED_LINESTYLE, linewidth=1))
                 labels.append(f"{label} Extrapolated")
-            loc = {}
-            if args.stacked and not args.data_hue:
-                loc = {"loc": args.legend_loc} if args.legend_loc else {"loc": "upper left", "bbox_to_anchor": (0, 1)}
+            loc = {"loc": args.legend_loc} if args.stacked and args.legend_loc else {}
             draw_legends(ax, args, primary_title, handles, labels, secondary_title, secondary_style_map,
                          secondary_alpha_map, selection=selection, **loc)
 

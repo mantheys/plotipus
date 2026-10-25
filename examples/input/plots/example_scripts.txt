@@ -16,7 +16,7 @@ hist --datafile Distributions -x Value --hue Sample --weight Weight --select Dis
 # Lower panels
 line --datafile Distributions -x Bin -y Counts --hue Sample --select Distribution -s Landau --plot_type step --lower ratio --reference_value Simulation --labelx x --lower_labely 'Data / Sim.' --title 'Ratio to a reference series' --output_suffix ratio
 line --datafile Distributions -x Bin -y Counts --select Distribution Sample -s Poisson Data --plot_type step --lower column:Pull --labelx k --lower_labely Pull --title 'Lower panel from a stored column' --output_suffix column
-line --datafile Distributions -x Bin -y Counts --hue Sample --select Distribution Sample -s Resonance Background Signal --stacked --bar_width auto --legend_loc 'upper right' --lower group --reference_group Signal --other_group Background --group_significance --lower_labely '$S/\sqrt{B}$' --labelx 'Mass (GeV)' --labely 'Events / 2 GeV' --title 'Stacked simulation and the signal significance' --output_suffix significance
+line --datafile Distributions -x Bin -y Counts --hue Sample --select Distribution Sample -s Resonance Background Signal --stacked --lower group --reference_group Signal --other_group Background --group_significance --lower_labely '$S/\sqrt{B}$' --labelx 'Mass (GeV)' --labely 'Events / 2 GeV' --title 'Stacked simulation and the signal significance' --output_suffix significance
 
 # Data and simulation
 line --datafile Distributions -x Bin -y Counts --hue Sample --select Distribution -s Landau --data_hue Data --errory --lower ratio --labelx x --lower_labely 'Data / Sim.' --title 'Data against simulation' --output_suffix datamc

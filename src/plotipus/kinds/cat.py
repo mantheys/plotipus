@@ -11,6 +11,7 @@ by lines (line), bare points (point) or dodged bars (bar).
 """
 
 import matplotlib.lines as mlines
+import matplotlib.patches as mpatches
 import numpy as np
 from rich import print as rprint
 
@@ -20,7 +21,7 @@ from ..encodings import LINESTYLES
 from ..io import import_data, prepare_import
 from ..palettes import ColorAllocator
 from ..panels import add_title_and_note, create_panels, draw_horizontal_overlay, save
-from ..plot import apply_legend_style, plot_data
+from ..plot import apply_legend_style, apply_legend_style_clear_of_data, plot_data
 from ..selection import filter_dataframe
 from . import _base
 
@@ -123,8 +124,11 @@ def draw_figure(rows, args, kdx, comparable):
         # Hue values past the palette repeat a colour but keep their own marker.
         color = colors.color_for(hue)
         marker = MARKERS[idx % len(MARKERS)]
-        hue_handles.append(mlines.Line2D([], [], color=color, linestyle="-", marker=marker,
-                                         label=map_iterable_label(hue, args.iterable, args.iterable_mapping)))
+        hue_label = map_iterable_label(hue, args.iterable, args.iterable_mapping)
+        if args.kind == "bar":
+            hue_handles.append(mpatches.Patch(facecolor=color, alpha=0.9, label=hue_label))
+        else:
+            hue_handles.append(mlines.Line2D([], [], color=color, linestyle="-", marker=marker, label=hue_label))
         for cdx, value in enumerate(comparables):
             subset = rows[rows[args.iterable] == hue]
             if value is not None:
@@ -149,8 +153,9 @@ def draw_figure(rows, args, kdx, comparable):
                    + ", ".join(f"{categories[int(i)]}={v:.3g}" for i, v in zip(xs, ys)))
             if args.kind == "bar":
                 width = 0.8 / max(1, len(hues))
+                errors = np.nan_to_num(es) if args.errory and np.isfinite(es).any() else None
                 ax.bar(xs + (idx - (len(hues) - 1) / 2) * width, ys, width=width, color=color,
-                       alpha=0.9 if cdx == 0 else 0.5)
+                       alpha=0.9 if cdx == 0 else 0.5, yerr=errors, ecolor=style.role("ink"), capsize=3)
             else:
                 plot_type = "line" if args.kind == "line" else "scatter"
                 kwargs = {"marker": marker} if args.kind == "line" else {}
@@ -160,8 +165,13 @@ def draw_figure(rows, args, kdx, comparable):
                 else:
                     plot_data(args, ax, xs, y=ys, color=color, plot_type=plot_type, linestyle=linestyle, **kwargs)
             if value is not None and cdx >= len(style_handles):
-                style_handles.append(mlines.Line2D([], [], color=style.role("ink"), linestyle=linestyle,
-                                                   label=map_iterable_label(value, comparable, args.comparable_mapping)))
+                value_label = map_iterable_label(value, comparable, args.comparable_mapping)
+                if args.kind == "bar":  # bars tell --style values apart by opacity
+                    style_handles.append(mpatches.Patch(facecolor=style.role("ink"), alpha=0.9 if cdx == 0 else 0.5,
+                                                        label=value_label))
+                else:
+                    style_handles.append(mlines.Line2D([], [], color=style.role("ink"), linestyle=linestyle,
+                                                       label=value_label))
 
     ax.set_xticks(positions)
     ax.set_xticklabels([map_iterable_label(c, args.x, args.xtick_mapping) for c in categories],
@@ -188,7 +198,11 @@ def draw_figure(rows, args, kdx, comparable):
         title = args.comparable_title if args.comparable_title is not None else comparable
         handles.append(mlines.Line2D([], [], color="none", label=f"$\\bf{{{title}}}$" if title else ""))
         handles += style_handles
-    apply_legend_style(ax, handles=handles, capitalize_labels=args.capitalize_legend, loc=args.legend_loc or "lower left")
+    if args.legend_loc:
+        apply_legend_style(ax, handles=handles, capitalize_labels=args.capitalize_legend, loc=args.legend_loc)
+    else:
+        apply_legend_style_clear_of_data(ax, handles=handles, labels=[h.get_label() for h in handles],
+                                         capitalize_labels=args.capitalize_legend)
 
     add_title_and_note(fig, args)
     fig.subplots_adjust(bottom=0.22)
