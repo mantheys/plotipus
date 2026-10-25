@@ -2,7 +2,7 @@
 #   make          clean, then toy data, plots and tables
 #   make clean    delete generated data and outputs (both gitignored)
 #   make docs     the example figures, copied to docs/images/options for docs/options.md
-#   make mascot   draw the mascot (docs/tutorial.md) into docs/images/mascot
+#   make mascot   draw the mascot (docs/tutorial.md, and on black for the README) into docs/images/mascot
 PYTHON ?= $(if $(wildcard ../.venv/bin/python),$(abspath ../.venv/bin/python),python3)
 PLOTIPUS ?= $(PYTHON) -m plotipus
 
@@ -31,7 +31,9 @@ mascot:
 	cd mascot && $(PYTHON) make_mascot.py && rm -rf output && $(PLOTIPUS) run mascot
 	mkdir -p ../docs/images/mascot
 	for f in mascot/output/plots/*.png; do cp "$$f" "../docs/images/mascot/$${f##*_}"; done
+	cd mascot/dark && rm -rf output && $(PLOTIPUS) run mascot
+	cp mascot/dark/output/plots/*_dark.png ../docs/images/mascot/mascot-dark.png
 
 clean:
-	rm -rf output mascot/output
+	rm -rf output mascot/output mascot/dark/output
 	rm -f input/data/*.pkl mascot/input/data/*.pkl

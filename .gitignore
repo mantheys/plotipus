@@ -10,3 +10,4 @@ examples/famous/output/
 examples/famous/input/data/*.pkl
 examples/mascot/output/
 examples/mascot/input/data/*.pkl
+examples/mascot/dark/output/

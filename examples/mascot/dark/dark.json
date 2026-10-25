@@ -1,0 +1,8 @@
+{
+  "rcparams": {
+    "figure.facecolor": "black",
+    "axes.facecolor": "black",
+    "savefig.facecolor": "black"
+  },
+  "roles": {"ink": "#e8eaed", "paper": "#000000"}
+}

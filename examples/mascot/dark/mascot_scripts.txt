@@ -1,0 +1,2 @@
+# The finished mascot (step 5 of ../input/plots/mascot_scripts.txt) on a black background.
+line --datafile Mascot -x X -y Y --hue Part --plot_type fill --plot_type_column Mode --color_column Face --edgecolor_column Edge --linewidth_column Width --no_legend --axis equal off --rangex -5.6 5.6 --rangey -5.6 5.6 --title None --output_suffix dark.png

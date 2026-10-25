@@ -1,8 +1,11 @@
 # plotipus
 
 <p align="center">
-  <img src="docs/images/mascot/mascot.png" width="300"
-       alt="The plotipus mascot: a cartoon platypus diving through a water disc, drawn by plotipus itself">
+  <picture>
+    <source media="(prefers-color-scheme: dark)" srcset="docs/images/mascot/mascot-dark.png">
+    <img src="docs/images/mascot/mascot.png" width="300"
+         alt="The plotipus mascot: a cartoon platypus diving through a water disc, drawn by plotipus itself">
+  </picture>
 </p>
 
 Publication plots and tables from pickled pandas DataFrames, driven by plain

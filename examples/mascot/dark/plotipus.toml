@@ -1,0 +1,6 @@
+# The mascot on a black background (the README's dark-theme image): plotipus run mascot.
+[project]
+data_root = "../input/data"
+plots = "."
+output = "output"
+style = ["../style.json", "dark.json"]

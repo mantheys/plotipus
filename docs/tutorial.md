@@ -155,6 +155,13 @@ plotipus line --datafile Mascot -x X -y Y --hue Part \
 
 <img src="images/mascot/mascot.png" width="420" alt="The finished plotipus mascot">
 
+The README shows the same command on a black background in dark mode. That
+version is in `examples/mascot/dark`, a two-file project that reads the same
+data and adds a style overlay, `dark.json`. The overlay sets the figure and
+axes background (`figure.facecolor`, `axes.facecolor`, `savefig.facecolor`)
+and the `ink` and `paper` colour roles. The data and the command are
+unchanged.
+
 ## What you used
 
 | idea | options |
