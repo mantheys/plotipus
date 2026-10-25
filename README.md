@@ -80,21 +80,6 @@ make -C examples mascot      # re-render the mascot and the tutorial figures
 `plotipus init my_project` creates an empty project (`plotipus.toml`,
 `input/{data,plots,tables}`, `output/`).
 
-## Plot kinds
-
-Kinds follow the data relationship (as in seaborn/plotly), not the use case.
-
-| Kind | Draws | Typical options |
-|---|---|---|
-| `line` | y against an ordered x, one series per `--hue` value, line style per `--style` value | `--plot_type step\|stepmid\|line\|errorbar\|plot\|bar\|barh\|box\|fill` (closed shapes, with `--color_column`, `--edgecolor_column`, `--linewidth_column`, `--plot_type_column`, `--axis equal off`; see the [tutorial](docs/tutorial.md)), `--lower`, `--stacked`, `--data_hue` (see [Data and simulation](docs/options.md#data-and-simulation)), `--sum_iterables`, `--merge_iterables`, `--rebin`, `--by_config`, `--fit` (see [Fits](docs/options.md#fits)), `--binned --estimator mean\|median\|std\|rms\|sum\|max\|min` (see [Binned estimators](docs/options.md#binned-estimators)) |
-| `scatter` | observations: exploded points with colour/size/marker encodings, or pairs of metrics (`--x_from Variable=Purity --y_from Variable=Completeness`) | `--colorby`, `--sizeby`, `--markerby`, `--aggregate` |
-| `hist` | 1D histograms of per-event arrays | `--bins`, `--weight`, `--density`, `--hist_combine`, `--flow none\|hint\|show` |
-| `map` | 2D: histogram of point arrays, image of a grid (`-z`), contour layer (`--contour`) | `--norm`, `--diagonal`, `--logz`, `--colorbar`, `--contour_sigmas`, `--contour_dof`, `--contour_label`, `--fill_contours`, `--background`, `--no_best_fit` |
-| `cat` | one value per category (integrated arrays) | `--integrate_over`, `--kind point\|line\|bar` |
-| `table` | aggregated values as LaTeX (and HTML) tables | `--variables`, `--agg`, `--error_band`, `--clopper_pearson`, `--siunitx`, `--caption_file` |
-
-`plotipus <kind> --help` lists every option.
-
 ## Famous plots
 
 Famous figures from particle physics, cosmology, astronomy, climate science
@@ -103,7 +88,8 @@ originals (synthetic, except Hubble's and Anscombe's published tables). Each
 one was compared with the published figure. The data generators, the
 commands and what is still missing are in
 [examples/famous](examples/famous/README.md); `make -C examples famous`
-renders them all and refreshes these images.
+renders them all and refreshes these images. The images use the paper
+style: serif text, a 3.5 in column width and one figure size for all.
 
 <table>
   <tr>
@@ -127,6 +113,21 @@ renders them all and refreshes these images.
     <td align="center"><img src="docs/images/famous/anscombe.png" width="270" alt="Anscombe's quartet: four small scatter plots sharing the same regression line"><br><a href="https://doi.org/10.1080/00031305.1973.10478966">Anscombe's quartet, 1973 (real data)</a></td>
   </tr>
 </table>
+
+## Plot kinds
+
+Kinds follow the data relationship (as in seaborn/plotly), not the use case.
+
+| Kind | Draws | Typical options |
+|---|---|---|
+| `line` | y against an ordered x, one series per `--hue` value, line style per `--style` value | `--plot_type step\|stepmid\|line\|errorbar\|plot\|bar\|barh\|box\|fill` (closed shapes, with `--color_column`, `--edgecolor_column`, `--linewidth_column`, `--plot_type_column`, `--axis equal off`; see the [tutorial](docs/tutorial.md)), `--lower`, `--stacked`, `--data_hue` (see [Data and simulation](docs/options.md#data-and-simulation)), `--sum_iterables`, `--merge_iterables`, `--rebin`, `--by_config`, `--fit` (see [Fits](docs/options.md#fits)), `--binned --estimator mean\|median\|std\|rms\|sum\|max\|min` (see [Binned estimators](docs/options.md#binned-estimators)) |
+| `scatter` | observations: exploded points with colour/size/marker encodings, or pairs of metrics (`--x_from Variable=Purity --y_from Variable=Completeness`) | `--colorby`, `--sizeby`, `--markerby`, `--aggregate` |
+| `hist` | 1D histograms of per-event arrays | `--bins`, `--weight`, `--density`, `--hist_combine`, `--flow none\|hint\|show` |
+| `map` | 2D: histogram of point arrays, image of a grid (`-z`), contour layer (`--contour`) | `--norm`, `--diagonal`, `--logz`, `--colorbar`, `--contour_sigmas`, `--contour_dof`, `--contour_label`, `--fill_contours`, `--background`, `--no_best_fit` |
+| `cat` | one value per category (integrated arrays) | `--integrate_over`, `--kind point\|line\|bar` |
+| `table` | aggregated values as LaTeX (and HTML) tables | `--variables`, `--agg`, `--error_band`, `--clopper_pearson`, `--siunitx`, `--caption_file` |
+
+`plotipus <kind> --help` lists every option.
 
 ## Further reading
 

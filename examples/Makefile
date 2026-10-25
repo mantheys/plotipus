@@ -3,7 +3,7 @@
 #   make clean    delete generated data and outputs (both gitignored)
 #   make docs     the example figures, copied to docs/images/options for docs/options.md
 #   make mascot   draw the mascot (docs/tutorial.md, and on black for the README) into docs/images/mascot
-#   make famous   the famous-plot reproductions; the README gallery is copied to docs/images/famous
+#   make famous   the famous-plot reproductions, also in the paper style; the README gallery (paper) goes to docs/images/famous
 PYTHON ?= $(if $(wildcard ../.venv/bin/python),$(abspath ../.venv/bin/python),python3)
 PLOTIPUS ?= $(PYTHON) -m plotipus
 
@@ -35,7 +35,8 @@ mascot:
 	cd mascot/dark && rm -rf output && $(PLOTIPUS) run mascot
 	cp mascot/dark/output/plots/*_dark.png ../docs/images/mascot/mascot-dark.png
 
-# The famous plots (examples/famous); the README gallery is a selection, renamed.
+# The famous plots (examples/famous, and famous/paper in the paper style at one figure size);
+# the README gallery is a selection of the paper renders, renamed.
 FAMOUS_GALLERY = \
 	higgsdiphoton_mass_events_error_component_weighting_unweighted_dataminusbackground_atlas.png:higgs-diphoton.png \
 	fourlepton_mass_events_sample_stacked_line.png:four-lepton.png \
@@ -52,9 +53,10 @@ FAMOUS_GALLERY = \
 
 famous:
 	cd famous && $(PYTHON) make_data.py && rm -rf output && $(PLOTIPUS) run famous
+	cd famous/paper && rm -rf output && $(PLOTIPUS) run famous
 	rm -rf ../docs/images/famous && mkdir -p ../docs/images/famous
-	for pair in $(FAMOUS_GALLERY); do cp "famous/output/plots/$${pair%%:*}" "../docs/images/famous/$${pair##*:}"; done
+	for pair in $(FAMOUS_GALLERY); do cp "famous/paper/output/plots/$${pair%%:*}" "../docs/images/famous/$${pair##*:}"; done
 
 clean:
-	rm -rf output mascot/output mascot/dark/output famous/output
+	rm -rf output mascot/output mascot/dark/output famous/output famous/paper/output
 	rm -f input/data/*.pkl mascot/input/data/*.pkl famous/input/data/*.pkl
