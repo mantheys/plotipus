@@ -351,11 +351,16 @@ def run_paired(df, args):
 # --- Points ------------------------------------------------------------------------------
 
 
-def explode_points(df, markerby=None):
-    """One row per point of list-valued cells. Without --markerby only the first
-    row per Config/Name is kept, so distinct groups (e.g. truth and reco
-    points) are not merged into one undistinguished scatter."""
+def explode_points(df, markerby=None, columns=None):
+    """One row per point of list-valued cells (only ``columns`` when given:
+    the other list columns, e.g. histograms stored next to the samples, are
+    dropped). Without --markerby only the first row per Config/Name is kept,
+    so distinct groups (e.g. truth and reco points) are not merged into one
+    undistinguished scatter."""
     list_columns = [c for c in df.columns if df[c].apply(lambda v: isinstance(v, (list, tuple, np.ndarray))).any()]
+    if columns is not None:
+        df = df.drop(columns=[c for c in list_columns if c not in columns])
+        list_columns = [c for c in list_columns if c in columns]
     if not list_columns:
         return df
     if not markerby:
@@ -560,7 +565,10 @@ def run_points(df, args):
     if args.x is None or args.y is None:
         rprint("[red]Error:[/red] -x and -y are required without --x_from/--y_from.")
         return []
-    df = explode_points(df, markerby=args.markerby)
+    # The selected rows first, then only the columns drawn become points.
+    df = filter_dataframe(df, args)
+    used = [c for c in (args.x, args.y, args.z, args.colorby, args.sizeby) if c]
+    df = explode_points(df, markerby=args.markerby, columns=used)
     for column in [args.x, args.y] + ([args.z] if args.z else []):
         if column not in df.columns:
             rprint(f"[red]Error:[/red] Column '{column}' not found. Available: {list(df.columns)}")

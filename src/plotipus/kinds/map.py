@@ -41,6 +41,7 @@ from ..palettes import ColorAllocator
 from ..panels import add_colorbar, add_title_and_note, create_panels, draw_overlays, save
 from ..plot import (
     apply_legend_style,
+    apply_legend_style_clear_of_data,
     apply_scientific_threshold_formatter,
     draw_horizontal_lines,
     draw_lines,
@@ -118,7 +119,8 @@ def build_parser():
     group = parser.add_argument_group("contours")
     add = group.add_argument
     add("--contour", action="store_true", default=False,
-        help="Contour mode: sigma contours of each config/name map over a background image (needs -z).")
+        help="Contour mode: sigma contours of each config/name map (-z) over a background image; without -z, "
+        "the regions holding the sigma fractions of the points over their 2D histogram.")
     add("--contour_sigmas", nargs="+", type=float, default=[1.0, 2.0, 3.0], help="Sigma levels drawn.")
     add("--contour_level_mode", default="sigma_probability", choices=["z_values", "sigma_probability"],
         help="z_values: maps are significances, contours at the sigmas; sigma_probability: maps are "
@@ -134,7 +136,7 @@ def build_parser():
         help="Line style per sigma level (default: style contours.linestyles, solid, dashed, dotted).")
     add("--contour_linewidth", type=float, default=2.0)
     add("--contour_alpha", type=float, default=0.95)
-    add("--contour_smoothing_sigma", type=float, default=0.0, help="Gaussian smoothing of the maps before contouring.")
+    add("--contour_smoothing_sigma", type=float, default=0.0, help="Gaussian smoothing of the maps before contouring (in bins; without -z, default 1).")
     add("--background_smoothing_sigma", type=float, default=0.0, help="Gaussian smoothing of the background image.")
     add("--contour_min_vertices", type=int, default=0, help="Drop contour pieces with fewer vertices.")
     add("--background", default=None, choices=["all", "combined", "first", "none"],
@@ -238,6 +240,7 @@ def draw_histogram_figure(rows, args, kdx):
     ranges = None
     colorbars = []  # (ax, mappable, label) per panel
     subsets = []
+    regions = {}  # panel -> legend handles of its --contour sample regions
     for pdx, (variable, hue) in enumerate(panels):
         ax = axes[pdx]
         subset = filter_dataframe(_panel_rows(rows, args, variable, hue), args)
@@ -292,6 +295,8 @@ def draw_histogram_figure(rows, args, kdx):
                 mesh.set_clim(*args.rangez)
             label = args.labelz or (NORM_LABELS[args.norm] if args.norm else "Density" if args.density else "Counts")
             colorbars.append((ax, mesh, label))
+            if args.contour:
+                regions[pdx] = draw_sample_regions(ax, hist[0], hist[1], hist[2], args)
 
         if args.diagonal:
             ax.plot(x_range, x_range, color=style.role("ink") if args.logz else style.role("paper"), linestyle="--")
@@ -326,9 +331,53 @@ def draw_histogram_figure(rows, args, kdx):
             ax.set_ylim(args.rangey)
         apply_scientific_threshold_formatter(ax, threshold=0.1, axis="both")
         draw_overlays(ax, args)
+        if regions.get(pdx):
+            apply_legend_style_clear_of_data(ax, handles=regions[pdx], labels=[h.get_label() for h in regions[pdx]])
 
     add_title_and_note(fig, args)
     return save(fig, args, kdx, suffix="hist2d.png")
+
+
+def sample_region_thresholds(density, fractions):
+    """Density thresholds of the smallest regions holding each fraction of
+    the entries: the bins are filled from the densest down."""
+    flat = np.sort(np.asarray(density, dtype=float).ravel())[::-1]
+    total = flat.sum()
+    if total <= 0:
+        return [np.nan] * len(fractions)
+    cumulative = np.cumsum(flat) / total
+    return [float(flat[min(np.searchsorted(cumulative, f), flat.size - 1)]) for f in fractions]
+
+
+def draw_sample_regions(ax, counts, xedges, yedges, args):
+    """--contour without -z: outlines of the regions holding the --contour_sigmas
+    fractions of the entries (68.3/95.4/99.7% with 2 dof, the content of the
+    2-parameter delta-chi2 levels; 39.3/86.5/98.9% with 1 dof), from the 2D
+    histogram smoothed by --contour_smoothing_sigma bins (default 1). Returns
+    the legend handles."""
+    from scipy.stats import chi2
+
+    sigmas = sorted(set(float(s) for s in args.contour_sigmas if np.isfinite(s)))
+    levels = contour_levels(sigmas, "sigma_probability", args.contour_dof)
+    fractions = [float(chi2.cdf(level, 2)) for level in levels]
+    density = _smooth(counts, args.contour_smoothing_sigma or 1.0)
+    thresholds = sample_region_thresholds(density, fractions)
+    if args.contour_label == "cl":
+        labels = [f"{100 * f:.1f}%" for f in fractions]
+    else:
+        labels = sigma_labels(levels, sigmas, "sigma_probability", args.contour_dof, "sigma")
+    xc, yc = 0.5 * (xedges[1:] + xedges[:-1]), 0.5 * (yedges[1:] + yedges[:-1])
+    ink, width = style.role("ink"), args.contour_linewidth
+    halo = [patheffects.withStroke(linewidth=width + 2, foreground=_paper())]  # reads on any bin colour
+    handles = []
+    for threshold, label, linestyle in zip(thresholds, labels, level_linestyles(args, len(levels))):
+        if not np.isfinite(threshold) or threshold <= 0 or threshold >= density.max():
+            continue
+        lines = ax.contour(xc, yc, density.T, levels=[threshold], colors=[ink], linestyles=[linestyle],
+                           linewidths=width, zorder=3)
+        lines.set_path_effects(halo)
+        handles.append(level_handle(label, ink, linestyle, width))
+    return handles
 
 
 def colorbar_mode(args):
@@ -1080,10 +1129,10 @@ def run(args):
         return []
     if args.variables is not None and "None" in args.variables and "Variable" in df.columns:
         df["Variable"] = df["Variable"].fillna("None")
-    if args.contour:
-        if args.z is None:
-            rprint("[red]Error:[/red] --contour needs -z (the map column).")
-            return []
+    if args.contour and args.z is None:
+        # Without a map: the sigma regions of the sampled points, over their 2D histogram.
+        resolve_contour_options(args)
+    elif args.contour:
         if args.combined_color is None:
             args.combined_color = style.role("ink")
         return [draw_contour_figure(df, args)]

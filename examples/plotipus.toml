@@ -1,11 +1,8 @@
-# Example project: run `python make_data.py` once, then `plotipus run example`
-# and `plotipus run example --tables`.
+# Example project: `make` (or `python make_data.py`, then `plotipus run example`
+# and `plotipus run example --tables`).
 [project]
 data_root = "input/data"
 plots = "input/plots"
 tables = "input/tables"
 output = "output"
 style = ["style.json"]
-
-[outputs.plots]
-docs = ["output/docs"]       # `make docs` copies them to ../docs/images/options

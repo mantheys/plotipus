@@ -1,1 +1,1 @@
-table --datafile Summary -y Value --variables Efficiency Purity Rate
+table --datafile Moments -y Value --select Sample -s Data --variables Mean Std

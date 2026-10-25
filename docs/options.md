@@ -18,14 +18,17 @@ weighted down to the same total), in two forms:
   expectation `Expected` and `Pull` = (Counts - Expected) / CountsError, for
   `line` and `cat`.
 
+`Bivariate Gaussian` rows hold correlated `X`, `Y` samples instead.
 The Gaussian rows also store a Gaussian fit (`FitFunctionLabel`, `Params`,
 `ParamsError`, `ParamsLabel`) and a χ² scan of its mean and width
 (`MeanScan`, `SigmaScan`, `Chi2Scan`). The `Resonance` rows hold a peak over
 a falling background as `Data`, `Background` and `Signal` (see
 [Data and simulation](#data-and-simulation)); their `Data` row also stores a
-signal + background fit with its two components (see [Fits](#fits)). The commands are listed in
-`examples/input/plots/docs_scripts.txt`; `make -C examples docs` renders them
-again into `docs/images/options`.
+signal + background fit with its two components (see [Fits](#fits)). Two files are derived from it: `{config}_landau_Histogram.pkl` (the
+Landau histograms, one file per sample, for `--configs`) and `Moments.pkl`
+(mean and standard deviation of every sample, for `table`). The commands
+are the example list, `examples/input/plots/example_scripts.txt`;
+`make -C examples docs` renders them again into `docs/images/options`.
 
 ## Shared options
 
@@ -60,6 +63,18 @@ again into `docs/images/options`.
   `--line`, `--xtick`, `--note`, `--title`.
 * **Output**: `-o DIR [DIR ...]`, `--subfolder`, `--output_suffix`,
   `--filename_select` (keys that must stay in the generated file name).
+
+![Landau data and simulation read from one file per config, data as points](images/options/configs.png)
+
+```bash
+plotipus line --datafile Histogram --configs data simulation --names landau -x Bin -y Counts --by_config --data_hue data --errory --labelx x --title 'One file per config'
+```
+
+![Four distributions in the okabe-ito palette](images/options/palette.png)
+
+```bash
+plotipus line --datafile Distributions -x Bin -y Counts --hue Distribution --select Sample Distribution -s Data Exponential Landau Chi-squared Log-normal --plot_type step --palette okabe-ito --labelx x --title 'The okabe-ito palette'
+```
 
 ![Data and simulation of three distributions, one panel each](images/options/facets.png)
 
@@ -120,6 +135,12 @@ derived from (or stored in) the same DataFrame. Each `--lower` adds one:
 --lower events:OpHit          # event markers read from OpHit* columns
 ```
 
+![Stacked background and signal simulation with the signal significance S/sqrt(B) in a lower panel](images/options/significance.png)
+
+```bash
+plotipus line --datafile Distributions -x Bin -y Counts --hue Sample --select Distribution Sample -s Resonance Background Signal --stacked --bar_width auto --legend_loc 'upper right' --lower group --reference_group Signal --other_group Background --group_significance --lower_labely '$S/\sqrt{B}$' --labelx 'Mass (GeV)' --labely 'Events / 2 GeV' --title 'Stacked simulation and the signal significance'
+```
+
 ![Landau data and simulation with their ratio in a lower panel](images/options/ratio.png)
 
 ```bash
@@ -129,7 +150,7 @@ plotipus line --datafile Distributions -x Bin -y Counts --hue Sample --select Di
 ![Gaussian data with its stored fit, parameters and pulls](images/options/fit.png)
 
 ```bash
-plotipus line --datafile Distributions -x Bin -y Counts --select Distribution Sample -s Gaussian Data --plot_type errorbar --errory --fit --lower pull --fitlegendposition 0.66 0.9 --labelx x --title 'Stored fit with pulls'
+plotipus line --datafile Distributions -x Bin -y Counts --select Distribution Sample -s Gaussian Data --plot_type errorbar --errory --fit --lower pull --labelx x --title 'Stored fit with pulls'
 ```
 
 ![Poisson counts with the stored Pull column in a lower panel](images/options/column.png)
@@ -238,6 +259,18 @@ significance maps with `--contour_level_mode z_values`):
   above the contours, in the text colour (white on a background image that
   fills the panel); the grid or `--rangex`/`--rangey` keeps the frame.
 
+Without `-z`, `--contour` draws the sigma regions of sampled points over
+their 2D histogram: the smallest regions holding 68.3, 95.4 and 99.7% of
+the entries (the content of the two-parameter Δχ² levels; 39.3, 86.5 and
+98.9% with `--contour_dof 1`), from the histogram smoothed by
+`--contour_smoothing_sigma` bins (default 1).
+
+![Data and simulation of a correlated bivariate Gaussian with their 68.3, 95.4 and 99.7% regions](images/options/sigmas.png)
+
+```bash
+plotipus map --datafile Distributions -x X -y Y --select Distribution -s 'Bivariate Gaussian' --iterable Sample --contour --bins 30 --logz --title 'A bivariate Gaussian and its 1, 2 and 3 sigma regions'
+```
+
 The style file's `contours` section sets the defaults:
 `{"dof": 2, "fill_mix": [1.0, 0.55, 0.25], "linestyles": ["-", "--", ":"], "label": "cl", "background": "none"}`.
 `--contour_dof 1 --contour_label sigma --background all` restores the
@@ -273,4 +306,25 @@ otherwise:
 
 ```bash
 plotipus line --datafile Distributions -x Value -y Residual --binned --estimator std --hue Sample --select Distribution -s Exponential --bins 11 --rangex 0 10 --labelx True --labely 'Measured - True' --title 'Binned estimator: resolution'
+```
+
+## Categories and scatter
+
+`cat` draws one value per category: the sum of each row's `-y` array over its
+bins, or with `--integrate_over COL` the integral Σ y·Δx over that column
+(for densities), by `-x` category and `--hue`. `scatter` draws one point per
+entry of the array cells, with colour (`--colorby`), size (`--sizeby`) and
+marker (`--markerby`) encodings; only the drawn columns are exploded into
+points.
+
+![Summed counts of the resonance data, background and signal as bars](images/options/yields.png)
+
+```bash
+plotipus cat --datafile Distributions -x Distribution --hue Sample -y Counts --select Distribution -s Resonance --kind bar --labely Events --title 'Yields: summed counts per sample'
+```
+
+![True against measured values of exponential samples coloured by their residual](images/options/scatter.png)
+
+```bash
+plotipus scatter --datafile Distributions -x Value -y Smeared --colorby Residual --select Distribution Sample -s Exponential Data --marker_size 4 --labelx True --labely Measured --title 'Points coloured by a third column'
 ```

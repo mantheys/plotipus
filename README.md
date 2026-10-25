@@ -17,7 +17,7 @@ with whole arrays in the cells); plotipus turns them into figures and LaTeX
 tables with one command each:
 
 ```bash
-plotipus line --datafile Spectra -x Energy -y Counts --hue Sample --style Stage --logy
+plotipus line --datafile Distributions -x Bin -y Counts --hue Sample --data_hue Data --lower ratio
 plotipus run paper          # every command in input/plots/paper_scripts.txt
 ```
 

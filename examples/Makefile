@@ -1,7 +1,7 @@
 # Regenerate the example project from scratch:
 #   make          clean, then toy data, plots and tables
 #   make clean    delete generated data and outputs (both gitignored)
-#   make docs     render the figures of docs/options.md into docs/images/options
+#   make docs     the example figures, copied to docs/images/options for docs/options.md
 PYTHON ?= $(if $(wildcard ../.venv/bin/python),../.venv/bin/python,python3)
 PLOTIPUS ?= $(PYTHON) -m plotipus
 
@@ -18,12 +18,12 @@ plots: data
 tables: data
 	$(PLOTIPUS) run example --tables
 
-# Each figure is named after the last word of its --output_suffix.
+# The example figures, renamed after the last word of their --output_suffix.
 docs: data
-	rm -rf output/docs
-	$(PLOTIPUS) run docs
-	mkdir -p ../docs/images/options
-	for f in output/docs/*.png; do cp "$$f" "../docs/images/options/$${f##*_}"; done
+	rm -rf output/plots
+	$(PLOTIPUS) run example
+	rm -rf ../docs/images/options && mkdir -p ../docs/images/options
+	for f in output/plots/*.png; do cp "$$f" "../docs/images/options/$${f##*_}"; done
 
 clean:
 	rm -rf output

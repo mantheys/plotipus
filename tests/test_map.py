@@ -333,3 +333,28 @@ def test_contour_panels_follow_the_selection(make_project):
     map_kind.main(["--datafile", "Maps", "-x", "XGrid", "-y", "YGrid", "-z", "ZGrid", "--contour",
                    "--select", "Kind", "-s", "fit", "--iterable", "Sample"])
     assert len([ax for ax in figures[-1].axes if ax.get_title()]) == 2
+
+
+def test_sample_regions_hold_their_fractions():
+    """The thresholds keep the densest bins until each fraction of the entries is reached."""
+    from plotipus.kinds.map import sample_region_thresholds
+
+    density = np.array([[1.0, 2.0], [3.0, 4.0]])  # total 10
+    assert sample_region_thresholds(density, [0.4, 0.7, 1.0]) == [4.0, 3.0, 1.0]
+
+
+def test_contour_without_z_draws_sample_regions(make_project):
+    """map --contour without -z: the 2D histogram with one outline and legend entry per sigma."""
+    from matplotlib.contour import ContourSet
+
+    from plotipus import registry
+
+    rng = np.random.default_rng(3)
+    xy = rng.multivariate_normal([0, 0], [[1, 0.5], [0.5, 1]], 20000)
+    figures = []
+    registry.add_figure_hook(lambda fig, args: figures.append(fig))
+    make_project({"Points": pd.DataFrame([{"X": xy[:, 0], "Y": xy[:, 1]}])})
+    map_kind.main(["--datafile", "Points", "-x", "X", "-y", "Y", "--contour", "--bins", "40"])
+    ax = figures[-1].axes[0]
+    assert len([c for c in ax.collections if isinstance(c, ContourSet)]) == 3
+    assert [t.get_text() for t in ax.get_legend().get_texts()] == ["68.3%", "95.4%", "99.7%"]

@@ -27,16 +27,16 @@ REPO = HERE.parents[2]
 EXAMPLES = REPO / "examples"
 CANDIDATES = ["paper", "open", "hep"]
 
-# The example commands of examples/input/plots/example_scripts.txt (all but hist and scatter).
+# A representative set of the example commands of examples/input/plots/example_scripts.txt.
 COMMANDS = {
-    "01_spectra_hue_style": "line --datafile Spectra -x Energy -y Counts --hue Sample --style Stage --iterable_mapping sample_names --iterable_color_mapping sample_colors --plot_type step --logy --labelx 'Energy (MeV)'",
-    "02_ratio": "line --datafile Spectra -x Energy -y Counts --hue Sample --select Stage -s Raw --plot_type step --logy --lower ratio --lower_labely 'Ratio to Signal' --output_suffix ratio",
-    "03_stacked_significance": "line --datafile Spectra -x Energy -y Counts --hue Sample --select Stage -s Raw --stacked --logy --lower group --reference_group signal --other_group background calibration --group_significance --lower_labely '$S/\\sqrt{B}$' --lower_plot_type stepmid",
-    "04_efficiency_bands": "line --datafile Efficiency --configs small large --names signal -x Values -y Efficiency --by_config --plot_type line --errory --errory_type bands --combine_op mean --combined_label 'Average'",
-    "05_binned_mean": "line --datafile Events -x TrueEnergy -y Resolution --hue Sample --binned --estimator mean --bins 15 --plot_type errorbar --labely 'Mean Resolution'",
-    "06_hist2d": "map --datafile Events -x TrueEnergy -y RecoEnergy --iterable Sample --diagonal --logz",
-    "07_contour": "map --datafile Contour -x XGrid -y YGrid -z ZGrid --contour --contour_sigmas 1 2 3 --fill_contours",
-    "08_cat_bars": "cat --datafile Spectra -x Stage -y Counts --integrate_over Energy --hue Sample --kind bar --labely 'Total Counts'",
+    "01_hue_style": "line --datafile Distributions -x Bin -y Counts --hue Distribution --style Sample --select Distribution -s Exponential Landau Chi-squared --plot_type step --labelx x",
+    "02_ratio": "line --datafile Distributions -x Bin -y Counts --hue Sample --select Distribution -s Landau --plot_type step --lower ratio --reference_value Simulation --labelx x --lower_labely 'Data / Sim.'",
+    "03_stacked_significance": "line --datafile Distributions -x Bin -y Counts --hue Sample --select Distribution Sample -s Resonance Background Signal --stacked --bar_width auto --lower group --reference_group Signal --other_group Background --group_significance --lower_labely '$S/\\sqrt{B}$' --labelx 'Mass (GeV)'",
+    "04_data_stack": "line --datafile Distributions -x Bin -y Counts --hue Sample --select Distribution -s Resonance --data_hue Data --stacked --errory --lower ratio --labelx 'Mass (GeV)'",
+    "05_binned_std": "line --datafile Distributions -x Value -y Residual --binned --estimator std --hue Sample --select Distribution -s Exponential --bins 11 --rangex 0 10",
+    "06_hist2d": "map --datafile Distributions -x Value -y Smeared --select Distribution -s Exponential --iterable Sample --diagonal --logz",
+    "07_contour": "map --datafile Distributions -x MeanScan -y SigmaScan -z Chi2Scan --select Distribution -s Gaussian --iterable Sample --contour --fill_contours",
+    "08_fit": "line --datafile Distributions -x Bin -y Counts --select Distribution Sample -s Resonance Data --fit --data_hue Data --lower pull --chi2 --max_fit_params 3",
 }
 
 
