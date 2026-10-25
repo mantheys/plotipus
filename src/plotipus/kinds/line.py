@@ -83,7 +83,7 @@ from ..transforms import (
 from . import _base
 
 KIND = "line"
-PLOT_TYPES = ["scatter", "line", "bar", "barh", "step", "stepmid", "plot", "errorbar", "box"]
+PLOT_TYPES = ["scatter", "line", "bar", "barh", "step", "stepmid", "plot", "errorbar", "box", "fill"]
 EXTRAPOLATED_LINESTYLE = "--"
 
 
@@ -113,7 +113,8 @@ def build_parser():
             "plot_type": {
                 "choices": PLOT_TYPES,
                 "help": "How series are drawn: plot (markers, default), line, step (histogram outline "
-                "from bin edges), stepmid (line through steps), errorbar, scatter, bar, barh",
+                "from bin edges), stepmid (line through steps), errorbar, scatter, bar, barh, fill (each "
+                "series a closed, filled shape)",
             },
         },
     )
@@ -262,8 +263,28 @@ def build_parser():
     add_fit_args(parser)
     add_estimator_args(parser)
     add_events_args(parser)
+    _add_shape_args(parser)
     _base.add_output_args(parser)
     return parser
+
+
+def _add_shape_args(parser):
+    group = parser.add_argument_group("shapes (per-series styling from the data)")
+    add = group.add_argument
+    add("--color_column", default=None,
+        help="Column giving each series its colour (face of --plot_type fill, else the line colour); "
+        "matplotlib colours, rgb(...) or role:NAME. Wins over the palette; an --iterable_color_mapping "
+        "entry still wins over the data.")
+    add("--edgecolor_column", default=None, help="Column giving each filled shape its edge colour ('none' for no edge).")
+    add("--linewidth_column", default=None, help="Column giving each series its line (or edge) width.")
+    add("--plot_type_column", default=None,
+        help="Column giving each series its plot type (any --plot_type value), e.g. fill for shapes and "
+        "line for strokes in one figure.")
+    add("--facecolor", default=None, help="One face colour for every filled shape (overrides --color_column).")
+    add("--edgecolor", default=None,
+        help="One colour for every edge of a filled shape and every line (overrides the data).")
+    add("--axis", nargs="+", choices=["equal", "off"], default=None,
+        help="equal: one data unit is as long on x as on y; off: no frame, ticks or labels.")
 
 
 def _check_args(args, parser):
@@ -373,6 +394,7 @@ class Series:
         self.comparable = None
         self.comparable_index = 0
         self.color = None
+        self.edgecolor = None
         self.linestyle = None
         self.linewidth = None
         self.fill_alpha = None
@@ -477,6 +499,14 @@ def draw_series(ax, s, args, plot_type=None, stack_bottom=None, dodge_shift=0.0)
     --errory_type bands, steps with --connect, lines for styled series).
     Error bars on points are joined only with --connect. Plot type "data"
     draws points with their error bars whatever --errory_type says."""
+    if plot_type == "fill":
+        face = _shape_color(args.facecolor) or s.color
+        edge = _shape_color(args.edgecolor) or s.edgecolor or "none"
+        width = s.linewidth if s.linewidth is not None else (style.default_linewidth if edge != "none" else 0)
+        ax.fill(s.x, s.y, facecolor=face, edgecolor=edge, linewidth=width, joinstyle="round", label=s.label)
+        return
+    if args.edgecolor:
+        s.color = _shape_color(args.edgecolor)  # strokes take the edge colour too
     common = dict(label=s.label, color=s.color)
     if plot_type == "band":
         # Only the shaded y ± error, stepwise over the bins (a reference band).
@@ -553,6 +583,21 @@ def draw_series(ax, s, args, plot_type=None, stack_bottom=None, dodge_shift=0.0)
         plot_data(args, ax, s.x, y=s.y, plot_type=plot_type, **common)
     else:
         plot_data(args, ax, s.x, y=s.y, plot_type="plot", marker="o", linestyle=linestyle, **common, **lw)
+
+
+def _shape_color(value):
+    """A colour from the data or the command line (``role:NAME`` and ``rgb(...)`` too)."""
+    if value is None or (isinstance(value, float) and np.isnan(value)):
+        return None
+    return style.resolve_mapped_color(str(value))
+
+
+def _row_value(s, column):
+    """The value of ``column`` in the first row of series ``s`` (None if absent)."""
+    if column is None or s.rows is None or column not in s.rows.columns or s.rows.empty:
+        return None
+    value = s.rows[column].iloc[0]
+    return None if value is None or (isinstance(value, float) and np.isnan(value)) else value
 
 
 def _dodge_categorical(ax, s, shift):
@@ -634,7 +679,13 @@ def draw_figure(rows, args, kdx=None):
     if args.comparable_order_reverse:
         comparable_values = comparable_values[::-1]
     invert = args.invert_style and not same_column
-    colors = _allocate_colors([v for v in drawn_hues if not _is_data(v, args)], comparable_values, args, invert)
+    # Colours from the data or one --facecolor: only mapped values are allocated (no overflow warning).
+    allocated = [v for v in drawn_hues if not _is_data(v, args)]
+    if args.facecolor:
+        allocated = []
+    elif args.color_column:
+        allocated = [v for v in allocated if map_iterable_color(v, args.iterable_color_mapping) is not None]
+    colors = _allocate_colors(allocated, comparable_values, args, invert)
 
     style_map, alpha_map = ({}, {}) if invert else comparable_maps(comparable_values, comparable, args)
     iterable_style_map = {}
@@ -696,7 +747,7 @@ def draw_figure(rows, args, kdx=None):
                     else:
                         labeled.add(key)
 
-                plot_type = _resolved_plot_type(args)
+                plot_type = _row_value(s, args.plot_type_column) or _resolved_plot_type(args)
                 if s.is_data:
                     plot_type = "data"
                 elif plot_type is None and args.data_hue and not args.stacked:
@@ -799,7 +850,9 @@ def _encode(s, args, hue_values, colors, style_index, n_style, comparable, compa
     elif s.is_data:
         s.color = map_iterable_color(s.hue, args.iterable_color_mapping) or style.role("ink")
     else:
-        s.color = colors.color_for(_SUM_KEY if s.is_sum else s.hue)
+        from_data = args.facecolor or (_row_value(s, args.color_column) is not None
+                                       and map_iterable_color(s.hue, args.iterable_color_mapping) is None)
+        s.color = None if from_data else colors.color_for(_SUM_KEY if s.is_sum else s.hue)
         if s.comparable is not None:
             s.linestyle = resolve_linestyle(sdx, args, n_total=n_comparable)
         elif same_column:
@@ -814,6 +867,16 @@ def _encode(s, args, hue_values, colors, style_index, n_style, comparable, compa
         s.fill_alpha, s.fill_hatch = fill_options(sdx, args, n_comparable)
     elif args.fill:
         s.fill_alpha, s.fill_hatch = fill_options(0, args, 1)
+
+    # Styling stored in the data (--color_column and friends) wins over the palette; a
+    # --iterable_color_mapping entry still wins over the data.
+    data_color = _shape_color(_row_value(s, args.color_column))
+    if data_color is not None and map_iterable_color(s.hue, args.iterable_color_mapping) is None:
+        s.color = data_color
+    s.edgecolor = _shape_color(_row_value(s, args.edgecolor_column))
+    width = _row_value(s, args.linewidth_column)
+    if width is not None:
+        s.linewidth = float(width)
 
 
 # --- Lower panels ------------------------------------------------------------------
@@ -1098,6 +1161,10 @@ def _finish_upper(fig, upper, lower, drawn, rows, args, variables, last_x, hue_v
             ax.set_ylim(0, 105)
             ax.axhline(100, color=style.role("muted"), linestyle="--", linewidth=1)
         apply_axis_options(ax, args)
+        if args.axis and "equal" in args.axis:
+            ax.set_aspect("equal", adjustable="box")
+        if args.axis and "off" in args.axis:
+            ax.set_axis_off()
         for lower_ax in lower[idx]:
             if args.rangex is not None:
                 lower_ax.set_xlim(args.rangex)

@@ -2,10 +2,11 @@
 #   make          clean, then toy data, plots and tables
 #   make clean    delete generated data and outputs (both gitignored)
 #   make docs     the example figures, copied to docs/images/options for docs/options.md
-PYTHON ?= $(if $(wildcard ../.venv/bin/python),../.venv/bin/python,python3)
+#   make mascot   draw the mascot (docs/tutorial.md) into docs/images/mascot
+PYTHON ?= $(if $(wildcard ../.venv/bin/python),$(abspath ../.venv/bin/python),python3)
 PLOTIPUS ?= $(PYTHON) -m plotipus
 
-.PHONY: all data plots tables docs clean
+.PHONY: all data plots tables docs mascot clean
 
 all: clean plots tables
 
@@ -25,6 +26,12 @@ docs: data
 	rm -rf ../docs/images/options && mkdir -p ../docs/images/options
 	for f in output/plots/*.png; do cp "$$f" "../docs/images/options/$${f##*_}"; done
 
+# The five steps of the tutorial, named after the last word of their --output_suffix.
+mascot:
+	cd mascot && $(PYTHON) make_mascot.py && rm -rf output && $(PLOTIPUS) run mascot
+	mkdir -p ../docs/images/mascot
+	for f in mascot/output/plots/*.png; do cp "$$f" "../docs/images/mascot/$${f##*_}"; done
+
 clean:
-	rm -rf output
-	rm -f input/data/*.pkl
+	rm -rf output mascot/output
+	rm -f input/data/*.pkl mascot/input/data/*.pkl

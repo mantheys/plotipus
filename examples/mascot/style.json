@@ -1,0 +1,29 @@
+{
+  "rcparams": {
+    "lines.markersize": 1.8,
+    "savefig.dpi": 150
+  },
+  "plot_settings": {
+    "default_linewidth": 1.6,
+    "figure_layout": {
+      "base_width": 6,
+      "height": 6,
+      "margins_inches": {
+        "left": 0.1,
+        "right": 0.1,
+        "bottom": 0.1,
+        "top": 0.1
+      }
+    },
+    "legend_style": {
+      "fontsize": "medium",
+      "title_fontsize": "medium",
+      "frameon": false,
+      "markerscale": 3
+    }
+  },
+  "font_sizes": {
+    "legendfontsize": "medium",
+    "legendtitlefontsize": "medium"
+  }
+}

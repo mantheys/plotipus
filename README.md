@@ -1,5 +1,10 @@
 # plotipus
 
+<p align="center">
+  <img src="docs/images/mascot/mascot.png" width="300"
+       alt="The plotipus mascot: a cartoon platypus diving through a water disc, drawn by plotipus itself">
+</p>
+
 Publication plots and tables from pickled pandas DataFrames, driven by plain
 text command lists.
 
@@ -38,6 +43,19 @@ Python ≥ 3.10; depends on numpy, pandas, matplotlib, scipy, rich and jinja2.
 
 ## Quick start
 
+Your first plot is the mascot above. It is a DataFrame of 97 shapes, one row
+each, drawn by `plotipus line`:
+
+```bash
+cd examples/mascot
+python make_mascot.py        # input/data/Mascot.pkl
+plotipus run mascot          # five figures in output/plots, from points to the finished mascot
+```
+
+The [tutorial](docs/tutorial.md) builds it up one command at a time. Then,
+from the repository root, try the example project: common physics
+distributions as histograms, fits, data/simulation comparisons and maps:
+
 ```bash
 cd examples
 python make_data.py          # toy pickles in input/data
@@ -53,6 +71,7 @@ make -C examples             # delete generated data and outputs, then rebuild a
 make -C examples clean       # only delete them (input/data/*.pkl, output/)
 make -C examples plots       # rebuild data and plots without deleting first
 make -C examples docs        # re-render the figures of docs/options.md
+make -C examples mascot      # re-render the mascot and the tutorial figures
 ```
 
 `plotipus init my_project` creates an empty project (`plotipus.toml`,
@@ -64,7 +83,7 @@ Kinds follow the data relationship (as in seaborn/plotly), not the use case.
 
 | Kind | Draws | Typical options |
 |---|---|---|
-| `line` | y against an ordered x, one series per `--hue` value, line style per `--style` value | `--plot_type step\|stepmid\|line\|errorbar\|plot\|bar\|barh\|box`, `--lower`, `--stacked`, `--data_hue` (see [Data and simulation](docs/options.md#data-and-simulation)), `--sum_iterables`, `--merge_iterables`, `--rebin`, `--by_config`, `--fit` (see [Fits](docs/options.md#fits)), `--binned --estimator mean\|median\|std\|rms\|sum\|max\|min` (see [Binned estimators](docs/options.md#binned-estimators)) |
+| `line` | y against an ordered x, one series per `--hue` value, line style per `--style` value | `--plot_type step\|stepmid\|line\|errorbar\|plot\|bar\|barh\|box\|fill` (closed shapes, with `--color_column`, `--edgecolor_column`, `--linewidth_column`, `--plot_type_column`, `--axis equal off`; see the [tutorial](docs/tutorial.md)), `--lower`, `--stacked`, `--data_hue` (see [Data and simulation](docs/options.md#data-and-simulation)), `--sum_iterables`, `--merge_iterables`, `--rebin`, `--by_config`, `--fit` (see [Fits](docs/options.md#fits)), `--binned --estimator mean\|median\|std\|rms\|sum\|max\|min` (see [Binned estimators](docs/options.md#binned-estimators)) |
 | `scatter` | observations: exploded points with colour/size/marker encodings, or pairs of metrics (`--x_from Variable=Purity --y_from Variable=Completeness`) | `--colorby`, `--sizeby`, `--markerby`, `--aggregate` |
 | `hist` | 1D histograms of per-event arrays | `--bins`, `--weight`, `--density`, `--hist_combine`, `--flow none\|hint\|show` |
 | `map` | 2D: histogram of point arrays, image of a grid (`-z`), contour layer (`--contour`) | `--norm`, `--diagonal`, `--logz`, `--colorbar`, `--contour_sigmas`, `--contour_dof`, `--contour_label`, `--fill_contours`, `--background`, `--no_best_fit` |
@@ -75,6 +94,8 @@ Kinds follow the data relationship (as in seaborn/plotly), not the use case.
 
 ## Further reading
 
+* [Tutorial](docs/tutorial.md): draw the mascot, from its points to the
+  finished figure, one command at a time.
 * [Options](docs/options.md): shared options, lower panels, colorbars,
   contours and binned estimators.
 * [Projects](docs/projects.md): `plotipus.toml`, style files, plugins and
