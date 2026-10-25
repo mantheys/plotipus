@@ -2,59 +2,58 @@
 # Build the data first: python make_data.py; then: plotipus run famous
 #
 # The commands use only what plotipus does today, plus the project plugin
-# annotations.py (--text, drawn by a figure hook). Recurring tricks:
-# - data points and model lines in one figure: --style on the same column
-#   with --comparable_linestyles none solid ..., --plot_type line --errory
-#   --errory_type bars (data keep their error bars, models have none);
-# - a band in its own colour: a row of its own drawn with linewidth 0
-#   (--comparable_linewidths);
-# - fitted straight lines: rows whose end points lie outside --rangex, so
-#   --plot_type plot clips their markers.
+# annotations.py (--text, drawn by a figure hook). Recurring patterns:
+# - data and models in one figure: --data_hue for the measured series
+#   (points with error bars) and --plot_type line for the models; with
+#   --style on the hue column, --comparable_linestyles is matched to the hue
+#   order (the key order of --iterable_color_mapping);
+# - per-series line widths from the Width column (--linewidth_column); a band
+#   in its own colour is a row of its own with Width 0;
+# - fitted straight lines are rows that end outside --rangex.
 # "# gap:" lines name what is still missing and the task it belongs to.
 
 # F01 ATLAS 2012 H->gamma gamma, Fig. 4 (a)-(b): data, S+B fit, background, data - background
-# gap: no markers on the data points (bars only) -> T21
+# gap: data drawn as a line in the column: lower panel (--data_hue and --plot_type_column stop at the upper panel) -> T21
 # gap: the four panels (raw and weighted) in one figure -> T22.6
-# gap: residual against the fitted background component -> T22.14 (DataMinusBackground is stored for now)
+# gap: --lower residual against a FitComponents entry (the third command shows the component, its residual is (data - fit)/fit) -> T22.14
 # gap: experiment label as a style feature instead of --text -> T17
-line --datafile HiggsDiphoton -x Mass -y Events --hue Component --style Component --iterable_mapping hgg_labels --iterable_color_mapping hgg_colors --comparable_linestyles none solid dashed --draw_legend iterable --select Weighting -s Unweighted --plot_type line --errory --errory_type bars --lower column:DataMinusBackground --lower_labely 'Events - Bkg' --lower_rangey -250 250 --no_lower_legend --rangex 100 160 --legend_loc 'upper right' --labelx '$m_{\gamma\gamma}$ [GeV]' --labely 'Events / 2 GeV' --text 0.06 0.9 'ATLAS' --text 0.04 0.32 '$\sqrt{s}$=7 TeV, $\int L dt$=4.8 fb$^{-1}$' --text 0.04 0.21 '$\sqrt{s}$=8 TeV, $\int L dt$=5.9 fb$^{-1}$' --text 0.5 0.12 'H$\rightarrow\gamma\gamma$' --text 0.04 0.07 '(a)' --text 0.04 0.15 '(b)' --text_weight bold normal --text_style italic normal --text_size xx-large x-large x-large xx-large large --text_axes 0 0 0 0 0 1 --output_suffix atlas.png
-line --datafile HiggsDiphoton -x Mass -y Events --hue Component --style Component --iterable_mapping hgg_weighted_labels --iterable_color_mapping hgg_weighted_colors --comparable_linestyles none solid dashed --draw_legend iterable --select Weighting -s Weighted --plot_type line --errory --errory_type bars --lower column:DataMinusBackground --lower_labely '$\Sigma$ weights - Bkg' --lower_rangey -12 12 --no_lower_legend --rangex 100 160 --legend_loc 'upper right' --labelx '$m_{\gamma\gamma}$ [GeV]' --labely '$\Sigma$ weights / 2 GeV' --text 0.04 0.07 '(c)' --text 0.04 0.15 '(d)' --text_size large --text_axes 0 1 --output_suffix atlas.png
-line --datafile HiggsDiphoton -x Mass -y Events --select Component -s Data --select Weighting -s Unweighted --fit --errory --lower residual --no-fit_type_subtitle --max_fit_params 6 --fitlegendposition 0.55 0.92 --labelx '$m_{\gamma\gamma}$ [GeV]' --labely 'Events / 2 GeV' --text 0.06 0.1 'ATLAS' --text_weight bold --text_style italic --text_size xx-large
+line --datafile HiggsDiphoton -x Mass -y Events --hue Component --style Component --data_hue Data --iterable_mapping hgg_labels --iterable_color_mapping hgg_colors --comparable_linestyles solid solid dashed --select Weighting -s Unweighted --plot_type line --errory --lower column:DataMinusBackground --lower_labely 'Events - Bkg' --lower_rangey -250 250 --no_lower_legend --rangex 100 160 --legend_loc 'upper right' --labelx '$m_{\gamma\gamma}$ [GeV]' --labely 'Events / 2 GeV' --text 0.06 0.9 'ATLAS' --text 0.04 0.32 '$\sqrt{s}$=7 TeV, $\int L dt$=4.8 fb$^{-1}$' --text 0.04 0.21 '$\sqrt{s}$=8 TeV, $\int L dt$=5.9 fb$^{-1}$' --text 0.5 0.12 'H$\rightarrow\gamma\gamma$' --text 0.04 0.07 '(a)' --text 0.04 0.15 '(b)' --text_weight bold normal --text_style italic normal --text_size xx-large x-large x-large xx-large large --text_axes 0 0 0 0 0 1 --output_suffix atlas.png
+line --datafile HiggsDiphoton -x Mass -y Events --hue Component --style Component --data_hue Data --iterable_mapping hgg_weighted_labels --iterable_color_mapping hgg_weighted_colors --comparable_linestyles solid solid dashed --select Weighting -s Weighted --plot_type line --errory --lower column:DataMinusBackground --lower_labely '$\Sigma$ weights - Bkg' --lower_rangey -12 12 --no_lower_legend --rangex 100 160 --legend_loc 'upper right' --labelx '$m_{\gamma\gamma}$ [GeV]' --labely '$\Sigma$ weights / 2 GeV' --text 0.04 0.07 '(c)' --text 0.04 0.15 '(d)' --text_size large --text_axes 0 1 --output_suffix atlas.png
+line --datafile HiggsDiphoton -x Mass -y Events --select Component -s Data --select Weighting -s Unweighted --fit --data_hue Data --errory --lower residual --no-fit_type_subtitle --max_fit_params 6 --labelx '$m_{\gamma\gamma}$ [GeV]' --labely 'Events / 2 GeV' --text 0.35 0.9 'ATLAS' --text_weight bold --text_style italic --text_size xx-large
 
-# F03 CMS 2012 H->ZZ*->4l, Fig. 4: stacked Z+X, ZZ and signal
-# gap: data points on top of the stack (--stacked stacks every hue) -> T18
+# F03 CMS 2012 H->ZZ*->4l, Fig. 4: data over the stacked Z+X, ZZ and signal
 # gap: Garwood (Poisson) error bars on the data (EventsLow/EventsHigh are stored) -> T19
+# gap: the signal as an open outline on top of the filled backgrounds -> T18
 # gap: the K_D > 0.5 inset -> T22.7
-# line --datafile FourLepton -x Mass -y Events --hue Sample --iterable_color_mapping zz_colors --iterable_mapping zz_labels --stacked --plot_type fill --overlay Data --errory_type poisson --rangex 70 181 --labelx '$m_{4\ell}$ (GeV)' --labely 'Events / 3 GeV'
-line --datafile FourLepton -x Mass -y Events --hue Sample --iterable_color_mapping zz_colors --iterable_mapping zz_labels --exclude_iterable Data --stacked --bar_width auto --rangex 70 181 --rangey 0 17.5 --legend_loc 'upper left' --labelx '$m_{4\ell}$ (GeV)' --labely 'Events / 3 GeV' --text 0.0 1.03 'CMS' --text 1.0 1.03 '$\sqrt{s}$ = 7 TeV, L = 5.1 fb$^{-1}$  $\sqrt{s}$ = 8 TeV, L = 5.3 fb$^{-1}$' --text_ha left right --text_size large
+line --datafile FourLepton -x Mass -y Events --hue Sample --data_hue Data --iterable_color_mapping zz_colors --iterable_mapping zz_labels --stacked --rangex 70 181 --rangey 0 17.5 --legend_loc 'upper left' --labelx '$m_{4\ell}$ (GeV)' --labely 'Events / 3 GeV' --text 0.0 1.03 'CMS' --text 1.0 1.03 '$\sqrt{s}$ = 7 TeV, L = 5.1 fb$^{-1}$  $\sqrt{s}$ = 8 TeV, L = 5.3 fb$^{-1}$' --text_ha left right --text_size large
 
 # F04 ATLAS 2012 local p0, Fig. 9: observed, expected with its +-1 sigma band, sigma lines
 # gap: markers on the observed curve -> T21
 # gap: labelled sigma lines (labels here are --text at the right edge) -> T20
 # gap: a legend swatch for the band row (it has linewidth 0) -> T20
-line --datafile HiggsLocalP0 -x Mass -y P0 --hue Hypothesis --style Hypothesis --iterable_color_mapping p0_colors --comparable_mapping p0_labels --comparable_title None --comparable_linestyles solid dashed solid --comparable_linewidths 2 2 0 --draw_legend comparable --comparable_legend_loc 'upper right' --plot_type line --errory --errory_type bands --logy --rangey 2e-12 1e5 --rangex 110 150 --horizontal 1 0.5 0.1587 0.02275 1.35e-3 3.17e-5 2.87e-7 9.87e-10 --horizontal_color black red red red red red red red --horizontal_style dashed dashed dashed dashed dashed dashed dashed dashed --labelx '$m_H$ [GeV]' --labely 'Local $p_0$' --text 0.04 0.92 'ATLAS' --text 0.3 0.92 '2011 - 2012' --text 0.04 0.84 '$\sqrt{s}$ = 7 TeV: $\int L dt$ = 4.6-4.8 fb$^{-1}$' --text 0.04 0.77 '$\sqrt{s}$ = 8 TeV: $\int L dt$ = 5.8-5.9 fb$^{-1}$' --text 150.5 0.5 '0$\sigma$' --text 150.5 0.1587 '1$\sigma$' --text 150.5 0.02275 '2$\sigma$' --text 150.5 1.35e-3 '3$\sigma$' --text 150.5 3.17e-5 '4$\sigma$' --text 150.5 2.87e-7 '5$\sigma$' --text 150.5 9.87e-10 '6$\sigma$' --text_coords axes axes axes axes data --text_color black black black black red --text_weight bold normal --text_style italic normal --text_size xx-large xx-large large large large
+line --datafile HiggsLocalP0 -x Mass -y P0 --hue Hypothesis --style Hypothesis --iterable_color_mapping p0_colors --iterable_mapping p0_labels --comparable_linestyles solid dashed solid --linewidth_column Width --legend_loc 'upper right' --plot_type line --errory --errory_type bands --logy --rangey 2e-12 1e5 --rangex 110 150 --horizontal 1 0.5 0.1587 0.02275 1.35e-3 3.17e-5 2.87e-7 9.87e-10 --horizontal_color black red red red red red red red --horizontal_style dashed dashed dashed dashed dashed dashed dashed dashed --labelx '$m_H$ [GeV]' --labely 'Local $p_0$' --text 0.04 0.92 'ATLAS' --text 0.3 0.92 '2011 - 2012' --text 0.04 0.84 '$\sqrt{s}$ = 7 TeV: $\int L dt$ = 4.6-4.8 fb$^{-1}$' --text 0.04 0.77 '$\sqrt{s}$ = 8 TeV: $\int L dt$ = 5.8-5.9 fb$^{-1}$' --text 150.5 0.5 '0$\sigma$' --text 150.5 0.1587 '1$\sigma$' --text 150.5 0.02275 '2$\sigma$' --text 150.5 1.35e-3 '3$\sigma$' --text 150.5 3.17e-5 '4$\sigma$' --text 150.5 2.87e-7 '5$\sigma$' --text 150.5 9.87e-10 '6$\sigma$' --text_coords axes axes axes axes data --text_color black black black black red --text_weight bold normal --text_style italic normal --text_size xx-large xx-large large large large
 
 # F05 ATLAS 2012 limits on mu, Fig. 7(a): observed, expected, green and yellow bands
 # gap: saturated band colours (bands are drawn at alpha 0.2) and band legend swatches -> T20
 # gap: plain tick labels on the log x axis (200, not 2x10^2) -> T12
 # gap: the broken x axis (110-150 then 200-600) -> TODO.md (postponed)
 # line --datafile HiggsLimit -x Mass -y MuLimit --select Limit -s Observed -s Expected --hue Limit --style Limit --plot_type line --errory --errory_column MuLimit1Sigma MuLimit2Sigma --band_colors brazil --logy --logx --horizontal 1 --labelx '$m_H$ [GeV]' --labely '95% CL Limit on $\mu$'
-line --datafile HiggsLimit -x Mass -y MuLimit --hue Limit --style Limit --iterable_color_mapping limit_colors --comparable_mapping limit_labels --comparable_title None --comparable_linestyles solid solid solid dashed --comparable_linewidths 2 0 0 2 --draw_legend comparable --comparable_legend_loc 'upper right' --plot_type line --errory --errory_type bands --logy --logx --rangex 110 600 --rangey 0.07 12 --horizontal 1 --horizontal_color blue --horizontal_style dashed --labelx '$m_H$ [GeV]' --labely '95% CL Limit on $\mu$' --text 0.04 0.92 'ATLAS' --text 0.3 0.92 '2011 - 2012' --text 0.04 0.84 '$\sqrt{s}$ = 7 TeV: $\int L dt$ = 4.6-4.8 fb$^{-1}$' --text 0.04 0.77 '$\sqrt{s}$ = 8 TeV: $\int L dt$ = 5.8-5.9 fb$^{-1}$' --text 0.97 0.06 'CL$_s$ Limits' --text_weight bold normal --text_style italic normal --text_size xx-large xx-large large large xx-large --text_ha left left left left right
+line --datafile HiggsLimit -x Mass -y MuLimit --hue Limit --style Limit --iterable_color_mapping limit_colors --iterable_mapping limit_labels --comparable_linestyles solid solid dashed solid --linewidth_column Width --legend_loc 'upper right' --plot_type line --errory --errory_type bands --logy --logx --rangex 110 600 --rangey 0.07 12 --horizontal 1 --horizontal_color blue --horizontal_style dashed --labelx '$m_H$ [GeV]' --labely '95% CL Limit on $\mu$' --text 0.04 0.92 'ATLAS' --text 0.3 0.92 '2011 - 2012' --text 0.04 0.84 '$\sqrt{s}$ = 7 TeV: $\int L dt$ = 4.6-4.8 fb$^{-1}$' --text 0.04 0.77 '$\sqrt{s}$ = 8 TeV: $\int L dt$ = 5.8-5.9 fb$^{-1}$' --text 0.97 0.06 'CL$_s$ Limits' --text_weight bold normal --text_style italic normal --text_size xx-large xx-large large large xx-large --text_ha left left left left right
 
 # F06 COBE FIRAS (Fixsen 1996, Figs. 4-5): spectrum on the 2.725 K blackbody, residuals in kJy/sr
 # gap: the x400 errors come from a stored column (IntensityErrorX400), not an error scale -> T21
 # gap: a top axis in GHz -> TODO.md (postponed)
-line --datafile FIRAS -x Wavenumber -y Intensity --hue Component --style Component --iterable_color_mapping firas_colors --iterable_mapping firas_labels --comparable_linestyles none solid --draw_legend iterable --plot_type line --errory --errory_type bars --errory_column IntensityErrorX400 --lower column:Residual --lower_labely 'Residual (kJy/sr)' --lower_rangey -100 100 --no_lower_legend --rangex 1 23 --rangey 0 420 --legend_loc 'upper right' --labelx 'Frequency (cm$^{-1}$)' --labely 'Intensity (MJy/sr)'
-line --datafile FIRAS -x Wavenumber -y Intensity --select Component -s 'FIRAS data' --fit --errory --lower residual --no-fit_type_subtitle --rangex 1 23 --labelx 'Frequency (cm$^{-1}$)' --labely 'Intensity (MJy/sr)'
+line --datafile FIRAS -x Wavenumber -y Intensity --hue Component --data_hue 'FIRAS data' --iterable_color_mapping firas_colors --iterable_mapping firas_labels --plot_type line --errory --errory_column IntensityErrorX400 --lower column:Residual --lower_labely 'Residual (kJy/sr)' --lower_rangey -100 100 --no_lower_legend --rangex 1 23 --rangey 0 420 --legend_loc 'upper right' --labelx 'Frequency (cm$^{-1}$)' --labely 'Intensity (MJy/sr)'
+line --datafile FIRAS -x Wavenumber -y Intensity --select Component -s 'FIRAS data' --fit --data_hue 'FIRAS data' --errory --lower residual --no-fit_type_subtitle --rangex 1 23 --labelx 'Frequency (cm$^{-1}$)' --labely 'Intensity (MJy/sr)'
 
 # F08 Hubble 1929, Figure 1 (real data): nebulae, groups, the two solutions and the cross
-# gap: per-series markers (filled discs, open circles, a cross) -> T21
-line --datafile Hubble1929 -x Distance -y Velocity --hue Sample --style Sample --iterable_color_mapping hubble_colors --comparable_linestyles none none solid dashed none --draw_legend iterable --plot_type plot --rangex 0 2.2 --rangey -300 1200 --legend_loc 'upper left' --labelx 'Distance (10$^6$ parsecs)' --labely 'Velocity (km/s)' --title 'Velocity-Distance Relation among Extra-Galactic Nebulae'
+# gap: per-series markers (filled discs, open circles, a cross; colours stand in for them) -> T21
+line --datafile Hubble1929 -x Distance -y Velocity --hue Sample --style Sample --data_hue 'Individual nebulae' Groups 'Mean of 22 nebulae' --iterable_color_mapping hubble_colors --comparable_linestyles solid solid solid solid dashed --plot_type line --rangex 0 2.2 --rangey -300 1200 --legend_loc 'upper left' --labelx 'Distance (10$^6$ parsecs)' --labely 'Velocity (km/s)' --title 'Velocity-Distance Relation among Extra-Galactic Nebulae'
 
 # F09 Riess 1998, Fig. 4: SN Ia distance moduli, three cosmologies, residuals to (0.20, 0)
-# gap: markers on the supernovae, an open marker for SN 1997ck -> T21
+# gap: an open marker for SN 1997ck (grey here) -> T21
 # gap: plain tick labels on the log x axis (0.01, 0.10, 1.00) -> T12
-line --datafile SupernovaHubble -x Redshift -y DistanceModulus --hue Series --style Series --iterable_color_mapping sn_colors --comparable_linestyles none none none solid dotted dashed --comparable_linewidths 2 2 2 1.2 1.2 1.2 --draw_legend iterable --plot_type line --errory --errory_type bars --logx --rangex 0.005 1.5 --rangey 32.5 45.5 --lower column:DeltaMu --lower_labely '$\Delta$(m-M) (mag)' --lower_rangey -0.9 0.9 --no_lower_legend --legend_loc 'lower right' --labelx 'z' --labely 'm-M (mag)' --text 0.06 0.88 'MLCS' --text_size xx-large
+line --datafile SupernovaHubble -x Redshift -y DistanceModulus --hue Series --style Series --data_hue 'Nearby SNe' 'High-z SNe' 'SN 1997ck' --iterable_color_mapping sn_colors --comparable_linestyles solid solid solid solid dotted dashed --plot_type line --errory --logx --rangex 0.005 1.5 --rangey 32.5 45.5 --lower column:DeltaMu --lower_labely '$\Delta$(m-M) (mag)' --lower_rangey -0.9 0.9 --no_lower_legend --legend_loc 'lower right' --labelx 'z' --labely 'm-M (mag)' --text 0.06 0.88 'MLCS' --text_size xx-large
 
 # F10 Riess 1998, Fig. 6: Omega_M-Omega_Lambda confidence regions with the reference lines
 # gap: the shaded "No Big Bang" region -> T22.8 (--region)
@@ -67,8 +66,7 @@ line --datafile RotationCurves -x Radius -y Velocity --hue Galaxy --style Type -
 line --datafile RotationCurves -x Radius -y Velocity --hue Galaxy --variables '$R_{max}$ < 12 kpc' '12-35 kpc' '$R_{max}$ > 35 kpc' --plot_type line --no_legend --labelx 'R (kpc)' --labely 'V (km/s)' --output_suffix panels.png
 
 # F12 van Albada et al. 1985: NGC 3198 rotation curve with disk, gas and halo
-# gap: markers on the data points -> T21
-line --datafile NGC3198 -x Radius -y Velocity --hue Component --style Component --iterable_color_mapping ngc3198_colors --iterable_mapping ngc3198_labels --comparable_linestyles none dashed dotted dashdot solid --draw_legend iterable --plot_type line --errory --errory_type bars --rangex 0 32 --rangey 0 180 --legend_loc 'lower right' --labelx 'R (kpc)' --labely 'V$_{rot}$ (km/s)' --text 0.05 0.92 'NGC 3198' --text_size xx-large
+line --datafile NGC3198 -x Radius -y Velocity --hue Component --style Component --data_hue Data --iterable_color_mapping ngc3198_colors --iterable_mapping ngc3198_labels --comparable_linestyles solid dashed dotted dashdot solid --plot_type line --errory --rangex 0 32 --rangey 0 180 --legend_loc 'lower right' --labelx 'R (kpc)' --labely 'V$_{rot}$ (km/s)' --text 0.05 0.92 'NGC 3198' --text_size xx-large
 
 # F13 Keeling curve (NOAA GML plot): monthly means in red, deseasonalised in black
 # gap: the seasonal cycle as an inset -> T22.7
@@ -77,37 +75,36 @@ line --datafile Keeling -x MonthOfYear -y Detrended --select Series -s 'Monthly 
 
 # F14 Mann, Bradley & Hughes 1999, Fig. 3(a): reconstruction, 2-sigma band, 40-year smoothing, instrumental record
 # gap: the legend below the axes (here inside, with a lower y limit) -> T15
-line --datafile HockeyStick -x Year -y Anomaly --hue Series --style Series --iterable_color_mapping mbh_colors --iterable_mapping mbh_labels --comparable_linestyles solid solid solid dashdot --comparable_linewidths 0.8 2.5 0.8 1.5 --draw_legend iterable --plot_type line --errory --errory_type bands --horizontal 0 --horizontal_style dashed --horizontal_color black --rangex 1000 2000 --rangey -1.5 1 --legend_loc 'lower left' --labelx 'YEAR' --labely 'TEMPERATURE ANOMALY ($^\circ$C)' --text 1975 0.9 '1998 $\rightarrow$' --text_coords data --text_ha right --text_size large
+line --datafile HockeyStick -x Year -y Anomaly --hue Series --style Series --iterable_color_mapping mbh_colors --iterable_mapping mbh_labels --comparable_linestyles solid solid solid dashdot --linewidth_column Width --plot_type line --errory --errory_type bands --horizontal 0 --horizontal_style dashed --horizontal_color black --rangex 1000 2000 --rangey -1.5 1 --legend_loc 'lower left' --labelx 'YEAR' --labely 'TEMPERATURE ANOMALY ($^\circ$C)' --text 1975 0.9 '1998 $\rightarrow$' --text_coords data --text_ha right --text_size large
 
 # F15 LIGO GW150914, Fig. 1: strain, 90% reconstructions and residual per detector; time-frequency maps
 # gap: the 4 x 2 grid (rows per quantity, columns per detector, shared axes) -> T22.6
 # gap: a legend in every panel (one legend for all panels today) -> T15
 # gap: a log frequency axis on the map -> T22.3
-line --datafile GW150914 -x Time -y Strain --hue Component --style Component --iterable_color_mapping ligo_h1_colors --comparable_linestyles solid --comparable_linewidths 1.5 0 0 1.5 1.5 --draw_legend iterable --select Detector -s H1 --variables 'Whitened strain' Reconstructed Residual --plot_type line --errory --errory_type bands --rangex 0.25 0.46 --labelx 'Time (s)' --labely 'Strain (10$^{-21}$)' --title 'Hanford, Washington (H1)'
-line --datafile GW150914 -x Time -y Strain --hue Component --style Component --iterable_color_mapping ligo_l1_colors --comparable_linestyles solid --comparable_linewidths 1.5 1.5 0 0 1.5 1.5 --draw_legend iterable --select Detector -s L1 --variables 'Whitened strain' Reconstructed Residual --plot_type line --errory --errory_type bands --rangex 0.25 0.46 --labelx 'Time (s)' --labely 'Strain (10$^{-21}$)' --title 'Livingston, Louisiana (L1)'
+line --datafile GW150914 -x Time -y Strain --hue Component --style Component --iterable_color_mapping ligo_h1_colors --comparable_linestyles solid --linewidth_column Width --select Detector -s H1 --variables 'Whitened strain' Reconstructed Residual --plot_type line --errory --errory_type bands --rangex 0.25 0.46 --labelx 'Time (s)' --labely 'Strain (10$^{-21}$)' --title 'Hanford, Washington (H1)'
+line --datafile GW150914 -x Time -y Strain --hue Component --style Component --iterable_color_mapping ligo_l1_colors --comparable_linestyles solid --linewidth_column Width --select Detector -s L1 --variables 'Whitened strain' Reconstructed Residual --plot_type line --errory --errory_type bands --rangex 0.25 0.46 --labelx 'Time (s)' --labely 'Strain (10$^{-21}$)' --title 'Livingston, Louisiana (L1)'
 map --datafile GW150914Spectrogram -x Time -y FrequencyGrid -z Amplitude --iterable Name --cmap viridis --rangex 0.25 0.46 --labelx 'Time (s)' --labely 'Frequency (Hz)' --labelz 'Normalized amplitude'
 
 # F16 KamLAND 2008, Fig. 3: survival probability with the expectation histogram and curve
-# gap: markers and x error bars (bin widths) on the data points -> T21
-line --datafile KamLAND -x LOverE -y SurvivalProbability --hue Component --style Component --iterable_color_mapping kamland_colors --iterable_mapping kamland_labels --comparable_linestyles none solid solid --comparable_linewidths 2 2.5 3 --draw_legend iterable --plot_type line --errory --errory_type bars --rangex 15 105 --rangey 0 1.15 --legend_loc 'upper right' --labelx '$L_0/E_{\bar\nu_e}$ (km/MeV)' --labely 'Survival Probability'
+# gap: x error bars (bin widths) on the data points -> T21
+line --datafile KamLAND -x LOverE -y SurvivalProbability --hue Component --data_hue 'Data - BG - Geo $\nu_e$' --iterable_color_mapping kamland_colors --iterable_mapping kamland_labels --linewidth_column Width --plot_type line --errory --rangex 15 105 --rangey 0 1.15 --legend_loc 'upper right' --labelx '$L_0/E_{\bar\nu_e}$ (km/MeV)' --labely 'Survival Probability'
 
 # F17 LEP Z lineshape, Phys. Rept. 427 Fig. 1.13: measurements (errors x10) and N_nu = 2, 3, 4
-# gap: markers on the measurements; the x10 error scale from an option instead of a stored column -> T21
+# gap: the x10 error scale from an option instead of a stored column -> T21
 # gap: labels on the curves (here --text at fixed positions) -> T22.8 (--direct_labels)
-line --datafile ZLineshape -x Energy -y CrossSection --hue Model --style Model --iterable_color_mapping lep_colors --comparable_linestyles none solid solid solid --comparable_linewidths 3 1.2 3 1.2 --plot_type line --errory --errory_type bars --errory_column CrossSectionErrorX10 --no_legend --rangex 85 94.5 --rangey 0 37 --labelx '$E_{cm}$ [GeV]' --labely '$\sigma_{had}$ [nb]' --text 0.1 0.86 'ALEPH' --text 0.1 0.76 'DELPHI' --text 0.1 0.66 'L3' --text 0.1 0.56 'OPAL' --text 91.28 35.9 '2$\nu$' --text 91.28 31.6 '3$\nu$' --text 91.28 25.6 '4$\nu$' --text 0.05 0.4 'average measurements,' --text 0.05 0.34 'error bars increased by factor 10' --text_coords axes axes axes axes data data data axes --text_color blue blue blue blue black black black black --text_weight bold bold bold bold bold bold bold normal --text_size xx-large xx-large xx-large xx-large x-large x-large x-large large --text_ha left left left left center center center left
-line --datafile ZLineshape -x Energy -y CrossSection --hue Model --iterable_color_mapping lep_colors --errory --lower pull --rangex 85 94.5 --labelx '$E_{cm}$ [GeV]' --labely '$\sigma_{had}$ [nb]' --output_suffix pull.png
+line --datafile ZLineshape -x Energy -y CrossSection --hue Model --data_hue Data --iterable_color_mapping lep_colors --linewidth_column Width --plot_type line --errory --errory_column CrossSectionErrorX10 --no_legend --rangex 85 94.5 --rangey 0 37 --labelx '$E_{cm}$ [GeV]' --labely '$\sigma_{had}$ [nb]' --text 0.1 0.86 'ALEPH' --text 0.1 0.76 'DELPHI' --text 0.1 0.66 'L3' --text 0.1 0.56 'OPAL' --text 91.28 35.9 '2$\nu$' --text 91.28 31.6 '3$\nu$' --text 91.28 25.6 '4$\nu$' --text 0.05 0.4 'average measurements,' --text 0.05 0.34 'error bars increased by factor 10' --text_coords axes axes axes axes data data data axes --text_color blue blue blue blue black black black black --text_weight bold bold bold bold bold bold bold normal --text_size xx-large xx-large xx-large xx-large x-large x-large x-large large --text_ha left left left left center center center left
+line --datafile ZLineshape -x Energy -y CrossSection --hue Model --data_hue Data --iterable_color_mapping lep_colors --linewidth_column Width --plot_type line --errory --lower pull --rangex 85 94.5 --labelx '$E_{cm}$ [GeV]' --labely '$\sigma_{had}$ [nb]' --output_suffix pull.png
 
 # F19 Geiger-Marsden 1913 (no original figure): counts vs angle with the Rutherford law, both foils
-# gap: markers on the data points -> T21
-line --datafile GeigerMarsden -x Angle -y Counts --hue Foil --style Type --iterable_color_mapping rutherford_colors --comparable_linestyles none solid --draw_legend iterable --plot_type line --errory --errory_type bars --logy --rangex 0 160 --legend_loc 'upper right' --labelx 'Deflection angle $\phi$ (deg)' --labely 'Scintillations N' --output_suffix both.png
-line --datafile GeigerMarsden -x Angle -y Counts --hue Foil --select Type -s Data --fit --errory --logy --lower residual --chi2 --labelx 'Deflection angle $\phi$ (deg)' --labely 'Scintillations N'
+line --datafile GeigerMarsden -x Angle -y Counts --hue Foil --data_hue Gold Silver --iterable_color_mapping rutherford_colors --plot_type line --errory --logy --rangex 0 160 --legend_loc 'upper right' --labelx 'Deflection angle $\phi$ (deg)' --labely 'Scintillations N' --output_suffix both.png
+line --datafile GeigerMarsden -x Angle -y Counts --hue Foil --select Type -s Data --fit --data_hue Gold Silver --errory --logy --lower residual --chi2 --labelx 'Deflection angle $\phi$ (deg)' --labely 'Scintillations N'
 
 # F20 Moseley 1913 (no original figure): sqrt(nu) vs Z with both fitted lines and the missing elements
-line --datafile Moseley -x AtomicNumber -y SqrtFrequency --hue Series --style Type --iterable_color_mapping moseley_colors --comparable_linestyles none solid --draw_legend iterable --plot_type plot --rangex 10 82 --rangey 4 24 --vertical 43 61 75 --vertical_label 'Z=43' 'Z=61' 'Z=75' --vertical_style dotted dotted dotted --legend_loc 'upper left' --labelx 'Atomic number Z' --labely '$\sqrt{\nu}$ ($10^{8}$ Hz$^{1/2}$)'
+line --datafile Moseley -x AtomicNumber -y SqrtFrequency --hue Series --data_hue 'K$\alpha$' 'L$\alpha$' --iterable_color_mapping moseley_colors --plot_type line --rangex 10 82 --rangey 4 24 --vertical 43 61 75 --vertical_label 'Z=43' 'Z=61' 'Z=75' --vertical_style dotted dotted dotted --legend_loc 'upper left' --labelx 'Atomic number Z' --labely '$\sqrt{\nu}$ ($10^{8}$ Hz$^{1/2}$)'
 line --datafile Moseley -x AtomicNumber -y SqrtFrequency --hue Series --select Type -s Data --fit --errory --vertical 43 61 75 --labelx 'Atomic number Z' --labely '$\sqrt{\nu}$ ($10^{8}$ Hz$^{1/2}$)'
 
 # F21 Leavitt 1912 (synthetic table): magnitudes at maximum and minimum vs log period, y inverted
-line --datafile Leavitt -x LogPeriod -y Magnitude --hue Brightness --style Type --iterable_color_mapping leavitt_colors --comparable_linestyles none solid --draw_legend iterable --plot_type plot --rangex 0 2.2 --rangey 17 10.5 --legend_loc 'lower right' --labelx 'log P (days)' --labely 'Apparent magnitude'
+line --datafile Leavitt -x LogPeriod -y Magnitude --hue Brightness --data_hue Maximum Minimum --iterable_color_mapping leavitt_colors --plot_type line --rangex 0 2.2 --rangey 17 10.5 --legend_loc 'lower right' --labelx 'log P (days)' --labely 'Apparent magnitude'
 line --datafile Leavitt -x LogPeriod -y Magnitude --hue Brightness --select Type -s Data --fit --rangey 17 10.5 --labelx 'log P (days)' --labely 'Apparent magnitude'
 
 # F22 Gaia DR2 HR diagram (Babusiaux et al. 2018, Fig. 1): 2D histogram, log colour, M_G inverted
@@ -118,5 +115,5 @@ map --datafile HRDiagram -x BPRP -y MG --logz --bins 150 --rangex -0.7 5 --range
 # F25 Anscombe's quartet (real data): four panels with the shared regression line
 # gap: shared axes across the panels -> T22.6
 # gap: the same-statistics table (--agg corr) -> T22.11
-line --datafile Anscombe -x X -y Y --hue Type --style Type --iterable_color_mapping anscombe_colors --comparable_linestyles none solid --variables I II III IV --plot_type plot --no_legend --rangex 0 20 --rangey 2 14 --panel_title 'I' 'II' 'III' 'IV' --labelx 'x' --labely 'y'
+line --datafile Anscombe -x X -y Y --hue Type --data_hue Data --iterable_color_mapping anscombe_colors --variables I II III IV --plot_type line --no_legend --rangex 0 20 --rangey 2 14 --panel_title 'I' 'II' 'III' 'IV' --labelx 'x' --labely 'y'
 line --datafile Anscombe -x X -y Y --hue Dataset --select Type -s Data --fit --labelx 'x' --labely 'y'

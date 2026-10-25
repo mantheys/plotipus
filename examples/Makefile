@@ -3,10 +3,11 @@
 #   make clean    delete generated data and outputs (both gitignored)
 #   make docs     the example figures, copied to docs/images/options for docs/options.md
 #   make mascot   draw the mascot (docs/tutorial.md, and on black for the README) into docs/images/mascot
+#   make famous   the famous-plot reproductions; the README gallery is copied to docs/images/famous
 PYTHON ?= $(if $(wildcard ../.venv/bin/python),$(abspath ../.venv/bin/python),python3)
 PLOTIPUS ?= $(PYTHON) -m plotipus
 
-.PHONY: all data plots tables docs mascot clean
+.PHONY: all data plots tables docs mascot famous clean
 
 all: clean plots tables
 
@@ -34,6 +35,26 @@ mascot:
 	cd mascot/dark && rm -rf output && $(PLOTIPUS) run mascot
 	cp mascot/dark/output/plots/*_dark.png ../docs/images/mascot/mascot-dark.png
 
+# The famous plots (examples/famous); the README gallery is a selection, renamed.
+FAMOUS_GALLERY = \
+	higgsdiphoton_mass_events_error_component_weighting_unweighted_dataminusbackground_atlas.png:higgs-diphoton.png \
+	fourlepton_mass_events_sample_stacked_line.png:four-lepton.png \
+	higgslocalp0_mass_p0_error_hypothesis_logy_line.png:local-p0.png \
+	higgslimit_mass_mulimit_error_limit_logx_logy_line.png:brazil-band.png \
+	zlineshape_energy_crosssection_error_model_line.png:z-lineshape.png \
+	kamland_lovere_survivalprobability_error_component_line.png:kamland.png \
+	omegacontours_sn_riess1998_omegam_omegalambda_deltachi2_riess.png:omega-contours.png \
+	hubble1929_distance_velocity_sample_line.png:hubble-1929.png \
+	hrdiagram_bprp_mg_logz_hist2d.png:hr-diagram.png \
+	keeling_decimaldate_co2_series_line.png:keeling.png \
+	hockeystick_year_anomaly_error_series_line.png:hockey-stick.png \
+	anscombe_x_y_i_ii_iii_iv_type_line.png:anscombe.png
+
+famous:
+	cd famous && $(PYTHON) make_data.py && rm -rf output && $(PLOTIPUS) run famous
+	rm -rf ../docs/images/famous && mkdir -p ../docs/images/famous
+	for pair in $(FAMOUS_GALLERY); do cp "famous/output/plots/$${pair%%:*}" "../docs/images/famous/$${pair##*:}"; done
+
 clean:
-	rm -rf output mascot/output mascot/dark/output
-	rm -f input/data/*.pkl mascot/input/data/*.pkl
+	rm -rf output mascot/output mascot/dark/output famous/output
+	rm -f input/data/*.pkl mascot/input/data/*.pkl famous/input/data/*.pkl
