@@ -4,11 +4,14 @@ Rows describe a fitted series: ``x``/``y`` arrays plus the model,
 ``FitFunction`` (a callable) or ``FitFunctionLabel`` (a name resolved by
 :func:`plotipus.fits.get_function`), its ``Params``, ``ParamsError``,
 ``ParamsLabel`` and optionally ``ParamsUnit``, ``ParamsFormat``,
-``FitFunctionFormula`` and ``Chi2``. No fitting happens here: the stored
+``FitFunctionFormula``, ``Chi2`` and ``FitComponents`` ({label: [model,
+[parameter indices]]}, each drawn dashed). No fitting happens here: the stored
 model is evaluated, drawn over the data with a parameter box, and the lower
-panel shows the residual (data - fit) / fit.
+panel shows the residual (data - fit) / fit, or with ``--lower pull`` the pull
+(data - fit) / error.
 """
 
+import matplotlib.lines as mlines
 import numpy as np
 import pandas as pd
 from rich import print as rprint
@@ -18,9 +21,12 @@ from ..args import resolve_axis_label
 from ..fits import get_function
 from ..format import _format_value_with_paren_error
 from ..lower import model_series
+from ..palettes import current_colors
 from ..panels import add_title_and_note, create_panels, save
-from ..plot import apply_legend_style, draw_horizontal_lines, draw_vertical_lines, format_ref_value, plot_data
+from ..plot import (apply_legend_pair_clear_of_data, apply_legend_style, apply_legend_style_clear_of_data,
+                    draw_horizontal_lines, draw_vertical_lines, format_ref_value, plot_data)
 from ..selection import filter_dataframe
+from ..transforms import edges_from_centers
 
 # Labels of models stored by name only.
 FUNCTION_BY_LABEL = {"Gaussian": "gaussian", "Double Gaussian": "double_gaussian"}
@@ -31,7 +37,7 @@ def add_fit_args(parser):
     add = group.add_argument
     add("--fit", action="store_true", default=False,
         help="Draw the stored fit of each row (FitFunction/FitFunctionLabel, Params) over the data, "
-        "with its parameters; --lower residual shows (data - fit)/fit.")
+        "with its parameters; --lower residual shows (data - fit)/fit, --lower pull (data - fit)/error.")
     add("--chi2", action="store_true", default=False,
         help="Show chi2/ndof (stored Chi2 column, or Pearson chi2 for -y Counts).")
     add("--show_formula", action="store_true", default=False, help="Show FitFunctionFormula in the legend.")
@@ -46,8 +52,8 @@ def add_fit_args(parser):
     add("--fitindex", type=int, default=0, help="Index of the hue value whose fit is drawn.")
     add("--fit_rangex", nargs=2, type=float, default=None, help="x range of the drawn fit and residuals.")
     add("--max_fit_params", type=int, default=None, help="Show at most this many parameters.")
-    add("--fitlegendposition", nargs=2, type=float, default=(0.55, 0.90),
-        help="Axes position (x y) of the parameter box.")
+    add("--fitlegendposition", nargs=2, type=float, default=None,
+        help="Axes position (x y) of the parameter box (default: a second legend placed clear of the data).")
     add("--errorx", action="store_true", default=False, help="Draw x error bars.")
 
 
@@ -106,15 +112,14 @@ def _data_style(args):
     return plot_type, {}
 
 
-def _parameter_box(ax, args, rows, params, chi2, n_points):
+def _parameter_lines(args, rows, params, chi2, n_points):
+    """Text lines of the parameter box: (text, italic) pairs."""
     labels = rows["ParamsLabel"].iloc[0]
     errors = rows["ParamsError"].iloc[0]
     formats = rows["ParamsFormat"].iloc[0] if "ParamsFormat" in rows.columns else [".4g"] * len(params)
     units = _units(rows["ParamsUnit"].iloc[0] if "ParamsUnit" in rows.columns else None, len(params))
     shown = len(params) if args.max_fit_params is None else min(args.max_fit_params, len(params))
-    x0, y0 = args.fitlegendposition
-    font = {"size": style.legendfontsize}
-
+    lines = []
     for row, (label, fmt, value, error, unit) in enumerate(zip(labels, formats, params, errors, units)):
         if row >= shown:
             break
@@ -123,16 +128,11 @@ def _parameter_box(ax, args, rows, params, chi2, n_points):
             value, error = value * 100, error * 100
         suffix = f" {unit}" if unit else ""
         if args.fit_errors:
-            text = f"{label} = {_format_value_with_paren_error(fmt, value, error)}{suffix}"
+            lines.append((f"{label} = {_format_value_with_paren_error(fmt, value, error)}{suffix}", False))
         else:
-            text = r"{0} = {1:{2}}{3}".format(label, value, fmt, suffix)
-        ax.text(x0, y0 - 0.08 - 0.06 * row, text, fontdict=font, transform=ax.transAxes)
-
-    next_row = shown
+            lines.append((r"{0} = {1:{2}}{3}".format(label, value, fmt, suffix), False))
     if shown < len(params):
-        ax.text(x0, y0 - 0.08 - 0.06 * next_row, f"+ {len(params) - shown} more",
-                fontdict={**font, "style": "italic"}, transform=ax.transAxes)
-        next_row += 1
+        lines.append((f"+ {len(params) - shown} more", True))
 
     if args.chi2 and chi2 is None:
         rprint("[yellow]Warning:[/yellow] Skipping chi2/ndof: the Pearson chi2 assumes raw counts; "
@@ -140,8 +140,25 @@ def _parameter_box(ax, args, rows, params, chi2, n_points):
     elif args.chi2:
         ndof = max(n_points - len(params), 0)
         reduced = chi2 / ndof if ndof > 0 else float("nan")
-        ax.text(x0, y0 - 0.08 - 0.06 * next_row, r"$\chi^2$/ndof = {0:0.2f}".format(reduced),
-                fontdict=font, transform=ax.transAxes)
+        lines.append((r"$\chi^2$/ndof = {0:0.2f}".format(reduced), False))
+    return lines
+
+
+def _parameter_box(ax, args, lines):
+    """The parameters as a text box at --fitlegendposition (axes coordinates)."""
+    x0, y0 = args.fitlegendposition
+    font = {"size": style.legendfontsize}
+    ax.text(x0, y0, "Fit Parameters:", fontdict={**font, "weight": "bold"}, transform=ax.transAxes)
+    for row, (text, italic) in enumerate(lines):
+        ax.text(x0, y0 - 0.08 - 0.06 * row, text, fontdict={**font, "style": "italic"} if italic else font,
+                transform=ax.transAxes)
+
+
+def _parameter_legend_kwargs(lines):
+    """Legend arguments showing the parameter lines without handles."""
+    handles = [mlines.Line2D([], [], linestyle="none") for _ in lines]
+    return dict(handles=handles, labels=[text for text, _ in lines], title="Fit parameters", handlelength=0,
+                handletextpad=0)
 
 
 def _draw_fit_rows(ax_top, ax_bottom, rows, args, kind):
@@ -158,24 +175,56 @@ def _draw_fit_rows(ax_top, ax_bottom, rows, args, kind):
 
     plot_type, style_kwargs = _data_style(args)
     error = rows[f"{args.y}Error"].values[0] if args.errory else None
-    plot_data(args, ax_top, x, y=y, errory=error, label=label_value, plot_type=plot_type, **style_kwargs)
+    is_data = bool(args.data_hue) and str(label_value) in {str(v) for v in args.data_hue}
+    if is_data:
+        # As with --data_hue in plain line plots: ink points with their error bars, above the fit.
+        stored = rows[f"{args.y}Error"].values[0] if f"{args.y}Error" in rows.columns else None
+        xerr = None
+        if args.errory_x and len(x) > 1:
+            xerr = np.diff(edges_from_centers(x)) / 2
+        plot_data(args, ax_top, x, y=y, plot_type="errorbar", yerr=stored, xerr=xerr, fmt="o", zorder=3,
+                  label=label_value, color=style.role("ink"))
+    else:
+        plot_data(args, ax_top, x, y=y, errory=error, label=label_value, plot_type=plot_type, **style_kwargs)
     if not kind["draw_fit"]:
-        return None, function_label, formula
+        return None, function_label, formula, None
 
     lo, hi = args.fit_rangex if args.fit_rangex is not None else (np.min(x), np.max(x))
     fit_x = np.linspace(lo, hi, 1000)
-    plot_data(args, ax_top, fit_x, y=function(fit_x, *params), label="Fit", color=args.fit_color or style.role("ink"), plot_type="plot", linestyle="-")
+    palette = current_colors()
+    fit_color = args.fit_color or (palette[0] if is_data else style.role("ink"))
+    plot_data(args, ax_top, fit_x, y=function(fit_x, *params), label="Fit", color=fit_color, plot_type="plot", linestyle="-")
+    components = rows["FitComponents"].iloc[0] if "FitComponents" in rows.columns else None
+    if not isinstance(components, dict):
+        components = {}  # NaN in rows without components
+    for cdx, (name, (model, indices)) in enumerate(components.items()):
+        component = get_function(model)
+        if component is None:
+            rprint(f"[yellow]Warning:[/yellow] Unknown model {model!r} of fit component {name!r}; skipping it.")
+            continue
+        color = palette[(cdx + 1) % len(palette)] if is_data else palette[cdx % len(palette)]
+        plot_data(args, ax_top, fit_x, y=component(fit_x, *[params[i] for i in indices]), label=name,
+                  color=color, plot_type="plot", linestyle="--")
 
     diff = y - fit
     mask = np.isfinite(fit) & (fit != 0) & np.isfinite(diff)
     if args.fit_rangex is not None:
         mask &= (x >= lo) & (x <= hi)
     residuals = np.full_like(diff, np.nan)
-    residuals[mask] = diff[mask] / fit[mask]
     residual_error = None
-    if args.errory and error is not None:
-        residual_error = np.full_like(y, np.nan)
-        residual_error[mask] = error[mask] / fit[mask]
+    error_column = f"{args.y}Error"
+    if _pull(args) and error_column in rows.columns:
+        # Pull: (data - fit) / data error, in units of the error.
+        stored = np.asarray(rows[error_column].values[0], dtype=float)
+        mask &= np.isfinite(stored) & (stored > 0)
+        residuals[mask] = diff[mask] / stored[mask]
+        if args.errory:
+            residual_error = np.where(mask, 1.0, np.nan)
+    else:
+        residuals[mask] = diff[mask] / fit[mask]
+        if args.errory and error is not None:
+            residual_error = np.full_like(y, np.nan)
+            residual_error[mask] = error[mask] / fit[mask]
 
     finite = residuals[mask]
     if finite.size:
@@ -199,8 +248,15 @@ def _draw_fit_rows(ax_top, ax_bottom, rows, args, kind):
         chi2 = (diff[mask] ** 2 / fit[mask]).sum() if fit[mask].size > 0 else 0
     else:
         chi2 = None
-    _parameter_box(ax_top, args, rows, params, chi2, int(mask.sum()))
-    return limit, function_label, formula
+    lines = _parameter_lines(args, rows, params, chi2, int(mask.sum()))
+    if args.fitlegendposition is not None:
+        _parameter_box(ax_top, args, lines)
+    return limit, function_label, formula, lines
+
+
+def _pull(args):
+    """--lower pull: the lower panel shows (data - fit) / error."""
+    return "pull" in (args.lower or [])
 
 
 def _residual_reference(ax, args):
@@ -259,7 +315,7 @@ def run_fit(df, args):
             mask &= df["Name"] == name
         group = df[mask]
         hues = group[args.iterable].unique() if args.iterable is not None else [None]
-        limit, function_label, formula, subset = 1, None, None, group
+        limit, function_label, formula, subset, parameter_lines = 1, None, None, group, None
         for jdx, hue in enumerate(hues):
             if args.reduce and args.iterable is not None and len(hues) > 8 and jdx % 2 == 1:
                 continue
@@ -270,6 +326,8 @@ def run_fit(df, args):
             subset = rows
             result = _draw_fit_rows(ax_top, ax_bottom, rows, args, {"draw_fit": jdx == args.fitindex})
             function_label, formula = result[1], result[2]
+            if result[3] is not None:
+                parameter_lines = result[3]
             if result[0] is not None:
                 limit = result[0]
 
@@ -291,18 +349,29 @@ def run_fit(df, args):
             ax_top.set_xscale("log")
         if args.fit_type_subtitle:
             ax_top.set_title(f"{function_label} Fit", fontsize=style.subtitlefontsize)
-        ax_top.text(args.fitlegendposition[0], args.fitlegendposition[1], "Fit Parameters:",
-                    fontdict={"size": style.legendfontsize, "weight": "bold"}, transform=ax_top.transAxes)
 
         handles, labels = ax_top.get_legend_handles_labels()
         fits = [i for i, label in enumerate(labels) if str(label).strip() == "Fit"]
-        if fits:
+        if args.data_hue:
+            # Data, the fit, then its components.
+            data = {str(v) for v in args.data_hue}
+            order = sorted(range(len(labels)), key=lambda i: (str(labels[i]) not in data, i not in fits))
+            handles, labels = [handles[i] for i in order], [labels[i] for i in order]
+        elif fits:
             handles.append(handles.pop(fits[0]))
             labels.append(labels.pop(fits[0]))
         legend = None
-        if not args.no_legend:
+        parameters = parameter_lines if args.fitlegendposition is None else None
+        if not args.no_legend and parameters:
+            # The parameters as a second legend, both placed clear of the data and of each other.
+            legend, _ = apply_legend_pair_clear_of_data(
+                ax_top, dict(title=args.labelz, handles=handles, labels=labels, capitalize_labels=args.capitalize_legend),
+                _parameter_legend_kwargs(parameters))
+        elif not args.no_legend:
             legend = apply_legend_style(ax_top, title=args.labelz, handles=handles, labels=labels,
                                         capitalize_labels=args.capitalize_legend)
+        elif parameters:
+            apply_legend_style_clear_of_data(ax_top, **_parameter_legend_kwargs(parameters))
         if args.show_formula and legend is not None:
             _show_formula(fig, ax_top, legend, formula)
 
@@ -315,7 +384,8 @@ def run_fit(df, args):
             if args.logx:
                 ax_bottom.set_xscale("log")
             ax_bottom.set_ylim(-limit, limit)
-            ax_bottom.set_ylabel(args.lower_labely if args.lower_labely is not None else "(Data - Fit)/Fit",
+            ax_bottom.set_ylabel(args.lower_labely if args.lower_labely is not None
+                                 else "Pull" if _pull(args) else "(Data - Fit)/Fit",
                                  fontsize=style.ysublabelfontsize)
         else:
             ax_top.set_xlabel(xlabel, fontsize=style.xlabelfontsize)

@@ -315,20 +315,23 @@ def combine(series, grid, how="sum"):
     return total, None if variance is None else np.sqrt(variance)
 
 
-def reduction_bins(x, n_edges=51, reduce=False):
+def reduction_bins(x, n_edges=51, reduce=False, span=None):
     """(edges, centres) for binning raw values: unit bins centred on the
     integers for integer x (every other bin when ``reduce`` and there are
-    more than 8), else ``n_edges`` equally spaced edges over the range."""
+    more than 8), else ``n_edges`` equally spaced edges over the range
+    (``span`` = (min, max) when given, e.g. shared by every series)."""
     x = np.asarray(x)
+    lo, hi = (x.min(), x.max()) if span is None else span
     if np.issubdtype(x.dtype, np.integer):
-        edges = np.arange(x.min(), x.max() + 1.5) - 0.5
-        centres = np.arange(x.min(), x.max() + 1)
+        lo, hi = int(np.floor(lo)), int(np.ceil(hi))
+        edges = np.arange(lo, hi + 1.5) - 0.5
+        centres = np.arange(lo, hi + 1)
         if reduce and len(edges) > 8:
             edges, centres = edges[::2], centres[::2]
         if edges[-1] < centres[-1]:
             centres = centres[:-1]
         return edges, centres
-    edges = np.linspace(x.min(), x.max(), n_edges)
+    edges = np.linspace(lo, hi, n_edges)
     return edges, (edges[:-1] + edges[1:]) / 2
 
 

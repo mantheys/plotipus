@@ -40,6 +40,22 @@ def test_lower_ratio_and_column(make_project, spectra):
     assert "ratio" in outputs[0]
 
 
+
+def test_lower_ratio_with_empty_reference_bin(make_project, spectra):
+    """A ratio to an empty bin is undefined there, not for the whole series."""
+    from matplotlib.patches import StepPatch
+
+    counts = spectra["Counts"].iloc[0].copy()
+    counts[3] = 0.0
+    spectra.at[0, "Counts"] = counts
+    figures = _capture()
+    run(make_project, spectra, "--hue", "Sample", "--select", "Stage", "-s", "Raw", "--plot_type", "step",
+        "--lower", "ratio")
+    lower = figures[-1].axes[1]
+    steps = [patch for patch in lower.patches if isinstance(patch, StepPatch)]
+    assert steps and all(np.isnan(patch.get_data().values[3]) for patch in steps)
+    assert all(np.isfinite(np.delete(patch.get_data().values, 3)).all() for patch in steps)
+
 def test_group_significance(make_project, spectra):
     out, outputs = run(make_project, spectra, "--hue", "Sample", "--select", "Stage", "-s", "Raw", "--lower", "group",
                        "--reference_group", "A", "--other_group", "B", "C", "--group_significance", "--stacked")
@@ -270,3 +286,88 @@ def test_errorbars_on_points(make_project, spectra, argv, linestyle):
     assert len(containers) == 3 and not _bands(figures[0].axes[0])
     assert {c.lines[0].get_linestyle() for c in containers} == {linestyle}
     assert all(c.has_yerr for c in containers)
+
+
+# --- Data against simulation (--data_hue) ---------------------------------------------
+
+
+def _data_and_simulation():
+    x = np.arange(0.5, 10, 1.0)
+    background, signal = 100 * np.exp(-x / 4), 20 * np.exp(-0.5 * (x - 5) ** 2)
+    data = np.round(background + signal)
+    return pd.DataFrame([
+        {"Energy": x, "Counts": data, "CountsError": np.sqrt(data), "Sample": "Data"},
+        {"Energy": x, "Counts": background, "CountsError": 0.1 * np.sqrt(background), "Sample": "Background"},
+        {"Energy": x, "Counts": signal, "CountsError": 0.1 * np.sqrt(signal), "Sample": "Signal"},
+    ])
+
+
+def test_data_hue_points_over_steps(make_project):
+    from plotipus import style
+
+    figures = _capture()
+    run(make_project, _data_and_simulation(), "--hue", "Sample", "--data_hue", "Data", "--errory")
+    ax = figures[-1].axes[0]
+    (container,) = [c for c in ax.containers if isinstance(c, ErrorbarContainer)]
+    assert to_hex(container.lines[0].get_color()) == to_hex(style.role("ink"))
+    assert container.has_yerr
+    labels = [text.get_text() for text in ax.get_legend().get_texts()]
+    assert labels[0] == "Data"
+    # The simulation keeps the palette's first colours: the data takes none of them.
+    from plotipus.palettes import current_colors
+
+    steps = [p for p in ax.patches if p.get_label() in ("Background", "Signal")]
+    assert {to_hex(p.get_edgecolor()) for p in steps} == {to_hex(c) for c in current_colors()[:2]}
+
+
+def test_data_hue_stacked_ratio(make_project):
+    from matplotlib.patches import StepPatch
+
+    frame = _data_and_simulation()
+    figures = _capture()
+    run(make_project, frame, "--hue", "Sample", "--data_hue", "Data", "--stacked", "--errory", "--lower", "ratio")
+    upper, lower = figures[-1].axes[:2]
+    filled = [p for p in upper.patches if isinstance(p, StepPatch) and p.get_fill()]
+    assert len(filled) == 2  # background, then signal stacked on it
+    assert np.allclose(filled[1].get_data().baseline, frame["Counts"].iloc[1])
+    total = frame["Counts"].iloc[1] + frame["Counts"].iloc[2]
+    (container,) = [c for c in lower.containers if isinstance(c, ErrorbarContainer)]
+    assert np.allclose(container.lines[0].get_ydata(), frame["Counts"].iloc[0] / total)
+
+
+def test_data_hue_by_config(make_project):
+    """With --by_config, --data_hue names a config: drawn as ink points, first in the legend, not combined."""
+    from plotipus import style
+
+    x = np.arange(0.5, 10, 1.0)
+    counts = {"data": np.round(50 * np.exp(-x / 3)), "mc": 50 * np.exp(-x / 3)}
+    frames = {f"{c}_n_Spec": pd.DataFrame([{"Values": x, "Counts": y, "CountsError": np.sqrt(y + 1), "Config": c,
+                                             "Name": "n"}]) for c, y in counts.items()}
+    make_project(frames)
+    figures = _capture()
+    line.main(["--datafile", "Spec", "--configs", "data", "mc", "--names", "n", "-x", "Values", "-y", "Counts",
+               "--by_config", "--data_hue", "data", "--combine_op", "sum"])
+    ax = figures[-1].axes[0]
+    (container,) = [c for c in ax.containers if isinstance(c, ErrorbarContainer)]
+    assert to_hex(container.lines[0].get_color()) == to_hex(style.role("ink")) and container.has_yerr
+    labels = [t.get_text() for t in ax.get_legend().get_texts()]
+    assert labels[0].lower().startswith("data")
+    # The combined series sums the simulation only: its peak is the simulation's, not data + simulation.
+    peaks = {p.get_label(): p.get_path().vertices[:, 1].max() for p in ax.patches}
+    assert np.isclose(peaks["Combined"], counts["mc"].max())
+
+
+def test_stack_error_style(make_project, tmp_path):
+    """plot_settings.stack_error sets the label, hatch and colour of the stacked simulation's error band."""
+    from matplotlib.patches import StepPatch
+
+    (tmp_path / "style.json").write_text(
+        '{"plot_settings": {"stack_error": {"label": "MC stat.", "hatch": "xx", "color": "#ff0000"}}}')
+    make_project({"Spectra": _data_and_simulation()}, 'style = ["style.json"]\n')
+    figures = _capture()
+    line.main(["--datafile", "Spectra", "-x", "Energy", "-y", "Counts", "--hue", "Sample", "--data_hue", "Data",
+               "--stacked", "--errory"])
+    ax = figures[-1].axes[0]
+    (band,) = [p for p in ax.patches if isinstance(p, StepPatch) and not p.get_fill()]
+    assert band.get_label() == "MC stat." and band.get_hatch() == "xx"
+    assert to_hex(band.get_edgecolor()) == "#ff0000"

@@ -29,6 +29,23 @@ def test_binned_estimator(make_project):
     assert (out / outputs[0]).exists()
 
 
+
+def test_binned_hues_share_bins(make_project):
+    """Hues with different x ranges are binned over the same edges."""
+    from plotipus import registry
+
+    figures = []
+    registry.add_figure_hook(lambda fig, args: figures.append(fig))
+    rng = np.random.default_rng(3)
+    frame = pd.DataFrame([{"X": rng.uniform(0, top, 400), "Y": rng.normal(0, 1, 400), "Sample": sample}
+                          for sample, top in (("short", 6.0), ("long", 10.0))])
+    make_project({"Events": frame})
+    line.main(["--datafile", "Events", "-x", "X", "-y", "Y", "--hue", "Sample", "--binned", "--bins", "11",
+               "--plot_type", "line"])
+    short, long = (np.asarray(l.get_xdata()) for l in figures[-1].axes[0].lines[:2])
+    assert long.size == 10 and short.size < long.size
+    assert np.isin(short.round(9), long.round(9)).all()
+
 def test_binned_box(make_project):
     out = make_project({"Events": _events()})
     outputs = line.main(["--datafile", "Events", "-x", "Hits", "-y", "Energy", "--binned", "--plot_type", "box"])

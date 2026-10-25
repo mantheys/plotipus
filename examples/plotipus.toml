@@ -6,3 +6,6 @@ plots = "input/plots"
 tables = "input/tables"
 output = "output"
 style = ["style.json"]
+
+[outputs.plots]
+docs = ["output/docs"]       # `make docs` copies them to ../docs/images/options

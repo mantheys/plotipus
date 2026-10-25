@@ -13,6 +13,17 @@ def _normalize_selection_columns(select):
     return list(select)
 
 
+def selection_pairs(select, values):
+    """(key, value) pairs of --select keys and their values, matched by
+    position; values beyond the last key belong to it, so
+    ``--select Sample -s A B`` keeps both A and B."""
+    keys = _normalize_selection_columns(select)
+    if not keys or not values:
+        return []
+    keys = keys + [keys[-1]] * (len(values) - len(keys))
+    return list(zip(keys, values))
+
+
 def prepare_selection(df, args):
     """
     Prepare the selection process for filtering the DataFrame based on unique values in specified columns.
@@ -125,9 +136,7 @@ def filter_dataframe(df, args):
     # Filter the DataFrame based on the unique value combinations for the selected columns
     if select is not None and save_values is not None:
         selection_values = {}
-        for save_key, save_value in zip(
-            _normalize_selection_columns(select), save_values
-        ):
+        for save_key, save_value in selection_pairs(select, save_values):
             selection_values.setdefault(save_key, []).append(save_value)
 
         for save_key, save_values in selection_values.items():
@@ -182,10 +191,7 @@ def filter_dataframe(df, args):
     # Filter out the unique value combinations for the selected columns
     remove_value = getattr(args, "remove_value", None)
     if select is not None and remove_value is not None:
-        _remove_keys = list(_normalize_selection_columns(select))
-        if len(_remove_keys) < len(remove_value):
-            _remove_keys += [_remove_keys[-1]] * (len(remove_value) - len(_remove_keys))
-        for remove_key, value_to_remove in zip(_remove_keys, remove_value):
+        for remove_key, value_to_remove in selection_pairs(select, remove_value):
             if remove_key not in this_df.columns:
                 rprint(
                     f"Remove key {remove_key} not found in dataframe columns. Skipping..."

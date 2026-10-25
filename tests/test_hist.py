@@ -125,3 +125,16 @@ def test_hist_flow_show_density_normalises_drawn_counts():
                                          density=True, flow="show")
     assert (under, over) == (1.0, 1.0)
     assert np.isclose(np.sum(counts * 1.0), 1.0) and np.allclose(counts, [0.5, 0.5])
+
+
+def test_variable_column_panels_hues_of_the_selection(make_project, capsys):
+    """Panels from --variable_column; hue values missing from every panel are not looked for."""
+    rng = np.random.default_rng(2)
+    frame = pd.DataFrame([{"Shape": shape, "Sample": sample, "E": rng.normal(size=200)}
+                          for shape, sample in (("A", "data"), ("A", "mc"), ("B", "data"), ("B", "mc"), ("C", "extra"))])
+    make_project({"Shapes": frame})
+    figures = _capture()
+    hist.main(["--datafile", "Shapes", "-x", "E", "--hue", "Sample", "--variable_column", "Shape",
+               "--variables", "A", "B"])
+    assert len([ax for ax in figures[-1].axes if ax.has_data()]) == 2
+    assert "extra" not in capsys.readouterr().out

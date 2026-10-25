@@ -161,9 +161,10 @@ COMMON_ARG_SPECS = {
             "nargs": "+",
             "action": "extend",
             "default": None,
-            "help": "Values used alongside --select filtering. Repeat the flag to "
-                "add more values, matched positionally to --select. Repeating a "
-                "select key keeps any of its supplied values.",
+            "help": "Values used alongside --select filtering, matched positionally "
+                "to --select; values beyond the last key belong to it (--select "
+                "Sample -s A B keeps A and B). Repeating a select key also keeps any "
+                "of its supplied values.",
         },
     },
     "remove_value": {
@@ -742,6 +743,14 @@ def add_common_args(parser, arg_names, overrides=None):
 
         kwargs.update(override)
         parser.add_argument(*flags, **kwargs)
+
+    if "variables" in arg_names and "--variable_column" not in parser._option_string_actions:
+        parser.add_argument(
+            "--variable_column",
+            type=str,
+            default=None,
+            help="Column whose values define the panels instead of 'Variable' (pick them with --variables).",
+        )
 
     if "--capitalize_legend" not in parser._option_string_actions:
         parser.add_argument(

@@ -162,7 +162,8 @@ def draw_figure(df, args, kdx, config, name):
     ranges = {}  # panel -> histogram range (panels may have very different scales)
 
     if args.iterable is not None:
-        values = list(df[args.iterable].unique())
+        # Only the hue values left by --variables/--select, so no panel warns about the others.
+        values = list(filter_dataframe(df, args)[args.iterable].unique())
         if args.iterable_order:
             values = [v for v in args.iterable_order if v in values] + [v for v in values if v not in args.iterable_order]
     else:

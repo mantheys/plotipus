@@ -1,0 +1,276 @@
+# Options
+
+Options shared by the plot kinds, and the features behind the bigger ones. `plotipus <kind> --help` lists every option of a kind.
+
+## Example data
+
+Every figure on this page is drawn from one pickle,
+`examples/input/data/Distributions.pkl`, written by `examples/make_data.py`.
+It holds nine distributions common in physics (Gaussian, Poisson, Binomial,
+Exponential, Uniform, Breit-Wigner, Landau, Log-normal, Chi-squared), one row
+per distribution and sample (`Data`: 2000 events, `Simulation`: 20000 events
+weighted down to the same total), in two forms:
+
+* **samples**: per-event arrays `Value`, `Smeared` (Value with a detector-like
+  resolution), `Residual` (Smeared - Value) and `Weight`, for `hist`, `map`
+  and `line --binned`;
+* **prebinned**: `Bin` (bin centres), `Counts`, `CountsError`, the true
+  expectation `Expected` and `Pull` = (Counts - Expected) / CountsError, for
+  `line` and `cat`.
+
+The Gaussian rows also store a Gaussian fit (`FitFunctionLabel`, `Params`,
+`ParamsError`, `ParamsLabel`) and a χ² scan of its mean and width
+(`MeanScan`, `SigmaScan`, `Chi2Scan`). The `Resonance` rows hold a peak over
+a falling background as `Data`, `Background` and `Signal` (see
+[Data and simulation](#data-and-simulation)); their `Data` row also stores a
+signal + background fit with its two components (see [Fits](#fits)). The commands are listed in
+`examples/input/plots/docs_scripts.txt`; `make -C examples docs` renders them
+again into `docs/images/options`.
+
+## Shared options
+
+* **Data**: `--datafile` (files `{config}_{name}_{datafile}.pkl` when
+  `--configs`/`--names` are given, else `{datafile}.pkl`), `--path` (relative
+  to the data root), `--select COL -s VALUE` / `--remove_value`,
+  `--variables` (values of the `Variable` column, one panel each).
+  `--variable_column COL` takes the panels from another column.
+  Values beyond the last key belong to it, so
+  `--select Distribution -s Gaussian Poisson` keeps both distributions.
+* **Encodings**: `--hue` (alias `--iterable`), `--style` (alias
+  `--comparable`), `--iterable_mapping`/`--iterable_color_mapping` and
+  `--comparable_mapping` (named mappings from the style file),
+  `--invert_style`, `--comparable_fill_strength`. `--hue X --style X` draws
+  one legend whose entries carry both the colour and the line style.
+* **Colours**: `--palette NAME` picks the categorical palette (default
+  `petroff10`; also `petroff6`, `petroff8`, `okabe-ito`, `tol-bright`,
+  `tol-muted`, `tab10` (matplotlib's default, the colours before this
+  change), `seaborn-colorblind`, `tableau-colorblind10`, `root`). A value
+  keeps its colour in every panel and lower panel, a mapped colour is never
+  given to another value, and the combined/sum series (`--combined_color`,
+  `--sum_color`, `--reference_sum_color`, default: a free colour) never
+  share one. With more values than colours, colours repeat and a warning
+  is printed.
+* **Errors**: `--errory` draws the `{y}Error` (or `{y}Error+/-`) column as
+  a band for `--plot_type line|step` and as bars on points;
+  `--errory_type bars|bands` picks either for any plot type. The band takes
+  the series colour at `plot_settings.band_alpha` (default 0.2). Points
+  with error bars are not joined unless `--connect` is given.
+* **Axes and overlays**: `--labelx/--labely/--labelz`, `--rangex/--rangey`,
+  `--logx/--logy`, `--horizontal`, `--vertical`, `--point`, `--square`,
+  `--line`, `--xtick`, `--note`, `--title`.
+* **Output**: `-o DIR [DIR ...]`, `--subfolder`, `--output_suffix`,
+  `--filename_select` (keys that must stay in the generated file name).
+
+![Data and simulation of three distributions, one panel each](images/options/facets.png)
+
+```bash
+plotipus line --datafile Distributions -x Bin -y Counts --hue Sample --variable_column Distribution --variables Gaussian Poisson Exponential --plot_type step --labelx x --title 'Prebinned counts, one panel per distribution'
+```
+
+![Three distributions coloured by --hue, data solid and simulation dashed by --style](images/options/encodings.png)
+
+```bash
+plotipus line --datafile Distributions -x Bin -y Counts --hue Distribution --style Sample --select Distribution -s Exponential Landau Chi-squared --plot_type step --labelx x --title 'Colour by --hue, line style by --style'
+```
+
+![Gaussian counts with error bars](images/options/errors.png)
+
+```bash
+plotipus line --datafile Distributions -x Bin -y Counts --hue Sample --select Distribution -s Gaussian --plot_type errorbar --errory --labelx x --title 'Error bars from the CountsError column'
+```
+
+![Exponential counts with error bands on a log scale](images/options/bands.png)
+
+```bash
+plotipus line --datafile Distributions -x Bin -y Counts --hue Sample --select Distribution -s Exponential --plot_type step --errory --errory_type bands --logy --labelx x --title 'Error bands on a log scale'
+```
+
+![Breit-Wigner peak with vertical lines at the half-maximum points, a horizontal line at half maximum and a note](images/options/overlays.png)
+
+```bash
+plotipus line --datafile Distributions -x Bin -y Counts --hue Sample --select Distribution -s Breit-Wigner --plot_type step --vertical 89.94 92.44 --horizontal 128 --note 'FWHM = 2.50 GeV' --labelx 'Mass (GeV)' --title 'Reference lines and a note'
+```
+
+## Histograms
+
+`hist` bins per-event arrays, every hue over the same edges. `--weight COL`
+weights the entries (here the simulation down to the data total), `--density`
+normalises each histogram to unit area, and `--flow` handles the entries
+outside the range: `none` drops them, `hint` marks them beyond the outer
+edge, `show` adds them to the first/last bin. Their number is printed in
+every mode.
+
+![Breit-Wigner samples with the long tails collected in the first and last bins](images/options/flow.png)
+
+```bash
+plotipus hist --datafile Distributions -x Value --hue Sample --weight Weight --select Distribution -s Breit-Wigner --bins 40 --rangex 81 101 --flow show --labelx 'Mass (GeV)' --title 'Histogram of samples with under/overflow'
+```
+
+## Lower panels
+
+A lower panel is the same kind of panel as the upper one; it plots a column
+derived from (or stored in) the same DataFrame. Each `--lower` adds one:
+
+```bash
+--lower ratio                 # every series / the reference series (--reference, --reference_value)
+--lower relative_difference   # also subtract, asymmetry, excess, excess_probability, sum, mean, rms
+--lower group --reference_group S --other_group B1 B2 --group_significance   # S/sqrt(B)
+--lower residual              # (data - fit) / fit of the stored fit (with --fit); --lower pull: / error
+--lower column:Significance   # a series stored in the pickle (with SignificanceError)
+--lower events:OpHit          # event markers read from OpHit* columns
+```
+
+![Landau data and simulation with their ratio in a lower panel](images/options/ratio.png)
+
+```bash
+plotipus line --datafile Distributions -x Bin -y Counts --hue Sample --select Distribution -s Landau --plot_type step --lower ratio --reference_value Simulation --labelx x --lower_labely 'Data / Sim.' --title 'Ratio to a reference series'
+```
+
+![Gaussian data with its stored fit, parameters and pulls](images/options/fit.png)
+
+```bash
+plotipus line --datafile Distributions -x Bin -y Counts --select Distribution Sample -s Gaussian Data --plot_type errorbar --errory --fit --lower pull --fitlegendposition 0.66 0.9 --labelx x --title 'Stored fit with pulls'
+```
+
+![Poisson counts with the stored Pull column in a lower panel](images/options/column.png)
+
+```bash
+plotipus line --datafile Distributions -x Bin -y Counts --select Distribution Sample -s Poisson Data --plot_type step --lower column:Pull --labelx k --lower_labely Pull --title 'Lower panel from a stored column'
+```
+
+The lower panel is styled with the upper-panel options prefixed by `lower_`:
+`--lower_plot_type errorbar`, `--lower_labely`, `--lower_rangey`,
+`--lower_logy`, `--lower_horizontal`, ... `--lower_zero_line` draws a
+dashed y = 0 line in the style's `muted` colour (`--lower_zero_color red`
+for the old red line); `--fit_color` sets the fit line (default `ink`).
+
+## Data and simulation
+
+`--data_hue VALUE [VALUE ...]` draws those hue values as data, the usual
+HEP comparison: points with error bars in the style's `ink` colour, first
+in the legend and above the rest, never stacked and not taking a palette
+colour. The other series are the simulation: steps (filled and stacked
+with `--stacked`), with error bands with `--errory`; stacked, `--errory`
+draws a hatched band of the total's error instead (its label, hatch and
+colour come from the style file's `plot_settings.stack_error`, default
+`{"label": "Sim. unc.", "hatch": "////", "color": "role:muted"}`). With
+`--by_config`, the `--data_hue` values name configs, names or hue values. `--lower ratio`
+(also `subtract`, `relative_difference`) then compares the data with the
+total of the simulation: data points with their own errors over a band of
+the simulation's error, around a dashed line at 1 (0). `--reference_value`
+or `--reference_sum` restore the series-by-series comparison.
+
+The `Resonance` rows of the example data are a Higgs-like search: data and
+two simulated components, a falling background and a narrow signal at
+125 GeV.
+
+![Landau data as points over the simulation as a step histogram, with the data/simulation ratio](images/options/datamc.png)
+
+```bash
+plotipus line --datafile Distributions -x Bin -y Counts --hue Sample --select Distribution -s Landau --data_hue Data --errory --lower ratio --labelx x --lower_labely 'Data / Sim.' --title 'Data against simulation'
+```
+
+![Data points over the stacked background and signal simulation with a hatched uncertainty band, and the data/simulation ratio](images/options/datastack.png)
+
+```bash
+plotipus line --datafile Distributions -x Bin -y Counts --hue Sample --select Distribution -s Resonance --data_hue Data --stacked --errory --lower ratio --labelx 'Mass (GeV)' --labely 'Events / 2 GeV' --lower_labely 'Data / Sim.' --title 'Data against stacked simulation'
+```
+
+## Fits
+
+`line --fit` draws a fit stored in the pickle; plotipus does not fit. A row
+holds the data (`-x`/`-y` arrays) and its model: `FitFunction` (a name from
+`plotipus.fits` or a registered module, or a callable) or `FitFunctionLabel`,
+the fitted `Params` with `ParamsError` and `ParamsLabel`, and optionally
+`ParamsUnit`, `ParamsFormat`, `Chi2` and `FitFunctionFormula`.
+
+* The model is drawn as a smooth line over the data. `FitComponents`
+  (`{"Signal": ["gaussian", [0, 1, 2]], "Background": ["exponential", [3, 4]]}`:
+  each component's model and the indices of its parameters) adds a dashed line
+  per component.
+* The parameters (`--max_fit_params N` of them, `--chi2` for χ²/ndof) form a
+  second legend, placed with the series legend where both cover the least
+  data; `--fitlegendposition X Y` pins a text box there instead.
+* `--lower residual` shows (data - fit) / fit, `--lower pull`
+  (data - fit) / error.
+* With `--data_hue`, the data is drawn as in
+  [Data and simulation](#data-and-simulation) (ink points with error bars)
+  and the fit takes the palette's first colour.
+
+![Data points with a signal + background fit, its two dashed components, the fit parameters and the pulls](images/options/datafit.png)
+
+```bash
+plotipus line --datafile Distributions -x Bin -y Counts --select Distribution Sample -s Resonance Data --fit --data_hue Data --lower pull --chi2 --max_fit_params 3 --labelx 'Mass (GeV)' --labely 'Events / 2 GeV' --title 'Data with a signal + background fit'
+```
+
+## Colorbars
+
+`map` panels showing the same quantity share one colour scale and one
+colorbar right of the row (`--colorbar shared`, the default unless `--norm`
+normalises each panel); `--colorbar each` draws one per panel. Every bar is
+labelled: `--labelz`, else the `--norm` label, else "Counts"/"Density", else
+the `-z` column. Empty bins are blank, and with `--logz` the scale starts at
+the smallest non-empty bin.
+
+![True against measured value for data and simulation, sharing one log colour scale](images/options/colorbar.png)
+
+```bash
+plotipus map --datafile Distributions -x Value -y Smeared --select Distribution -s Exponential --iterable Sample --diagonal --logz --labelx True --labely Measured --title '2D histograms with a shared colorbar'
+```
+
+## Contours
+
+`map --contour -z DCHI2` draws confidence regions of Δχ² maps (or
+significance maps with `--contour_level_mode z_values`):
+
+* `--contour_dof 2` (default) puts the 1/2/3σ levels at Δχ² = 2.30, 6.18,
+  11.83, the joint region of two parameters; `--contour_dof 1` gives
+  Δχ² = 1, 4, 9.
+* `--contour_label cl` (default) labels levels "68.3% CL", "95.4% CL",
+  "99.7% CL"; `sigma` labels them "1σ" (or "1σ (2 dof)").
+* `--fill_contours` fills one hue per map, darkest at the best fit and lighter
+  outwards (`--fill_alpha`, `--fill_outer_alpha`). Outlines are solid, dashed
+  and dotted (`--contour_linestyles`), and a `+` marks the minimum
+  (`--no_best_fit` hides it).
+* `--background none` (default); with `all`/`combined`/`first`, a Δχ²
+  background is blank beyond the outermost level and its colorbar reads Δχ².
+* `--horizontal`, `--vertical`, `--line`, `--square` and `--point` are drawn
+  above the contours, in the text colour (white on a background image that
+  fills the panel); the grid or `--rangex`/`--rangey` keeps the frame.
+
+The style file's `contours` section sets the defaults:
+`{"dof": 2, "fill_mix": [1.0, 0.55, 0.25], "linestyles": ["-", "--", ":"], "label": "cl", "background": "none"}`.
+`--contour_dof 1 --contour_label sigma --background all` restores the
+levels, labels and background used before.
+
+![68.3, 95.4 and 99.7% confidence regions of the Gaussian mean and width, data and simulation](images/options/contours.png)
+
+```bash
+plotipus map --datafile Distributions -x MeanScan -y SigmaScan -z Chi2Scan --select Distribution -s Gaussian --iterable Sample --contour --fill_contours --labelx '$\mu$' --labely '$\sigma$' --title 'Confidence regions of a $\Delta\chi^2$ scan'
+```
+
+## Binned estimators
+
+`line --binned` bins raw per-event x/y arrays and draws `--estimator` of y
+per x bin, as error bars on markers (not joined) unless `--plot_type` says
+otherwise:
+
+* **Errors** (`--estimator_error`): `sem` (default) is the standard error
+  of the statistic: mean σ/√n, median 1.2533·σ/√n, std σ/√(2(n−1)), rms by
+  the delta method, sum √Σy² (√n for counts, √Σw² for weights), none for
+  max/min (σ is the bin's sample standard deviation). With `--errory`, the
+  stored per-event errors are propagated instead (mean √Σe²/n, sum √Σe²,
+  median 1.2533·√Σe²/n, std/rms to first order, max/min the selected
+  event's error). `std` draws the bin's spread σ; `none` the bare values.
+* **Small bins**: bins with fewer than `--min_count` entries (default 5)
+  are dropped, with a note; `--min_count 1` keeps every non-empty bin.
+* **Label**: the y label gets the error's name, e.g. "(mean ± s.e.m.)",
+  unless `--note` is given or `--no_error_label` is passed.
+* **Bins**: every hue of a panel is binned over the same edges, spanning
+  `--rangex` or else the range of all the hues' x values.
+
+![Resolution (standard deviation of measured - true) against the true value, data and simulation](images/options/binned.png)
+
+```bash
+plotipus line --datafile Distributions -x Value -y Residual --binned --estimator std --hue Sample --select Distribution -s Exponential --bins 11 --rangex 0 10 --labelx True --labely 'Measured - True' --title 'Binned estimator: resolution'
+```

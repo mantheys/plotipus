@@ -303,3 +303,33 @@ def test_contour_backgrounds_share_a_colorbar(make_project):
     panels = [ax for ax in figures[0].axes if not hasattr(ax, "_colorbar") and ax.get_visible()]
     assert len(panels) == 2
     assert len(colorbars) == 1 and colorbars[0].ax.get_ylabel() == r"$\Delta\chi^2$"
+
+
+def test_variable_column_panels(make_project):
+    """--variable_column works for map too: one titled panel per value of that column."""
+    from plotipus import registry
+
+    rng = np.random.default_rng(1)
+    frame = pd.DataFrame([{"Shape": shape, "X": x, "Y": x + rng.normal(scale=0.2, size=x.size)}
+                          for shape, x in (("Wide", rng.normal(size=400)), ("Narrow", rng.normal(scale=0.3, size=400)))])
+    figures = []
+    registry.add_figure_hook(lambda fig, args: figures.append(fig))
+    make_project({"Shapes": frame})
+    map_kind.main(["--datafile", "Shapes", "-x", "X", "-y", "Y", "--variable_column", "Shape",
+                   "--variables", "Wide", "Narrow"])
+    titles = [ax.get_title() for ax in figures[-1].axes if ax.get_title()]
+    assert titles == ["Wide", "Narrow"]
+
+
+def test_contour_panels_follow_the_selection(make_project):
+    """Hue values outside the --select rows add no empty contour panels."""
+    from plotipus import registry
+
+    frame = _maps().assign(Kind=["fit", "fit"], Sample=["a", "b"])
+    extra = frame.iloc[:1].assign(Kind="other", Sample="c")
+    figures = []
+    registry.add_figure_hook(lambda fig, args: figures.append(fig))
+    make_project({"Maps": pd.concat([frame, extra], ignore_index=True)})
+    map_kind.main(["--datafile", "Maps", "-x", "XGrid", "-y", "YGrid", "-z", "ZGrid", "--contour",
+                   "--select", "Kind", "-s", "fit", "--iterable", "Sample"])
+    assert len([ax for ax in figures[-1].axes if ax.get_title()]) == 2

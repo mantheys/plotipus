@@ -21,6 +21,7 @@ from rich import print as rprint
 
 from . import registry
 from .project import load_project
+from .selection import selection_pairs
 
 
 # --- Loading -------------------------------------------------------------------
@@ -268,6 +269,13 @@ def import_data(args):
             if result is not None:
                 df = result
 
+    # --variable_column: the panels (--variables) come from another column.
+    variable_column = getattr(args, "variable_column", None)
+    if variable_column is not None and not df.empty:
+        if variable_column not in df.columns:
+            raise SystemExit(f"--variable_column {variable_column!r} is not a column of the data.")
+        df["Variable"] = df[variable_column].astype(str)
+
     if getattr(args, "debug", False):
         rprint("DataFrame columns and types:")
         rprint({col: df[col].dtype for col in df.columns})
@@ -394,13 +402,17 @@ def make_name_from_args(
         # length-based trimming below (so runs that only differ in one
         # select/save_values pair do not overwrite each other).
         if save_values:
+            # One part per key: --select Sample -s A B gives "sample_a_b".
+            grouped = {}
+            for sel, val in selection_pairs(select, save_values):
+                if sel and val:
+                    grouped.setdefault(sel, []).append(str(val))
             if filename_select_values:
-                for sel, val in zip(select, save_values):
-                    if sel and val:
-                        selected = str(sel).casefold() in filename_select_values
-                        add(f"{sel}_{val}", essential=selected, protected=selected)
+                for sel, vals in grouped.items():
+                    selected = str(sel).casefold() in filename_select_values
+                    add(f"{sel}_{'_'.join(vals)}", essential=selected, protected=selected)
             else:
-                select_parts = [f"{sel}_{val}" for sel, val in zip(select, save_values) if sel and val]
+                select_parts = [f"{sel}_{'_'.join(vals)}" for sel, vals in grouped.items()]
                 if select_parts:
                     add("_".join(select_parts))
         else:

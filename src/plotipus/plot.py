@@ -4,6 +4,7 @@ import matplotlib.pyplot as plt
 from matplotlib.patches import Rectangle
 from matplotlib.transforms import Bbox
 from matplotlib import cbook
+from matplotlib.legend import Legend
 from typing import Any
 
 from . import style as _style
@@ -135,16 +136,37 @@ def _apply_plot_style(kwargs, plot_style):
     kwargs["ls"] = plot_style
 
 from matplotlib.colors import LogNorm
-from matplotlib.ticker import FuncFormatter
+from matplotlib.ticker import Formatter
 
 
-def _make_threshold_formatter(threshold=0.1):
-    def _formatter(value, _position):
+class _ThresholdFormatter(Formatter):
+    """Tick labels decided per axis, not per tick: scientific ("5e-3") when
+    every tick is below *threshold* in size, else plain numbers sharing one
+    number of decimals ("-0.10, -0.05, 0, 0.05, 0.10")."""
+
+    def __init__(self, threshold=0.1):
+        self.threshold = threshold
+        self.scale = None
+        self.decimals = None
+
+    def set_locs(self, locs):
+        super().set_locs(locs)
+        values = np.asarray([v for v in locs if np.isfinite(v)], dtype=float)
+        nonzero = np.abs(values[values != 0])
+        self.scale = float(nonzero.max()) if nonzero.size else None
+        self.decimals = None
+        if self.scale is not None and self.threshold <= self.scale < 1e5:
+            # The fewest decimals that still tell every tick apart exactly.
+            tolerance = 1e-9 * self.scale
+            self.decimals = next((d for d in range(7) if np.allclose(np.round(values, d), values, atol=tolerance)), 6)
+
+    def __call__(self, value, pos=None):
         if not np.isfinite(value):
             return ""
         if value == 0:
             return "0"
-        if abs(value) < threshold:
+        scale = self.scale if self.scale is not None else abs(value)
+        if scale < self.threshold:
             scientific = f"{value:.1e}"
             mantissa, exponent = scientific.split("e")
             if mantissa.endswith(".0"):
@@ -152,9 +174,13 @@ def _make_threshold_formatter(threshold=0.1):
             sign = exponent[0]
             digits = exponent[1:].lstrip("0") or "0"
             return f"{mantissa}e{sign}{digits}"
+        if self.decimals is not None:
+            return f"{value:.{self.decimals}f}"
         return f"{value:g}"
 
-    return FuncFormatter(_formatter)
+
+def _make_threshold_formatter(threshold=0.1):
+    return _ThresholdFormatter(threshold=threshold)
 
 
 def apply_scientific_threshold_formatter(ax, threshold=0.1, axis="both"):
@@ -800,6 +826,21 @@ def plot_data(
                 **hist_kwargs,
             )
             return None
+        if (
+            histtype == "step"
+            and x_edges is not None
+            and y is not None
+            and len(x_edges) == len(np.asarray(y)) + 1
+            and not np.isfinite(np.asarray(y, dtype=float)).all()
+        ):
+            # A NaN weight puts a NaN vertex in the hist polygon and the whole
+            # outline disappears (e.g. a ratio to an empty bin); stairs leaves
+            # a gap at the undefined bins instead.
+            values, edges = np.asarray(y, dtype=float), np.asarray(x_edges, dtype=float)
+            ax.stairs(values, edges, label=label, color=color, **hist_kwargs)
+            if fill_alpha is not None:
+                ax.stairs(values, edges, fill=True, color=color, alpha=fill_alpha, hatch=fill_hatch or "", linewidth=0)
+            return None
         ax.hist(
             x,
             bins=x_edges,
@@ -918,9 +959,9 @@ def plot_data(
 
 def add_note_to_axes(ax, note_text, fontsize=None):
     """Add a text annotation to the best position on an axes.
-    
-    Automatically determines the best position (corner with least content) to place
-    the note. Tries positions in order: upper right, upper left, lower left, lower right.
+
+    Tries the corners and the middle of the sides (upper right first) and
+    keeps the one covering the least drawn data, never on a legend.
     
     Args:
         ax: matplotlib axes object
@@ -950,50 +991,35 @@ def add_note_to_axes(ax, note_text, fontsize=None):
     if fontsize is None:
         fontsize = configured_fontsize
     
-    # Candidate positions: (ha, va, xy) tuples
-    # xy coordinates are in axes coordinates (0-1 range)
-    positions = [
-        (0.98, 0.98, "upper right"),  # Upper right
-        (0.02, 0.98, "upper left"),   # Upper left
-        (0.02, 0.02, "lower left"),   # Lower left
-        (0.98, 0.02, "lower right"),  # Lower right
-    ]
-    
-    # Try to find the best position by checking for legend and other content
-    # Default to upper right if all else fails
-    best_position = positions[0]
-    
-    # Check if legend exists and where it is
-    legend = ax.get_legend()
-    if legend is not None:
-        legend_bbox = legend.get_window_extent()
-        legend_bbox_axes = legend_bbox.transformed(ax.transAxes.inverted())
-        legend_y_center = (legend_bbox_axes.y0 + legend_bbox_axes.y1) / 2
-        legend_x_center = (legend_bbox_axes.x0 + legend_bbox_axes.x1) / 2
-        
-        # Avoid legend position by preferring opposite corners
-        if legend_y_center > 0.5:  # Legend in upper half
-            best_position = positions[2]  # Use lower left
-        elif legend_x_center > 0.5:  # Legend in right half
-            best_position = positions[1]  # Use upper left
-        else:  # Legend in lower left
-            best_position = positions[0]  # Use upper right
-    
-    x, y = best_position[0], best_position[1]
-    ha = "right" if x > 0.5 else "left"
-    va = "top" if y > 0.5 else "bottom"
-    
-    # Add text with a semi-transparent background for readability
-    text_obj = ax.text(
-        x, y, text_str,
-        transform=ax.transAxes,
-        fontsize=fontsize,
-        ha=ha,
-        va=va,
-        bbox=dict(bbox_cfg),
-        zorder=100,  # High z-order to ensure it appears on top
-    )
-    
+    # Candidate anchors (x, y) in axes coordinates, in order of preference;
+    # the note goes where it covers the least drawn data, clear of legends.
+    positions = [(0.98, 0.98), (0.02, 0.98), (0.02, 0.02), (0.98, 0.02), (0.98, 0.5), (0.02, 0.5)]
+    fig = ax.figure
+    fig.canvas.draw()
+    renderer = fig.canvas.get_renderer()
+    points = sample_axes_drawn_points(ax)
+    legends = [a.get_window_extent(renderer) for a in ax.get_children() if isinstance(a, Legend)]
+
+    def place(x, y):
+        return ax.text(
+            x, y, text_str,
+            transform=ax.transAxes,
+            fontsize=fontsize,
+            ha="right" if x > 0.5 else "left",
+            va="top" if y > 0.5 else "bottom" if y < 0.5 else "center",
+            bbox=dict(bbox_cfg),
+            zorder=100,  # above the data
+        )
+
+    best = None
+    for x, y in positions:
+        probe = place(x, y)
+        score = _legend_obstruction_score(probe.get_window_extent(renderer), points, legends)
+        probe.remove()
+        if best is None or score < best[0]:
+            best = (score, x, y)
+    text_obj = place(best[1], best[2])
+
     return text_obj
 
 

@@ -179,6 +179,24 @@ def test_make_name_drops_expendable_parts_first():
     assert "v" * 20 in make_name_from_args(args, suffix="line.png")
 
 
+
+def test_select_values_beyond_the_keys():
+    """Values beyond the last --select key belong to it."""
+    df = pd.DataFrame({"A": ["p", "q", "r"], "B": ["x", "y", "y"]})
+    assert list(filter_dataframe(df, ns(select=["A"], save_values=["p", "r"]))["A"]) == ["p", "r"]
+    assert list(filter_dataframe(df, ns(select=["B", "A"], save_values=["y", "q", "r"]))["A"]) == ["q", "r"]
+
+
+def test_filename_groups_select_values(make_project):
+    from plotipus.kinds import line
+
+    x = np.arange(3.0)
+    frame = pd.DataFrame([{"X": x, "Y": x * k, "Sample": s} for k, s in ((1, "a"), (2, "b"), (3, "c"))])
+    make_project({"F": frame})
+    outputs = line.main(["--datafile", "F", "-x", "X", "-y", "Y", "--hue", "Sample", "--select", "Sample",
+                         "-s", "a", "c"])
+    assert "sample_a_c" in outputs[0]
+
 def test_filter_dataframe_select_and_remove():
     df = pd.DataFrame({"A": ["p", "q", "r"], "B": [1, 2, np.nan], "Variable": ["u", "u", "w"]})
     out = filter_dataframe(df, ns(select=["A", "A"], save_values=["p", "r"]))
@@ -248,3 +266,40 @@ def test_legend_without_entries():
     assert legend is not None and legend.get_texts() == []
     assert apply_legend_style(ax, handles=[], labels=[]).get_texts() == []
     plt.close(fig)
+
+
+def test_note_avoids_data_and_legend():
+    """The note goes to the corner covering the least data, never on the legend."""
+    import matplotlib.pyplot as plt
+
+    from plotipus.plot import add_note_to_axes
+
+    fig, ax = plt.subplots()
+    x = np.linspace(0, 1, 200)
+    ax.plot(x, 0.5 + 0.5 * x, label="rising")  # fills the upper right
+    ax.plot(x, np.full_like(x, 0.02), label="floor")  # fills the bottom
+    ax.set_ylim(0, 1)
+    ax.legend(loc="upper left")
+    note = add_note_to_axes(ax, "note")
+    fig.canvas.draw()
+    renderer = fig.canvas.get_renderer()
+    box = note.get_window_extent(renderer)
+    assert not box.overlaps(ax.get_legend().get_window_extent(renderer))
+    x0, y0 = ax.transAxes.inverted().transform((box.x0, box.y0))
+    assert x0 > 0.5 and 0.2 < y0 < 0.6  # middle of the right side: the free area
+    plt.close(fig)
+
+
+def test_tick_labels_decided_per_axis():
+    """One axis never mixes plain and scientific labels, and plain labels share their decimals."""
+    from plotipus.plot import _make_threshold_formatter
+
+    def labels(locs):
+        formatter = _make_threshold_formatter(0.1)
+        formatter.set_locs(locs)
+        return [formatter(v) for v in locs]
+
+    assert labels([-0.1, -0.05, 0, 0.05, 0.1]) == ["-0.10", "-0.05", "0", "0.05", "0.10"]
+    assert labels([0.85, 0.9, 0.95]) == ["0.85", "0.90", "0.95"]
+    assert labels([0, 0.002, 0.004]) == ["0", "2e-3", "4e-3"]
+    assert labels([0, 250, 500]) == ["0", "250", "500"]

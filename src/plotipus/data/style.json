@@ -17,6 +17,7 @@
     "nbins": 50,
     "default_linewidth": 2,
     "band_alpha": 0.2,
+    "stack_error": {"label": "Sim. unc.", "hatch": "////", "color": "role:muted"},
     "figure_layout": {
       "base_width": 8,
       "panel_width": 5,

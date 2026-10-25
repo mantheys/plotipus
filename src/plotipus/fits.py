@@ -62,6 +62,15 @@ def exp_gauss_component_left_tail(x, sig, amp, tau, mu):
     )
 
 
+def exponential(x, a, tau):
+    return a * np.exp(-x / tau)
+
+
+def gaussian_plus_exponential(x, a, mu, sigma, b, tau):
+    """A Gaussian peak over an exponentially falling background."""
+    return gaussian(x, a, mu, sigma) + exponential(x, b, tau)
+
+
 def exponential_decay(x, a, b, c):
     return a * np.exp(-abs(x) / abs(c)) - b
 

@@ -114,7 +114,23 @@ def run_estimator(df, args):
     return [_panel_figure(df, args, kdx, config, name) for kdx, (config, name) in enumerate(zip(configs, names))]
 
 
-def _reduce_cell(x, y, args, error=None):
+def _shared_span(group, args, variable, x_col):
+    """(min, max) that every hue of one panel is binned over: --rangex, else
+    the range of all their raw x arrays, so the hues share bin edges."""
+    rangex = getattr(args, "rangex", None)
+    if rangex is not None and len(rangex) == 2:
+        return float(rangex[0]), float(rangex[1])
+    rows = group if variable is None else group[group["Variable"] == variable]
+    if x_col not in rows.columns:
+        return None
+    arrays = [np.asarray(v, dtype=float).ravel() for v in filter_dataframe(rows, args)[x_col]
+              if not isinstance(v, list) and np.ndim(v) != 0 and np.size(v)]
+    values = np.concatenate(arrays) if arrays else np.empty(0)
+    values = values[np.isfinite(values)]
+    return (float(values.min()), float(values.max())) if values.size else None
+
+
+def _reduce_cell(x, y, args, error=None, span=None):
     """(centres, values, errors) or None; scalar cells are already reduced.
     errors is None when no bin has one; bins under --min_count are dropped."""
     estimator = _estimator(args)
@@ -133,7 +149,7 @@ def _reduce_cell(x, y, args, error=None):
         rprint("[yellow]Warning:[/yellow] No x values found. Skipping.")
         return None
     else:
-        edges, centres = reduction_bins(x, args.bins if args.bins is not None else style.nbins, args.reduce)
+        edges, centres = reduction_bins(x, args.bins if args.bins is not None else style.nbins, args.reduce, span)
         values, errors, counts = bin_estimate(x, y, edges, estimator, cumulative=args.threshold, errors=error,
                                               error_mode=mode)
     min_count = max(getattr(args, "min_count", 1), 1)
@@ -174,6 +190,7 @@ def _panel_figure(df, args, kdx, config, name):
 
     for idx, variable in enumerate(variables):
         ax = axes[idx]
+        span = _shared_span(group, args, variable, args.panels[idx] if args.panels is not None else args.x)
         for hue in hues:
             rows = group
             if variable is not None:
@@ -199,14 +216,15 @@ def _panel_figure(df, args, kdx, config, name):
                         continue
                     data, centres, widths = [y], np.asarray([float(x)]), None
                 else:
-                    edges, centres = reduction_bins(x, args.bins if args.bins is not None else style.nbins, args.reduce)
+                    edges, centres = reduction_bins(x, args.bins if args.bins is not None else style.nbins, args.reduce,
+                                                    span)
                     data = bin_reduce(x, y, edges, None, cumulative=args.threshold)
                     widths = np.diff(edges) * 0.8 if np.issubdtype(np.asarray(x).dtype, np.integer) else None
                 plot_data(args, ax, centres, y=data, label=f"Median {args.y}", plot_type="boxplot",
                           positions=centres, widths=widths, showfliers=False)
                 continue
 
-            reduced = _reduce_cell(x, y, args, error)
+            reduced = _reduce_cell(x, y, args, error, span)
             if reduced is None:
                 continue
             centres, values, errors = reduced

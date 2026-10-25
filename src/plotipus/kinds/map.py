@@ -35,7 +35,7 @@ from rich import print as rprint
 
 from .. import style
 from ..args import add_common_args, map_iterable_color, map_iterable_label, parse_plot_label, resolve_axis_label
-from ..format import make_config_label_from_args, make_subtitle_from_args
+from ..format import _title_case_words, make_config_label_from_args, make_subtitle_from_args
 from ..io import import_data, normalize_datafiles, prepare_import
 from ..palettes import ColorAllocator
 from ..panels import add_colorbar, add_title_and_note, create_panels, draw_overlays, save
@@ -304,11 +304,13 @@ def draw_histogram_figure(rows, args, kdx):
         hue_index = hues.index(hue) if hue in hues else 0
         variable_index = (args.variables or [None]).index(variable) if args.variables else 0
         if len(panels) > 1:
-            title = (
-                args.panel_title[hue_index]
-                if args.panel_title is not None and hue_index < len(args.panel_title)
-                else make_subtitle_from_args(args, hues, plot_type="hist2d", idx=hue_index)
-            )
+            if args.panel_title is not None and hue_index < len(args.panel_title):
+                title = args.panel_title[hue_index]
+            else:
+                # The panel's variable (with several --variables), then its hue value.
+                parts = [_title_case_words(variable)] if variable is not None and len(args.variables or []) > 1 else []
+                parts.append(make_subtitle_from_args(args, hues, plot_type="hist2d", idx=hue_index))
+                title = " - ".join(part for part in parts if part)
             ax.set_title(title, fontsize=style.subtitlefontsize)
         xlabel = resolve_axis_label(args.labelx, args.x, subsets[pdx])
         ax.set_xlabel(r"Time ($\mu$s)" if xlabel == "Time" else xlabel)
@@ -978,7 +980,8 @@ def draw_contour_figure(df, args):
 
     hues = list(filtered[args.iterable].unique()) if args.iterable is not None else [None]
     variables = args.variables if args.variables is not None else [None]
-    ncols = len(variables) if args.variables is not None else len(df[args.iterable].unique()) if args.iterable is not None else 1
+    # One panel per hue value left by the selection (not per value anywhere in the file).
+    ncols = len(variables) if args.variables is not None else len(hues) if args.iterable is not None else 1
     fig, axes, _, _ = create_panels(ncols, grid=False)
     # One colour per config in every panel; config_color entries are reserved first.
     colors = ColorAllocator()
