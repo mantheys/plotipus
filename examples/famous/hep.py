@@ -41,7 +41,7 @@ def higgs_diphoton():
 
     Rows: ``Weighting`` (Unweighted, Weighted) x ``Component`` (Data,
     Sig+Bkg Fit, Bkg (4th order polynomial)). Data rows carry the stored
-    S+B fit; ``DataMinusBackground`` is data minus the fitted background
+    S+B fit (``FitComponents`` names its background); ``DataMinusBackground`` is data minus the fitted background
     (panels b and d), and on the model rows the signal curve and zero.
     """
     rng = rng_for("F01")
@@ -62,7 +62,8 @@ def higgs_diphoton():
     counts = np.zeros((len(weights), len(mass)))
     for k in range(len(weights)):
         expected = (background_share[k] * models.diphoton_background(mass, *background)
-                    + signal_share[k] * (models.diphoton_signal_plus_background(mass, *np.zeros(5), n_signal, m_h, sigma)))
+                    + signal_share[k] * models.diphoton_signal_plus_background(mass, *np.zeros(5), n_signal, m_h,
+                                                                               sigma))
         counts[k] = rng.poisson(expected)
 
     spectra = {
@@ -79,8 +80,10 @@ def higgs_diphoton():
                          "Sig+Bkg", units=["", "", "", "", "", "", "GeV", "GeV"], fixed=(6, 7))
         params = fit["Params"]
         rows.append({"Mass": mass, "Events": events, "EventsError": error, "Component": "Data",
-                     "Weighting": weighting, "DataMinusBackground": events - models.diphoton_background(mass, *params[:5]),
-                     "DataMinusBackgroundError": error, **fit})
+                     "Weighting": weighting,
+                     "DataMinusBackground": events - models.diphoton_background(mass, *params[:5]),
+                     "DataMinusBackgroundError": error, **fit,
+                     "FitComponents": {"Bkg (4th order polynomial)": ["diphoton_background", [0, 1, 2, 3, 4]]}})
         total = models.diphoton_signal_plus_background(curve, *params)
         background_curve = models.diphoton_background(curve, *params[:5])
         rows.append({"Mass": curve, "Events": total, "DataMinusBackground": total - background_curve,
@@ -152,8 +155,8 @@ def higgs_local_p0():
     curve interpolated through the values read off the figure.
 
     Rows: ``Hypothesis`` (Observed, Expected, and Expected +-1 sigma, the
-    same curve carrying the band as ``P0Error+``/``P0Error-`` so that it can
-    be drawn in its own colour). The sigma lines of the figure sit at
+    same curve carrying the band as ``P0Error+``/``P0Error-`` and ``Width``
+    0, so that the band is drawn in its own colour without a line). The sigma lines of the figure sit at
     p = 1 - Phi(n): 0.159, 0.0228, 1.35e-3, 3.17e-5, 2.87e-7 and 9.87e-10
     for n = 1-6.
     """
@@ -169,7 +172,7 @@ def higgs_local_p0():
     rows = [
         {"Mass": mass, "P0": norm.sf(z_observed), "Significance": z_observed, "Hypothesis": "Observed"},
         {"Mass": mass, "P0": p_expected, "Significance": z_expected, "Hypothesis": "Expected"},
-        {"Mass": mass, "P0": p_expected, "Hypothesis": "Expected +-1 sigma",
+        {"Mass": mass, "P0": p_expected, "Hypothesis": "Expected +-1 sigma", "Width": 0.0,
          "P0Error+": norm.sf(z_expected - 1) - p_expected, "P0Error-": p_expected - norm.sf(z_expected + 1)},
     ]
     return {"HiggsLocalP0": pd.DataFrame(rows)}
@@ -194,7 +197,7 @@ def higgs_cls_limit():
 
     Rows: ``Limit`` (Observed, Expected, Expected +-1 sigma, Expected +-2
     sigma). The band rows repeat the median with their band as
-    ``MuLimitError+``/``-``. The Expected row has every band as sizes
+    ``MuLimitError+``/``-`` and ``Width`` 0 (no line). The Expected row has every band as sizes
     (``MuLimit1Sigma+``/``-``, ``MuLimit2Sigma+``/``-``) and edges
     (``MuLimit1SigmaLow``, ``MuLimit1SigmaHigh``, ``MuLimit2SigmaLow``,
     ``MuLimit2SigmaHigh``).
@@ -218,7 +221,7 @@ def higgs_cls_limit():
         low, high = band(-n), band(n)
         expected.update({f"MuLimit{n}Sigma+": high - median, f"MuLimit{n}Sigma-": median - low,
                          f"MuLimit{n}SigmaLow": low, f"MuLimit{n}SigmaHigh": high})
-        rows.append({"Mass": mass, "MuLimit": median, "Limit": f"Expected +-{n} sigma",
+        rows.append({"Mass": mass, "MuLimit": median, "Limit": f"Expected +-{n} sigma", "Width": 0.0,
                      "MuLimitError+": high - median, "MuLimitError-": median - low})
     rows.append(expected)
     return {"HiggsLimit": pd.DataFrame(rows)}
@@ -273,7 +276,7 @@ def kamland():
         # The expectation histogram as its outline: a step polyline over the bin edges.
         {"LOverE": np.repeat(edges, 2)[1:-1], "SurvivalProbability": np.repeat(expectation / no_oscillation, 2),
          "Component": "Expectation (histogram)"},
-        {"LOverE": fine, "SurvivalProbability": curve, "Component": "Expectation (curve)"},
+        {"LOverE": fine, "SurvivalProbability": curve, "Component": "Expectation (curve)", "Width": 4.0},
     ]
     return {"KamLAND": pd.DataFrame(rows)}
 
@@ -315,7 +318,7 @@ def z_lineshape():
     for n_nu in (2, 3, 4):
         width = gamma_z + (n_nu - 3) * gamma_nunu
         rows.append({"Energy": curve, "CrossSection": models.z_lineshape_isr(curve, m_z, width, gamma_ee, gamma_had),
-                     "Model": f"{n_nu}$\\nu$"})
+                     "Model": f"{n_nu}$\\nu$", "Width": 3.0 if n_nu == 3 else 1.2})
     return {"ZLineshape": pd.DataFrame(rows)}
 
 

@@ -95,10 +95,10 @@ def hockey_stick():
     early = year <= 1850
     slope, intercept = np.polyfit(year[early], reconstruction[early], 1)
     rows = [
-        {"Year": year, "Anomaly": reconstruction, "AnomalyError": 2 * sigma, "Series": "Reconstruction"},
-        {"Year": year, "Anomaly": smoothed, "Series": "40-year smoothed"},
-        {"Year": instrumental_year, "Anomaly": instrumental - reference, "Series": "Instrumental"},
-        {"Year": year[early], "Anomaly": slope * year[early] + intercept, "Series": "Linear trend"},
+        {"Year": year, "Anomaly": reconstruction, "AnomalyError": 2 * sigma, "Series": "Reconstruction", "Width": 0.8},
+        {"Year": year, "Anomaly": smoothed, "Series": "40-year smoothed", "Width": 2.5},
+        {"Year": instrumental_year, "Anomaly": instrumental - reference, "Series": "Instrumental", "Width": 0.8},
+        {"Year": year[early], "Anomaly": slope * year[early] + intercept, "Series": "Linear trend", "Width": 1.5},
     ]
     return {"HockeyStick": pd.DataFrame(rows)}
 

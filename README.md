@@ -95,10 +95,45 @@ Kinds follow the data relationship (as in seaborn/plotly), not the use case.
 
 `plotipus <kind> --help` lists every option.
 
+## Famous plots
+
+Famous figures from particle physics, cosmology, astronomy, climate science
+and statistics, redrawn by plotipus from datasets built to match the
+originals (synthetic, except Hubble's and Anscombe's published tables). Each
+one was compared with the published figure. The data generators, the
+commands and what is still missing are in
+[examples/famous](examples/famous/README.md); `make -C examples famous`
+renders them all and refreshes these images.
+
+<table>
+  <tr>
+    <td align="center"><img src="docs/images/famous/higgs-diphoton.png" width="270" alt="Diphoton mass spectrum with the Higgs boson bump, a signal plus background fit and the data minus background"><br><a href="https://arxiv.org/abs/1207.7214">H→γγ, ATLAS 2012, Fig. 4</a></td>
+    <td align="center"><img src="docs/images/famous/four-lepton.png" width="270" alt="Four-lepton mass: data points over stacked Z+X, ZZ and Higgs signal histograms"><br><a href="https://arxiv.org/abs/1207.7235">H→ZZ*→4ℓ, CMS 2012, Fig. 4</a></td>
+    <td align="center"><img src="docs/images/famous/local-p0.png" width="270" alt="Local p-value against the Higgs mass, observed and expected with a ±1σ band and labelled σ lines"><br><a href="https://arxiv.org/abs/1207.7214">Local p₀, ATLAS 2012, Fig. 9</a></td>
+  </tr>
+  <tr>
+    <td align="center"><img src="docs/images/famous/brazil-band.png" width="270" alt="Observed and expected 95% CL limits on the signal strength with green and yellow ±1σ/±2σ bands"><br><a href="https://arxiv.org/abs/1207.7214">Brazil band, ATLAS 2012, Fig. 7(a)</a></td>
+    <td align="center"><img src="docs/images/famous/z-lineshape.png" width="270" alt="Hadronic cross section at the Z peak with curves for two, three and four neutrino species"><br><a href="https://arxiv.org/abs/hep-ex/0509008">Z lineshape, LEP 2006, Fig. 1.13</a></td>
+    <td align="center"><img src="docs/images/famous/kamland.png" width="270" alt="Reactor antineutrino survival probability against L/E with the oscillation expectation"><br><a href="https://arxiv.org/abs/0801.4589">Neutrino oscillation, KamLAND 2008, Fig. 3</a></td>
+  </tr>
+  <tr>
+    <td align="center"><img src="docs/images/famous/omega-contours.png" width="270" alt="Confidence regions in the matter and dark-energy densities with deceleration and geometry lines"><br><a href="https://arxiv.org/abs/astro-ph/9805201">Ω<sub>M</sub>–Ω<sub>Λ</sub>, Riess et al. 1998, Fig. 6</a></td>
+    <td align="center"><img src="docs/images/famous/hubble-1929.png" width="270" alt="Velocity against distance of 24 nebulae with Hubble's two fitted lines"><br><a href="https://doi.org/10.1073/pnas.15.3.168">Hubble 1929, Fig. 1 (real data)</a></td>
+    <td align="center"><img src="docs/images/famous/hr-diagram.png" width="270" alt="Hertzsprung-Russell diagram as a 2D histogram with a log colour scale"><br><a href="https://arxiv.org/abs/1804.09378">HR diagram, Gaia DR2 2018, Fig. 1</a></td>
+  </tr>
+  <tr>
+    <td align="center"><img src="docs/images/famous/keeling.png" width="270" alt="Monthly atmospheric CO2 at Mauna Loa since 1958 with the deseasonalised trend"><br><a href="https://gml.noaa.gov/ccgg/trends/">Keeling curve, NOAA GML</a></td>
+    <td align="center"><img src="docs/images/famous/hockey-stick.png" width="270" alt="Northern Hemisphere temperature reconstruction since AD 1000 with its uncertainty band and the instrumental record"><br><a href="https://doi.org/10.1029/1999GL900070">Hockey stick, Mann et al. 1999, Fig. 3(a)</a></td>
+    <td align="center"><img src="docs/images/famous/anscombe.png" width="270" alt="Anscombe's quartet: four small scatter plots sharing the same regression line"><br><a href="https://doi.org/10.1080/00031305.1973.10478966">Anscombe's quartet, 1973 (real data)</a></td>
+  </tr>
+</table>
+
 ## Further reading
 
 * [Tutorial](docs/tutorial.md): draw the mascot, from its points to the
   finished figure, one command at a time.
+* [Famous plots](examples/famous/README.md): the reproductions above, their
+  data, commands and remaining gaps.
 * [Options](docs/options.md): shared options, lower panels, colorbars,
   contours and binned estimators.
 * [Projects](docs/projects.md): `plotipus.toml`, style files, plugins and
