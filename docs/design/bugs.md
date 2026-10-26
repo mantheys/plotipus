@@ -330,6 +330,13 @@ merge unrelated rows, but it ignores `--hue`. The warning says to pass
 **Fix.** Include the `--hue` column, and any `--style` column, in the
 grouping keys before dropping rows.
 
+**Fixed in T05.** Without `--markerby`, `explode_points` keeps the first row
+per Config/Name and per-row `--hue` value, so every hue group is drawn (with
+T01 allocator colours, one legend entry each). The warning appears only when
+rows that share all of those are still dropped, and names the columns they
+differ in. A per-point (array) `--hue` or `--markerby` column is kept through
+the explode. Restore option: none (dropping the groups was a bug).
+
 ## B13 `--fit --lower pull` draws the relative residual
 
 **Reproduce:** `B13`. The lower panel is labelled `(Data - Fit)/Fit`,

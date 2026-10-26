@@ -35,7 +35,7 @@ command lists.
 | Group | ✅ | ◐ | ✗ |
 |---|---|---|---|
 | A Distributions | 4 | 3 | 5 |
-| B Relationships | 5 | 2 | 2 |
+| B Relationships | 6 | 1 | 2 |
 | C Trends and fits | 4 | 4 | 2 |
 | D Comparisons | 1 | 4 | 4 |
 | E Ratios and significance | 4 | 3 | 1 |
@@ -44,7 +44,7 @@ command lists.
 | H Small multiples and layout | 2 | 2 | 4 |
 | I Annotations | 5 | 2 | 3 |
 | J Tables | 4 | 1 | 2 |
-| **Total (89)** | **35** | **26** | **28** |
+| **Total (89)** | **36** | **25** | **28** |
 
 Nearly half of the ◐ entries are partial only because of a bug in
 [bugs.md](bugs.md), not because an option is missing. Fixing B01–B13 moves
@@ -73,7 +73,7 @@ about 12 of them to ✅.
 
 | id | chart | use | famous | status | command today / what is missing | smallest change |
 |---|---|---|---|---|---|---|
-| B1 | Scatter | raw relation | F08, F22, F25 | ◐ | `scatter --datafile Events -x TrueEnergy -y Hits --colorby RecoEnergy` (example) works. With `--hue` on array cells only the first group is drawn (B12, P16). | Fix B12. |
+| B1 | Scatter | raw relation | F08, F22, F25 | ✅ | `scatter --datafile Events -x TrueEnergy -y Hits --colorby RecoEnergy` (example); `scatter --datafile Ev -x Xv -y Yv --hue Group` draws every group (P16; B12, fixed in T05). | — |
 | B2 | Scatter with error bars | measurements with uncertainties | F08, F09, F20 | ✅ | `line --plot_type errorbar --errory` (with `--errorx` for x errors; P03, P04). Points are not joined unless `--connect` is given (B17, fixed in T07). | — |
 | B3 | Scatter coloured / sized by a third variable | 3–4 variables at once | F22 | ✅ | `scatter ... --colorby RecoEnergy --sizeby Hits` (example). | — |
 | B4 | 2D histogram | dense scatter | F22 | ◐ | `map --datafile Events -x TrueEnergy -y RecoEnergy --iterable Sample --logz` (example). One shared, labelled colorbar (B08, fixed in T09). Panels are tiny in the 3-wide layout (P15). | Panel size (P15). |
