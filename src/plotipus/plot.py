@@ -247,9 +247,16 @@ def apply_measured_layout(fig, iterations=2):
         fig.set_dpi(figure_dpi)
 
 
+def _visible_length(text):
+    """Rough printed length of ``text``: math (``$...$``) counts a third of
+    its source, which is mostly markup."""
+    parts = text.split("$")
+    return sum(len(part) / 3 if i % 2 else len(part) for i, part in enumerate(parts))
+
+
 def _break_label(text):
-    """``text`` on two lines, broken at the space nearest its middle that is
-    not inside ``$...$`` math; None when there is no such space."""
+    """``text`` on two lines, broken at the space (outside ``$...$`` math)
+    that makes the longer line shortest; None when there is no such space."""
     spaces, math = [], False
     for i, char in enumerate(text):
         if char == "$":
@@ -258,7 +265,7 @@ def _break_label(text):
             spaces.append(i)
     if not spaces or "\n" in text:
         return None
-    cut = min(spaces, key=lambda i: abs(i - len(text) / 2))
+    cut = min(spaces, key=lambda i: max(_visible_length(text[:i]), _visible_length(text[i + 1:])))
     return text[:cut] + "\n" + text[cut + 1:]
 
 
