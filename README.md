@@ -187,9 +187,9 @@ with
 make -C examples gallery
 ```
 
-and open `examples/gallery/output/gallery.md`: a grid of the figures with the
-command under each, the tables as LaTeX, and the catalogue rows still waiting
-for a feature. The outputs are not committed. The command lists,
+and open `examples/gallery/output/gallery.md`: every figure for slides and
+for paper side by side with its command below, the tables as LaTeX, and the
+catalogue rows still waiting for a feature. The outputs are not committed. The command lists,
 `examples/gallery/input/{plots,tables}/gallery_scripts.txt`, are also a test
 (`tests/test_gallery.py`, marked `slow`).
 

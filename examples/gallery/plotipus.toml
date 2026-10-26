@@ -3,7 +3,10 @@
 #   python make_data.py && python make_page.py
 # The famous-plot commands need the famous project's plugins and its colour
 # and label mappings (copied by make_data.py); the style is the default.
+# Every figure is drawn for slides (output/plots) and paper (output/plots/paper).
 [project]
+medium = "slides"
+media = ["slides", "paper"]
 data_root = "input/data"
 plots = "input/plots"
 tables = "input/tables"

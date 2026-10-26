@@ -1,6 +1,7 @@
 # The gallery (T23): one example per working row of docs/design/catalogue.md,
 # grouped like the catalogue. Build: make -C examples gallery (data, figures
-# and output/gallery.md), or plotipus run gallery after python make_data.py.
+# for slides and paper, and output/gallery.md), or plotipus run gallery (both
+# media, see plotipus.toml) after python make_data.py.
 #
 # Format, read by make_page.py:
 #   # == <letter> <section>          a section of the catalogue
@@ -178,7 +179,7 @@ line --datafile Distributions -x Bin -y Counts --hue Sample --select Distributio
 line --datafile Distributions -x Bin -y Counts --hue Sample --select Distribution -s Breit-Wigner --data_hue Data --errory --vertical 89.94 92.44 --note 'FWHM = 2.50 GeV' --labelx 'Mass (GeV)' --title 'A Breit-Wigner peak with a note' --output_suffix I3
 
 # I4 Experiment / status label
-line --datafile FourLepton -x Mass -y Events --hue Sample --data_hue Data --iterable_color_mapping zz_colors --iterable_mapping zz_labels --stacked --rangex 70 181 --rangey 0 17.5 --legend_loc 'upper left' --labelx '$m_{4\ell}$ (GeV)' --labely 'Events / 3 GeV' --text 0.0 1.03 'CMS' --text 1.0 1.03 '$\sqrt{s}$ = 7 TeV, L = 5.1 fb$^{-1}$  $\sqrt{s}$ = 8 TeV, L = 5.3 fb$^{-1}$' --text_ha left right --text_size large --title None --output_suffix I4
+line --datafile FourLepton -x Mass -y Events --hue Sample --data_hue Data --iterable_color_mapping zz_colors --iterable_mapping zz_labels --stacked --rangex 70 181 --rangey 0 17.5 --legend_loc 'upper left' --labelx '$m_{4\ell}$ (GeV)' --labely 'Events / 3 GeV' --text 0.0 1.03 'CMS' --text 1.0 1.03 '$\sqrt{s}$ = 7 and 8 TeV, 10.4 fb$^{-1}$' --text_ha left right --text_size large --title None --output_suffix I4
 # needs T17: line --datafile FourLepton -x Mass -y Events --hue Sample --data_hue Data --stacked --experiment cms --label_status Preliminary --label_right '$\sqrt{s}$ = 8 TeV' --output_suffix I4b
 
 # I7 Inverted axis
