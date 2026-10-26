@@ -101,7 +101,17 @@ def apply_common_figure_margins(fig, hspace=None):
     
     if hspace is not None:
         margins_normalized["hspace"] = hspace
-    
+
+    # A figure smaller than its margins (a small --width/--aspect) keeps a
+    # quarter of each dimension for the panels; the measured layout refines it.
+    for low, high in (("left", "right"), ("bottom", "top")):
+        if low in margins_normalized and high in margins_normalized:
+            taken = margins_normalized[low] + 1 - margins_normalized[high]
+            if taken > 0.75:
+                scale = 0.75 / taken
+                margins_normalized[low] *= scale
+                margins_normalized[high] = 1 - (1 - margins_normalized[high]) * scale
+
     if margins_normalized:
         fig.subplots_adjust(**margins_normalized)
 
@@ -181,6 +191,11 @@ def _panel_overhangs(fig, panels, renderer):
     dpi = fig.dpi
     width, height = fig.get_size_inches()
     extra = {}
+    for ax in fig.axes:
+        for legend in _axes_legends(ax):
+            owner = getattr(legend, "_plotipus_owner", None)
+            if owner is not None and legend.get_visible():
+                extra.setdefault(owner, []).append(legend.get_window_extent(renderer))
     for cax in fig.axes:
         parents = getattr(cax, "_plotipus_colorbar_of", None)
         if parents and cax.get_visible():
@@ -232,6 +247,40 @@ def apply_measured_layout(fig, iterations=2):
         fig.set_dpi(figure_dpi)
 
 
+def _break_label(text):
+    """``text`` on two lines, broken at the space nearest its middle that is
+    not inside ``$...$`` math; None when there is no such space."""
+    spaces, math = [], False
+    for i, char in enumerate(text):
+        if char == "$":
+            math = not math
+        elif char == " " and not math:
+            spaces.append(i)
+    if not spaces or "\n" in text:
+        return None
+    cut = min(spaces, key=lambda i: abs(i - len(text) / 2))
+    return text[:cut] + "\n" + text[cut + 1:]
+
+
+def _wrap_long_labels(panels, renderer):
+    """Break an axis label longer than its axes onto two lines (once).
+    Returns whether any label changed."""
+    changed = False
+    for ax, _, _ in panels:
+        for label, length in ((ax.yaxis.label, ax.bbox.height), (ax.xaxis.label, ax.bbox.width)):
+            text = label.get_text()
+            if not text or not label.get_visible():
+                continue
+            box = label.get_window_extent(renderer)
+            extent = box.height if label is ax.yaxis.label else box.width
+            if extent > length:
+                broken = _break_label(text)
+                if broken is not None:
+                    label.set_text(broken)
+                    changed = True
+    return changed
+
+
 def _measured_layout(fig, iterations):
     found = _layout_panels(fig)
     gridspec, panels = found
@@ -249,6 +298,8 @@ def _measured_layout(fig, iterations):
     for _ in range(iterations):
         fig.draw_without_rendering()
         renderer = fig.canvas.get_renderer()
+        if _wrap_long_labels(panels, renderer):
+            fig.draw_without_rendering()
         over = _panel_overhangs(fig, panels, renderer)
         header = sum(a.get_window_extent(renderer).height / fig.dpi + pad for a in _top_artists(fig))
 
@@ -510,12 +561,13 @@ def apply_legend_style(
         # Nothing labelled: an empty legend (matplotlib 3.11 rejects empty handles together with empty labels).
         return ax.legend(handles=[], **style)
 
-    # "best" (the style default) and "outside" are placed when the figure is
-    # saved (place_legends), on the finished axes; "none" hides the legend.
+    # "best" (the style default), "outside"/"above", "below" and "right" are
+    # placed when the figure is saved (place_legends), on the finished axes;
+    # "none" hides the legend.
     loc = style.get("loc", "best")
     mode = None
-    if loc in (None, "best", "auto", "outside", "none") and "bbox_to_anchor" not in style:
-        mode = {"none": "none", "outside": "outside"}.get(loc, "auto")
+    if loc in (None, "best", "auto", *OUTSIDE_LOCATIONS, "none") and "bbox_to_anchor" not in style:
+        mode = {"none": "none", **OUTSIDE_LOCATIONS}.get(loc, "auto")
         style["loc"] = "upper right"
     if handles is not None or labels is not None:
         legend = ax.legend(handles=handles, labels=labels, **style)
@@ -536,6 +588,9 @@ LEGEND_PLACEMENT_CANDIDATES = (
     "lower left",
     "lower right",
 )
+# --legend_loc values placed outside the axes -> placement mode.
+OUTSIDE_LOCATIONS = {"outside": "outside", "above": "outside", "below": "below", "right": "right"}
+_PLACED_LATER = ("auto", "free", "outside", "below", "right")
 # A placement is free when data covers less than this fraction of its box.
 LEGEND_FREE_FRACTION = 0.002
 # Legends with more entries go above the axes.
@@ -739,6 +794,45 @@ def _place_outside(ax, legend, renderer):
     return rebuilt
 
 
+def _place_beside(ax, legend, renderer, side):
+    """Below the axes (under the lowest panel sharing x and its tick and
+    axis labels), in as many columns as fit the figure, or right of the axes, aligned
+    with its top. Offsets are in points, so they hold when the layout
+    resizes the axes; the layout makes room for the legend."""
+    from matplotlib.transforms import offset_copy
+
+    info = legend._plotipus_placement
+    dpi = ax.figure.dpi
+    legend.set_visible(False)  # not part of the boxes measured below
+    if side == "right":
+        tight = ax.get_tightbbox(renderer, for_layout_only=True)
+        shift = (max(tight.x1, ax.bbox.x1) - ax.bbox.x1) * 72.0 / dpi + 4
+        anchor = offset_copy(ax.transAxes, fig=ax.figure, x=shift, units="points")
+        legend.set_visible(True)
+        return _rebuild_legend(ax, legend, dict(info["style"], loc="upper left", bbox_to_anchor=(1.0, 1.0),
+                                                bbox_transform=anchor, borderaxespad=0.0))
+    stack = [a for a in ax.get_shared_x_axes().get_siblings(ax) if a.get_visible()]
+    bottom = min(stack, key=lambda a: a.get_position().y0)
+    tight = bottom.get_tightbbox(renderer, for_layout_only=True)
+    drop = (bottom.bbox.y0 - min(tight.y0, bottom.bbox.y0)) * 72.0 / dpi + 4
+    anchor = offset_copy(bottom.transAxes, fig=ax.figure, y=-drop, units="points")
+    legend.set_visible(True)
+    entries = max(1, len(legend.get_texts()))
+    rebuilt = legend
+    for ncol in range(entries, 0, -1):
+        rebuilt = _rebuild_legend(ax, rebuilt, dict(info["style"], loc="upper center", ncol=ncol,
+                                                    bbox_to_anchor=(0.5, 0.0), bbox_transform=anchor,
+                                                    borderaxespad=0.0))
+        # As wide as the figure allows: fewer rows leave the axes more height.
+        if rebuilt.get_window_extent(renderer).width <= 0.96 * ax.figure.bbox.width or ncol == 1:
+            break
+    if bottom is not ax:
+        # Under a lower panel: the layout counts it with that panel.
+        rebuilt.set_in_layout(False)
+        rebuilt._plotipus_owner = bottom
+    return rebuilt
+
+
 def _rebuild_legend(ax, legend, style):
     """Replace ``legend`` by a new one with ``style`` (same entries)."""
     info = legend._plotipus_placement
@@ -755,7 +849,39 @@ def _rebuild_legend(ax, legend, style):
             new = ax.legend(**style)
     new.set_zorder(zorder)
     new._plotipus_placement = dict(info, mode="placed", outside=True)
+    legend._plotipus_rebuilt = new  # for legends that follow this one
     return new
+
+
+def follow_legend(legend, leader):
+    """Keep ``legend`` right under (or above) ``leader``, on the same side,
+    once the figure is laid out (:func:`attach_legends`)."""
+    legend._plotipus_follow = leader
+    return legend
+
+
+def attach_legends(fig):
+    """Put every following legend next to its leader: under it when the
+    leader is in an upper or centre position, above it when it is low."""
+    renderer = fig.canvas.get_renderer()
+    for ax in fig.axes:
+        for legend in _axes_legends(ax):
+            leader = getattr(legend, "_plotipus_follow", None)
+            while getattr(leader, "_plotipus_rebuilt", None) is not None:
+                leader = leader._plotipus_rebuilt
+            if leader is None or not legend.get_visible():
+                continue
+            box = leader.get_window_extent(renderer)
+            center = (box.x0 + box.x1) / 2 - ax.bbox.x0
+            side = "left" if center < ax.bbox.width / 3 else "right" if center > 2 * ax.bbox.width / 3 else "center"
+            low = (box.y0 + box.y1) / 2 < ax.bbox.y0 + ax.bbox.height / 3
+            x = {"left": box.x0, "right": box.x1, "center": (box.x0 + box.x1) / 2}[side]
+            y = box.y1 if low else box.y0
+            point = ax.transAxes.inverted().transform((x, y))
+            legend.borderaxespad = 0.0
+            legend.set_loc(f"{'lower' if low else 'upper'} {side}")
+            legend.set_bbox_to_anchor(tuple(point), transform=ax.transAxes)
+            legend._plotipus_placement = {"mode": "placed", "order": -1}
 
 
 def _legend_entries(ax, info):
@@ -820,23 +946,30 @@ def place_legends(fig):
     LEGEND_MAX_INSIDE_ENTRIES entries or loc "outside"). Legends placed
     earlier on the same axes are avoided. Returns whether any moved."""
     pending = [(ax, legend) for ax in fig.axes for legend in _axes_legends(ax)
-               if getattr(legend, "_plotipus_placement", {}).get("mode") in ("auto", "free", "outside")
+               if getattr(legend, "_plotipus_placement", {}).get("mode") in _PLACED_LATER
                and legend.get_visible()]
     if not pending:
         return False
-    # The axes are laid out already, and a legend computes its own box from
-    # its location: no full draw is needed. Larger legends choose first.
+    # A legend computes its own box from its location, so no full draw is
+    # needed; but the view limits may still be stale (autoscaling happens
+    # lazily, and fixed_margins skips the layout's draw). Larger legends
+    # choose first.
+    for ax in {id(ax): ax for ax, _ in pending}.values():
+        ax.get_xlim(), ax.get_ylim()
     renderer = fig.canvas.get_renderer()
     pending.sort(key=lambda item: (-_area(item[1].get_window_extent(renderer)), item[1]._plotipus_placement["order"]))
     for ax, legend in pending:
         info = legend._plotipus_placement
+        if info["mode"] in ("below", "right"):
+            _place_beside(ax, legend, renderer, info["mode"])
+            continue
         lower_panel = _has_panel_above(ax)
         if not lower_panel and (info["mode"] == "outside" or len(legend.get_texts()) > LEGEND_MAX_INSIDE_ENTRIES):
             _place_outside(ax, legend, renderer)
             continue
         others = [lg.get_window_extent(renderer) for lg in _axes_legends(ax)
                   if lg is not legend and lg.get_visible()
-                  and getattr(lg, "_plotipus_placement", {}).get("mode") not in ("auto", "free", "outside")]
+                  and getattr(lg, "_plotipus_placement", {}).get("mode") not in _PLACED_LATER]
         occupancy = _Occupancy(*axes_occupancy(ax, renderer, others))
         fraction, setter = _best_inside(ax, legend, occupancy, renderer)
         if fraction > LEGEND_FREE_FRACTION and _headroom(ax, legend, renderer):
@@ -1177,7 +1310,7 @@ def add_note_to_axes(ax, note_text, fontsize=None):
     fig.draw_without_rendering()
     renderer = fig.canvas.get_renderer()
     legends = [lg.get_window_extent(renderer) for lg in _axes_legends(ax) if lg.get_visible()
-               and getattr(lg, "_plotipus_placement", {}).get("mode") not in ("auto", "free", "outside")]
+               and getattr(lg, "_plotipus_placement", {}).get("mode") not in _PLACED_LATER]
     occupancy = _Occupancy(*axes_occupancy(ax, renderer, legends))
 
     def place(x, y):

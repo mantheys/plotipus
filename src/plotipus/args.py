@@ -827,7 +827,8 @@ def add_common_args(parser, arg_names, overrides=None):
             action=_LegendLocAction,
             default=None,
             help="Legend location for all panels: a matplotlib loc ('lower left', 'upper right', ...), "
-            "'outside' (above the axes) or 'none'; default (best): where it covers no data",
+            "'above' (or 'outside'), 'below' or 'right' of the axes, or 'none'; default (best): where it "
+            "covers no data. With two legends and no --comparable_legend_loc, the style legend follows.",
         )
 
     if "--legend_ncol" not in parser._option_string_actions:
@@ -857,7 +858,7 @@ class _LegendLocAction(argparse.Action):
     def __call__(self, parser, namespace, values, option_string=None):
         from matplotlib.legend import Legend
 
-        allowed = [*Legend.codes, "outside", "none"]
+        allowed = [*Legend.codes, "outside", "above", "below", "right", "none"]
         if values not in allowed:
             parser.error(f"--legend_loc must be one of: {', '.join(allowed)}")
         setattr(namespace, self.dest, values)
