@@ -8,12 +8,14 @@ data_root = "input/data"
 plots = "input/plots"        # command lists <name>_scripts.txt
 tables = "input/tables"
 output = "output"
-style = ["config/style.json"]
+style = ["paper", "config/style.json"]  # a named style, then style files
 plugins = ["my_project.plotipus_plugin"]
 python_path = ["src"]
-medium = "slides"            # slides | paper | web (unset: the classic look)
+medium = "slides"            # slides | paper | web (default: the named style's)
 media = ["slides", "paper"]  # rendered by --medium all and plotipus run
 theme = "light"              # light | dark
+language = "plotipus"        # plotipus | open | classic
+save_style = false           # write <figure>.style.json next to each figure
 
 [outputs.plots]              # extra output directories per command list
 paper = ["../paper/figures"]
@@ -22,25 +24,38 @@ paper = ["../paper/figures"]
 default_operation = "mean"
 ```
 
-## Media and themes
+## Styles, media and themes
 
-A medium (`slides`, `paper`, `web`) and a theme (`light`, `dark`) select
-style layers by name: `plotipus`, then the medium, then `dark`, from
-`src/plotipus/data/styles/` (missing layers are skipped). The project's
-`style` files come after them and have the last word, then `--width` and
-`--aspect`. `plotipus run <list> --dry_run` prints, for every command, the
-medium, theme, size and layers it resolves to.
+A named style combines a language, a medium and a theme:
+
+| name | language | medium | theme |
+|---|---|---|---|
+| `slides` (default) | plotipus | slides | light |
+| `slides-dark` | plotipus | slides | dark |
+| `paper`, `paper-dark` | plotipus | paper | light, dark |
+| `open`, `open-dark` | open | web | light, dark |
+| `classic` | the look before the redesign | — | — |
+
+Name it in `style = [...]`, with `--style_preset NAME`, or by parts with
+`[project] language/medium/theme` and `--medium`/`--theme`. Its layers come
+from `src/plotipus/data/styles/` (`<language>.json`, `<medium>.json`,
+`dark.json`, each naming its `.mplstyle`; `classic/` is complete on its
+own). Then what plugins changed is applied again, then the project's style
+files, which have the last word, then `--width` and `--aspect`. `plotipus run
+<list> --dry_run` prints, for every command, the language, medium, theme,
+size and layers it resolves to; `--save_style` writes them, with the
+rcParams, to `<figure>.style.json`.
 
 - **Medium**: `--medium` on any kind or on `plotipus run`, else `[project]
-  medium`. `--medium all` (and `[project] media` with `plotipus run`)
-  renders every listed medium. Without a medium anywhere no layer applies:
-  the classic geometry and titles.
+  medium`, else the named style's. `--medium all` (and `[project] media`
+  with `plotipus run`) renders every listed medium.
 - **Size**: each medium has a default `width` (slides and web: `slide`,
   8 in at aspect 0.5625; paper: `single`, 3.4 in at 0.75). Presets live in
   the style's `widths`; a preset is inches (height = `aspect` × width) or
   `{"width": 6.8, "height": 3.0}`. A row of panels shares the width; each
   lower panel adds 30% of the upper height. Text is never scaled for more
-  panels (`panel_font_scale` only applies to the classic geometry).
+  panels (`panel_font_scale` only applies to `classic` and to style files
+  that set `"width": null`, the size from `figure_layout`).
 - **Output folders**: the project's own medium and theme write where they
   always did (`output/plots/`); any other pair writes to
   `output/plots/<medium>/` or `output/plots/<medium>-dark/`, and so do the
@@ -56,7 +71,8 @@ Style files (JSON) are merged over the defaults
 (figure layout, legend and note style, `band_alpha` for error bands, `stack_error` for the
 hatched band of stacked simulation; `"auto_title": false` drops the
 title taken from the datafile name; `"sci_in_label": false` keeps the
-power-of-ten offset text at the axis end instead of in the label), `labels` (capitalisation exceptions,
+power-of-ten offset text at the axis end instead of in the label; `fit_color`
+and `zero_line_color`, colours or roles; `diverging_cmap` for `--cmap diverging`), `labels` (capitalisation exceptions,
 legend titles to drop, title short forms) and `mappings` (named
 label/colour dictionaries used by the `*_mapping` options).
 

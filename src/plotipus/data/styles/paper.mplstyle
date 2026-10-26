@@ -1,0 +1,30 @@
+# paper medium (style_spec 2.1, 2.2, 2.6): a single column at 8 pt, text and
+# math in Computer Modern (bundled with matplotlib, no TeX), thin lines.
+font.family: serif
+font.serif: cmr10, Latin Modern Roman, Computer Modern Roman, DejaVu Serif
+font.size: 8
+mathtext.fontset: cm
+axes.unicode_minus: False
+axes.labelsize: large
+axes.titlesize: large
+axes.linewidth: 0.6
+xtick.labelsize: medium
+ytick.labelsize: medium
+xtick.major.size: 3.5
+xtick.minor.size: 1.8
+xtick.major.width: 0.6
+xtick.minor.width: 0.45
+ytick.major.size: 3.5
+ytick.minor.size: 1.8
+ytick.major.width: 0.6
+ytick.minor.width: 0.45
+lines.linewidth: 1.2
+lines.markersize: 3.5
+patch.linewidth: 0.6
+hatch.linewidth: 0.5
+grid.linewidth: 0.6
+legend.fontsize: medium
+legend.title_fontsize: medium
+figure.dpi: 150
+savefig.dpi: 300
+savefig.pad_inches: 0.02

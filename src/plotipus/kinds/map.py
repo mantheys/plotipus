@@ -104,7 +104,9 @@ def build_parser():
     )
     add = parser.add_argument
     add("--diagonal", action="store_true", default=False, help="Draw the y = x line.")
-    add("--cmap", type=str, default=None, help="Matplotlib colour map of -z images.")
+    add("--cmap", type=str, default=None,
+        help="Matplotlib colour map of -z images; 'diverging' is the style's map for signed values "
+        "(RdBu_r, berlin on dark backgrounds).")
     add("--colorbar", default=None, choices=["shared", "each"],
         help="One colorbar and colour scale for the row of panels (shared, the default unless --norm) "
         "or one per panel (each).")
@@ -1120,6 +1122,8 @@ def draw_contour_figure(df, args):
 
 
 def run(args):
+    if args.cmap == "diverging":
+        args.cmap = style.diverging_cmap
     df = import_data(args)
     if df.empty:
         rprint("[yellow]Warning:[/yellow] No datafiles found. Exiting...")

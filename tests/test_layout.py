@@ -34,10 +34,11 @@ def example_data(tmp_path_factory):
     return root / "input" / "data"
 
 
-def _project(tmp_path, monkeypatch, data, style_json):
+def _project(tmp_path, monkeypatch, data, style_json, preset=None):
     (tmp_path / "style.json").write_text(json.dumps(style_json))
+    styles = f'"{preset}", "style.json"' if preset else '"style.json"'
     (tmp_path / "plotipus.toml").write_text(
-        f'[project]\ndata_root = "{data.as_posix()}"\noutput = "output"\nstyle = ["style.json"]\n')
+        f'[project]\ndata_root = "{data.as_posix()}"\noutput = "output"\nstyle = [{styles}]\n')
     monkeypatch.chdir(tmp_path)
     monkeypatch.setattr(project, "_PROJECT", None)
 
@@ -73,19 +74,18 @@ def _outside(fig, tolerance=1.0):
 
 
 def _paper_style():
-    paper = json.loads((PAPER / "style.json").read_text())
-    paper["mplstyle"] = str(PAPER / "plotipus-paper.mplstyle")
-    paper["plot_settings"]["figure_layout"].update(base_width=3.4, height=2.6)
-    paper["mappings"] = json.loads((EXAMPLES / "style.json").read_text()).get("mappings", {})
-    return paper
+    """The shipped paper style (a 3.4 x 2.55 in column) with the examples' mappings."""
+    return {"mappings": json.loads((EXAMPLES / "style.json").read_text()).get("mappings", {})}
 
 
 @pytest.mark.parametrize("command", COMMANDS, ids=[c.split("--output_suffix ")[-1] for c in COMMANDS])
 def test_paper_column_keeps_text_inside_and_panels_aligned(command, example_data, tmp_path, monkeypatch):
-    _project(tmp_path, monkeypatch, example_data, _paper_style())
+    _project(tmp_path, monkeypatch, example_data, _paper_style(), preset="paper")
     try:
         for fig in _draw(command):
-            assert tuple(fig.get_size_inches())[1] == pytest.approx(2.6)
+            width, height = fig.get_size_inches()
+            assert width == pytest.approx(3.4)
+            assert height == pytest.approx(2.55) or height == pytest.approx(1.3 * 2.55)  # + a lower panel
             assert _outside(fig) == []
             for ax in fig.axes:
                 for other in ax.get_shared_x_axes().get_siblings(ax):
@@ -155,7 +155,7 @@ def test_pointer_tick_labels_fit_without_growing_the_figure(example_data, tmp_pa
     try:
         fig = _draw("line --datafile Distributions -x Bin -y Counts --hue Sample --select Distribution -s Gaussian "
                     "--plot_type step --ytick 100 --ytick_label threshold --xtick 1.5 --xtick_label '$x_0$'")[0]
-        assert tuple(fig.get_size_inches()) == pytest.approx((8, 6))
+        assert tuple(fig.get_size_inches()) == pytest.approx((8, 4.5))  # the default slides size
         assert _outside(fig) == []
     finally:
         style.reset()
@@ -169,12 +169,12 @@ def test_font_sizes_write_axis_label_size():
         assert plt.rcParams["axes.labelsize"] == "small"
     finally:
         style.reset()
-    assert plt.rcParams["axes.labelsize"] == "x-large"
+    assert plt.rcParams["axes.labelsize"] == "large"  # the slides default
 
 
 def test_title_sits_above_the_panels(example_data, tmp_path, monkeypatch):
-    _project(tmp_path, monkeypatch, example_data, _paper_style() | {"plot_settings": {
-        **_paper_style()["plot_settings"], "auto_title": True}})
+    # slides draws titles (paper drops them: the caption is the title).
+    _project(tmp_path, monkeypatch, example_data, _paper_style(), preset="slides")
     try:
         fig = _draw(COMMANDS[0])[0]
         renderer = fig.canvas.get_renderer()

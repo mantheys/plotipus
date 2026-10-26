@@ -1,0 +1,23 @@
+# plotipus language: the physics-paper frame (style_spec 2.5). Boxed, ticks in
+# on all four sides with minor ticks, no grid, frameless legends. Sizes and
+# type come from the medium (slides, paper, web).
+axes.grid: False
+axes.spines.top: True
+axes.spines.right: True
+axes.titlelocation: center
+axes.titleweight: normal
+axes.formatter.use_mathtext: True
+axes.formatter.limits: -3, 5
+axes.xmargin: 0.02
+axes.axisbelow: True
+xtick.direction: in
+ytick.direction: in
+xtick.top: True
+ytick.right: True
+xtick.minor.visible: True
+ytick.minor.visible: True
+errorbar.capsize: 0
+legend.frameon: False
+legend.handlelength: 1.8
+legend.labelspacing: 0.3
+image.cmap: viridis

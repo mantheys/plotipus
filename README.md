@@ -106,8 +106,37 @@ only changes its directory. Paper figures carry no title (the caption is the
 title; `--keep_title` keeps an explicit `--title`). One command can choose
 its own size with `--width single|onehalf|double|nature|slide|half-slide`
 or inches, and `--aspect`; a row of panels shares the width, and a lower
-panel adds 30% of the upper panel's height. Without a medium anywhere,
-figures keep the classic 8 × 6 in size.
+panel adds 30% of the upper panel's height.
+
+## Styles
+
+A style is a visual language, a medium and a theme. Pick one by name:
+
+| name | look | size and type |
+|---|---|---|
+| `slides` (default) | plotipus: ticks in on four sides, no grid, frameless legends, Petroff-10 colours | 8 × 4.5 in, 14 pt sans |
+| `slides-dark` | the same on `#1b1d22`, with lightened twins of the darkest colours | 8 × 4.5 in, 14 pt sans |
+| `paper`, `paper-dark` | plotipus, no titles (the caption is the title) | a 3.4 in column, 8 pt Computer Modern; save as PDF |
+| `open`, `open-dark` | L-shaped frame, ticks out, a faint y grid, the same colours | 8 in at 96 dpi, 12 pt sans |
+| `classic` | plotipus before the redesign | 8 × 6 in |
+
+```toml
+[project]
+style = ["paper", "config/style.json"]   # a name, then your own style files on top
+```
+
+```bash
+plotipus line ... --style_preset open-dark   # one command in another style
+plotipus line ... --save_style               # also write <figure>.style.json: the layers and rcParams used
+```
+
+![The ratio example in every style](docs/design/styles/compare/02_ratio.png)
+
+`--medium` and `--theme` change one part of the name (`--style_preset open
+--theme dark` is `open-dark`). Styles are layered: the named style, then
+what plugins set, then the project's style files, then `--width` and
+`--aspect`. **Upgrading?** See the [changelog](CHANGELOG.md):
+`style = ["classic"]` keeps the old look.
 
 ## Famous plots
 

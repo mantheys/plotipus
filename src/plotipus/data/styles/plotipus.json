@@ -1,0 +1,9 @@
+{
+  "_comment": "plotipus language (style_spec 2.3-2.7): Petroff-10, ink/muted roles from the theme.",
+  "mplstyle": "plotipus.mplstyle",
+  "palette": "petroff10",
+  "plot_settings": {
+    "figure_layout": {"two_panel_hspace": 0.0},
+    "diverging_cmap": "RdBu_r"
+  }
+}

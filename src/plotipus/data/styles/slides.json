@@ -1,6 +1,25 @@
 {
-  "_comment": "Medium stub (T14): figure size only; T16 ships the full slides style.",
+  "_comment": "slides medium (style_spec 2.1, 2.11): a 16:9 slide, titles allowed.",
+  "mplstyle": "slides.mplstyle",
   "width": "slide",
   "aspect": 0.5625,
-  "plot_settings": {"auto_title": false, "error_label": true}
+  "font_sizes": {
+    "titlefontsize": "x-large", "subtitlefontsize": "large",
+    "legendtitlefontsize": "medium", "legendfontsize": "medium",
+    "xlabelfontsize": "large", "ylabelfontsize": "large",
+    "xsublabelfontsize": "medium", "ysublabelfontsize": "large",
+    "linelabelfontsize": "small"
+  },
+  "plot_settings": {
+    "auto_title": false,
+    "titles": true,
+    "error_label": true,
+    "default_linewidth": 2.4,
+    "figure_layout": {
+      "margins_inches": {"left": 0.4, "right": 0.15, "bottom": 0.35, "top": 0.15, "wspace": 0.25, "hspace": 0.25}
+    },
+    "legend_style": {"fontsize": "medium", "title_fontsize": "medium", "frameon": false, "loc": "best"},
+    "note_style": {"fontsize": "medium", "bbox": {"boxstyle": "round,pad=0.4", "facecolor": "role:paper",
+                                                  "alpha": 0.85, "edgecolor": "none", "linewidth": 0}}
+  }
 }

@@ -556,6 +556,20 @@ def save_table_to_paths(write_func, output_arg, output_file, default_output_dir=
         rprint_func(f"[green]Success:[/green] Table saved to:\n{full_path}")
 
 
+def _save_style_record(figure_path, rendering):
+    """<figure>.style.json: the resolved style layers, settings and rcParams."""
+    import json
+
+    import matplotlib.pyplot as plt
+
+    from . import style
+
+    record = {**rendering.record(), "settings": style.snapshot()[0],
+              "rcParams": {key: value for key, value in sorted(plt.rcParams.items())}}
+    with open(os.path.splitext(figure_path)[0] + ".style.json", "w", encoding="utf-8") as handle:
+        json.dump(record, handle, indent=1, default=str)
+
+
 def save_figure_to_paths(fig, output_arg, output_file, default_output_dir=None, rprint_func=None, subfolder=None,
                          sci_in_label=None):
     """Save ``fig`` into every --output directory (or the default plot
@@ -584,3 +598,5 @@ def save_figure_to_paths(fig, output_arg, output_file, default_output_dir=None, 
         full_path = os.path.join(output_dir, output_file)
         fig.savefig(full_path)
         rprint_func(f"[green]Success:[/green] Plot saved to:\n{full_path}")
+        if rendering is not None and rendering.save_style:
+            _save_style_record(full_path, rendering)

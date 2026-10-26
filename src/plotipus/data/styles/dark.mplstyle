@@ -1,0 +1,13 @@
+# dark theme (style_spec 2.3, 2.11): the paper/ink roles swap on #1b1d22.
+figure.facecolor: 1b1d22
+axes.facecolor: 1b1d22
+savefig.facecolor: 1b1d22
+axes.edgecolor: b4b8c0
+axes.labelcolor: e8eaed
+text.color: e8eaed
+xtick.color: b4b8c0
+ytick.color: b4b8c0
+xtick.labelcolor: d0d3d8
+ytick.labelcolor: d0d3d8
+grid.color: 33363d
+legend.labelcolor: e8eaed

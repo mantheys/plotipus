@@ -192,7 +192,8 @@ def _draw_fit_rows(ax_top, lowers, rows, args, kind):
     lo, hi = args.fit_rangex if args.fit_rangex is not None else (np.min(x), np.max(x))
     fit_x = np.linspace(lo, hi, 1000)
     palette = current_colors()
-    fit_color = args.fit_color or (palette[0] if is_data else style.role("ink"))
+    fit_color = (args.fit_color or style.role_colors(style.fit_color)
+                 or (palette[0] if is_data else style.role("ink")))
     plot_data(args, ax_top, fit_x, y=function(fit_x, *params), label="Fit", color=fit_color, plot_type="plot", linestyle="-")
     components = rows["FitComponents"].iloc[0] if "FitComponents" in rows.columns else None
     if not isinstance(components, dict):
@@ -306,7 +307,7 @@ def _pull_bands(ax):
 
 
 def _residual_reference(ax, args):
-    color = getattr(args, "lower_zero_color", None) or style.role("muted")
+    color = getattr(args, "lower_zero_color", None) or style.role_colors(style.zero_line_color)
     if args.fit_rangex is None:
         ax.axhline(y=0, color=color, linestyle="--", zorder=-1)
         return

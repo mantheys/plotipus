@@ -8,14 +8,17 @@ working directory is the project root and every setting has its default::
     plots = "input/plots"           # command lists: <list>_scripts.txt
     tables = "input/tables"
     output = "output"               # default output/plots, output/tables
-    style = ["config/style.json"]   # style files merged over the defaults
-                                    # (.json, or a matplotlib .mplstyle)
+    style = ["paper", "config/style.json"]  # a named style (slides, slides-dark,
+                                    # paper, paper-dark, open, open-dark,
+                                    # classic) and/or style files (.json,
+                                    # .mplstyle) merged over it
     plugins = ["my_project.plotipus_plugin"]
     python_path = ["src"]           # added to sys.path before plugins load
-    medium = "slides"               # slides | paper | web (default: none, the old look)
+    medium = "slides"               # slides | paper | web (default: slides)
     media = ["slides", "paper"]     # what --medium all / plotipus run render
     theme = "light"                 # light | dark
-    language = "plotipus"           # the visual language (style layer, T16)
+    language = "plotipus"           # plotipus | open | classic
+    save_style = false              # write <figure>.style.json next to each figure
 
     [outputs.plots]                 # extra -o targets per command list
     solar = ["../THESIS/figures/solar"]
@@ -26,12 +29,13 @@ working directory is the project root and every setting has its default::
     [settings]
     default_operation = "mean"
 
-A medium and theme select style layers by name: ``<language>``,
-``<medium>`` and ``dark`` from ``plotipus/data/styles/`` (missing layers
-are skipped), then the project's ``style`` files, which have the last
-word, then ``--width``/``--aspect``. Without a medium anywhere no layer
-applies (the look before media existed). The project's own medium and
-theme write to ``output/plots``; any other pair writes to
+The style of a figure is built in layers: the base settings, then the
+named style's language, medium and dark theme from
+``plotipus/data/styles/`` (default ``slides``: plotipus, slides, light;
+``--style_preset``, ``--medium`` and ``--theme`` change it), then whatever
+plugins changed, then the project's ``style`` files, which have the last
+word, then ``--width``/``--aspect``. The project's own medium and theme
+write to ``output/plots``; any other pair writes to
 ``output/plots/<medium>[-dark]``.
 """
 
@@ -66,10 +70,12 @@ class Project:
     medium: str = None
     media: list = None
     theme: str = None
-    language: str = DEFAULT_LANGUAGE
+    language: str = None
+    preset: str = None
+    save_style: bool = False
     styles: list = field(default_factory=list)
     rendering: "Rendering" = None
-    _base_style: tuple = None
+    _changes: tuple = None
 
     def output_paths(self, kind, list_name):
         """Extra output directories configured for a command list."""
@@ -86,42 +92,53 @@ class Project:
         """The media of ``--medium all``: [project] media, else every medium."""
         return list(self.media or MEDIA)
 
+    def own_style(self, preset=None):
+        """(language, medium, theme) of the project, or of ``preset``: the
+        named style, then the [project] language/medium/theme keys."""
+        language, medium, theme = style.resolve_name(preset or self.preset or style.DEFAULT_NAME)
+        if preset:
+            return language, medium, theme
+        return self.language or language, self.medium or medium, self.theme or theme
+
     def output_folder(self, medium, theme):
         """Sub-folder of a medium/theme pair below the plot outputs: none for
         the project's own pair, else ``<medium>`` (+ ``-dark``)."""
-        medium = medium or self.medium or DEFAULT_MEDIUM
-        theme = theme or self.theme or DEFAULT_THEME
-        if (medium, theme) == (self.medium or DEFAULT_MEDIUM, self.theme or DEFAULT_THEME):
+        _, own_medium, own_theme = self.own_style()
+        own = (own_medium or DEFAULT_MEDIUM, own_theme or DEFAULT_THEME)
+        pair = (medium or own[0], theme or own[1])
+        if pair == own:
             return None
-        return medium + ("-dark" if theme == "dark" else "")
+        return pair[0] + ("-dark" if pair[1] == "dark" else "")
 
-    def layers(self, medium, theme):
-        """Style layers of a medium/theme pair: [(name, path)] of the named
-        layers found in plotipus/data/styles, then the project style files."""
-        names = []
-        if medium is not None:
-            names += [self.language, medium]
-        if theme == "dark":
-            names.append("dark")
-        named = [(n, style.STYLES_DIR / f"{n}.json") for n in names if (style.STYLES_DIR / f"{n}.json").exists()]
-        return named + [(Path(s).name, self._resolve(s)) for s in self.styles]
+    def layers(self, language, medium, theme):
+        """Style layers [(name, path)]: the named layers of the combination,
+        then the project style files."""
+        return style.name_layers(language, medium, theme) + [(Path(s).name, self._resolve(s)) for s in self.styles]
 
 
 @dataclass
 class Rendering:
-    """The medium, theme and figure size a command draws at."""
+    """The style, medium, theme and figure size a command draws at."""
     medium: str
     theme: str
     width: float
     height: float
     layers: list
     folder: str
+    language: str = None
+    save_style: bool = False
 
     def describe(self):
         size = f"{self.width:g} x {self.height:g} in" if self.width else "classic size"
         layers = ", ".join(name for name, _ in self.layers) or "none"
-        return (f"medium={self.medium or 'none'} theme={self.theme} width={size} layers=[{layers}]"
-                + (f" -> plots/{self.folder}" if self.folder else ""))
+        return (f"language={self.language} medium={self.medium or 'none'} theme={self.theme} width={size} "
+                f"layers=[{layers}]" + (f" -> plots/{self.folder}" if self.folder else ""))
+
+    def record(self):
+        """The resolved style, for ``--save_style``."""
+        return {"language": self.language, "medium": self.medium, "theme": self.theme,
+                "size_inches": [self.width, self.height] if self.width else None,
+                "layers": [[name, str(path)] for name, path in self.layers]}
 
 
 def _check(value, allowed, option):
@@ -130,31 +147,37 @@ def _check(value, allowed, option):
     return value
 
 
-def apply_rendering(medium=None, theme=None, width=None, aspect=None, project=None):
-    """Apply the style layers of a medium/theme pair (default: the
+def apply_rendering(medium=None, theme=None, width=None, aspect=None, project=None, preset=None,
+                    save_style=None):
+    """Apply the style of a named preset and/or medium/theme (default: the
     project's) and the --width/--aspect overrides; returns the Rendering."""
     project = project or load_project()
-    medium = _check(medium or project.medium, MEDIA, "--medium")
-    theme = _check(theme or project.theme or DEFAULT_THEME, THEMES, "--theme")
-    if project._base_style is None:  # a project set with set_project()
-        project._base_style = style.snapshot()
-    style.restore(project._base_style)
-    layers = project.layers(medium, theme)
-    for _, path in layers:
-        style.configure(path)
+    if project._changes is None:  # a project set with set_project()
+        project._changes = style.difference(style.default_state(), style.snapshot())
+    language, own_medium, own_theme = project.own_style(preset)
+    medium = _check(medium or own_medium, MEDIA, "--medium")
+    theme = _check(theme or own_theme or DEFAULT_THEME, THEMES, "--theme")
+    layers = project.layers(language, medium, theme)
+    style.restore(style.base_state())
+    style.apply_layers(layers[:len(layers) - len(project.styles)])
+    # Plugins (and settings changed before the project loaded) keep their
+    # say over the named style; the project's style files have the last word.
+    style.replay(project._changes)
+    style.apply_layers(layers[len(layers) - len(project.styles):])
     if width is not None or aspect is not None:
         style.set_geometry(width=width, aspect=aspect)
     project.rendering = Rendering(medium, theme, style.figure_width, style.figure_row_height, layers,
-                                  project.output_folder(medium, theme))
+                                  project.output_folder(medium, theme), language,
+                                  project.save_style if save_style is None else save_style)
     return project.rendering
 
 
-def describe_rendering(medium=None, theme=None, width=None, aspect=None, project=None):
+def describe_rendering(medium=None, theme=None, width=None, aspect=None, project=None, preset=None):
     """The Rendering a command would get, without changing the current style."""
     project = project or load_project()
     saved = style.snapshot()
     try:
-        return apply_rendering(medium, theme, width, aspect, project)
+        return apply_rendering(medium, theme, width, aspect, project, preset)
     finally:
         style.restore(saved)
 
@@ -208,7 +231,8 @@ def load_project(start=None, reload=False):
         medium=section.get("medium"),
         media=section.get("media"),
         theme=section.get("theme"),
-        language=section.get("language", DEFAULT_LANGUAGE),
+        language=_check(section.get("language"), style.LANGUAGES, "[project] language"),
+        save_style=bool(section.get("save_style", False)),
     )
     _PROJECT = project
 
@@ -225,9 +249,15 @@ def load_project(start=None, reload=False):
         if callable(setup):
             setup(registry)
 
+    # A named style in the style list picks the project's style; the other
+    # entries are style files.
     styles = section.get("style", [])
-    project.styles = [styles] if isinstance(styles, str) else list(styles)
-    project._base_style = style.snapshot()
+    for entry in [styles] if isinstance(styles, str) else styles:
+        if str(entry).strip().lower() in style.NAMES and not project._resolve(entry).exists():
+            project.preset = str(entry).strip().lower()
+        else:
+            project.styles.append(entry)
+    project._changes = style.difference(style.default_state(), style.snapshot())
     apply_rendering(project=project)
     return project
 

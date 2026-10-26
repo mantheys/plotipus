@@ -14,6 +14,12 @@ before the file's ``rcparams``) and ``contours`` (confidence contours of
 ``background``). Every section is optional and merged over the defaults shipped
 in ``plotipus/data/style.json``.
 
+Named styles (T16) combine a language (``plotipus``, ``open``), a medium
+(``slides``, ``paper``, ``web``) and a theme (``light``, ``dark``): ``slides``
+(the default), ``slides-dark``, ``paper``, ``paper-dark``, ``open``,
+``open-dark``, and ``classic``, the look before the redesign. Their layers
+live in ``plotipus/data/styles``; see :func:`name_layers`.
+
 Figure size: ``widths`` (named presets: inches, or ``{"width", "height"}``),
 ``aspect`` (height/width) and ``width`` (the preset or inches to draw at).
 Without ``width`` the old geometry (``figure_layout`` base/panel widths)
@@ -36,8 +42,21 @@ import matplotlib.pyplot as plt
 from . import palettes
 
 _DEFAULTS_PATH = Path(__file__).with_name("data") / "style.json"
-# Named style layers (media, themes; T16 adds the languages).
+# Named style layers: languages, media, themes and classic/.
 STYLES_DIR = Path(__file__).with_name("data") / "styles"
+
+LANGUAGES = ("plotipus", "open", "classic")
+# name -> (language, medium, theme)
+NAMES = {
+    "slides": ("plotipus", "slides", "light"),
+    "slides-dark": ("plotipus", "slides", "dark"),
+    "paper": ("plotipus", "paper", "light"),
+    "paper-dark": ("plotipus", "paper", "dark"),
+    "open": ("open", "web", "light"),
+    "open-dark": ("open", "web", "dark"),
+    "classic": ("classic", None, "light"),
+}
+DEFAULT_NAME = "slides"
 _MPLSTYLE_PATH = Path(__file__).with_name("data") / "plotipus.mplstyle"
 
 _FALLBACK_LEGEND_STYLE = {"frameon": False, "loc": "best"}
@@ -188,6 +207,7 @@ def _publish():
     global note_style, base_font_size, mappings, auto_title, contours, stack_error, sci_in_label, error_label
     global capitalize_exceptions, redundant_legend_titles, title_short_forms
     global widths, figure_aspect, figure_width, figure_row_height, draw_titles
+    global fit_color, zero_line_color, diverging_cmap
 
     rcparams = _CONFIG.get("rcparams", {})
     plt.rcParams.update(rcparams)
@@ -228,6 +248,11 @@ def _publish():
     sci_in_label = bool(settings.get("sci_in_label", True))
     # An explicit --title is drawn (false in paper: the caption is the title).
     draw_titles = bool(settings.get("titles", True))
+    # Fit lines (default: ink, or the palette's first colour over data), the
+    # y = 0 line of lower panels, and --cmap diverging. Colours may be roles.
+    fit_color = settings.get("fit_color")
+    zero_line_color = settings.get("zero_line_color", "role:muted")
+    diverging_cmap = settings.get("diverging_cmap", "RdBu_r")
 
     widths = {name: value for name, value in _CONFIG.get("widths", {}).items()}
     figure_aspect = float(_CONFIG.get("aspect", 0.75))
@@ -309,13 +334,108 @@ def restore(saved):
     _publish()
 
 
+def layer_path(name):
+    """The style file of layer ``name`` (``<name>.json`` or ``<name>/style.json``
+    in plotipus/data/styles), or None."""
+    for candidate in (STYLES_DIR / f"{name}.json", STYLES_DIR / name / "style.json"):
+        if candidate.is_file():
+            return candidate
+    return None
+
+
+def name_layers(language, medium=None, theme="light"):
+    """[(layer, path)] of a language/medium/theme combination, in the order
+    they apply: the language, the medium and the dark theme. ``classic`` is
+    complete on its own (no medium or theme layer)."""
+    names = [language] if language == "classic" else [n for n in (language, medium) if n]
+    if language != "classic" and theme == "dark":
+        names.append("dark")
+    found = [(n, layer_path(n)) for n in names]
+    missing = [n for n, path in found if path is None]
+    if missing:
+        raise ValueError(f"Unknown style layer(s): {', '.join(missing)}.")
+    return found
+
+
+def resolve_name(name):
+    """(language, medium, theme) of a named style."""
+    key = str(name).strip().lower()
+    if key not in NAMES:
+        raise ValueError(f"Unknown style '{name}': use one of {', '.join(NAMES)}.")
+    return NAMES[key]
+
+
+def _dict_difference(before, after):
+    """The keys of ``after`` that differ from ``before`` (recursively)."""
+    out = {}
+    for key, value in after.items():
+        old = before.get(key, object())
+        if isinstance(value, dict) and isinstance(old, dict):
+            sub = _dict_difference(old, value)
+            if sub:
+                out[key] = sub
+        elif value != old:
+            out[key] = copy.deepcopy(value)
+    return out
+
+
+def difference(before, after):
+    """What changed between two :func:`snapshot` states, for :func:`replay`."""
+    return _dict_difference(before[0], after[0]), _dict_difference(before[1], after[1])
+
+
+def replay(changes):
+    """Apply a :func:`difference` (e.g. what plugins changed) again."""
+    config, rc = changes
+    if config:
+        configure(config)
+    dict.update(plt.rcParams, rc)
+
+
+def base_state():
+    """The settings before any named style (the classic files, at matplotlib
+    defaults), as a :func:`snapshot`."""
+    return copy.deepcopy(_BASE)
+
+
+def default_state():
+    """The settings of the default style (``slides``), as a :func:`snapshot`."""
+    return copy.deepcopy(_DEFAULT)
+
+
+def apply_layers(layers):
+    """Merge style layers [(name, path)] in order."""
+    for _, path in layers:
+        configure(path)
+
+
 def reset():
-    """Restore the shipped defaults (matplotlib look and settings)."""
-    global _CONFIG
-    plt.style.use(str(_MPLSTYLE_PATH))
+    """Restore the shipped defaults: the default named style (``slides``)
+    over the base settings."""
+    global _CONFIG, _BASE, _DEFAULT
+    plt.style.use(["default", str(_MPLSTYLE_PATH)])
     _CONFIG = _load_json(_DEFAULTS_PATH)
     _CONFIG.setdefault("mappings", {})
     _publish()
+    _BASE = snapshot()
+    apply_layers(name_layers(*NAMES[DEFAULT_NAME]))
+    _DEFAULT = snapshot()
+
+
+def _merge(config, base_dir):
+    """Merge one style file's settings over the current ones. An explicit
+    colour cycle (rcparams, or a mplstyle setting one) replaces the palette
+    of an earlier layer unless the file names a palette too."""
+    global _CONFIG
+    config = _expand_mplstyle(config, base_dir)
+    fonts = config.get("font_sizes", {})
+    if ("xlabelfontsize" in fonts) != ("ylabelfontsize" in fonts):
+        # One rcParam sizes both axis labels: a file setting one sets both.
+        size = fonts.get("ylabelfontsize", fonts.get("xlabelfontsize"))
+        config = {**config, "font_sizes": {**fonts, "xlabelfontsize": size, "ylabelfontsize": size}}
+    _CONFIG = _deep_merge(_CONFIG, config)
+    if "axes.prop_cycle" in config.get("rcparams", {}) and "palette" not in config:
+        _CONFIG["palette"] = None
 
 
 def configure(config=None, **sections):
@@ -333,9 +453,9 @@ def configure(config=None, **sections):
             # A bare .mplstyle file is a style file with only that key.
             config = {"mplstyle": str(path)} if path.suffix == ".mplstyle" else _load_json(path)
             base_dir = path.parent
-        _CONFIG = _deep_merge(_CONFIG, _expand_mplstyle(config, base_dir))
+        _merge(config, base_dir)
     if sections:
-        _CONFIG = _deep_merge(_CONFIG, _expand_mplstyle(sections, Path.cwd()))
+        _merge(sections, Path.cwd())
     _publish()
 
 
