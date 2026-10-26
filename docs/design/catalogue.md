@@ -42,9 +42,9 @@ command lists.
 | F ML diagnostics | 4 | 2 | 1 |
 | G Uncertainty | 2 | 3 | 4 |
 | H Small multiples and layout | 2 | 2 | 4 |
-| I Annotations | 5 | 2 | 3 |
+| I Annotations | 6 | 1 | 3 |
 | J Tables | 4 | 1 | 2 |
-| **Total (89)** | **38** | **23** | **28** |
+| **Total (89)** | **39** | **22** | **28** |
 
 Nearly half of the ◐ entries are partial only because of a bug in
 [bugs.md](bugs.md), not because an option is missing. Fixing B01–B13 moves
@@ -110,13 +110,13 @@ about 12 of them to ✅.
 | D6 | Dot plot / Cleveland dot | many categories, precise values | — | ◐ | `cat --kind point` (crashes on scalars, P11); vertical only. | B07 fix + `--orient h`. |
 | D7 | Lollipop | rankings with less ink | — | ✗ | — | `cat --kind lollipop` (stem + point). |
 | D8 | Heatmap of a category × category table | correlation / yields | F25 | ◐ | `map -z` draws the grid (P17) but without cell values, without categorical tick labels and with the y axis not inverted. | `map --annotate [FORMAT]`; string x/y become ticks. |
-| D9 | Before/after (slope) chart | paired change | — | ✅ | `cat --datafile Spectra -x Stage -y Counts --integrate_over Energy --hue Sample --kind line` (legend overlaps the lowest line, B06). | — |
+| D9 | Before/after (slope) chart | paired change | — | ✅ | `cat --datafile Spectra -x Stage -y Counts --integrate_over Energy --hue Sample --kind line` (legends avoid the data, B06 fixed in T15). | — |
 
 ## E. Ratios, differences and significance
 
 | id | chart | use | famous | status | command today / what is missing | smallest change |
 |---|---|---|---|---|---|---|
-| E1 | Ratio panel to a reference series | shape agreement | F03 | ✅ | `line ... --lower ratio --reference_value signal` (example 2; P02). The legend shows one "Ratio" entry for several series (B06). | — |
+| E1 | Ratio panel to a reference series | shape agreement | F03 | ✅ | `line ... --lower ratio --reference_value signal` (example 2; P02). No legend when the ratios keep the upper colours, else one "X / reference" entry each (B06, fixed in T15). | — |
 | E2 | Data / (sum of MC) ratio | data–simulation agreement | F03 | ✅ | `--lower ratio --reference_sum bkg_a bkg_b signal --reference_sum_label MC` (Q2). | — |
 | E3 | Data points over stacked MC with ratio panel | the HEP control plot | F03 | ◐ | E2 works, but the data are stacked with the MC (P20, B10), and there are no data points over step stacks and no MC uncertainty band. | B10 fix + `--overlay data` + `--stack_total_error`. |
 | E4 | Several lower panels | ratio and difference together | F01 | ✅ | `--lower ratio --lower relative_difference` (Q6). | — |
@@ -179,7 +179,7 @@ All curves are precomputed by the analysis (plotipus does not fit or score).
 | I7 | Inverted axis | magnitudes | F21, F22 | ✅ | Reversed range: `--rangey 1 0` (Q1). | — |
 | I8 | Shaded excluded region (polygon) | "No Big Bang" region | F10 | ✗ | — | `--region 'x1,y1 x2,y2 …' --region_hatch`. |
 | I9 | Inline contour labels | iso-lines | F10 | ◐ | Legend only (B03). | `--contour_labels` (`clabel`). |
-| I10 | Legend outside / above the axes | crowded plots | — | ◐ | `--legend_loc` (inside locations only); placement covers filled data (B06). | `--legend_loc outside` with reserved space. |
+| I10 | Legend outside / above the axes | crowded plots | — | ✅ | `--legend_loc outside`, and automatically past 6 entries or when no position inside is free; the layout reserves the room (B06, fixed in T15). | — |
 
 ## J. Tables
 

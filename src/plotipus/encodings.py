@@ -97,6 +97,9 @@ def add_legend_args(parser):
         help="Draw legends on a translucent white box (opacity ALPHA, default 0.8).")
     add("--legend_free", action="store_true", default=False,
         help="Place a single legend at the free position covering the least data (not only corners).")
+    add("--legend_order", choices=["value", "data"], default="value",
+        help="Legend entries in the order of the data: stacks top first, lines by their right-hand ends "
+        "(value, default), or in drawing order (data).")
     add("--legend_panel", type=int, default=-1,
         help="Index of the panel carrying the legend (default -1: the last one).")
 

@@ -50,6 +50,16 @@ are the example list, `examples/input/plots/example_scripts.txt`;
   `--comparable_mapping` (named mappings from the style file),
   `--invert_style`, `--comparable_fill_strength`. `--hue X --style X` draws
   one legend whose entries carry both the colour and the line style.
+* **Legends** never cover data. Each goes to the emptiest corner (or free
+  spot) of the finished axes, with bars, bands and images counted whole;
+  if none is free the y range gets headroom (not with `--rangey`), else the
+  legend goes above the axes in as many columns as fit, as it does past
+  6 entries. `--legend_loc` pins a matplotlib location, `outside` (above the
+  axes) or `none`; `--legend_free` treats any free spot like a corner.
+  Entries follow the data: a stack top first, lines by their right-hand
+  ends (`--legend_order data` keeps the drawing order). A lower panel whose
+  series keep the upper colours draws no legend; otherwise each entry
+  reads "X / reference".
 * **Colours**: `--palette NAME` picks the categorical palette (default
   `petroff10`; also `petroff6`, `petroff8`, `okabe-ito`, `tol-bright`,
   `tol-muted`, `tab10` (matplotlib's default, the colours before this
