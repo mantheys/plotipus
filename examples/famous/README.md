@@ -8,7 +8,7 @@ today.
 
 ```bash
 cd examples/famous
-python make_data.py            # 22 pickles in input/data (about 1 s, 1.4 MB)
+python make_data.py            # 22 pickles in input/data (about 1 s, 2.8 MB)
 python make_data.py F08 F25    # only some figures
 plotipus run famous            # figures in output/plots
 ```
@@ -22,7 +22,7 @@ and `anscombe.py`. A generator's docstring:
 - says what is synthetic;
 - keeps the "(unverified)" marks of research.md.
 
-Two project plugins and a style file, all listed in `plotipus.toml`, show how
+Three project plugins and a style file, all listed in `plotipus.toml`, show how
 a project adapts plotipus without changing it:
 
 - `models.py`: physics formulas and fit models, registered so that stored
@@ -34,6 +34,9 @@ a project adapts plotipus without changing it:
   letters and region labels. The project setting `text_scale` scales every
   text, and `--single_panel_size` gives a grid of panels the size of a
   single-panel figure;
+- `colorscale.py`: `--zpower GAMMA` (a power-law colour scale, 0.5 for the
+  square root of the Gaia diagrams) and `--zcmap NAME` (the colour map, 2D
+  histograms included) for map panels;
 - `style.json`: no automatic titles, a black-first colour cycle (data drawn
   black, as in the originals), smaller legends, and one colour and label
   mapping per figure.
@@ -98,7 +101,7 @@ Patterns the commands use:
 | F19 Geiger–Marsden | Phil. Mag. 25, 604 (1913) | synthetic | ✅ | (no original figure) |
 | F20 Moseley's law | Phil. Mag. 26, 1024 (1913) | synthetic | ✅ | (no original figure) |
 | F21 Leavitt | Harvard Circ. 173 (1912) | synthetic | ✅ | (table not transcribed) |
-| F22 HR diagram | Gaia DR2 HRD (A&A 616, A10), Fig. 1 | synthetic | ✅ | `--cmap` for 2D histograms (T22.3); temperature and luminosity axes (TODO.md) |
+| F22 HR diagram | Gaia DR2 HRD (A&A 616, A10), Fig. 5 | synthetic | ✅ | square-root colour scale and `--cmap` for 2D histograms (`colorscale.py` plugin, T22.3); temperature and luminosity axes (TODO.md) |
 | F25 Anscombe's quartet | Am. Stat. 27, 17 (1973) | **real** | ✅ | shared axes (T22.6); statistics table (T22.11) |
 
 ## Missing features, by task
@@ -112,7 +115,7 @@ Patterns the commands use:
 | T19 | Garwood bars from the counts | F03 |
 | T20 | band colours independent of the line, saturated fills, band legend swatches; labelled σ lines | F04, F05, F15 |
 | T21 | `column:` lower panels following `--data_hue`/`--plot_type_column` (data as points); per-series markers; `--error_scale`; x error bars from bin widths for data points | F01, F04, F06, F08, F09, F16, F17 |
-| T22.3 | `--cmap` for 2D histograms; log y axis for `-z` images | F22, F15 |
+| T22.3 | a power (square-root) colour scale and `--cmap` for 2D histograms; log y axis for `-z` images | F22, F15 |
 | T22.5 | an ordered colour map for many hues | F11 |
 | T22.6 | panel grids with shared axes (rows × columns) | F01, F15, F25 |
 | T22.7 | insets | F03, F13 |

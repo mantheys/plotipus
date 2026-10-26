@@ -133,47 +133,68 @@ def leavitt():
     return {"Leavitt": pd.DataFrame(rows)}
 
 
-MAIN_SEQUENCE = np.array([(-0.1, 0.8), (0.0, 1.3), (0.3, 2.5), (0.5, 3.4), (0.82, 4.67), (1.0, 5.5), (1.5, 7.3),
-                          (2.0, 8.8), (2.5, 10.3), (3.0, 11.7), (3.5, 12.8), (4.0, 13.8), (4.6, 14.6)])
-GIANT_BRANCH = np.array([(0.75, 3.7), (1.0, 3.6), (1.05, 2.5), (1.2, 1.2), (1.5, -0.4), (2.0, -1.8)])
+# Loci read off the Gaia DR2 low-extinction HRD (Babusiaux et al. 2018), (BP-RP, M_G).
+MAIN_SEQUENCE = np.array([(-0.4, -1.0), (-0.2, 0.5), (0.0, 1.5), (0.3, 2.6), (0.5, 3.5), (0.7, 4.3), (0.82, 4.8),
+                          (1.0, 5.6), (1.5, 7.3), (2.0, 8.9), (2.5, 10.3), (3.0, 11.6), (3.5, 12.6), (4.0, 13.5),
+                          (4.6, 14.3)])
+GIANT_BRANCH = np.array([(0.7, 3.8), (1.0, 3.5), (1.05, 2.5), (1.15, 1.2), (1.3, 0.0), (1.6, -1.0), (2.0, -1.9),
+                         (2.4, -2.4)])
 
 
-def hertzsprung_russell(n_stars=80_000):
+def hertzsprung_russell(n_stars=250_000):
     """F22: Hertzsprung-Russell diagram, M_G vs BP - RP.
 
     Sources: H. N. Russell, Nature 93, 252 (1914); Gaia Collaboration,
     Babusiaux et al., A&A 616, A10 (2018), arXiv:1804.09378.
 
-    From the papers: the axes (absolute G magnitude, inverted, vs BP - RP)
-    and the populations: main sequence, giant branch, red clump and white
-    dwarf sequence. The real diagram is a Gaia archive query (research.md).
-    Synthetic: every star. A main-sequence locus through (BP-RP, M_G)
-    anchors including the Sun (0.82, 4.67), 0.15 mag width and 25%
-    unresolved binaries (up to 0.75 mag brighter); a giant branch from the
-    subgiants to M_G = -1.8; a red clump at (1.2, 0.5); white dwarfs from
-    (-0.4, 10.2) to (1.2, 15). Fractions 86/5/4/5% of 80,000 stars.
+    From the papers: the axes (absolute G magnitude, inverted, vs BP - RP),
+    the populations (main sequence, subgiant and giant branch, red clump,
+    hot subdwarfs, white dwarf sequence) and the colour scale, the square
+    root of the density of stars (captions of Figs. 1 and 5). Read off
+    Fig. 5 (low extinction): the loci of the main sequence (with the Sun at
+    (0.82, 4.67)), of the giant branch and of the white dwarfs
+    (M_G = 11 + 3 (BP - RP)), and where the density peaks (the turn-off near
+    (0.7, 4) and the M dwarfs). The real diagram is a Gaia archive query
+    (research.md).
+    Synthetic: every star. The main sequence is 0.4 mag wide above the
+    turn-off and 0.25 mag below, with 30% unresolved binaries (up to 0.75 mag
+    brighter); colours drawn around the turn-off, the A stars and the M
+    dwarfs; fractions 82% main sequence, 9% giant branch, 3% red clump, 5%
+    white dwarfs, 0.3% hot subdwarfs and 0.35% stars scattered between the
+    white dwarfs and the main sequence (BP - RP < 2), of 250,000 stars.
 
     One row with per-star arrays ``BPRP``, ``MG`` and ``Population`` (an
     index into ``PopulationNames``).
     """
     rng = rng_for("F22")
-    counts = rng.multinomial(n_stars, [0.86, 0.05, 0.04, 0.05])
+    counts = rng.multinomial(n_stars, [0.8235, 0.09, 0.03, 0.05, 0.003, 0.0035])
 
-    n = counts[0]
-    colour = np.where(rng.random(n) < 0.35, rng.normal(0.9, 0.3, n), rng.normal(2.2, 0.7, n)).clip(-0.1, 4.6)
-    magnitude = np.interp(colour, *MAIN_SEQUENCE.T) + rng.normal(0, 0.15, n)
-    magnitude -= np.where(rng.random(n) < 0.25, 0.75 * np.sqrt(rng.random(n)), 0)
+    choice = rng.choice(3, 2 * counts[0], p=[0.45, 0.10, 0.45])
+    size = choice.size
+    colour = np.select([choice == 0, choice == 1], [rng.normal(0.75, 0.25, size), rng.normal(0.2, 0.3, size)],
+                       rng.normal(2.3, 0.6, size))
+    colour = colour[(colour > -0.45) & (colour < 4.6)][:counts[0]]
+    n = colour.size
+    # Broader above the turn-off (ages and metallicities), narrower for the M dwarfs.
+    magnitude = np.interp(colour, *MAIN_SEQUENCE.T) + rng.normal(0, 1, n) * np.where(colour < 1.2, 0.4, 0.25)
+    magnitude -= np.where(rng.random(n) < 0.3, 0.75 * np.sqrt(rng.random(n)), 0)
     populations = {"Main sequence": (colour, magnitude)}
 
     t = rng.random(counts[1]) ** 2
     position = t * (len(GIANT_BRANCH) - 1)
     populations["Giant branch"] = (
-        np.interp(position, np.arange(len(GIANT_BRANCH)), GIANT_BRANCH[:, 0]) + rng.normal(0, 0.05, counts[1]),
-        np.interp(position, np.arange(len(GIANT_BRANCH)), GIANT_BRANCH[:, 1]) + rng.normal(0, 0.15, counts[1]))
-    populations["Red clump"] = (rng.normal(1.2, 0.05, counts[2]), rng.normal(0.5, 0.15, counts[2]))
-    t = rng.random(counts[3]) ** 0.7
-    populations["White dwarfs"] = (-0.4 + 1.6 * t + rng.normal(0, 0.05, counts[3]),
-                                   10.2 + 4.8 * t + rng.normal(0, 0.25, counts[3]))
+        np.interp(position, np.arange(len(GIANT_BRANCH)), GIANT_BRANCH[:, 0]) + rng.normal(0, 0.08, counts[1]),
+        np.interp(position, np.arange(len(GIANT_BRANCH)), GIANT_BRANCH[:, 1]) + rng.normal(0, 0.2, counts[1]))
+    populations["Red clump"] = (rng.normal(1.2, 0.06, counts[2]), rng.normal(0.5, 0.2, counts[2]))
+    colour = -0.5 + 2.0 * rng.random(counts[3]) ** 0.6
+    populations["White dwarfs"] = (colour + rng.normal(0, 0.05, counts[3]),
+                                   11 + 3 * colour + rng.normal(0, 0.25, counts[3]))
+    populations["Hot subdwarfs"] = (rng.normal(-0.35, 0.08, counts[4]), rng.normal(4.5, 0.4, counts[4]))
+    # Between the white dwarfs and the main sequence (binaries, subdwarfs, artefacts).
+    colour = rng.uniform(-0.5, 2.0, counts[5])
+    share = rng.random(counts[5]) ** 2
+    faint = np.minimum(11 + 3 * colour, 15.5)
+    populations["Scattered"] = (colour, share * faint + (1 - share) * np.interp(colour, *MAIN_SEQUENCE.T))
     colour = np.concatenate([c for c, _ in populations.values()]).astype(np.float32)
     magnitude = np.concatenate([m for _, m in populations.values()]).astype(np.float32)
     population = np.repeat(np.arange(len(populations), dtype=np.int8), [len(c) for c, _ in populations.values()])

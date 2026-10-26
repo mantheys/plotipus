@@ -7,4 +7,4 @@ plots = "input/plots"
 output = "output"
 style = ["style.json"]
 python_path = ["."]
-plugins = ["models", "annotations"]
+plugins = ["models", "annotations", "colorscale"]
