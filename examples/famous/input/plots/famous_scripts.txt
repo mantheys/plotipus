@@ -66,7 +66,7 @@ line --datafile RotationCurves -x Radius -y Velocity --hue Galaxy --style Type -
 line --datafile RotationCurves -x Radius -y Velocity --hue Galaxy --variables '$R_{max}$ < 12 kpc' '12-35 kpc' '$R_{max}$ > 35 kpc' --plot_type line --no_legend --labelx 'R (kpc)' --labely 'V (km/s)' --output_suffix panels.png
 
 # F12 van Albada et al. 1985: NGC 3198 rotation curve with disk, gas and halo
-line --datafile NGC3198 -x Radius -y Velocity --hue Component --style Component --data_hue Data --iterable_color_mapping ngc3198_colors --iterable_mapping ngc3198_labels --comparable_linestyles solid dashed dotted dashdot solid --plot_type line --errory --rangex 0 32 --rangey 0 180 --legend_loc 'lower right' --labelx 'R (kpc)' --labely 'V$_{rot}$ (km/s)' --text 0.05 0.92 'NGC 3198' --text_size xx-large
+line --datafile NGC3198 -x Radius -y Velocity --hue Component --style Component --data_hue Data --iterable_color_mapping ngc3198_colors --iterable_mapping ngc3198_labels --comparable_linestyles solid dashed dotted dashdot solid --plot_type line --errory --rangex 0 32 --rangey 0 240 --legend_loc 'upper right' --legend_ncol 2 --labelx 'R (kpc)' --labely 'V$_{rot}$ (km/s)' --text 0.05 0.92 'NGC 3198' --text_size xx-large --text_ha left
 
 # F13 Keeling curve (NOAA GML plot): monthly means in red, deseasonalised in black
 # gap: the seasonal cycle as an inset -> T22.7
