@@ -168,26 +168,37 @@ def _offset_label(formatter):
     return formatter.get_offset().replace(r"\mathdefault{}", "") or None
 
 
+def _label_with_offset(label, offset):
+    """``label`` with ``offset`` inside its trailing unit, "Rate (Hz)" ->
+    "Rate ($\\times10^{-5}$ Hz)", else appended, "Density ($\\times10^{-2}$)"."""
+    unit = re.match(r"^(.*?)\s*([(\[])([^()\[\]]*)([)\]])\s*$", label)
+    if unit and unit.group(3).strip():
+        head, opening, inner, closing = unit.groups()
+        return f"{head} {opening}{offset} {inner.strip()}{closing}"
+    return f"{label} ({offset})"
+
+
 def finish_tick_labels(fig, sci_in_label=None):
-    """With ``sci_in_label`` (default: the style's
-    ``plot_settings.sci_in_label``), move the offset text of each labelled
-    axis into its label ("Density ($\\times10^{-2}$)") before saving."""
+    """Write every common power of ten as "$\\times10^{n}$" (mathtext) and,
+    with ``sci_in_label`` (default: the style's ``plot_settings.sci_in_label``),
+    move the offset text of each labelled axis into its label ("Density
+    ($\\times10^{-2}$)", "Rate ($\\times10^{-5}$ Hz)") before saving."""
     if sci_in_label is None:
         sci_in_label = _style.sci_in_label
+    formatters = [(axis, axis.get_major_formatter()) for ax in fig.axes for axis in (ax.xaxis, ax.yaxis)]
+    formatters = [(axis, f) for axis, f in formatters if isinstance(f, ScalarFormatter)]
+    for _, formatter in formatters:
+        formatter.set_useMathText(True)
     if not sci_in_label:
         return
     fig.draw_without_rendering()
-    for ax in fig.axes:
-        for axis in (ax.xaxis, ax.yaxis):
-            formatter = axis.get_major_formatter()
-            if not isinstance(formatter, ScalarFormatter):
-                continue
-            offset = _offset_label(formatter)
-            label = axis.label.get_text()
-            if offset is None or not label.strip() or not axis.offsetText.get_visible():
-                continue
-            axis.label.set_text(f"{label} ({offset})")
-            axis.offsetText.set_visible(False)
+    for axis, formatter in formatters:
+        offset = _offset_label(formatter)
+        label = axis.label.get_text()
+        if offset is None or not label.strip() or not axis.offsetText.get_visible():
+            continue
+        axis.label.set_text(_label_with_offset(label, offset))
+        axis.offsetText.set_visible(False)
 
 
 def _capitalize_legend_label(label):

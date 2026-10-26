@@ -63,7 +63,8 @@ are the example list, `examples/input/plots/example_scripts.txt`;
   `--line`, `--xtick`, `--note`, `--title`.
 * **Tick labels**: plain numbers ("0.04", never "4e-2"); when the style's
   `axes.formatter.limits` call for a common power of ten, it goes into the
-  axis label, "Density (×10⁻²)". `--no-sci_in_label` keeps matplotlib's
+  axis label, "Density (×10⁻²)", inside the unit when there is one: "Rate
+  (×10⁻⁵ Hz)". `--no-sci_in_label` keeps matplotlib's
   offset text at the end of the axis instead. Log axes label decades (10ⁿ).
 * **Output**: `-o DIR [DIR ...]`, `--subfolder`, `--output_suffix`,
   `--filename_select` (keys that must stay in the generated file name),
@@ -104,6 +105,12 @@ plotipus line --datafile Distributions -x Bin -y Counts --hue Sample --select Di
 
 ```bash
 plotipus line --datafile Distributions -x Bin -y Counts --hue Sample --select Distribution -s Exponential --plot_type step --errory --errory_type bands --logy --labelx x --title 'Error bands on a log scale'
+```
+
+![Exponential counts as a rate of order 1e-5 Hz: plain tick numbers, with the common power of ten in the y label](images/options/rate.png)
+
+```bash
+plotipus line --datafile Distributions -x Bin -y Counts --hue Sample --select Distribution -s Exponential --plot_type step --multiply 1e-7 --labelx x --labely 'Rate per bin (Hz)' --title 'A rate: the power of ten in the label'
 ```
 
 ![Breit-Wigner peak with vertical lines at the half-maximum points, a horizontal line at half maximum and a note](images/options/overlays.png)

@@ -323,6 +323,25 @@ def test_power_of_ten_moves_into_the_label(make_project, tmp_path):
     assert not ax.yaxis.offsetText.get_visible()
 
 
+def test_power_of_ten_goes_inside_a_unit():
+    from plotipus.plot import _label_with_offset
+
+    assert _label_with_offset("Rate (Hz)", "$x$") == "Rate ($x$ Hz)"
+    assert _label_with_offset("Energy [MeV]", "$x$") == "Energy [$x$ MeV]"
+    assert _label_with_offset("Density", "$x$") == "Density ($x$)"
+
+
+def test_default_formatter_axes_get_mathtext_multiplier():
+    from plotipus.plot import finish_tick_labels
+
+    fig, ax = plt.subplots()
+    ax.plot([0, 1], [0, 3e-5])
+    ax.set_ylabel("Rate (Hz)")
+    finish_tick_labels(fig, sci_in_label=True)
+    assert ax.get_ylabel().replace("\u2212", "-") == r"Rate ($\times\mathdefault{10^{-5}}$ Hz)"
+    plt.close(fig)
+
+
 def test_sci_in_label_off_keeps_offset_text(make_project, tmp_path):
     limits = {"rcparams": {"axes.formatter.limits": [-2, 4]}}
     ax = _density_hist(make_project, tmp_path, "--no-sci_in_label", style_json=limits)
