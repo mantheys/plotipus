@@ -135,7 +135,7 @@ def _apply_plot_style(kwargs, plot_style):
         return
     kwargs["ls"] = plot_style
 
-from matplotlib.colors import LogNorm
+from matplotlib.colors import LogNorm, to_rgba
 from matplotlib.ticker import Formatter
 
 
@@ -936,6 +936,15 @@ def plot_data(
 
     if plot_type == "boxplot":
         boxplot_data = kwargs.pop("boxplot_data", y)
+        if color is not None:
+            # Edge, whiskers, caps and median in the series colour, the face at
+            # alpha 0.25, fliers as small hollow markers; the legend shows one box.
+            kwargs.setdefault("patch_artist", True)
+            kwargs.setdefault("boxprops", {"facecolor": to_rgba(color, 0.25), "edgecolor": color})
+            for key in ("medianprops", "whiskerprops", "capprops"):
+                kwargs.setdefault(key, {"color": color})
+            kwargs.setdefault("flierprops", {"marker": "o", "markersize": 3, "markerfacecolor": "none",
+                                             "markeredgecolor": color})
         return ax.boxplot(boxplot_data, label=label, **kwargs)
 
     if plot_type == "hist2d":

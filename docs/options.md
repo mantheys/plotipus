@@ -301,11 +301,23 @@ otherwise:
   unless `--note` is given or `--no_error_label` is passed.
 * **Bins**: every hue of a panel is binned over the same edges, spanning
   `--rangex` or else the range of all the hues' x values.
+* **Box plots** (`--plot_type box`): one box per bin (per category for a
+  non-numeric x), the hues side by side within the bin, in their colours
+  with one legend entry each. The ticks are the bin centres;
+  `--box_tick_labels ranges` labels the bins "[a, b)". `--whis` sets the
+  whisker reach (default 1.5 IQR, or two percentiles such as `5 95`) and
+  `--no_fliers` hides the points past the whiskers.
 
 ![Resolution (standard deviation of measured - true) against the true value, data and simulation](images/options/binned.png)
 
 ```bash
 plotipus line --datafile Distributions -x Value -y Residual --binned --estimator std --hue Sample --select Distribution -s Exponential --bins 11 --rangex 0 10 --labelx True --labely 'Measured - True' --title 'Binned estimator: resolution'
+```
+
+![Box plots of measured - true per bin of the true value, data and simulation side by side](images/options/box.png)
+
+```bash
+plotipus line --datafile Distributions -x Value -y Residual --binned --plot_type box --hue Sample --select Distribution -s Exponential --bins 11 --rangex 0 10 --labelx True --labely 'Measured - True' --title 'Box plots per bin'
 ```
 
 ## Categories and scatter

@@ -34,7 +34,7 @@ command lists.
 
 | Group | ✅ | ◐ | ✗ |
 |---|---|---|---|
-| A Distributions | 4 | 3 | 5 |
+| A Distributions | 5 | 2 | 5 |
 | B Relationships | 6 | 1 | 2 |
 | C Trends and fits | 4 | 4 | 2 |
 | D Comparisons | 1 | 4 | 4 |
@@ -44,7 +44,7 @@ command lists.
 | H Small multiples and layout | 2 | 2 | 4 |
 | I Annotations | 5 | 2 | 3 |
 | J Tables | 4 | 1 | 2 |
-| **Total (89)** | **36** | **25** | **28** |
+| **Total (89)** | **37** | **24** | **28** |
 
 Nearly half of the ◐ entries are partial only because of a bug in
 [bugs.md](bugs.md), not because an option is missing. Fixing B01–B13 moves
@@ -64,7 +64,7 @@ about 12 of them to ✅.
 | A6 | Histogram with Poisson errors | counts with statistical uncertainty | F01, F03 | ◐ | Pre-binned: `line ... --plot_type errorbar --errory` with a stored `CountsError` column (P03). There are no computed or asymmetric Poisson intervals, and `hist` draws no errors. | `hist --errors poisson\|sumw2`; G2. |
 | A7 | KDE | smooth density of a sample | — | ✗ | — | `hist --hist_type kde` (scipy `gaussian_kde`, Scott bandwidth, `--bw`). |
 | A8 | ECDF / cumulative | quantiles, comparing tails | — | ✗ | — | `hist --hist_type ecdf` (and `--cumulative` for histograms). |
-| A9 | Box plot per category | distribution summaries side by side | — | ◐ | `line --binned --plot_type box` exists for binned x (P14), but tick labels are garbled and hue groups overlap (B16). | Fix B16; for categorical x see A10. |
+| A9 | Box plot per category | distribution summaries side by side | — | ✅ | `line --binned --plot_type box --hue Sample` (P14): hues dodged per bin or per category of a non-numeric x, `--box_tick_labels ranges`, `--whis` (B16, fixed in T10). | — |
 | A10 | Violin / strip / box per category | distributions per category | F25 | ✗ | `cat` reduces each row to one number. | `cat --kind box\|violin\|strip`: array cells kept as distributions instead of being integrated. |
 | A11 | Ridgeline (joy plot) | many distributions, ordered | — | ✗ | — | `hist --ridge [OVERLAP]`: offset each hue vertically, label on the left. |
 | A12 | Rug | raw positions under a hist or KDE | — | ✗ | — | `hist --rug` (ticks along the x axis, alpha by density). |
