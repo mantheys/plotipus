@@ -1,14 +1,16 @@
 """Colour scales of map panels for the famous-plot reproductions (a project plugin).
 
-Adds two options to every kind, applied by a figure hook just before the figure
+Adds four options to every kind, applied by a figure hook just before the figure
 is saved, to the 2D histograms and images of every panel (colorbars follow):
 
 - ``--zpower GAMMA``: a power-law colour scale, value**GAMMA; 0.5 is the
   square root of the density of the Gaia DR2 HR diagrams (F22);
 - ``--zcmap NAME``: the colour map, also for 2D histograms (``--cmap`` reaches
-  only ``-z`` images).
+  only ``-z`` images);
+- ``--zmin VALUE`` and ``--zunder COLOUR``: the bottom of the scale, and the
+  colour of the values below it (Gaia draws its sparsest bins as black dots).
 
-plotipus has no built-in equivalent yet: both belong to T22.3.
+plotipus has no built-in equivalent yet: they belong to T22.3.
 """
 
 from matplotlib.collections import QuadMesh
@@ -21,12 +23,17 @@ def setup(registry):
                           help="Power-law colour scale of map panels, e.g. 0.5 for sqrt (famous-plot plugin).")
     registry.add_argument("--zcmap", type=str, default=None, metavar="NAME",
                           help="Colour map of map panels, 2D histograms included (famous-plot plugin).")
+    registry.add_argument("--zmin", type=float, default=None, metavar="VALUE",
+                          help="Bottom of the colour scale of map panels (famous-plot plugin).")
+    registry.add_argument("--zunder", type=str, default=None, metavar="COLOUR",
+                          help="Colour of map values below --zmin (famous-plot plugin).")
     registry.add_figure_hook(apply_colour_scale)
 
 
 def apply_colour_scale(fig, args):
     gamma, cmap = getattr(args, "zpower", None), getattr(args, "zcmap", None)
-    if gamma is None and cmap is None:
+    minimum, under = getattr(args, "zmin", None), getattr(args, "zunder", None)
+    if gamma is None and cmap is None and minimum is None and under is None:
         return
     for ax in fig.axes:
         if ax.get_label() == "<colorbar>":
@@ -34,10 +41,15 @@ def apply_colour_scale(fig, args):
         for mappable in [*ax.collections, *ax.images]:
             if not isinstance(mappable, (QuadMesh, AxesImage)):
                 continue
+            low, high = mappable.get_clim()
+            low = minimum if minimum is not None else max(low, 0)
             if gamma is not None:
-                low, high = mappable.get_clim()
-                mappable.set_norm(PowerNorm(gamma, vmin=max(low, 0), vmax=high))
+                mappable.set_norm(PowerNorm(gamma, vmin=low, vmax=high))
+            elif minimum is not None:
+                mappable.set_clim(low, high)
             if cmap is not None:
                 mappable.set_cmap(cmap)
+            if under is not None:
+                mappable.set_cmap(mappable.get_cmap().with_extremes(under=under))
             if mappable.colorbar is not None:
                 mappable.colorbar.update_normal(mappable)

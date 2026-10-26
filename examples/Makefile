@@ -46,7 +46,7 @@ FAMOUS_GALLERY = \
 	kamland_lovere_survivalprobability_error_component_line.png:kamland.png \
 	omegacontours_sn_riess1998_omegam_omegalambda_deltachi2_riess.png:omega-contours.png \
 	hubble1929_distance_velocity_sample_line.png:hubble-1929.png \
-	hrdiagram_bprp_mg_hist2d.png:hr-diagram.png \
+	hrdiagram_bprp_mg_stars_name_all_hist2d.png:hr-diagram.png \
 	keeling_decimaldate_co2_series_line.png:keeling.png \
 	hockeystick_year_anomaly_error_series_line.png:hockey-stick.png \
 	ngc3198_radius_velocity_error_component_line.png:ngc3198.png

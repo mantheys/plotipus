@@ -160,3 +160,13 @@ def test_paper_style_keeps_one_figure_size(frames, make_project):
     finally:
         plt.close("all")
     assert Image.open(out / outputs[0]).size == (1050, 810)
+
+
+def test_gaia_counts_match_the_paper(frames):
+    """F22 is real Gaia DR2 data: the paper's query gives the 65,921,112 stars
+    of its Fig. 1 caption."""
+    hrd = frames["HRDiagram"].set_index("Name")
+    assert hrd.loc["all", "TotalStars"] == 65_921_112
+    stars = hrd.loc["all", "Stars"]
+    assert stars.shape == (len(hrd.loc["all", "MG"]), len(hrd.loc["all", "BPRP"]))
+    assert np.nanmin(stars) >= 1
