@@ -38,5 +38,6 @@ line --datafile Distributions -x Value -y Residual --binned --plot_type box --hu
 
 # Other kinds: categories and scatter
 cat --datafile Distributions -x Distribution --hue Sample -y Counts --select Distribution -s Resonance --kind bar --labely Events --title 'Yields: summed counts per sample' --output_suffix yields
+cat --datafile Moments -x Config --hue Sample -y Value --errory --select Variable Config Config Config Config Config Config Config -s Std Gaussian Poisson Binomial Exponential Uniform Log-normal Chi-squared --kind bar --labelx Distribution --labely 'Standard deviation' --title 'One scalar per row: spread of each sample' --output_suffix moments
 scatter --datafile Distributions -x Value -y Smeared --colorby Residual --select Distribution Sample -s Exponential Data --marker_size 4 --labelx True --labely Measured --title 'Points coloured by a third column' --output_suffix scatter
 scatter --datafile Distributions -x Value -y Smeared --hue Distribution --select Sample Distribution Distribution Distribution -s Data Gaussian Exponential Log-normal --marker_size 4 --labelx True --labely Measured --title 'Points coloured by group (--hue)' --output_suffix scatter_hue

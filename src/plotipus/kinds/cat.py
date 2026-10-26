@@ -1,17 +1,20 @@
 """cat: one value per category.
 
 Each row carries an array column (``-y``, e.g. counts) binned along another
-array column (``--integrate_over``) and a categorical column (``-x``). The
-array is reduced to a scalar per row (``--integral_mode integrate``: sum of
+array column (``--integrate_over``) and a categorical column (``-x``), or
+one scalar ``-y`` per row (already integrated). The array is reduced to a
+scalar per row (``--integral_mode integrate``: sum of
 y times bin width; ``sum``: plain sum; optionally within
 ``--integration_range``); rows sharing a category are summed and errors add
 in quadrature. One series per ``--hue`` value (colour and marker), one line
 style (or bar opacity) per ``--style`` value; ``--kind`` draws points joined
-by lines (line), bare points (point) or dodged bars (bar).
+by lines (line), bare points (point) or dodged bars (bar). Category labels
+are rotated only when they would overlap.
 """
 
 import matplotlib.lines as mlines
 import matplotlib.patches as mpatches
+import matplotlib.pyplot as plt
 import numpy as np
 from rich import print as rprint
 
@@ -42,7 +45,7 @@ def build_parser():
         overrides={
             "datafile": {"required": True},
             "x": {"required": True, "help": "Categorical column (one position per value)"},
-            "y": {"required": True, "help": "Array column reduced to one value per row"},
+            "y": {"required": True, "help": "Array column reduced to one value per row (or a scalar per row)"},
             "iterable": {"required": True, "help": "Column whose values become separate series (colour)"},
             "errory": {"help": "Propagate the {y}Error column (in quadrature) as error bars"},
         },
@@ -68,6 +71,8 @@ def build_parser():
         help="Mapping giving the colour of each hue value.")
     add("--xtick_mapping", type=str, default=None, help="Mapping renaming the categories on the axis.")
     add("--x_order", nargs="+", type=str, default=None, help="Order of the categories (default: first seen).")
+    add("--xtick_rotation", type=float, default=None, metavar="DEG",
+        help="Rotate the category labels by DEG (default: 30 only when they would overlap; 20 is the old look).")
     add("--overlay_names", action="store_true", default=False,
         help="All --configs/--names in one figure instead of one figure per pair.")
     _base.add_output_args(parser)
@@ -79,9 +84,19 @@ def main(argv=None):
 
 
 def integrate_row(row, args):
-    """(value, error) of one row: -y reduced over --integrate_over."""
-    y = np.asarray(row[args.y], dtype=float)
+    """(value, error) of one row: -y reduced over --integrate_over, or a
+    scalar -y (and {y}Error) taken as already integrated."""
     error_column = f"{args.y}Error"
+    if np.ndim(row[args.y]) == 0:
+        value = float(row[args.y])
+        error = None
+        if args.errory and error_column in row.index and np.ndim(row[error_column]) == 0 and row[error_column] is not None:
+            error = float(row[error_column])
+        if args.multiply is not None:
+            value *= args.multiply
+            error = None if error is None else error * args.multiply
+        return value, error
+    y = np.asarray(row[args.y], dtype=float)
     yerr = None
     if args.errory and error_column in row.index and row[error_column] is not None:
         yerr = np.asarray(row[error_column], dtype=float)
@@ -128,7 +143,9 @@ def draw_figure(rows, args, kdx, comparable):
         if args.kind == "bar":
             hue_handles.append(mpatches.Patch(facecolor=color, alpha=0.9, label=hue_label))
         else:
-            hue_handles.append(mlines.Line2D([], [], color=color, linestyle="-", marker=marker, label=hue_label))
+            # Points: the marker only; lines: a line with the marker.
+            hue_handles.append(mlines.Line2D([], [], color=color, linestyle="-" if args.kind == "line" else "none",
+                                             marker=marker, label=hue_label))
         for cdx, value in enumerate(comparables):
             subset = rows[rows[args.iterable] == hue]
             if value is not None:
@@ -174,8 +191,7 @@ def draw_figure(rows, args, kdx, comparable):
                                                        label=value_label))
 
     ax.set_xticks(positions)
-    ax.set_xticklabels([map_iterable_label(c, args.x, args.xtick_mapping) for c in categories],
-                       rotation=20, ha="right", rotation_mode="anchor")
+    ax.set_xticklabels([map_iterable_label(c, args.x, args.xtick_mapping) for c in categories])
     ax.set_xlabel(resolve_axis_label(args.labelx, args.x, rows))
     ylabel = args.labely
     if ylabel is None:
@@ -183,15 +199,16 @@ def draw_figure(rows, args, kdx, comparable):
         unit = rows[unit_column].iloc[0] if unit_column in rows.columns else None
         if unit and args.integral_mode == "integrate" and "/ MeV" in str(unit):
             unit = str(unit).replace(" / MeV", "")
-        ylabel = f"Integrated {args.y}" + (f" ({unit})" if unit else "")
+        scalar = all(np.ndim(value) == 0 for value in rows[args.y])  # already one value per row
+        ylabel = ("" if scalar else "Integrated ") + f"{args.y}" + (f" ({unit})" if unit else "")
     ax.set_ylabel(ylabel)
     if args.logy:
         ax.set_yscale("log")
     if args.rangey is not None:
         ax.set_ylim(args.rangey)
     ax.set_xlim(-0.5, len(categories) - 0.5)
-    ax.grid(True, axis="y", alpha=0.3)
     draw_horizontal_overlay(ax, args)
+    _rotate_tick_labels(fig, ax, args.xtick_rotation)  # the measured layout makes room for them
 
     handles = list(hue_handles)
     if style_handles:
@@ -205,8 +222,33 @@ def draw_figure(rows, args, kdx, comparable):
                                          capitalize_labels=args.capitalize_legend)
 
     add_title_and_note(fig, args)
-    fig.subplots_adjust(bottom=0.22)
     return save(fig, args, kdx, suffix="cat.png")
+
+
+def _rotate_tick_labels(fig, ax, rotation=None, pad_px=4):
+    """Rotate the x tick labels by *rotation*, or, when any two would overlap,
+    by 30 degrees (90 if they would still collide)."""
+    labels = [label for label in ax.get_xticklabels() if label.get_text()]
+    if rotation is None:
+        fig.canvas.draw()
+        boxes = sorted((label.get_window_extent() for label in labels), key=lambda box: box.x0)
+        rotation = 30 if any(a.x1 + pad_px > b.x0 for a, b in zip(boxes, boxes[1:])) else 0
+        if rotation:
+            # Rotated labels are parallel lines spacing * sin(angle) apart. The measured layout then
+            # narrows the axes by however far the first label reaches past the figure's left edge,
+            # and the spacing with them.
+            centres = sorted((box.x0 + box.x1) / 2 for box in boxes)
+            spacing = min(np.diff(centres)) if len(centres) > 1 else np.inf
+            height = max(box.height for box in boxes)
+            plt.setp(labels, rotation=30, ha="right", rotation_mode="anchor")
+            fig.canvas.draw()
+            width = ax.get_window_extent().width
+            overflow = max(0.0, -min(label.get_window_extent().x0 for label in labels))
+            spacing *= max(width - overflow, 0.0) / width
+            if spacing * np.sin(np.radians(30)) < height + pad_px:
+                rotation = 90
+    if rotation:
+        plt.setp(labels, rotation=rotation, ha="right", rotation_mode="anchor")
 
 
 def run(args):
