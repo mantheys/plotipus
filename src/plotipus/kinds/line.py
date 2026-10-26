@@ -17,6 +17,7 @@ import json
 import matplotlib
 import matplotlib.lines as mlines
 import matplotlib.ticker
+from matplotlib.colors import to_hex
 import numpy as np
 import pandas as pd
 from rich import print as rprint
@@ -63,7 +64,7 @@ from ..panels import (
     rotate_categorical_labels,
     save,
 )
-from ..plot import (apply_legend_style, apply_legend_style_clear_of_data, apply_tick_formatter,
+from ..plot import (apply_legend_style, apply_legend_style_clear_of_data, apply_tick_formatter, order_legend_entries,
                     errory_type, plot_data)
 from ..selection import filter_dataframe
 from ..transforms import (
@@ -1054,7 +1055,6 @@ def _draw_lower(ax, spec, series, args, comparable, comparable_values, colors):
             out.append(_lower_series(reference.x, values, None, other.color, linestyle,
                                      label if hdx == 0 else None, resolve_linewidth(hdx, args, len(hues))))
     else:
-        first = True
         for value, members in by_comparable.items():
             x, aligned = _aligned(members)
             if not aligned:
@@ -1073,6 +1073,7 @@ def _draw_lower(ax, spec, series, args, comparable, comparable_values, colors):
                 except ValueError:
                     rprint(f"[yellow]Warning:[/yellow] reference value '{args.reference_value}' not found; using index {args.reference}.")
             series_colors = {str(s.hue_label): s.color for s in aligned}
+            reference_label = labels[max(0, min(reference_index, len(labels) - 1))]
             if args.reference_sum:
                 sum_label = str(args.reference_sum_label or " + ".join(map(str, args.reference_sum)))
                 series_colors[sum_label] = args.reference_sum_color or colors.next_free(("reference_sum", sum_label))
@@ -1083,13 +1084,22 @@ def _draw_lower(ax, spec, series, args, comparable, comparable_values, colors):
                     color = colors.next_free((spec.name,))
                 else:
                     color = series_colors.get(out_label)
-                out.append(_lower_series(x, values, None, color, aligned[0].linestyle, label if first else None,
-                                         aligned[0].linewidth))
-                first = False
+                entry = label if spec.name in ("sum", "mean", "rms") else _pair_label(out_label, reference_label, spec.name)
+                out.append(_lower_series(x, values, None, color, aligned[0].linestyle, entry, aligned[0].linewidth))
 
     for s in out:
         draw_series(ax, s, args, getattr(s, "forced_type", None) or plot_type or "line")
-    _finish_lower(ax, spec, args, label, has_content=bool(out))
+    # Lower series in the colours of the upper ones need no legend: the y
+    # label says what is shown.
+    upper_colors = {to_hex(s.color) for s in series if s.color is not None}
+    new_colors = any(s.color is None or to_hex(s.color) not in upper_colors for s in out if s.label)
+    _finish_lower(ax, spec, args, label, has_content=bool(out) and new_colors)
+
+
+def _pair_label(value, reference, operation):
+    """Legend entry of a lower series compared with the reference series."""
+    symbol = {"ratio": "/", "subtract": "\u2212"}.get(operation)
+    return f"{value} {symbol} {reference}" if symbol else f"{value} vs {reference}"
 
 
 DATA_COMPARISONS = ("ratio", "subtract", "relative_difference")
@@ -1228,8 +1238,12 @@ def _finish_upper(fig, upper, lower, drawn, rows, args, variables, last_x, hue_v
             handles, labels = ax.get_legend_handles_labels()
             # matplotlib lists error bars after lines and patches: --data_hue entries go first.
             data_labels = {s.label for series in drawn.values() for s in series if s.is_data and s.label}
-            order = sorted(range(len(labels)), key=lambda i: labels[i] not in data_labels)
-            handles, labels = [handles[i] for i in order], [labels[i] for i in order]
+            if args.legend_order == "data":
+                order = sorted(range(len(labels)), key=lambda i: labels[i] not in data_labels)
+                handles, labels = [handles[i] for i in order], [labels[i] for i in order]
+            else:
+                handles, labels = order_legend_entries(ax, handles, labels, stacked=args.stacked,
+                                                       keep_first=data_labels)
             for label, color in extrapolated_axes.get(ax, []):
                 handles.append(mlines.Line2D([], [], color=color, linestyle=EXTRAPOLATED_LINESTYLE, linewidth=1))
                 labels.append(f"{label} Extrapolated")

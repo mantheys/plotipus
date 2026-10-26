@@ -172,7 +172,8 @@ def test_hue_and_style_on_one_column_draw_one_legend(make_project, spectra):
     legends = [a for a in ax.get_children() if isinstance(a, Legend)]
     assert len(legends) == 1
     handles = legends[0].legend_handles
-    assert [t.get_text() for t in legends[0].get_texts()] == ["A", "B", "C"]
+    # Entries follow the right-hand ends of the lines (B is twice A, C half of it).
+    assert [t.get_text() for t in legends[0].get_texts()] == ["B", "A", "C"]
     assert len({h.get_linestyle() for h in handles}) == 3
     assert len({to_hex(h.get_color()) for h in handles}) == 3
 

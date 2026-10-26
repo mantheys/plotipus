@@ -561,10 +561,14 @@ def save_figure_to_paths(fig, output_arg, output_file, default_output_dir=None, 
     """Save ``fig`` into every --output directory (or the default plot
     directory when none is given); ``sci_in_label`` as in
     :func:`plotipus.plot.finish_tick_labels`."""
-    from .plot import _shorten_title_to_fit, apply_measured_layout, finish_tick_labels
+    from .plot import _shorten_title_to_fit, apply_measured_layout, finish_tick_labels, place_legends
 
     finish_tick_labels(fig, sci_in_label)
     apply_measured_layout(fig)
+    # Legends go where they cover no data on the finished axes; a legend
+    # moved above the axes (or added headroom) needs the layout again.
+    if place_legends(fig):
+        apply_measured_layout(fig)
 
     # Layout may have narrowed the title since it was set; re-check it fits.
     _shorten_title_to_fit(fig, getattr(fig, "_suptitle", None))

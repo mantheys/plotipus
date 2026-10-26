@@ -214,6 +214,17 @@ offset text; the old `4e-2` labels are not restorable (they were the bug).
 - When no corner is free, reserve headroom: extend the y range by the legend height, or place the legend above the axes (matplotlib's `loc="outside upper center"`).
 - In ratio panels, either label each series "X / reference" or put no legend at all and let the y label say "Ratio to Signal" (the colours already match the upper panel).
 
+**Fixed in T15.** Automatic legends are placed when the figure is saved, on
+the finished axes: an occupancy mask (the data artists rendered once, so
+bars, bands, images and filled contours count whole) scores every corner
+and free position; with no free place the y range gets headroom (log axes
+by decades, not when the range is fixed), else the legend goes above the
+axes in as many columns as fit, as it does past 6 entries or with
+`--legend_loc outside`. Entries follow the data (stacks top first, lines by
+their right-hand ends; `--legend_order data` keeps the drawing order).
+Lower panels in the upper colours draw no legend; otherwise each series is
+"X / reference". Restore option: `--legend_loc <corner>` pins a location.
+
 ## B07 cat: legend handles, layout and scalar crash
 
 **Reproduce:** `B07a` (examples' cat plot) and `B07b` (traceback).
