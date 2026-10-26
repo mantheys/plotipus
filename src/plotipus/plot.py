@@ -790,20 +790,22 @@ def _right_edge_value(handle, ax):
     return None
 
 
-def order_legend_entries(ax, handles, labels, stacked=False, keep_first=()):
+def order_legend_entries(ax, handles, labels, stacked=False, keep_first=(), keep_last=()):
     """Legend entries in the order of the data: a stack top first, lines by
     the height of their right-hand ends (highest first; entries without a
     value keep their place at the end). Labels in ``keep_first`` (e.g. data)
-    stay in front."""
+    stay in front, those in ``keep_last`` (e.g. an uncertainty band) at the
+    end, in that order."""
     first = [i for i, label in enumerate(labels) if label in keep_first]
-    rest = [i for i in range(len(labels)) if i not in first]
+    last = [i for label in keep_last for i, other in enumerate(labels) if other == label and i not in first]
+    rest = [i for i in range(len(labels)) if i not in first and i not in last]
     if stacked:
         rest = rest[::-1]
     else:
         values = {i: _right_edge_value(handles[i], ax) for i in rest}
         valued = sorted((i for i in rest if values[i] is not None), key=lambda i: -values[i])
         rest = valued + [i for i in rest if values[i] is None]
-    order = first + rest
+    order = first + rest + last
     return [handles[i] for i in order], [labels[i] for i in order]
 
 

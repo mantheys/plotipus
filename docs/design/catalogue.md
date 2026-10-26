@@ -34,17 +34,17 @@ command lists.
 
 | Group | ✅ | ◐ | ✗ |
 |---|---|---|---|
-| A Distributions | 5 | 2 | 5 |
+| A Distributions | 6 | 1 | 5 |
 | B Relationships | 6 | 1 | 2 |
-| C Trends and fits | 5 | 3 | 2 |
+| C Trends and fits | 6 | 3 | 1 |
 | D Comparisons | 1 | 4 | 4 |
-| E Ratios and significance | 4 | 3 | 1 |
+| E Ratios and significance | 5 | 2 | 1 |
 | F ML diagnostics | 4 | 2 | 1 |
-| G Uncertainty | 2 | 3 | 4 |
+| G Uncertainty | 3 | 3 | 3 |
 | H Small multiples and layout | 2 | 2 | 4 |
 | I Annotations | 6 | 1 | 3 |
 | J Tables | 4 | 1 | 2 |
-| **Total (89)** | **39** | **22** | **28** |
+| **Total (89)** | **43** | **20** | **26** |
 
 Nearly half of the ◐ entries are partial only because of a bug in
 [bugs.md](bugs.md), not because an option is missing. Fixing B01–B13 moves
@@ -58,7 +58,7 @@ about 12 of them to ✅.
 |---|---|---|---|---|---|---|
 | A1 | Histogram, step outline | compare shapes of a few samples | F03 | ✅ | `hist --datafile Ev -x Xv --hue Group --bins 40` (P12). Full-width edge bins, one range over all hues, entries outside reported and shown with `--flow hint\|show` (B09, fixed in T04). | — |
 | A2 | Histogram of pre-binned counts | analysis outputs already binned | F03, F16 | ✅ | `line --datafile Spectra -x Energy -y Counts --hue Sample --plot_type step --logy` (example 1). | — |
-| A3 | Filled / stacked histogram (stacked MC) | composition of a total | F03, F23 | ◐ | Stacking is bars only (`--stacked`, example 3); `--stacked --plot_type step` is silently unstacked (B10). | Stack in data space for step and filled step (B10). |
+| A3 | Filled / stacked histogram (stacked MC) | composition of a total | F03, F23 | ✅ | `line --datafile Spectrum -x Mass -y Counts --hue Sample --remove_value data --stacked [--plot_type step\|fill]` (B10a; fixed in T18). | — |
 | A4 | Normalised / density histogram | shapes at different statistics | — | ✅ | `hist --datafile Ev -x Xv --hue Group --bins 40 --density --logy` (P13). | — |
 | A5 | Weighted histogram | event weights | — | ✅ | `hist ... --weight Yv` (Q4). Errors not drawn: see G2. | — |
 | A6 | Histogram with Poisson errors | counts with statistical uncertainty | F01, F03 | ◐ | Pre-binned: `line ... --plot_type errorbar --errory` with a stored `CountsError` column (P03). There are no computed or asymmetric Poisson intervals, and `hist` draws no errors. | `hist --errors poisson\|sumw2`; G2. |
@@ -93,7 +93,7 @@ about 12 of them to ✅.
 | C4 | Fit with residual panel | fit quality | F01, F06, F07, F09 | ✅ | `... --fit --lower residual` (P04): (data−fit)/fit, masked where the fit is below 1e-3 of its peak (B13, fixed in T06). | — |
 | C5 | Fit with pull panel | fit quality in σ | F01, F17 | ✅ | `... --fit --lower pull` (P05): (data−fit)/σ with ±1σ/±2σ bands; `--lower residual --lower pull` stacks both (B13, fixed in T06). | — |
 | C6 | Several model curves over data | model comparison | F09, F12, F17 | ◐ | Model curves stored as extra hue rows (`--hue Model`), data as error bars; no per-series plot type (points for data, lines for models). | `--series_type VALUE=errorbar` (per-hue plot type). |
-| C7 | Stacked area | composition over x | F23 | ✗ | `--stacked` only stacks bars (B10). | Covered by the B10 fix (`--stacked --plot_type line` → `fill_between`). |
+| C7 | Stacked area | composition over x | F23 | ✅ | `--stacked --plot_type line` (`fill_between` from the running total; B10 fixed in T18). | — |
 | C8 | Time series with dates | monitoring, Keeling curve | F13 | ◐ | Works on numeric x (decimal year); no date axis formatting. | Convert datetime64 x and use `ConciseDateFormatter`. |
 | C9 | Smoothed / rolling line | trend under noise | F13, F14 | ✗ | — | `line --smooth N [--smooth_kind rolling\|savgol]` drawn over the raw series. |
 | C10 | Many series with a sequential colour | ordered hue (runs, energies) | F11 | ◐ | Only the categorical palette (past its end colours repeat with a warning, T01). | `line --hue_cmap viridis` for numeric/ordered hues, with a colorbar instead of a legend. |
@@ -118,7 +118,7 @@ about 12 of them to ✅.
 |---|---|---|---|---|---|---|
 | E1 | Ratio panel to a reference series | shape agreement | F03 | ✅ | `line ... --lower ratio --reference_value signal` (example 2; P02). No legend when the ratios keep the upper colours, else one "X / reference" entry each (B06, fixed in T15). | — |
 | E2 | Data / (sum of MC) ratio | data–simulation agreement | F03 | ✅ | `--lower ratio --reference_sum bkg_a bkg_b signal --reference_sum_label MC` (Q2). | — |
-| E3 | Data points over stacked MC with ratio panel | the HEP control plot | F03 | ◐ | E2 works, but the data are stacked with the MC (P20, B10), and there are no data points over step stacks and no MC uncertainty band. | B10 fix + `--overlay data` + `--stack_total_error`. |
+| E3 | Data points over stacked MC with ratio panel | the HEP control plot | F03 | ✅ | `line --datafile Spectrum -x Mass -y Counts --hue Sample --stacked --plot_type fill --overlay data --stack_total_error --lower ratio` (fixed in T18). Errors are the stored ones until T19 adds Poisson intervals. | — |
 | E4 | Several lower panels | ratio and difference together | F01 | ✅ | `--lower ratio --lower relative_difference` (Q6). | — |
 | E5 | S/√B or significance panel | optimisation | — | ✅ | `--lower group --reference_group signal --other_group ... --group_significance` (example 3). The panel's legend repeats the formula as raw text. | — |
 | E6 | Residual relative to a named model component | bump over background | F01, F09 | ◐ | `--lower subtract --reference_value bkg` works for stored curves, but not against a component of a stored fit. | `--lower residual:COMPONENT`. |
@@ -148,7 +148,7 @@ All curves are precomputed by the analysis (plotipus does not fit or score).
 | G3 | Efficiency intervals in plots | bounded efficiencies | — | ◐ | `table --clopper_pearson` exists; plots need precomputed `Error+/-`. | `line --errory_type clopper_pearson --count_column N` (reuse the table code). |
 | G4 | Single band around a curve | systematic band | F14 | ✅ | `line --errory --errory_type bands` (B11, fixed in T07); series colour at `plot_settings.band_alpha` (default 0.2). | — |
 | G5 | Nested ±1σ/±2σ bands (Brazil plot) | expected limits | F02, F04, F05 | ✗ | One band per series only. | `--errory_column LimitErr1 LimitErr2` (one band per column, darker inside), with `--band_colors brazil`. |
-| G6 | Hatched systematic band on a stack total | MC uncertainty | F03 | ✗ | — | Part of E3 (`--stack_total_error --error_hatch ////`). |
+| G6 | Hatched systematic band on a stack total | MC uncertainty | F03 | ✅ | `--stack_total_error` (stacked errors in quadrature) or `--stack_total_error_column COL` (precomputed, e.g. with systematics); hatch from `plot_settings.stack_error` (T18). | — |
 | G7 | 1D likelihood scan with Δχ² = 1, 4 lines | parameter intervals | — | ◐ | `line --datafile Scan -x Mu -y DeltaNLL --horizontal 1 4 --horizontal_label 1σ 2σ` (P07). Points are drawn as markers, and the labels are misplaced (one left, one right). | Consistent right-edge labels for `--horizontal`. |
 | G8 | 2D Δχ² confidence contours, several datasets | joint constraints | F10 | ◐ | `map --contour` with configs: one hue per dataset, levels by line style, one legend entry per dataset and per level (B03, fixed in T02). | `--hue` over datasets. |
 | G9 | Error-bar magnification with note | tiny errors | F06, F17 | ✗ | `--multiply` scales values, not only errors. | `--error_scale K` (adds "errors ×K" to the legend). |

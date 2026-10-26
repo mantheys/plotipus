@@ -190,15 +190,24 @@ def build_parser():
     add("--connect", action="store_true", default=False,
         help="Join the points: with steps without --plot_type, with lines for points with error bars.")
     add("--stacked", action="store_true", default=False,
-        help="Stack the series: filled histograms over binned x, bars over categories, with --bar_width or "
-        "with --plot_type bar.")
-    add("--data_hue", nargs="+", default=None, metavar="VALUE",
+        help="Stack the series: filled histograms over binned x (outlines with --plot_type step, filled steps "
+        "with a darker edge with fill, a stacked area with line), bars over categories, with --bar_width or "
+        "with --plot_type bar. --overlay values stay out of the stack.")
+    add("--data_hue", "--overlay", nargs="+", default=None, metavar="VALUE",
         help="Hue values drawn as data: points with error bars in the ink colour, first in the legend, never "
         "stacked. The other series are drawn as steps (bars with --stacked), with error bands with --errory, and "
         "ratio/subtract/relative_difference lower panels compare the data with their total. The values may "
         "also be --style values: those series are drawn as points in their hue colour, and the style legend "
         "shows a point for them. With --by_config, the values are configs, names or hue values.")
     add("--stack_reverse", action="store_true", default=False, help="Stack in reverse order (first series on top).")
+    add("--stack_total_error", action="store_true", default=False,
+        help="With --stacked: a hatched band around the stack total, from the stacked series' errors added in "
+        "quadrature (also drawn with --overlay and --errory).")
+    add("--stack_total_error_column", type=str, default=None, metavar="COL",
+        help="Array column with a precomputed error of the stack total (e.g. with systematics), read from the "
+        "first stacked series that has it; implies --stack_total_error.")
+    add("--overlay_legend", choices=["first", "last"], default="first",
+        help="Legend position of the --overlay (--data_hue) entries: before the stack (default) or after it.")
     add("--bar_width", type=str, default=None,
         help="Stack as bars of this width: a number, or 'auto' for the x spacing without edges (default: "
         "filled histograms over binned x, bars of width 0.8 over categories).")
@@ -526,7 +535,8 @@ def draw_series(ax, s, args, plot_type=None, stack_bottom=None, dodge_shift=0.0)
     --errory_type bands, steps with --connect, lines for styled series).
     Error bars on points are joined only with --connect. Plot type "data"
     draws points with their error bars whatever --errory_type says."""
-    if plot_type == "fill":
+    stacking = args.stacked and stack_bottom is not None and s.x_edges is not None and not s.categorical
+    if plot_type == "fill" and not stacking:  # closed shapes; stacked, fill is filled steps (below)
         face = _shape_color(args.facecolor) or s.color
         edge = _shape_color(args.edgecolor) or s.edgecolor or "none"
         width = s.linewidth if s.linewidth is not None else (style.default_linewidth if edge != "none" else 0)
@@ -551,11 +561,26 @@ def draw_series(ax, s, args, plot_type=None, stack_bottom=None, dodge_shift=0.0)
         fill = {"fill_alpha": s.fill_alpha, "fill_hatch": s.fill_hatch, "fill_hatch_color": args.fill_hatch_color}
     linestyle = s.linestyle if s.linestyle is not None else args.plot_style
 
-    if (args.stacked and stack_bottom is not None and plot_type is None and args.bar_width is None
-            and s.x_edges is not None and not s.categorical):
-        # Binned series stack as filled histograms (bars with --bar_width or --plot_type bar).
+    if stacking and (plot_type in ("step", "fill", "line") or (plot_type is None and args.bar_width is None)):
+        # Binned series stack in data space: each one from the running total up (bars with --bar_width or
+        # --plot_type bar).
         bottom = np.array(stack_bottom, dtype=float)  # a copy: the running stack grows in place
-        ax.stairs(bottom + np.asarray(s.y, dtype=float), s.x_edges, baseline=bottom, fill=True, **common)
+        top = bottom + np.asarray(s.y, dtype=float)
+        if plot_type == "line":
+            ax.fill_between(s.x, bottom, top, linewidth=0, **common)
+        elif plot_type == "step":
+            # Each outline is its top and its two outer sides: a closed outline would draw its bottom edge
+            # over the top of the series below.
+            line = dict(color=s.color, linestyle=linestyle,
+                        linewidth=s.linewidth if s.linewidth is not None else style.default_linewidth)
+            outline = ax.stairs(top, s.x_edges, baseline=None, label=s.label, **line)
+            outline.sticky_edges.y.append(0)  # the axis starts at 0, as for filled stacks
+            ax.vlines([s.x_edges[0], s.x_edges[-1]], [bottom[0], bottom[-1]], [top[0], top[-1]], **line)
+        elif plot_type == "fill":
+            ax.stairs(top, s.x_edges, baseline=bottom, fill=True, facecolor=s.color,
+                      edgecolor=style._mix(s.color, style.role("ink"), 0.7), linewidth=1, label=s.label)
+        else:
+            ax.stairs(top, s.x_edges, baseline=bottom, fill=True, **common)
         return
     if args.stacked and stack_bottom is not None and plot_type in (None, "bar"):
         width = {}
@@ -819,9 +844,9 @@ def draw_figure(rows, args, kdx=None):
                 drawn[idx].append(s)
                 last_x = s.x
 
-    if args.data_hue and args.stacked and args.errory:
+    if args.stacked and (args.stack_total_error or args.stack_total_error_column or (args.data_hue and args.errory)):
         for idx, series in drawn.items():
-            _draw_stack_error(upper[idx], series)
+            _draw_stack_error(upper[idx], series, args)
 
     if not any(drawn.values()):
         rprint("[yellow]Warning:[/yellow] No valid series to plot.")
@@ -842,14 +867,36 @@ def draw_figure(rows, args, kdx=None):
 _SUM_KEY = ("sum",)
 
 
-def _draw_stack_error(ax, series):
-    """Hatched band of the stacked simulation's total ± its error (--data_hue --stacked --errory),
-    styled by the style file's plot_settings.stack_error (label, hatch, color)."""
+def _stack_total_error(stacked, args):
+    """Error of the stack total: --stack_total_error_column of the first
+    stacked series that has it, else the stacked errors in quadrature (None
+    when one is missing)."""
+    column = getattr(args, "stack_total_error_column", None)
+    if column:
+        for s in stacked:
+            if s.rows is not None and column in s.rows.columns:
+                value = s.rows[column].iloc[0]
+                if np.ndim(value) == 1 and len(value) == len(s.y):
+                    return np.asarray(value, dtype=float)
+        rprint(f"[yellow]Warning:[/yellow] No stacked series has a {column} array of matching length; "
+               "using the stacked errors.")
+    if any(s.error is None or np.ndim(s.error) != 1 for s in stacked):
+        return None
+    return np.sqrt(np.sum([np.square(np.asarray(s.error, dtype=float)) for s in stacked], axis=0))
+
+
+def _draw_stack_error(ax, series, args):
+    """Hatched band of the stacked simulation's total ± its error (--stack_total_error, or --overlay with
+    --errory), styled by the style file's plot_settings.stack_error (label, hatch, color)."""
     stacked = [s for s in series if not s.is_data and not s.is_sum and not s.categorical]
-    if not stacked or any(s.error is None or np.ndim(s.error) != 1 or len(s.y) != len(stacked[0].y) for s in stacked):
+    if not stacked or any(len(s.y) != len(stacked[0].y) for s in stacked):
         return
     total = np.sum([np.asarray(s.y, dtype=float) for s in stacked], axis=0)
-    error = np.sqrt(np.sum([np.square(np.asarray(s.error, dtype=float)) for s in stacked], axis=0))
+    error = _stack_total_error(stacked, args)
+    if error is None:
+        rprint("[yellow]Warning:[/yellow] The stack total error needs an error for every stacked series; "
+               "no band drawn.")
+        return
     band = style.role_colors(style.stack_error)
     ax.stairs(total + error, stacked[0].x_edges, baseline=total - error, fill=False, hatch=band["hatch"] or None,
               color=band["color"], linewidth=0, label=band["label"], zorder=2.5)
@@ -1062,7 +1109,7 @@ def _draw_lower(ax, spec, series, args, comparable, comparable_values, colors):
             if (any(s.is_data for s in aligned) and spec.name in DATA_COMPARISONS
                     and args.reference_value is None and not args.reference_sum):
                 # The y label names the comparison; no legend over the points.
-                out.extend(_data_lower(x, aligned, spec.name, None))
+                out.extend(_data_lower(x, aligned, spec.name, None, args))
                 ax.axhline(REFERENCE_LINES[spec.name], color=style.role("muted"), linestyle="--", linewidth=1, zorder=1)
                 continue
             labels = [str(s.hue_label) for s in aligned]
@@ -1105,7 +1152,7 @@ def _pair_label(value, reference, operation):
 DATA_COMPARISONS = ("ratio", "subtract", "relative_difference")
 
 
-def _data_lower(x, aligned, operation, label):
+def _data_lower(x, aligned, operation, label, args=None):
     """--data_hue lower panel: each data series against the total of the
     other series, as points with the data errors over a band of the total's
     error (in the colour of the total when it is one series)."""
@@ -1114,8 +1161,7 @@ def _data_lower(x, aligned, operation, label):
     if not model:
         return []
     total = np.sum([np.asarray(s.y, dtype=float) for s in model], axis=0)
-    errors = [s.error for s in model if s.error is not None and np.ndim(s.error) == 1]
-    total_error = np.sqrt(np.sum(np.square(errors), axis=0)) if len(errors) == len(model) else None
+    total_error = _stack_total_error(model, args)
 
     def scaled(error):
         # Error of the comparison for an error on the compared values.
@@ -1242,8 +1288,11 @@ def _finish_upper(fig, upper, lower, drawn, rows, args, variables, last_x, hue_v
                 order = sorted(range(len(labels)), key=lambda i: labels[i] not in data_labels)
                 handles, labels = [handles[i] for i in order], [labels[i] for i in order]
             else:
-                handles, labels = order_legend_entries(ax, handles, labels, stacked=args.stacked,
-                                                       keep_first=data_labels)
+                band_label = style.stack_error.get("label") if args.stacked else None
+                overlay_last = args.overlay_legend == "last"
+                handles, labels = order_legend_entries(
+                    ax, handles, labels, stacked=args.stacked, keep_first=() if overlay_last else data_labels,
+                    keep_last=([band_label] if band_label else []) + (sorted(data_labels) if overlay_last else []))
             for label, color in extrapolated_axes.get(ax, []):
                 handles.append(mlines.Line2D([], [], color=color, linestyle=EXTRAPOLATED_LINESTYLE, linewidth=1))
                 labels.append(f"{label} Extrapolated")
