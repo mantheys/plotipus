@@ -35,8 +35,9 @@ a project adapts plotipus without changing it:
   text, and `--single_panel_size` gives a grid of panels the size of a
   single-panel figure;
 - `colorscale.py`: `--zpower GAMMA` (a power-law colour scale, 0.5 for the
-  square root of the Gaia diagrams) and `--zcmap NAME` (the colour map, 2D
-  histograms included) for map panels;
+  square root of the Gaia diagrams), `--zcmap NAME` (the colour map, 2D
+  histograms included), `--zmin VALUE` and `--zunder COLOUR` (the colour of
+  the sparsest bins) for map panels;
 - `style.json`: no automatic titles, a black-first colour cycle (data drawn
   black, as in the originals), smaller legends, and one colour and label
   mapping per figure.
@@ -57,6 +58,10 @@ The frames follow the plotipus conventions:
 - stored fits as `FitFunction`, `FitFunctionLabel`, `Params`, `ParamsError`
   and `ParamsLabel`;
 - for maps, one file per config and name (`Riess1998_SN_OmegaContours.pkl`).
+
+Real data: Hubble's Table 1 (F08), Anscombe's table (F25) and the Gaia DR2
+star counts (F22, `data/`, fetched by `fetch_gaia.py` with the query printed
+in the paper; ESA/Gaia/DPAC, CC BY-SA 3.0 IGO, see `data/README.md`).
 
 ## Status
 
@@ -101,7 +106,7 @@ Patterns the commands use:
 | F19 Geiger–Marsden | Phil. Mag. 25, 604 (1913) | synthetic | ✅ | (no original figure) |
 | F20 Moseley's law | Phil. Mag. 26, 1024 (1913) | synthetic | ✅ | (no original figure) |
 | F21 Leavitt | Harvard Circ. 173 (1912) | synthetic | ✅ | (table not transcribed) |
-| F22 HR diagram | Gaia DR2 HRD (A&A 616, A10), Fig. 5 | synthetic | ✅ | square-root colour scale and `--cmap` for 2D histograms (`colorscale.py` plugin, T22.3); temperature and luminosity axes (TODO.md) |
+| F22 HR diagram | Gaia DR2 HRD (A&A 616, A10), Fig. 1 | **real** (Gaia archive, the paper's query) | ✅ | square-root colour scale, colour map and no colorbar for maps (`colorscale.py` plugin, T22.3); Fig. 5 needs the STILISM extinction cut (a 200 pc stand-in is drawn) |
 | F25 Anscombe's quartet | Am. Stat. 27, 17 (1973) | **real** | ✅ | shared axes (T22.6); statistics table (T22.11) |
 
 ## Missing features, by task
@@ -115,7 +120,7 @@ Patterns the commands use:
 | T19 | Garwood bars from the counts | F03 |
 | T20 | band colours independent of the line, saturated fills, band legend swatches; labelled σ lines | F04, F05, F15 |
 | T21 | `column:` lower panels following `--data_hue`/`--plot_type_column` (data as points); per-series markers; `--error_scale`; x error bars from bin widths for data points | F01, F04, F06, F08, F09, F16, F17 |
-| T22.3 | a power (square-root) colour scale and `--cmap` for 2D histograms; log y axis for `-z` images | F22, F15 |
+| T22.3 | a power (square-root) colour scale, a colour below the scale, `--cmap` for 2D histograms, `--colorbar none`; log y axis for `-z` images | F22, F15 |
 | T22.5 | an ordered colour map for many hues | F11 |
 | T22.6 | panel grids with shared axes (rows × columns) | F01, F15, F25 |
 | T22.7 | insets | F03, F13 |

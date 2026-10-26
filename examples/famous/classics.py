@@ -4,6 +4,8 @@
 Sources and the "Data" recipes are in docs/design/research.md, Part 3.
 """
 
+from pathlib import Path
+
 import numpy as np
 import pandas as pd
 
@@ -133,74 +135,45 @@ def leavitt():
     return {"Leavitt": pd.DataFrame(rows)}
 
 
-# Loci read off the Gaia DR2 low-extinction HRD (Babusiaux et al. 2018), (BP-RP, M_G).
-MAIN_SEQUENCE = np.array([(-0.4, -1.0), (-0.2, 0.5), (0.0, 1.5), (0.3, 2.6), (0.5, 3.5), (0.7, 4.3), (0.82, 4.8),
-                          (1.0, 5.6), (1.5, 7.3), (2.0, 8.9), (2.5, 10.3), (3.0, 11.6), (3.5, 12.6), (4.0, 13.5),
-                          (4.6, 14.3)])
-GIANT_BRANCH = np.array([(0.7, 3.8), (1.0, 3.5), (1.05, 2.5), (1.15, 1.2), (1.3, 0.0), (1.6, -1.0), (2.0, -1.9),
-                         (2.4, -2.4)])
+GAIA = Path(__file__).parent / "data"
 
 
-def hertzsprung_russell(n_stars=250_000):
-    """F22: Hertzsprung-Russell diagram, M_G vs BP - RP.
+def hertzsprung_russell():
+    """F22: Hertzsprung-Russell diagram, M_G vs BP - RP (real data).
 
     Sources: H. N. Russell, Nature 93, 252 (1914); Gaia Collaboration,
-    Babusiaux et al., A&A 616, A10 (2018), arXiv:1804.09378.
+    Babusiaux et al., A&A 616, A10 (2018), arXiv:1804.09378, Figs. 1 and 5.
 
-    From the papers: the axes (absolute G magnitude, inverted, vs BP - RP),
-    the populations (main sequence, subgiant and giant branch, red clump,
-    hot subdwarfs, white dwarf sequence) and the colour scale, the square
-    root of the density of stars (captions of Figs. 1 and 5). Read off
-    Fig. 5 (low extinction): the loci of the main sequence (with the Sun at
-    (0.82, 4.67)), of the giant branch and of the white dwarfs
-    (M_G = 11 + 3 (BP - RP)), and where the density peaks (the turn-off near
-    (0.7, 4) and the M dwarfs). The real diagram is a Gaia archive query
-    (research.md).
-    Synthetic: every star. The main sequence is 0.4 mag wide above the
-    turn-off and 0.25 mag below, with 30% unresolved binaries (up to 0.75 mag
-    brighter); colours drawn around the turn-off, the A stars and the M
-    dwarfs; fractions 82% main sequence, 9% giant branch, 3% red clump, 5%
-    white dwarfs, 0.3% hot subdwarfs and 0.35% stars scattered between the
-    white dwarfs and the main sequence (BP - RP < 2), of 250,000 stars.
+    Real: Gaia DR2 star counts in bins of 0.02 mag in BP - RP and 0.05 mag in
+    M_G, from the Gaia archive with the paper's query (its Appendix A:
+    M_G = G + 5 log10(parallax) - 10 and its quality filters), fetched by
+    fetch_gaia.py into data/. Two selections: ``all`` (the paper's Fig. 1,
+    reddened by interstellar extinction) and ``200pc`` (parallax > 5 mas, a
+    stand-in for the low-extinction Fig. 5, whose E(B - V) < 0.015 cut uses
+    the STILISM 3D map, not available in the archive). The figures draw the
+    square root of the density (the captions of Figs. 1 and 5).
+    Gaia data: ESA/Gaia/DPAC, CC BY-SA 3.0 IGO (data/README.md).
 
-    One row with per-star arrays ``BPRP``, ``MG`` and ``Population`` (an
-    index into ``PopulationNames``).
+    One row per selection (``Name`` all, 200pc; ``Config`` GaiaDR2) with the
+    bin centres ``BPRP`` and ``MG`` and the counts ``Stars`` (shape
+    len(MG) x len(BPRP), NaN where empty).
     """
-    rng = rng_for("F22")
-    counts = rng.multinomial(n_stars, [0.8235, 0.09, 0.03, 0.05, 0.003, 0.0035])
-
-    choice = rng.choice(3, 2 * counts[0], p=[0.45, 0.10, 0.45])
-    size = choice.size
-    colour = np.select([choice == 0, choice == 1], [rng.normal(0.75, 0.25, size), rng.normal(0.2, 0.3, size)],
-                       rng.normal(2.3, 0.6, size))
-    colour = colour[(colour > -0.45) & (colour < 4.6)][:counts[0]]
-    n = colour.size
-    # Broader above the turn-off (ages and metallicities), narrower for the M dwarfs.
-    magnitude = np.interp(colour, *MAIN_SEQUENCE.T) + rng.normal(0, 1, n) * np.where(colour < 1.2, 0.4, 0.25)
-    magnitude -= np.where(rng.random(n) < 0.3, 0.75 * np.sqrt(rng.random(n)), 0)
-    populations = {"Main sequence": (colour, magnitude)}
-
-    t = rng.random(counts[1]) ** 2
-    position = t * (len(GIANT_BRANCH) - 1)
-    populations["Giant branch"] = (
-        np.interp(position, np.arange(len(GIANT_BRANCH)), GIANT_BRANCH[:, 0]) + rng.normal(0, 0.08, counts[1]),
-        np.interp(position, np.arange(len(GIANT_BRANCH)), GIANT_BRANCH[:, 1]) + rng.normal(0, 0.2, counts[1]))
-    populations["Red clump"] = (rng.normal(1.2, 0.06, counts[2]), rng.normal(0.5, 0.2, counts[2]))
-    colour = -0.5 + 2.0 * rng.random(counts[3]) ** 0.6
-    populations["White dwarfs"] = (colour + rng.normal(0, 0.05, counts[3]),
-                                   11 + 3 * colour + rng.normal(0, 0.25, counts[3]))
-    populations["Hot subdwarfs"] = (rng.normal(-0.35, 0.08, counts[4]), rng.normal(4.5, 0.4, counts[4]))
-    # Between the white dwarfs and the main sequence (binaries, subdwarfs, artefacts).
-    colour = rng.uniform(-0.5, 2.0, counts[5])
-    share = rng.random(counts[5]) ** 2
-    faint = np.minimum(11 + 3 * colour, 15.5)
-    populations["Scattered"] = (colour, share * faint + (1 - share) * np.interp(colour, *MAIN_SEQUENCE.T))
-    colour = np.concatenate([c for c, _ in populations.values()]).astype(np.float32)
-    magnitude = np.concatenate([m for _, m in populations.values()]).astype(np.float32)
-    population = np.repeat(np.arange(len(populations), dtype=np.int8), [len(c) for c, _ in populations.values()])
-    return {"HRDiagram": pd.DataFrame([{"BPRP": colour, "MG": magnitude, "Population": population,
-                                        "PopulationNames": list(populations), "Config": "Synthetic",
-                                        "Name": "Solar neighbourhood"}])}
+    colour = np.arange(-1.0, 6.0, 0.02) + 0.01
+    magnitude = np.arange(-6.0, 18.0, 0.05) + 0.025
+    rows = []
+    for selection in ("all", "200pc"):
+        path = GAIA / f"gaia_dr2_hrd_{selection}.csv.gz"
+        if not path.exists():
+            continue
+        counts = pd.read_csv(path, comment="#")
+        i = np.round(counts["ix"].to_numpy() + 50).astype(int)
+        j = np.round(counts["iy"].to_numpy() + 120).astype(int)
+        keep = (i >= 0) & (i < colour.size) & (j >= 0) & (j < magnitude.size)
+        stars = np.full((magnitude.size, colour.size), np.nan, dtype=np.float32)
+        stars[j[keep], i[keep]] = counts["n"].to_numpy()[keep]
+        rows.append({"BPRP": colour, "MG": magnitude, "Stars": stars, "Config": "GaiaDR2", "Name": selection,
+                     "TotalStars": int(counts["n"].sum())})
+    return {"HRDiagram": pd.DataFrame(rows)}
 
 
 GENERATORS = {"F19": geiger_marsden, "F20": moseley, "F21": leavitt, "F22": hertzsprung_russell}
