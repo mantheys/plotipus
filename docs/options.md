@@ -143,7 +143,8 @@ derived from (or stored in) the same DataFrame. Each `--lower` adds one:
 --lower ratio                 # every series / the reference series (--reference, --reference_value)
 --lower relative_difference   # also subtract, asymmetry, excess, excess_probability, sum, mean, rms
 --lower group --reference_group S --other_group B1 B2 --group_significance   # S/sqrt(B)
---lower residual              # (data - fit) / fit of the stored fit (with --fit); --lower pull: / error
+--lower residual              # (data - fit) / fit of the stored model (with --fit: masked where fit < 1e-3 of its peak)
+--lower pull                  # (data - fit) / error, at least +-3 with +-1 and +-2 bands (with --fit)
 --lower column:Significance   # a series stored in the pickle (with SignificanceError)
 --lower events:OpHit          # event markers read from OpHit* columns
 ```
