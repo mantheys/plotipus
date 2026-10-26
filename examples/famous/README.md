@@ -65,9 +65,15 @@ F10 grid), SPARC rotation curves (F11, F12), the NOAA Mauna Loa CO2 record
 (F13), the MBH99 reconstruction (F14, NOAA paleoclimatology), the data of
 LIGO's GW150914 figure (F15, GWOSC), the Gaia DR2 star counts (F22, the
 paper's archive query), Hubble's Table 1 (F08) and Anscombe's table (F25).
-`fetch_data.py` and `fetch_gaia.py` refresh them. No public tables were
-found for the Higgs, KamLAND and LEP figures (HEPData has no records for
-those papers) or for the 1912-1913 tables, which stay synthetic.
+`fetch_data.py` and `fetch_gaia.py` refresh them.
+
+Values extracted from the published figures (`data/extracted/`): the Higgs
+figures (F01, F03, F04, F05), KamLAND (F16) and LEP (F17) have no public
+tables, but their arXiv sources keep the figures as vector graphics, whose
+drawing commands hold every marker, error bar, curve and band. `extract/run.py`
+reads them back in physics units (method, precision and cross-checks:
+`extract/README.md`). Only the 1912-1913 tables (F19-F21), which exist as
+scans, stay synthetic.
 
 ## Status
 
@@ -94,10 +100,10 @@ Patterns the commands use:
 
 | figure | source | data | status | missing (task) |
 |---|---|---|---|---|
-| F01 H→γγ m_γγ | ATLAS, PLB 716 (2012) 1, Fig. 4 | synthetic | ◐ | data drawn as a line in the `column:` lower panel (T21); 4 panels in one figure (T22.6); residual vs a fit component (T22.14) |
-| F03 H→ZZ*→4ℓ | CMS, PLB 716 (2012) 30, Fig. 4 | synthetic | ◐ | Garwood bars (T19); signal as an open outline on the stack (T18); inset (T22.7) |
-| F04 local p₀ | ATLAS, Fig. 9 | synthetic | ◐ | markers on the observed curve (T21); band legend swatch and σ-line labels (T20) |
-| F05 Brazil band | ATLAS, Fig. 7(a) | synthetic | ◐ | saturated band colours and swatches (T20); log-axis tick labels (T12) |
+| F01 H→γγ m_γγ | ATLAS, PLB 716 (2012) 1, Fig. 4 | **extracted** (figure) | ◐ | data drawn as a line in the `column:` lower panel (T21); 4 panels in one figure (T22.6); residual vs a fit component (T22.14) |
+| F03 H→ZZ*→4ℓ | CMS, PLB 716 (2012) 30, Fig. 4 | **extracted** (figure) | ◐ | Garwood bars computed from counts (T19; here the figure's bars); signal as an open outline on the stack (T18); inset (T22.7) |
+| F04 local p₀ | ATLAS, Fig. 9 | **extracted** (figure) | ◐ | markers on the observed curve (T21); band legend swatch and σ-line labels (T20) |
+| F05 Brazil band | ATLAS, Fig. 7(a) | **extracted** (figure) | ◐ | saturated band colours and swatches (T20); log-axis tick labels (T12) |
 | F06 COBE FIRAS | Fixsen et al. 1996, Figs. 4-5 | **real** (NASA LAMBDA) | ◐ | an error scale option (T21); data drawn as a line in the lower panel (T21) |
 | F08 Hubble 1929 | PNAS 15, 168, Fig. 1 | **real** (Table 1) | ◐ | per-series markers: discs, circles, cross (T21) |
 | F09 SN Ia Hubble diagram | Riess et al. 1998, Fig. 4 | **real** (Union2.1) | ◐ | data drawn as a line in the lower panel (T21); log tick labels (T12) |
@@ -107,8 +113,8 @@ Patterns the commands use:
 | F13 Keeling curve | NOAA GML plot | **real** (NOAA GML) | ✅ | the seasonal-cycle inset of other versions (T22.7) |
 | F14 hockey stick | Mann, Bradley & Hughes 1999, Fig. 3(a) | **real** (NOAA paleo) | ✅ | a legend outside the axes (T15) |
 | F15 GW150914 | PRL 116, 061102, Fig. 1 | **real** (GWOSC); synthetic band widths | ◐ | 4 × 2 grid (T22.6); a legend per panel (T15); log frequency axis on the map (T22.3) |
-| F16 KamLAND L₀/E | PRL 100, 221803, Fig. 3 | synthetic | ◐ | x error bars from the bin widths (T21) |
-| F17 LEP Z lineshape | Phys. Rept. 427 (2006) 257, Fig. 1.13 | synthetic | ✅ | an error scale option instead of a stored column (T21); labels on curves are `--text` (T22.8) |
+| F16 KamLAND L₀/E | PRL 100, 221803, Fig. 3 | **extracted** (figure) | ◐ | x error bars from the bin widths (T21) |
+| F17 LEP Z lineshape | Phys. Rept. 427 (2006) 257, Fig. 1.13 | **extracted** (figure) | ✅ | an error scale option instead of a stored column (T21); labels on curves are `--text` (T22.8) |
 | F19 Geiger–Marsden | Phil. Mag. 25, 604 (1913) | synthetic | ✅ | (no original figure) |
 | F20 Moseley's law | Phil. Mag. 26, 1024 (1913) | synthetic | ✅ | (no original figure) |
 | F21 Leavitt | Harvard Circ. 173 (1912) | synthetic | ✅ | (table not transcribed) |

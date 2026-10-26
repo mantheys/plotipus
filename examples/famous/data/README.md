@@ -14,6 +14,7 @@ terms with the acknowledgements they ask for.
 | F13 | `co2_mm_mlo.csv` | Mauna Loa monthly mean CO2, Dr. Xin Lan, NOAA/GML (gml.noaa.gov/ccgg/trends/) and Dr. Ralph Keeling, Scripps Institution of Oceanography (scrippsco2.ucsd.edu) | NOAA data, public; credit NOAA GML and Scripps as above |
 | F14 | `mann99-nhem-noaa.txt` | Mann, Bradley & Hughes 1999, GRL 26, 759; NOAA NCEI Paleoclimatology (study 6276) | NOAA data, public; cite Mann et al. 1999 |
 | F15 | `gw150914/` | the data of Fig. 1 of Abbott et al. 2016, PRL 116, 061102 (LIGO Scientific Collaboration and Virgo Collaboration), from GWOSC (gwosc.org) | CC BY 4.0; cite Abbott et al. 2016 and GWOSC |
+| F01, F03, F04, F05, F16, F17 | `extracted/` | values read from the vector graphics of the published figures (ATLAS arXiv:1207.7214 Figs. 4, 7a, 9; CMS arXiv:1207.7235 Fig. 4; KamLAND arXiv:0801.4589 Fig. 3; LEP hep-ex/0509008 Fig. 1.13) by `extract/run.py` | measurements reproduced from the papers; cite them; method in `extract/README.md` |
 | F22 | `gaia_dr2_hrd_all.csv.gz`, `gaia_dr2_hrd_200pc.csv.gz` | Gaia DR2 star counts from the query of Babusiaux et al. 2018, A&A 616, A10, Appendix A | CC BY-SA 3.0 IGO; acknowledgement below |
 
 ## Gaia DR2 star counts (F22)

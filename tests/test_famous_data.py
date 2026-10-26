@@ -122,10 +122,24 @@ def test_physics_anchors(frames):
     assert 30.0 < np.max(z_lineshape.loc["3$\\nu$", "CrossSection"]) < 31.0
     firas = frames["FIRAS"].iloc[0]
     assert abs(firas["Params"][0] - 2.725) < 1e-3
-    limit = frames["HiggsLimit"].set_index("Limit").loc["Expected"]
-    ratio = np.array([limit[c][0] for c in ("MuLimit2SigmaLow", "MuLimit1SigmaLow", "MuLimit1SigmaHigh",
-                                            "MuLimit2SigmaHigh")]) / limit["MuLimit"][0]
-    assert np.allclose(ratio, [0.535, 0.719, 1.394, 1.865], atol=0.005)
+
+
+def test_extracted_figures(frames):
+    """F01, F03, F16, F17 read values extracted from the published figures."""
+    diphoton = frames["HiggsDiphoton"].set_index(["Weighting", "Component"])
+    data = diphoton.loc[("Unweighted", "Data")]
+    background = diphoton.loc[("Unweighted", "Bkg (4th order polynomial)")]
+    # Panel (a) minus the drawn background reproduces panel (b).
+    residual = data["Events"] - np.interp(data["Mass"], background["Mass"], background["Events"])
+    assert np.std(residual - data["DataMinusBackground"]) < 3
+    assert len(data["Mass"]) == 30
+    four_lepton = frames["FourLepton"].set_index("Sample")
+    signal = four_lepton.loc["Signal"]
+    assert np.sum(signal["Events"][(signal["Mass"] > 110) & (signal["Mass"] < 160)]) == pytest.approx(7.54, abs=0.2)
+    one = four_lepton.loc["Data", "Events"] == 1
+    assert np.allclose(four_lepton.loc["Data", "EventsError+"][one], 2.30, atol=0.05)
+    assert len(frames["KamLAND"].iloc[0]["LOverEBinEdges"]) == 21
+    assert len(frames["ZLineshape"].iloc[0]["Energy"]) == 7
 
 
 @pytest.mark.parametrize("command", COMMANDS, ids=[f"{i:02d}" for i in range(len(COMMANDS))])

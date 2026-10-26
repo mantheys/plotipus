@@ -1,324 +1,257 @@
 """Particle-physics figures: F01, F03, F04, F05 (Higgs discovery, 2012), F16
 (KamLAND) and F17 (LEP Z lineshape).
 
+No public data tables exist for these figures (HEPData has no records for
+the papers); their values are read from the figures' vector graphics in the
+arXiv sources by extract/run.py, into data/extracted (method and precision:
+extract/README.md).
+
 Sources and the "Data" recipes are in docs/design/research.md, Part 3.
 """
 
 import numpy as np
 import pandas as pd
-from scipy.interpolate import PchipInterpolator
-from scipy.ndimage import gaussian_filter1d
-from scipy.stats import chi2, moyal, norm
 
 import models
-from _common import rng_for, stored_fit
+from _common import DATA, stored_fit
+
+EXTRACTED = DATA / "extracted"
 
 
-def _garwood(n, cl=0.6827):
-    """Exact (Garwood) Poisson interval of observed counts ``n``."""
-    n = np.asarray(n, dtype=float)
-    alpha = 1 - cl
-    low = np.where(n > 0, chi2.ppf(alpha / 2, 2 * n) / 2, 0.0)
-    high = chi2.ppf(1 - alpha / 2, 2 * (n + 1)) / 2
-    return low, high
+def _read(name):
+    return pd.read_csv(EXTRACTED / name)
+
+
+def _sorted(frame, x, y):
+    frame = frame.sort_values(x)
+    return frame[x].to_numpy(), frame[y].to_numpy()
+
+
+def _midpoints(frame):
+    """Values and symmetric errors from the extracted error bars: the bar's
+    midpoint and half length (the drawn marker centre is less exact)."""
+    value = frame["value"].to_numpy() + (frame["error_up"].to_numpy() - frame["error_down"].to_numpy()) / 2
+    return value, (frame["error_up"].to_numpy() + frame["error_down"].to_numpy()) / 2
 
 
 def higgs_diphoton():
-    """F01: ATLAS 2012 H->gamma gamma diphoton mass spectrum.
+    """F01: ATLAS 2012 H->gamma gamma diphoton mass spectrum (values from the figure).
 
     Source: ATLAS Collaboration, Phys. Lett. B 716 (2012) 1,
     arXiv:1207.7214, Figure 4 (panels a-d).
 
-    From the paper: the 100-160 GeV range in 2 GeV bins, the fourth-order
-    Bernstein background, a signal fixed at m_H = 126.5 GeV (the stored fit
-    fixes m_H and sigma), and the
-    ln(1 + S/B) category weights of the weighted panels.
-    Synthetic: the background normalisation (about 3700 events/2 GeV at
-    100 GeV falling to about 950 at 160 GeV, read from the figure), the
-    signal (270 events, sigma = 1.6 GeV), the ten categories and their S/B,
-    and the Poisson draws. Whether HEPData has the real spectrum is
-    (unverified).
+    Extracted from the figure (data/extracted/atlas_hgg_fig4_*.csv): the 30
+    data points per panel with their error bars (unweighted events, panel a;
+    ln(1 + S/B)-weighted events, panel c), data minus the fitted background
+    (panels b and d), and the drawn signal + background and background
+    curves. Precision about 2 events in (a), 0.5 in (b); (a) minus the
+    background curve reproduces (b) to 1.5 events rms.
+    Ours: the stored fit (the paper's model, a fourth-order Bernstein
+    background plus a Gaussian with m_H = 126.5 GeV and sigma = 1.6 GeV fixed,
+    fitted to the extracted points; the paper's sigma is not quoted on the
+    figure).
 
     Rows: ``Weighting`` (Unweighted, Weighted) x ``Component`` (Data,
     Sig+Bkg Fit, Bkg (4th order polynomial)). Data rows carry the stored
-    S+B fit (``FitComponents`` names its background); ``DataMinusBackground`` is data minus the fitted background
-    (panels b and d), and on the model rows the signal curve and zero.
+    S+B fit (``FitComponents`` names its background); ``DataMinusBackground``
+    is panel b or d, and on the model rows the drawn signal curve and zero.
     """
-    rng = rng_for("F01")
-    edges = np.arange(100, 162, 2.0)
-    mass = (edges[:-1] + edges[1:]) / 2
-    curve = np.linspace(100, 160, 301)
-    background = np.array([3700.0, 2600.0, 1750.0, 1350.0, 950.0])
-    n_signal, m_h, sigma = 270.0, 126.5, 1.6
-
-    # Ten categories: fraction of the background and of the signal in each.
-    background_share = np.array([0.02, 0.04, 0.05, 0.07, 0.08, 0.10, 0.12, 0.14, 0.18, 0.20])
-    signal_share = np.array([0.06, 0.08, 0.08, 0.10, 0.10, 0.11, 0.11, 0.11, 0.12, 0.13])
-    window = np.abs(mass - m_h) < 2 * sigma
-    b_window = models.diphoton_background(mass[window], *background).sum()
-    s_over_b = signal_share * 0.95 * n_signal / (background_share * b_window)
-    weights = np.log1p(s_over_b)
-
-    counts = np.zeros((len(weights), len(mass)))
-    for k in range(len(weights)):
-        expected = (background_share[k] * models.diphoton_background(mass, *background)
-                    + signal_share[k] * models.diphoton_signal_plus_background(mass, *np.zeros(5), n_signal, m_h,
-                                                                               sigma))
-        counts[k] = rng.poisson(expected)
-
-    spectra = {
-        "Unweighted": (counts.sum(axis=0), np.sqrt(np.maximum(counts.sum(axis=0), 1))),
-        "Weighted": ((weights[:, None] * counts).sum(axis=0),
-                     np.sqrt((weights[:, None] ** 2 * np.maximum(counts, 1)).sum(axis=0))),
-    }
+    data, curves = _read("atlas_hgg_fig4_data.csv"), _read("atlas_hgg_fig4_curves.csv")
     rows = []
-    for weighting, (events, error) in spectra.items():
-        scale = events.sum() / spectra["Unweighted"][0].sum()
-        p0 = list(background * scale) + [n_signal * scale, m_h, sigma]
+    for weighting, (top, bottom) in (("Unweighted", ("a", "b")), ("Weighted", ("c", "d"))):
+        points = data[data.panel == top].sort_values("mass")
+        mass = points["mass"].to_numpy()
+        events, error = _midpoints(points)
+        residual, residual_error = _midpoints(data[data.panel == bottom].sort_values("mass"))
+        scale = events.sum() / 59000
+        p0 = [3700 * scale, 2600 * scale, 1750 * scale, 1350 * scale, 950 * scale, 300 * scale, 126.5, 1.6]
         fit = stored_fit(models.diphoton_signal_plus_background, mass, events, error, p0,
                          ["$c_0$", "$c_1$", "$c_2$", "$c_3$", "$c_4$", "$N_S$", "$m_H$", r"$\sigma$"],
                          "Sig+Bkg", units=["", "", "", "", "", "", "GeV", "GeV"], fixed=(6, 7))
-        params = fit["Params"]
         rows.append({"Mass": mass, "Events": events, "EventsError": error, "Component": "Data",
-                     "Weighting": weighting,
-                     "DataMinusBackground": events - models.diphoton_background(mass, *params[:5]),
-                     "DataMinusBackgroundError": error, **fit,
+                     "Weighting": weighting, "DataMinusBackground": residual,
+                     "DataMinusBackgroundError": residual_error, **fit,
                      "FitComponents": {"Bkg (4th order polynomial)": ["diphoton_background", [0, 1, 2, 3, 4]]}})
-        total = models.diphoton_signal_plus_background(curve, *params)
-        background_curve = models.diphoton_background(curve, *params[:5])
-        rows.append({"Mass": curve, "Events": total, "DataMinusBackground": total - background_curve,
+        total_mass, total = _sorted(curves[(curves.panel == top) & (curves.curve == "sig+bkg")], "mass", "value")
+        background_mass, background = _sorted(curves[(curves.panel == top) & (curves.curve == "bkg")], "mass", "value")
+        signal_mass, signal = _sorted(curves[(curves.panel == bottom) & (curves.curve == "sig+bkg")], "mass", "value")
+        rows.append({"Mass": total_mass, "Events": total,
+                     "DataMinusBackground": np.interp(total_mass, signal_mass, signal),
                      "Component": "Sig+Bkg Fit", "Weighting": weighting})
-        rows.append({"Mass": curve, "Events": background_curve, "DataMinusBackground": np.zeros_like(curve),
+        rows.append({"Mass": background_mass, "Events": background, "DataMinusBackground": np.zeros_like(background),
                      "Component": "Bkg (4th order polynomial)", "Weighting": weighting})
     return {"HiggsDiphoton": pd.DataFrame(rows)}
 
 
 def higgs_four_lepton():
-    """F03: H->ZZ*->4l four-lepton invariant mass.
+    """F03: H->ZZ*->4l four-lepton invariant mass (values from the figure).
 
-    Sources: ATLAS arXiv:1207.7214 Fig. 2 and CMS arXiv:1207.7235 Fig. 4.
+    Sources: CMS arXiv:1207.7235 Fig. 4 (main panel); ATLAS arXiv:1207.7214
+    Fig. 2 shows the same channel.
 
-    From the papers: the CMS binning (70-181 GeV, 3 GeV bins), the
-    components (Z+X, Z gamma*/ZZ, signal at m_H = 125 GeV) and the expected
-    signal of about 7.5 events (CMS Table 3: 7.54 +- 0.78 in 110-160 GeV).
-    Read off CMS Fig. 4: the Z->4l peak (about 11 events in the 91 GeV
-    bin), the ZZ continuum (about 1 event per bin, rising to 2 near
-    180 GeV) and a small Z+X (0.1-0.3 per bin).
-    Synthetic: the shapes that give those levels (Gaussian Z peak, flat
-    continuum with the on-shell ZZ turn-on, Landau-like (Moyal) Z+X), the
-    MC weights behind the MC statistical errors, and the Poisson data. The
-    real events are public in CMS Open Data records 5500/5501.
+    Extracted from the figure (data/extracted/cms_4l_fig4.csv): the 3 GeV
+    bins from 70.5 to 181.5 GeV, the Z+X, ZZ and signal (m_H = 125 GeV)
+    histograms (stacked in the figure, unstacked here), and the 58 events in
+    26 non-empty bins with their error bars, which are exact Garwood (Poisson)
+    intervals. The signal holds 7.42 events in 110-160 GeV (CMS Table 3: 7.54).
+    The real events are also public in CMS Open Data records 5500/5501.
 
-    Rows: ``Sample`` (Data, ZZ, Z+X, Signal). Data rows carry sqrt(N)
-    errors and the Garwood interval edges ``EventsLow``/``EventsHigh``.
+    Rows: ``Sample`` (Data, ZZ, Z+X, Signal). The data row has the
+    asymmetric errors as ``EventsError+``/``EventsError-`` and the interval
+    edges ``EventsLow``/``EventsHigh``.
     """
-    rng = rng_for("F03")
-    edges = np.arange(70, 182, 3.0)
-    mass = (edges[:-1] + edges[1:]) / 2
-    width = np.diff(edges)
-
-    def gaussian(n, mean, sigma):
-        return n * width * norm.pdf(mass, mean, sigma)
-
-    turn_on = 1 / (1 + np.exp(-(mass - 100) / 4))
-    expected = {
-        "ZZ": gaussian(22.0, 91.2, 2.3) + 0.08 + 0.85 * turn_on + 1.1 / (1 + np.exp(-(mass - 178) / 2.5)),
-        "Z+X": 7.0 * width * moyal.pdf(mass, 125, 25),
-        "Signal": gaussian(7.5, 125.0, 2.0),
-    }
-    mc_weight = {"ZZ": 0.02, "Z+X": 0.3, "Signal": 0.005}
-    data = rng.poisson(sum(expected.values()))
-    low, high = _garwood(data)
-    rows = [{"Mass": mass, "Events": data.astype(float), "EventsError": np.sqrt(data), "EventsLow": low,
-             "EventsHigh": high, "Sample": "Data"}]
-    for sample, values in expected.items():
-        # MC statistical error of a sample of weight w: sqrt(N_mc) w = sqrt(n w).
-        rows.append({"Mass": mass, "Events": values, "EventsError": np.sqrt(values * mc_weight[sample]),
-                     "Sample": sample})
+    table = _read("cms_4l_fig4.csv")
+    data = table[table.kind == "data"].sort_values("mass")
+    events = data["value"].to_numpy()
+    up, down = data["error_up"].to_numpy(), data["error_down"].to_numpy()
+    rows = [{"Mass": data["mass"].to_numpy(), "Events": events, "EventsError+": up, "EventsError-": down,
+             "EventsLow": events - down, "EventsHigh": events + up, "Sample": "Data"}]
+    for kind, sample in (("ZZ", "ZZ"), ("Z+X", "Z+X"), ("signal", "Signal")):
+        mass, values = _sorted(table[table.kind == kind], "mass", "value")
+        rows.append({"Mass": mass, "Events": np.clip(values, 0, None), "Sample": sample})
     return {"FourLepton": pd.DataFrame(rows)}
 
 
 def higgs_local_p0():
-    """F04: local p0 of the background-only hypothesis vs m_H.
+    """F04: local p0 of the background-only hypothesis vs m_H (values from the figure).
 
-    Sources: ATLAS arXiv:1207.7214 Fig. 9, CMS arXiv:1207.7235 Fig. 14.
+    Source: ATLAS arXiv:1207.7214 Fig. 9 (CMS arXiv:1207.7235 Fig. 14 is the
+    analogue).
 
-    From the papers: the 110-150 GeV range, the observed minimum of
-    1.7e-9 (5.9 sigma) at 126.5 GeV, the +-1 sigma band on the expected
-    curve, and p0 = 1 - Phi(Z). Read off ATLAS Fig. 9: the expected
-    significance rising with mass (about 2.5 sigma at 110 GeV, 4.9 at
-    126.5 GeV, 6.7 at 139 GeV) and the observed width (p0 = 1e-3 about
-    4 GeV from the minimum).
-    Synthetic: the observed curve Z_obs = 5.9 exp(-(m - 126.5)^2 / 2w^2),
-    w = 3.7 GeV, plus a positive correlated fluctuation (0.4 +- 0.5 sigma,
-    white noise smoothed over 2 GeV) fading out at the peak; the expected
-    curve interpolated through the values read off the figure.
+    Extracted from the figure (data/extracted/atlas_p0_fig9.csv): the 52
+    observed points (their minimum, 1.2e-9 at 126.5 GeV, sits just above the
+    6 sigma line; the text quotes 1.7e-9), the expected curve (drawn down to
+    1e-11.6, at 139 GeV) and the edges of its +-1 sigma band (clipped at the
+    frame, as drawn).
 
     Rows: ``Hypothesis`` (Observed, Expected, and Expected +-1 sigma, the
-    same curve carrying the band as ``P0Error+``/``P0Error-`` and ``Width``
-    0, so that the band is drawn in its own colour without a line). The sigma lines of the figure sit at
-    p = 1 - Phi(n): 0.159, 0.0228, 1.35e-3, 3.17e-5, 2.87e-7 and 9.87e-10
-    for n = 1-6.
+    band as ``P0Error+``/``P0Error-`` around the middle of its edges and
+    ``Width`` 0, so that it is drawn in its own colour without a line). The
+    sigma lines of the figure sit at p = 1 - Phi(n): 0.159, 0.0228, 1.35e-3,
+    3.17e-5, 2.87e-7 and 9.87e-10 for n = 1-6.
     """
-    rng = rng_for("F04")
-    mass = np.arange(110, 150.01, 0.5)
-    noise = gaussian_filter1d(rng.normal(size=mass.size), 2 / 0.5)
-    noise /= noise.std()
-    peak = np.exp(-0.5 * ((mass - 126.5) / 3.7) ** 2)
-    z_observed = 5.9 * peak + (0.4 + 0.5 * noise) * (1 - peak)
-    z_expected = PchipInterpolator([110, 115, 120, 123, 126.5, 129, 132, 135, 139, 150],
-                                   [2.45, 2.55, 2.9, 3.4, 4.9, 5.1, 5.4, 6.0, 6.7, 8.5])(mass)
-    p_expected = norm.sf(z_expected)
+    table = _read("atlas_p0_fig9.csv")
+    observed_mass, observed = _sorted(table[table.curve == "observed"], "mass", "log10_p0")
+    expected_mass, expected = _sorted(table[table.curve == "expected"], "mass", "log10_p0")
+    edge_a = _sorted(table[table.curve == "band_a"], "mass", "log10_p0")
+    edge_b = _sorted(table[table.curve == "band_b"], "mass", "log10_p0")
+    mass = np.linspace(max(edge_a[0][0], edge_b[0][0]), min(edge_a[0][-1], edge_b[0][-1]), 200)
+    a, b = np.interp(mass, *edge_a), np.interp(mass, *edge_b)
+    upper, lower, middle = 10 ** np.maximum(a, b), 10 ** np.minimum(a, b), 10 ** ((a + b) / 2)
     rows = [
-        {"Mass": mass, "P0": norm.sf(z_observed), "Significance": z_observed, "Hypothesis": "Observed"},
-        {"Mass": mass, "P0": p_expected, "Significance": z_expected, "Hypothesis": "Expected"},
-        {"Mass": mass, "P0": p_expected, "Hypothesis": "Expected +-1 sigma", "Width": 0.0,
-         "P0Error+": norm.sf(z_expected - 1) - p_expected, "P0Error-": p_expected - norm.sf(z_expected + 1)},
+        {"Mass": observed_mass, "P0": 10**observed, "Hypothesis": "Observed"},
+        {"Mass": expected_mass, "P0": 10**expected, "Hypothesis": "Expected"},
+        {"Mass": mass, "P0": middle, "Hypothesis": "Expected +-1 sigma", "Width": 0.0,
+         "P0Error+": upper - middle, "P0Error-": middle - lower},
     ]
     return {"HiggsLocalP0": pd.DataFrame(rows)}
 
 
 def higgs_cls_limit():
-    """F05: expected and observed 95% CL limits on mu ("Brazil band").
+    """F05: expected and observed 95% CL limits on mu, the "Brazil band" (values from the figure).
 
-    Sources: ATLAS arXiv:1207.7214 Fig. 7(a), CMS arXiv:1207.7235 Fig. 13.
+    Sources: ATLAS arXiv:1207.7214 Fig. 7(a) (CMS arXiv:1207.7235 Fig. 13 is
+    the CLs analogue).
 
-    From the papers: the 110-600 GeV range, the observed/expected curves
-    and the +-1/2 sigma bands. Read off ATLAS Fig. 7(a): the median
-    expected limit (0.62 at 110 GeV, a minimum of 0.14 near 160 GeV,
-    0.2-0.3 from 200 to 400 GeV, 1.1 at 600 GeV) and the observed excess
-    (1.6 at 126 GeV). The bands use the asymptotic formula of Cowan,
-    Cranmer, Gross & Vitells (2011), arXiv:1007.1727:
-    mu_N = sigma_mu (Phi^-1(1 - 0.05 Phi(N)) + N), N = -2..2, with
-    sigma_mu = mu_med / 1.96 (edges 0.53, 0.72, 1.39, 1.87 x the median).
-    The research recipe's form, Phi(-+N), gives a negative -2 sigma edge.
-    Synthetic: the observed fluctuation. The broken x axis of the ATLAS
-    figure is (unverified).
+    Extracted from the figure (data/extracted/atlas_limit_fig7a.csv): the
+    observed and median expected limits and the edges of the green (+-1
+    sigma) and yellow (+-2 sigma) bands, 110-600 GeV on the figure's log axes.
+    The broken x axis of the ATLAS figure is (unverified) and not reproduced.
 
     Rows: ``Limit`` (Observed, Expected, Expected +-1 sigma, Expected +-2
-    sigma). The band rows repeat the median with their band as
-    ``MuLimitError+``/``-`` and ``Width`` 0 (no line). The Expected row has every band as sizes
-    (``MuLimit1Sigma+``/``-``, ``MuLimit2Sigma+``/``-``) and edges
-    (``MuLimit1SigmaLow``, ``MuLimit1SigmaHigh``, ``MuLimit2SigmaLow``,
+    sigma). The band rows run along the middle of their edges with the band
+    as ``MuLimitError+``/``-`` and ``Width`` 0 (no line). The Expected row has
+    every band as sizes (``MuLimit1Sigma+``/``-``, ``MuLimit2Sigma+``/``-``) and
+    edges (``MuLimit1SigmaLow``, ``MuLimit1SigmaHigh``, ``MuLimit2SigmaLow``,
     ``MuLimit2SigmaHigh``).
     """
-    rng = rng_for("F05")
-    mass = np.concatenate([np.arange(110, 150, 1.0), np.arange(150, 601, 5.0)])
-    anchors_m = [110, 120, 130, 145, 160, 175, 200, 250, 300, 350, 385, 420, 470, 530, 600]
-    anchors_mu = [0.62, 0.5, 0.36, 0.22, 0.14, 0.17, 0.21, 0.27, 0.29, 0.29, 0.26, 0.29, 0.42, 0.65, 1.1]
-    median = np.exp(PchipInterpolator(np.log(anchors_m), np.log(anchors_mu))(np.log(mass)))
-    sigma_mu = median / 1.96
-
-    def band(n):
-        return sigma_mu * (norm.ppf(1 - 0.05 * norm.cdf(n)) + n)
-
-    noise = gaussian_filter1d(rng.normal(size=mass.size), 2)
-    noise /= noise.std()
-    observed = median * np.exp(0.2 * noise) * (1 + 2.6 * np.exp(-0.5 * ((mass - 126) / 3) ** 2))
-    rows = [{"Mass": mass, "MuLimit": observed, "Limit": "Observed"}]
-    expected = {"Mass": mass, "MuLimit": median, "Limit": "Expected"}
+    table = _read("atlas_limit_fig7a.csv")
+    observed_mass, observed = _sorted(table[table.curve == "observed"], "log10_mass", "log10_mu")
+    expected_mass, expected = _sorted(table[table.curve == "expected"], "log10_mass", "log10_mu")
+    median = 10**expected
+    rows = [{"Mass": 10**observed_mass, "MuLimit": 10**observed, "Limit": "Observed"}]
+    expected_row = {"Mass": 10**expected_mass, "MuLimit": median, "Limit": "Expected"}
     for n in (2, 1):
-        low, high = band(-n), band(n)
-        expected.update({f"MuLimit{n}Sigma+": high - median, f"MuLimit{n}Sigma-": median - low,
-                         f"MuLimit{n}SigmaLow": low, f"MuLimit{n}SigmaHigh": high})
-        rows.append({"Mass": mass, "MuLimit": median, "Limit": f"Expected +-{n} sigma", "Width": 0.0,
-                     "MuLimitError+": high - median, "MuLimitError-": median - low})
-    rows.append(expected)
+        edge_a = _sorted(table[table.curve == f"band{n}_a"], "log10_mass", "log10_mu")
+        edge_b = _sorted(table[table.curve == f"band{n}_b"], "log10_mass", "log10_mu")
+        grid = np.linspace(max(edge_a[0][0], edge_b[0][0]), min(edge_a[0][-1], edge_b[0][-1]), 300)
+        a, b = np.interp(grid, *edge_a), np.interp(grid, *edge_b)
+        high, low, middle = 10 ** np.maximum(a, b), 10 ** np.minimum(a, b), 10 ** ((a + b) / 2)
+        rows.append({"Mass": 10**grid, "MuLimit": middle, "Limit": f"Expected +-{n} sigma", "Width": 0.0,
+                     "MuLimitError+": high - middle, "MuLimitError-": middle - low})
+        at_high = 10 ** np.interp(expected_mass, grid, np.maximum(a, b))
+        at_low = 10 ** np.interp(expected_mass, grid, np.minimum(a, b))
+        expected_row.update({f"MuLimit{n}Sigma+": np.clip(at_high - median, 0, None),
+                             f"MuLimit{n}Sigma-": np.clip(median - at_low, 0, None),
+                             f"MuLimit{n}SigmaLow": at_low, f"MuLimit{n}SigmaHigh": at_high})
+    rows.append(expected_row)
     return {"HiggsLimit": pd.DataFrame(rows)}
 
 
 def kamland():
-    """F16: KamLAND survival probability vs L0/E.
+    """F16: KamLAND survival probability vs L0/E (values from the figure).
 
     Source: KamLAND Collaboration (S. Abe et al.), PRL 100, 221803 (2008),
     arXiv:0801.4589, Figure 3.
 
-    From the paper: Delta m^2 = 7.58e-5 eV^2 and tan^2 theta = 0.56
-    (abstract; sin^2 2theta = 0.92), L0 = 180 km, the 20-100 km/MeV range,
-    equal-probability bins and statistical-only errors; about 2179 events
-    expected without oscillation and about 1600 observed.
-    Synthetic: the reactor distance mixture (94% near reactors around
-    170 km, 6% far ones at 300-600 km), the antineutrino energy spectrum
-    (1.8 MeV + Gamma(3, 0.75 MeV)), the events; no energy resolution and no
-    background subtraction.
+    Extracted from the figure (data/extracted/kamland_fig3.csv): the 20 data
+    points (Data - BG - Geo nu_e) with their statistical errors and their
+    equal-probability L0/E bins (the ends of their horizontal bars), the
+    expectation histogram (its step outline) and the expectation curve for
+    Delta m^2 = 7.58e-5 eV^2, tan^2 theta = 0.56.
 
     Rows: ``Component`` (Data - BG - Geo nu, Expectation (histogram),
-    Expectation (curve)). ``LOverEBinEdges`` holds the 21 variable bin
-    edges of the data row; the histogram row is its step outline (two
-    points per bin).
+    Expectation (curve)). ``LOverEBinEdges`` holds the 21 bin edges of the
+    data row.
     """
-    rng = rng_for("F16")
-    delta_m2, sin2_2theta, l0, n_expected = 7.58e-5, 4 * 0.56 / (1 + 0.56) ** 2, 180.0, 2179
-    n_mc = 400_000
-    near = rng.random(n_mc) < 0.94
-    distance = np.where(near, np.clip(rng.normal(170, 20, n_mc), 120, 230), rng.uniform(300, 600, n_mc))
-    energy = 1.8 + rng.gamma(3, 0.75, n_mc)
-    survival = models.survival_probability(distance / energy, delta_m2, sin2_2theta)
-    l_over_e = l0 / energy
-
-    inside = (l_over_e > 20) & (l_over_e < 100)
-    edges = np.quantile(l_over_e[inside], np.linspace(0, 1, 21))
-    no_oscillation = np.histogram(l_over_e[inside], edges)[0] / n_mc * n_expected
-    expectation = np.histogram(l_over_e[inside], edges, weights=survival[inside])[0] / n_mc * n_expected
-
-    n_observed = rng.poisson(n_expected * survival.mean())
-    observed = rng.choice(n_mc, n_observed, replace=False, p=survival / survival.sum())
-    data = np.histogram(l_over_e[observed], edges)[0]
-    centres = (edges[:-1] + edges[1:]) / 2
-
-    fine = np.linspace(20, 100, 400)
-    sample = distance[:20_000]
-    curve = np.array([models.survival_probability(sample * x / l0, delta_m2, sin2_2theta).mean() for x in fine])
+    table = _read("kamland_fig3.csv")
+    data = table[table.kind == "data"].sort_values("l_over_e")
+    probability = data["survival"].to_numpy() + (data["error_a"].to_numpy() - data["error_b"].to_numpy()) / 2
+    error = (data["error_a"].to_numpy() + data["error_b"].to_numpy()) / 2
+    edges = np.unique(np.round(np.concatenate([data["le_low"], data["le_high"]]), 2))
+    histogram = table[table.kind == "histogram"]
+    curve_le, curve = _sorted(table[table.kind == "curve"], "l_over_e", "survival")
     rows = [
-        {"LOverE": centres, "SurvivalProbability": data / no_oscillation,
-         "SurvivalProbabilityError": np.sqrt(data) / no_oscillation, "LOverEBinEdges": edges,
-         "Component": "Data - BG - Geo $\\nu_e$"},
-        # The expectation histogram as its outline: a step polyline over the bin edges.
-        {"LOverE": np.repeat(edges, 2)[1:-1], "SurvivalProbability": np.repeat(expectation / no_oscillation, 2),
+        {"LOverE": data["l_over_e"].to_numpy(), "SurvivalProbability": probability,
+         "SurvivalProbabilityError": error, "LOverEBinEdges": edges, "Component": "Data - BG - Geo $\\nu_e$"},
+        # The expectation histogram as its outline, in drawing order (a step polyline).
+        {"LOverE": histogram["l_over_e"].to_numpy(), "SurvivalProbability": histogram["survival"].to_numpy(),
          "Component": "Expectation (histogram)"},
-        {"LOverE": fine, "SurvivalProbability": curve, "Component": "Expectation (curve)", "Width": 4.0},
+        {"LOverE": curve_le, "SurvivalProbability": curve, "Component": "Expectation (curve)", "Width": 4.0},
     ]
     return {"KamLAND": pd.DataFrame(rows)}
 
 
 def z_lineshape():
-    """F17: LEP hadronic cross section near the Z and N_nu = 2, 3, 4.
+    """F17: LEP hadronic cross section near the Z and N_nu = 2, 3, 4 (values from the figure).
 
     Source: ALEPH, DELPHI, L3, OPAL, SLD et al., Phys. Rept. 427 (2006) 257,
     hep-ex/0509008, Fig. 1.13.
 
-    From the paper: m_Z = 91.1875 GeV, Gamma_Z = 2.4952 GeV, the Born
-    formula (eq. 1.40), the measured peak of about 30.4 nb after ISR, the
-    86-94 GeV range and the errors magnified x10. Gamma_ee = 83.91 MeV and
-    Gamma_had = 1744.4 MeV are the LEP averages as recalled (not re-read).
-    The N_nu = 2, 4 curves change Gamma_Z by -+Gamma_nunu = 166.9 MeV
-    (inferred from Gamma_inv / 3, unverified).
-    Read off Fig. 1.13: the seven scan energies (88.4-93.9 GeV).
-    Synthetic: the relative errors (0.1% at the peak, 0.2-0.4% off peak) and their draws.
-    ISR is a leading-log radiator convolution, not the full LEP treatment.
+    Extracted from the figure (data/extracted/lep_nnu_fig1_13.csv): the seven
+    average measurements with their errors (drawn x10 in the figure; divided
+    back here) and the 2, 3 and 4 neutrino curves (peaks 35.05, 30.76 and
+    27.22 nb).
+    The data row stores the figure's 3 nu curve as its model (``lep_curve``),
+    so --lower pull compares the measurements with it. (``z_lineshape_isr``,
+    our Breit-Wigner with a leading-log ISR radiator and the paper's m_Z and
+    Gamma_Z, peaks at 30.7 nb but is 0.3% off the figure's curve, ten times
+    the measurement errors.)
 
-    Rows: ``Model`` (Data, 2 nu, 3 nu, 4 nu). The data row stores the
-    3 nu model (``z_lineshape_isr``) for --lower pull and the errors x10 as
-    ``CrossSectionErrorX10``.
+    Rows: ``Model`` (Data, 2 nu, 3 nu, 4 nu). The data row stores the 3 nu
+    curve and the errors x10 as ``CrossSectionErrorX10``.
     """
-    rng = rng_for("F17")
-    m_z, gamma_z, gamma_ee, gamma_had, gamma_nunu = 91.1875, 2.4952, 0.08391, 1.7444, 0.1669
-    energy = np.array([88.38, 89.38, 90.22, 91.23, 92.05, 93.00, 93.90])
-    relative = np.array([0.004, 0.003, 0.002, 0.001, 0.002, 0.003, 0.004])
-    truth = models.z_lineshape_isr(energy, m_z, gamma_z, gamma_ee, gamma_had)
-    cross_section = truth * (1 + relative * rng.normal(size=energy.size))
-    error = relative * truth
-    curve = np.linspace(85, 94.5, 191)
-    rows = [{"Energy": energy, "CrossSection": cross_section, "CrossSectionError": error,
-             "CrossSectionErrorX10": 10 * error, "Model": "Data",
-             "FitFunction": "z_lineshape_isr", "FitFunctionLabel": "3 neutrinos",
-             "Params": [m_z, gamma_z, gamma_ee, gamma_had], "ParamsError": [0.0021, 0.0023, 0.00012, 0.0020],
-             "ParamsLabel": ["$m_Z$", r"$\Gamma_Z$", r"$\Gamma_{ee}$", r"$\Gamma_{had}$"],
-             "ParamsUnit": ["GeV", "GeV", "GeV", "GeV"]}]
-    for n_nu in (2, 3, 4):
-        width = gamma_z + (n_nu - 3) * gamma_nunu
-        rows.append({"Energy": curve, "CrossSection": models.z_lineshape_isr(curve, m_z, width, gamma_ee, gamma_had),
-                     "Model": f"{n_nu}$\\nu$", "Width": 3.0 if n_nu == 3 else 1.2})
+    table = _read("lep_nnu_fig1_13.csv")
+    data = table[table.kind == "data"].sort_values("energy")
+    error = (data["error_up"].to_numpy() + data["error_down"].to_numpy()) / 2
+    rows = [{"Energy": data["energy"].to_numpy(), "CrossSection": data["sigma_had"].to_numpy(),
+             "CrossSectionError": error, "CrossSectionErrorX10": 10 * error, "Model": "Data",
+             "FitFunction": "lep_curve", "FitFunctionLabel": "3 neutrinos", "Params": [3],
+             "ParamsError": [0], "ParamsLabel": [r"$N_\nu$"]}]
+    for kind, n_nu in (("2nu", 2), ("3nu", 3), ("4nu", 4)):
+        energy, sigma = _sorted(table[table.kind == kind], "energy", "sigma_had")
+        rows.append({"Energy": energy, "CrossSection": sigma, "Model": f"{n_nu}$\\nu$",
+                     "Width": 3.0 if n_nu == 3 else 1.2})
     return {"ZLineshape": pd.DataFrame(rows)}
 
 
