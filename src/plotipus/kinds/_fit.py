@@ -380,7 +380,7 @@ def run_fit(df, args):
             if args.rangex is not None:
                 ax_bottom.set_xlim(args.rangex)
             _residual_reference(ax_bottom, args)
-            ax_bottom.set_xlabel(xlabel, fontsize=style.xlabelfontsize)
+            ax_bottom.set_xlabel(xlabel)
             if args.logx:
                 ax_bottom.set_xscale("log")
             ax_bottom.set_ylim(-limit, limit)
@@ -388,7 +388,7 @@ def run_fit(df, args):
                                  else "Pull" if _pull(args) else "(Data - Fit)/Fit",
                                  fontsize=style.ysublabelfontsize)
         else:
-            ax_top.set_xlabel(xlabel, fontsize=style.xlabelfontsize)
+            ax_top.set_xlabel(xlabel)
 
         vertical, horizontal = args.vertical, args.horizontal
         vertical_labels = args.vertical_label

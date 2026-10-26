@@ -5,6 +5,7 @@ import math
 
 import matplotlib.pyplot as plt
 import numpy as np
+from matplotlib.transforms import Bbox
 from rich import print as rprint
 
 from . import registry, style
@@ -19,6 +20,7 @@ from .plot import (
     draw_lines,
     draw_squares,
     draw_vertical_lines,
+    measured_layout_enabled,
     place_point_label,
     set_axis_tick_labels,
 )
@@ -90,10 +92,35 @@ COLORBAR_WIDTH = 0.04
 COLORBAR_PAD = 0.02
 
 
+class _ColorbarLocator:
+    """Places a colorbar right of its panels whenever they move: as tall as
+    the panels, COLORBAR_WIDTH of one panel's width, after COLORBAR_PAD."""
+
+    def __init__(self, axes):
+        self.axes = axes
+
+    def __call__(self, cax, renderer):
+        boxes = [ax.get_position() for ax in self.axes]
+        width = boxes[0].width
+        y0, y1 = min(b.y0 for b in boxes), max(b.y1 for b in boxes)
+        return Bbox.from_bounds(max(b.x1 for b in boxes) + COLORBAR_PAD * width, y0, COLORBAR_WIDTH * width, y1 - y0)
+
+
 def add_colorbar(fig, mappable, axes, label=None):
     """Colorbar right of ``axes`` (one axes, or a row sharing it), labelled
     on its right."""
     axes = list(np.atleast_1d(axes))
+    if measured_layout_enabled():
+        # The bar follows the panels; the measured layout makes room for it.
+        locator = _ColorbarLocator(axes)
+        cax = fig.add_axes(locator(None, None))
+        cax.set_axes_locator(locator)
+        cax._plotipus_colorbar_of = axes
+        cbar = fig.colorbar(mappable, cax=cax)
+        if label is not None:
+            cbar.set_label(label)
+        cbar.ax.yaxis.set_label_position("right")
+        return cbar
     boxes = [ax.get_position() for ax in axes]
     width = boxes[0].width
     span = max(b.x1 for b in boxes) - min(b.x0 for b in boxes)
@@ -213,7 +240,7 @@ def draw_overlays(ax, args, vertical=None, labels=True):
 def grow_for_tick_labels(fig, rotated_x=False, categorical_y=False):
     """Enlarge a single-row figure so rotated x tick labels (below) or long
     categorical y labels (left) fit without shrinking the axes."""
-    if not (rotated_x or categorical_y):
+    if not (rotated_x or categorical_y) or measured_layout_enabled():
         return
     params = fig.subplotpars
     left, right, bottom, top = params.left, params.right, params.bottom, params.top
@@ -252,7 +279,7 @@ def rotate_categorical_labels(fig):
 def add_title_and_note(fig, args, tight_rows=1):
     """Figure title (--title or the datafile name) and --note."""
     title = make_title_from_args(args)
-    if tight_rows > 1:
+    if tight_rows > 1 and not measured_layout_enabled():
         try:
             fig.tight_layout(rect=[0, 0, 1, 0.95] if title else [0, 0, 1, 1.0])
         except Exception:

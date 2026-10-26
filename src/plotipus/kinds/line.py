@@ -1144,7 +1144,7 @@ def _finish_upper(fig, upper, lower, drawn, rows, args, variables, last_x, hue_v
         else:
             xlabel = resolve_axis_label(labelx, args.x, panel_rows)
             if has_lower:
-                lower[idx][-1].set_xlabel(xlabel, fontsize=style.xlabelfontsize)
+                lower[idx][-1].set_xlabel(xlabel)
             else:
                 ax.set_xlabel(xlabel)
             ylabel = resolve_axis_label(args.labely, args.y, panel_rows)
