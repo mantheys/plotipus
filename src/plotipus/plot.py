@@ -1394,9 +1394,7 @@ def draw_vertical_lines(ax, values, labels=None, styles=None, colors=None, fonts
         color = _ref_line_get(colors, i, _style.role("muted"))
         style = _ref_line_get(styles, i, "--")
         label = _ref_line_get(labels, i, None) if labels is not None else None
-        xlim = ax.get_xlim()
-        if v < xlim[0] or v > xlim[1]:
-            ax.set_xlim(min(xlim[0], v), max(xlim[1], v))
+        _include_in_limits(ax, "x", v, v)
         ax.axvline(v, color=color, linestyle=style, linewidth=1, zorder=5)
         if label:
             text_obj = place_vertical_label(ax, v, label, fontsize=fontsize, avoid=avoid_boxes)
@@ -1426,9 +1424,7 @@ def draw_horizontal_lines(ax, values, labels=None, styles=None, colors=None, fon
         color = _ref_line_get(colors, i, _style.role("muted"))
         style = _ref_line_get(styles, i, "--")
         label = _ref_line_get(labels, i, None) if labels is not None else None
-        ylim = ax.get_ylim()
-        if v < ylim[0] or v > ylim[1]:
-            ax.set_ylim(min(ylim[0], v), max(ylim[1], v))
+        _include_in_limits(ax, "y", v, v)
         ax.axhline(v, color=color, linestyle=style, linewidth=1, zorder=5)
         if label is not None and label:
             text_obj = place_horizontal_label(ax, v, label, fontsize=fontsize, avoid=avoid_boxes)
@@ -1436,6 +1432,17 @@ def draw_horizontal_lines(ax, values, labels=None, styles=None, colors=None, fon
                 box = _label_avoid_box(text_obj, ax, fontsize)
                 if box is not None:
                     avoid_boxes.append(box)
+
+
+def _include_in_limits(ax, axis, low, high):
+    """Widen the x or y limits of *ax* to [low, high], keeping their
+    direction (a reversed range such as --rangey 17 10 stays reversed)."""
+    get, set_ = (ax.get_xlim, ax.set_xlim) if axis == "x" else (ax.get_ylim, ax.set_ylim)
+    first, last = get()
+    lo, hi = min(first, last), max(first, last)
+    if low < lo or high > hi:
+        lo, hi = min(lo, low), max(hi, high)
+        set_((lo, hi) if first <= last else (hi, lo))
 
 
 def draw_squares(ax, quads, labels=None, styles=None, colors=None, fontsize=None, fill=False, alpha=None):
@@ -1458,12 +1465,8 @@ def draw_squares(ax, quads, labels=None, styles=None, colors=None, fontsize=None
         x0, x1e = min(x1, x2), max(x1, x2)
         y0, y1e = min(y1, y2), max(y1, y2)
 
-        xlim = ax.get_xlim()
-        ylim = ax.get_ylim()
-        if x0 < xlim[0] or x1e > xlim[1]:
-            ax.set_xlim(min(xlim[0], x0), max(xlim[1], x1e))
-        if y0 < ylim[0] or y1e > ylim[1]:
-            ax.set_ylim(min(ylim[0], y0), max(ylim[1], y1e))
+        _include_in_limits(ax, "x", x0, x1e)
+        _include_in_limits(ax, "y", y0, y1e)
 
         rect = Rectangle(
             (x0, y0),
@@ -1480,9 +1483,11 @@ def draw_squares(ax, quads, labels=None, styles=None, colors=None, fontsize=None
         ax.add_patch(rect)
 
         if label:
+            # On the visually upper edge (the smaller y on a reversed axis).
+            bottom, top = ax.get_ylim()
             ax.text(
                 (x0 + x1e) / 2,
-                y1e,
+                y1e if bottom <= top else y0,
                 str(label),
                 ha="center",
                 va="bottom",
@@ -1508,14 +1513,8 @@ def draw_lines(ax, segments, labels=None, styles=None, colors=None, fontsize=Non
         style = _ref_line_get(styles, i, "--")
         label = _ref_line_get(labels, i, None) if labels is not None else None
 
-        xlim = ax.get_xlim()
-        ylim = ax.get_ylim()
-        x_lo, x_hi = min(x1, x2), max(x1, x2)
-        y_lo, y_hi = min(y1, y2), max(y1, y2)
-        if x_lo < xlim[0] or x_hi > xlim[1]:
-            ax.set_xlim(min(xlim[0], x_lo), max(xlim[1], x_hi))
-        if y_lo < ylim[0] or y_hi > ylim[1]:
-            ax.set_ylim(min(ylim[0], y_lo), max(ylim[1], y_hi))
+        _include_in_limits(ax, "x", min(x1, x2), max(x1, x2))
+        _include_in_limits(ax, "y", min(y1, y2), max(y1, y2))
 
         ax.plot([x1, x2], [y1, y2], color=color, linestyle=style, linewidth=_style.default_linewidth, zorder=5)
 

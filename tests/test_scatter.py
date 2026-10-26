@@ -111,3 +111,12 @@ def test_explode_points_per_point_hue_is_not_a_row_key():
     frame = pd.DataFrame({"X": [[0.0, 1.0], [2.0]], "PDG": [[11, 22], [13]]})
     exploded = scatter.explode_points(frame, columns=["X", "PDG"], hue="PDG")
     assert exploded["PDG"].tolist() == [11, 22]  # one row kept, its per-point hue kept as a column
+
+
+def test_size_legend_shows_round_plain_numbers():
+    levels, labels = scatter._size_levels(5.0, 337.0, 4)
+    assert labels == ["100", "200", "300"]
+    assert list(levels) == [100.0, 200.0, 300.0]
+    _, labels = scatter._size_levels(0.013, 0.087, 4)
+    assert labels == ["0.02", "0.04", "0.06", "0.08"]
+    assert all("e" not in label for label in labels)

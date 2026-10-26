@@ -20,6 +20,7 @@ import matplotlib.lines as mlines
 import numpy as np
 import pandas as pd
 from matplotlib.colors import LogNorm
+from matplotlib.ticker import MaxNLocator
 from rich import print as rprint
 
 from .. import style
@@ -402,13 +403,29 @@ def _proxy(ax, **kwargs):
     return handle
 
 
+def _size_levels(vmin, vmax, n_levels):
+    """(values, labels) of the --sizeby legend: round values inside
+    [vmin, vmax] (as axis ticks pick them), as plain numbers."""
+    if pd.isna(vmin) or pd.isna(vmax) or vmax == vmin:
+        return np.full(1, vmin), [f"{vmin:g}"]
+    levels = MaxNLocator(n_levels - 1, steps=[1, 2, 5, 10]).tick_values(vmin, vmax)
+    levels = levels[(levels >= vmin) & (levels <= vmax)]
+    if levels.size < 2:
+        levels = np.array([vmin, vmax])
+    step = float(np.min(np.diff(levels)))
+    digits = max(0, -int(np.floor(np.log10(step)))) if step > 0 else 0
+    while digits < 6 and not np.allclose(np.round(levels, digits), levels):
+        digits += 1
+    return levels, [f"{v:.{digits}f}" for v in levels]
+
+
 def _add_size_legend(ax, label, vmin, vmax, base, scale, loc, n_levels=4):
     existing = ax.get_legend()
-    levels = np.linspace(vmin, vmax, n_levels)
+    levels, texts = _size_levels(vmin, vmax, n_levels)
     valid = not (pd.isna(vmin) or pd.isna(vmax)) and vmax != vmin
-    sizes = base / scale + (levels - vmin) / (vmax - vmin) * (base * scale - base / scale) if valid else np.full(n_levels, base)
+    sizes = base / scale + (levels - vmin) / (vmax - vmin) * (base * scale - base / scale) if valid else np.full(levels.size, base)
     handles = [_proxy(ax, s=s, color=style.role("muted"), alpha=0.85, linewidths=0) for s in sizes]
-    legend = apply_legend_style(ax, title=label, handles=handles, labels=[f"{v:.2e}" for v in levels],
+    legend = apply_legend_style(ax, title=label, handles=handles, labels=texts,
                                 capitalize_labels=False, scatterpoints=1, loc=loc)
     if existing is not None:
         ax.add_artist(existing)

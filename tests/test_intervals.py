@@ -121,6 +121,20 @@ def test_line_overlay_without_error_column_defaults_to_poisson(make_project):
     assert np.allclose([s[1][1] for s in segments], high)
 
 
+def test_line_overlay_of_measurements_gets_no_poisson_default(make_project):
+    # Overlay data whose y are not counts (negative or fractional values) keeps no errors.
+    x = np.arange(4.0)
+    frame = pd.DataFrame([{"X": x, "Y": np.array([4.3, 5.7, -1.2, 9.0]), "S": "data"},
+                          {"X": x, "Y": np.array([4.0, 5.5, -1.0, 9.1]), "S": "model"}])
+    make_project({"Meas": frame})
+    figures = _capture()
+    line.main(["--datafile", "Meas", "-x", "X", "-y", "Y", "--hue", "S", "--overlay", "data", "--error_label"])
+    ax = figures[-1].axes[0]
+    for container in (c for c in ax.containers if isinstance(c, ErrorbarContainer)):
+        assert not container.has_yerr
+    assert "Poisson" not in ax.get_ylabel()
+
+
 def test_line_clopper_pearson_never_crosses_the_bounds(make_project):
     trials = np.full(5, 20.0)
     efficiency = np.array([0.0, 5.0, 50.0, 95.0, 100.0])  # percent

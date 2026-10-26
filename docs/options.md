@@ -77,7 +77,9 @@ are the example list, `examples/input/plots/example_scripts.txt`;
   `--errory_type poisson` computes the errors instead: the exact (Garwood)
   Poisson interval of y as counts, asymmetric and never below 0 (in `hist`,
   of the bin counts, or √Σw² with `--weight`); it is also what data drawn
-  with `--overlay`/`--data_hue` get when there is no error column.
+  with `--overlay`/`--data_hue` get when there is no error column and y are
+  counts (non-negative integers; measurements such as magnitudes keep no
+  errors).
   `--errory_type clopper_pearson --count_column N` takes y as an efficiency
   of N trials (`--efficiency_scale 100` for percent) and draws the
   Clopper–Pearson interval, which never crosses 0 or 100%, as in `table

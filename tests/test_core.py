@@ -387,3 +387,24 @@ def test_threshold_formatter_wrapper_is_deprecated():
 
 def test_savefig_dpi_default():
     assert plt.rcParams["savefig.dpi"] == 300
+
+
+def test_overlays_keep_a_reversed_range():
+    # --square/--vertical/--horizontal/--line widen the limits without un-reversing them (magnitudes, M_G).
+    from plotipus.plot import draw_horizontal_lines, draw_lines, draw_squares, draw_vertical_lines
+
+    fig, ax = plt.subplots()
+    ax.set_xlim(0, 5)
+    ax.set_ylim(16.5, -4)
+    draw_squares(ax, [(0.95, -0.2, 1.45, 1.3)], labels=["Red clump"])
+    draw_vertical_lines(ax, [1.0])
+    draw_horizontal_lines(ax, [10.0])
+    draw_lines(ax, [(0, 0, 4, 12)])
+    assert ax.get_ylim() == (16.5, -4)
+    draw_squares(ax, [(1, 15, 2, 20)])
+    assert ax.get_ylim() == (20, -4)
+    draw_horizontal_lines(ax, [-6.0])
+    assert ax.get_ylim() == (20, -6)
+    (label,) = [t for t in ax.texts if t.get_text() == "Red clump"]
+    assert label.get_position()[1] == -0.2  # the visually upper edge
+    plt.close(fig)

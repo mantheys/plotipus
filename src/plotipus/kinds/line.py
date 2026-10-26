@@ -534,11 +534,11 @@ def _to_density(s, args):
 def _interval_errors(s, args):
     """Replace the errors of ``s`` by an interval: --errory_type poisson
     (Garwood, y as counts; also the default for --overlay data without an
-    error column) or clopper_pearson (y an efficiency of --count_column
-    trials). Stored as 2xN (below, above) distances, never crossing 0 (or
-    100% for efficiencies)."""
+    error column whose y are counts) or clopper_pearson (y an efficiency of
+    --count_column trials). Stored as 2xN (below, above) distances, never
+    crossing 0 (or 100% for efficiencies)."""
     kind = args.errory_type if args.errory_type in ("poisson", "clopper_pearson") else None
-    if kind is None and s.is_data and s.error is None and not s.categorical:
+    if kind is None and s.is_data and s.error is None and not s.categorical and _counts(s.y):
         kind = "poisson"
     if kind is None:
         return
@@ -560,6 +560,17 @@ def _interval_errors(s, args):
         low, high = low * args.efficiency_scale, high * args.efficiency_scale
     s.error = np.vstack([np.clip(y - low, 0, None), np.clip(high - y, 0, None)])
     s.interval = kind
+
+
+def _counts(y):
+    """Whether ``y`` reads as event counts: finite values, non-negative
+    integers (a measurement such as a magnitude or a ratio is not)."""
+    try:
+        y = np.asarray(y, dtype=float)
+    except (TypeError, ValueError):
+        return False
+    y = y[np.isfinite(y)]
+    return y.size > 0 and bool(np.all(y >= 0)) and bool(np.all(y == np.round(y)))
 
 
 def _is_data(hue, args):

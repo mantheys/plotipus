@@ -71,10 +71,10 @@ line --datafile Showers -x TrueEnergy -y Response --binned --estimator mean --hu
 line --datafile RotationCurves -x Radius -y Velocity --hue Galaxy --style Type --plot_type line --no_legend --rangex 0 125 --rangey 0 350 --labelx 'R (kpc)' --labely 'V (km/s)' --title 'Rotation curves of 21 galaxies, style by type' --output_suffix C1
 
 # C2 Line with uncertainty band
-line --datafile HockeyStick -x Year -y Anomaly --hue Series --style Series --iterable_color_mapping mbh_colors --iterable_mapping mbh_labels --comparable_linestyles solid solid solid dashdot --linewidth_column Width --plot_type line --errory --errory_type bands --horizontal 0 --rangex 1000 2000 --rangey -1.5 1 --legend_loc 'lower left' --labelx 'Year' --labely 'Temperature anomaly ($^\circ$C)' --title 'Northern-hemisphere temperatures with a 2σ band' --output_suffix C2
+line --datafile HockeyStick -x Year -y Anomaly --hue Series --style Series --iterable_color_mapping mbh_colors --iterable_mapping mbh_labels --comparable_linestyles solid solid solid dashdot --linewidth_column Width --plot_type line --errory --errory_type bands --horizontal 0 --rangex 1000 2000 --rangey -1.5 1 --labelx 'Year' --labely 'Temperature anomaly ($^\circ$C)' --title 'Northern-hemisphere temperatures with a 2σ band' --output_suffix C2
 
 # C3 Stored fit over data with parameter box
-line --datafile Moseley -x AtomicNumber -y SqrtFrequency --hue Series --select Type -s Data --fit --errory --labelx 'Atomic number Z' --labely '$\sqrt{\nu}$ ($10^{8}$ Hz$^{1/2}$)' --title "Moseley's law: stored straight-line fits" --output_suffix C3
+line --datafile Moseley -x AtomicNumber -y SqrtFrequency --hue Series --select Type Series -s Data 'K$\alpha$' --fit --errory --labelx 'Atomic number Z' --labely '$\sqrt{\nu}$ ($10^{8}$ Hz$^{1/2}$)' --title "Moseley's law: the stored Kα fit" --output_suffix C3
 
 # C4 Fit with residual panel
 line --datafile HiggsDiphoton -x Mass -y Events --select Component -s Data --select Weighting -s Unweighted --fit --data_hue Data --errory --lower residual --no-fit_type_subtitle --max_fit_params 3 --labelx '$m_{\gamma\gamma}$ [GeV]' --labely 'Events / 2 GeV' --title 'H→γγ: signal + background fit and residuals' --output_suffix C4
@@ -159,7 +159,7 @@ line --datafile Anscombe -x X -y Y --hue Type --data_hue Data --variables I II I
 # needs T22.6: line --datafile Anscombe -x X -y Y --hue Type --data_hue Data --variables I II III IV --plot_type line --sharex --sharey --no_legend --title 'Shared axes' --output_suffix H2
 
 # H4 Upper + lower panels
-line --datafile SupernovaHubble -x Redshift -y DistanceModulus --hue Series --style Series --data_hue 'Union2.1 SNe' --iterable_color_mapping sn_colors --comparable_linestyles solid solid dotted dashed --plot_type line --errory --logx --rangex 0.008 1.6 --rangey 32.5 46.5 --lower column:DeltaMu --lower_labely '$\Delta$(m-M) (mag)' --lower_rangey -0.9 0.9 --no_lower_legend --legend_loc 'lower right' --labelx 'z' --labely 'm-M (mag)' --title 'Supernovae and three cosmologies, residuals below' --output_suffix H4
+line --datafile SupernovaHubble -x Redshift -y DistanceModulus --hue Series --style Series --data_hue 'Union2.1 SNe' --iterable_color_mapping sn_colors --comparable_linestyles solid solid dotted dashed --plot_type line --errory --logx --rangex 0.008 1.6 --rangey 32.5 46.5 --lower column:DeltaMu --lower_labely '$\Delta$(m-M) (mag)' --lower_rangey -0.9 0.9 --no_lower_legend --labelx 'z' --labely 'm-M (mag)' --title 'Supernovae and three cosmologies, residuals below' --output_suffix H4
 
 # H5 Inset axes
 # needs T22.7: line --datafile Keeling -x DecimalDate -y CO2 --hue Series --plot_type line --inset 2015 2020 --inset_pos 0.55 0.1 0.4 0.35 --title 'Keeling curve with a zoom' --output_suffix H5
@@ -170,7 +170,7 @@ line --datafile SupernovaHubble -x Redshift -y DistanceModulus --hue Series --st
 # == I Annotations
 
 # I1 Reference lines (h/v/diagonal) with labels
-line --datafile Moseley -x AtomicNumber -y SqrtFrequency --hue Series --data_hue 'K$\alpha$' 'L$\alpha$' --iterable_color_mapping moseley_colors --plot_type line --rangex 10 82 --rangey 4 24 --vertical 43 61 75 --vertical_label 'Z=43' 'Z=61' 'Z=75' --vertical_style dotted dotted dotted --legend_loc 'upper left' --labelx 'Atomic number Z' --labely '$\sqrt{\nu}$ ($10^{8}$ Hz$^{1/2}$)' --title "Moseley's missing elements" --output_suffix I1
+line --datafile Moseley -x AtomicNumber -y SqrtFrequency --hue Series --data_hue 'K$\alpha$' 'L$\alpha$' --iterable_color_mapping moseley_colors --plot_type line --rangex 10 82 --rangey 4 24 --vertical 43 61 75 --vertical_label 'Z=43' 'Z=61' 'Z=75' --vertical_style dotted dotted dotted --labelx 'Atomic number Z' --labely '$\sqrt{\nu}$ ($10^{8}$ Hz$^{1/2}$)' --title "Moseley's missing elements" --output_suffix I1
 
 # I2 Highlighted points and regions
 line --datafile Distributions -x Bin -y Counts --hue Sample --select Distribution -s Breit-Wigner --data_hue Data --errory --square 89.94 0 92.44 125 --square_label 'FWHM' --point 91.19 262 --point_label '$m_Z$' --labelx 'Mass (GeV)' --title 'The Z peak: a marked point and a region' --output_suffix I2
@@ -179,11 +179,11 @@ line --datafile Distributions -x Bin -y Counts --hue Sample --select Distributio
 line --datafile Distributions -x Bin -y Counts --hue Sample --select Distribution -s Breit-Wigner --data_hue Data --errory --vertical 89.94 92.44 --note 'FWHM = 2.50 GeV' --labelx 'Mass (GeV)' --title 'A Breit-Wigner peak with a note' --output_suffix I3
 
 # I4 Experiment / status label
-line --datafile FourLepton -x Mass -y Events --hue Sample --data_hue Data --iterable_color_mapping zz_colors --iterable_mapping zz_labels --stacked --rangex 70 181 --rangey 0 17.5 --legend_loc 'upper left' --labelx '$m_{4\ell}$ (GeV)' --labely 'Events / 3 GeV' --text 0.0 1.03 'CMS' --text 1.0 1.03 '$\sqrt{s}$ = 7 and 8 TeV, 10.4 fb$^{-1}$' --text_ha left right --text_size large --title None --output_suffix I4
+line --datafile FourLepton -x Mass -y Events --hue Sample --data_hue Data --iterable_color_mapping zz_colors --iterable_mapping zz_labels --stacked --rangex 70 181 --rangey 0 17.5 --labelx '$m_{4\ell}$ (GeV)' --labely 'Events / 3 GeV' --text 0.0 1.03 'CMS' --text 1.0 1.03 '$\sqrt{s}$ = 7 and 8 TeV, 10.4 fb$^{-1}$' --text_ha left right --text_size large --title None --output_suffix I4
 # needs T17: line --datafile FourLepton -x Mass -y Events --hue Sample --data_hue Data --stacked --experiment cms --label_status Preliminary --label_right '$\sqrt{s}$ = 8 TeV' --output_suffix I4b
 
 # I7 Inverted axis
-line --datafile Leavitt -x LogPeriod -y Magnitude --hue Brightness --data_hue Maximum Minimum --iterable_color_mapping leavitt_colors --plot_type line --rangex 0 2.2 --rangey 17 10.5 --legend_loc 'lower right' --labelx 'log P (days)' --labely 'Apparent magnitude' --title "Leavitt's period-luminosity relation, magnitudes inverted" --output_suffix I7
+line --datafile Leavitt -x LogPeriod -y Magnitude --hue Brightness --data_hue Maximum Minimum --iterable_color_mapping leavitt_colors --plot_type line --rangex 0 2.2 --rangey 17 10.5 --labelx 'log P (days)' --labely 'Apparent magnitude' --title "Leavitt's period-luminosity relation, magnitudes inverted" --output_suffix I7
 
 # I10 Legend outside / above the axes
-# needs T15: line --datafile ROC -x FPR -y TPR --hue Model --plot_type line --legend_loc outside --output_suffix I10
+line --datafile ROC -x FPR -y TPR --hue Model --plot_type line --legend_loc outside --labelx 'False-positive rate' --labely 'True-positive rate' --title 'ROC curves, the legend above the axes' --output_suffix I10
