@@ -384,3 +384,49 @@ def test_stacked_binned_series_are_filled_histograms(make_project, spectra):
     assert len(filled) == 3 and np.allclose(filled[1].get_data().baseline, spectra["Counts"].iloc[0])
     run(make_project, spectra, "--hue", "Sample", "--select", "Stage", "-s", "Raw", "--stacked", "--bar_width", "auto")
     assert any(isinstance(p, Rectangle) for p in figures[-1].axes[0].patches)
+
+
+# --- Data and simulation conventions -----------------------------------------------------
+
+
+def test_density_gives_unit_area(make_project, spectra):
+    figures = _capture()
+    run(make_project, spectra, "--hue", "Sample", "--select", "Stage", "-s", "Raw", "--plot_type", "line",
+        "--density")
+    ax = figures[0].axes[0]
+    # Bins of unit width around the centres 0.5 .. 9.5: the area is the sum of y.
+    areas = [np.sum(line.get_ydata()) for line in ax.get_lines() if line.get_label() in ("A", "B", "C")]
+    assert len(areas) == 3 and np.allclose(areas, 1.0)
+    assert ax.get_ylabel() == "Density"
+
+
+def test_data_named_by_style_value(make_project, spectra):
+    from matplotlib.colors import to_hex
+    from matplotlib.container import ErrorbarContainer
+
+    figures = _capture()
+    run(make_project, spectra, "--hue", "Sample", "--style", "Stage", "--data_hue", "Raw", "--errory")
+    ax = figures[0].axes[0]
+    points = [c for c in ax.containers if isinstance(c, ErrorbarContainer)]
+    steps = [p for p in ax.patches if type(p).__name__ in ("Polygon", "StepPatch")]
+    assert len(points) == 3 and len(steps) == 3
+    # Data points take their hue colour; the one simulation style stays solid.
+    assert len({to_hex(c.lines[0].get_color()) for c in points}) == 3
+    assert all(p.get_linestyle() in ("-", "solid", (0, None)) for p in steps)  # solid
+    style_legend = [leg for leg in [ax.get_legend(), *[a for a in ax.artists]] if leg is not None
+                    and "Stage" in leg.get_title().get_text()][0]
+    handles = style_legend.legend_handles
+    assert handles[0].get_marker() == "o" and handles[0].get_linestyle() == "None"
+    assert [t.get_text() for t in style_legend.get_texts()] == ["Raw", "Smooth"]
+
+
+def test_column_panel_of_data_is_points(make_project, spectra):
+    from matplotlib.container import ErrorbarContainer
+
+    figures = _capture()
+    run(make_project, spectra, "--hue", "Sample", "--select", "Stage", "Sample", "-s", "Raw", "A",
+        "--data_hue", "A", "--errory", "--lower", "column:Significance")
+    lower = figures[0].axes[1]
+    assert any(isinstance(c, ErrorbarContainer) for c in lower.containers)
+    assert not [line for line in lower.get_lines() if line.get_linestyle() not in ("None", "")
+                and len(line.get_xdata()) > 2]
