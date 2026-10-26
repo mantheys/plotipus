@@ -19,6 +19,7 @@ import copy
 import matplotlib
 import matplotlib.lines as mlines
 import matplotlib.patches as mpatches
+from matplotlib.container import ErrorbarContainer
 import numpy as np
 
 from . import style
@@ -32,6 +33,8 @@ from .plot import (
 )
 
 LINESTYLES = ["-", "--", ":", "-."]
+# Style-legend entry of a --style value drawn as data points (line --data_hue).
+DATA_STYLE = "data"
 HATCHES = ["", "/", "\\", "x", ".", "o"]
 FILL_ALPHAS = [0.8, 0.55, 0.35, 0.15]
 
@@ -245,6 +248,8 @@ def draw_legends(
     elif style_map and handles:
         # The secondary legend explains the line styles: draw colours solid.
         def _solid(handle):
+            if isinstance(handle, ErrorbarContainer):  # data points: their colour as a line
+                return mlines.Line2D([], [], color=handle.lines[0].get_color(), linestyle="-")
             proxy = copy.copy(handle)
             if hasattr(proxy, "set_linestyle"):
                 proxy.set_linestyle("-")
@@ -274,6 +279,8 @@ def draw_legends(
             secondary_labels = list(alpha_map.keys())
         else:
             proxies = [
+                mlines.Line2D([], [], color=style.role("ink"), linestyle="none", marker="o")
+                if line_style == DATA_STYLE else
                 mlines.Line2D([], [], color=style.role("ink"), linestyle=line_style,
                               linewidth=widths[i] if len(widths) == len(style_map) else 1.5)
                 for i, line_style in enumerate(style_map.values())

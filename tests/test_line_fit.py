@@ -41,6 +41,53 @@ def test_fit_with_pull(make_project):
     assert lower.get_ylabel() == "Pull"
     assert np.allclose(lower.lines[0].get_ydata(), expected)
 
+def _capture():
+    from plotipus import registry
+
+    figures = []
+    registry.add_figure_hook(lambda fig, args: figures.append(fig))
+    return figures
+
+
+def test_fit_residual_and_pull_panels(make_project):
+    """Two --lower entries give two lower panels, each with its own label and range."""
+    figures = _capture()
+    make_project({"Fits": _fit_frame()})
+    line.main(["--datafile", "Fits", "-x", "Values", "-y", "Counts", "--fit", "--errory",
+               "--lower", "residual", "--lower", "pull"])
+    _, residual, pull = figures[-1].axes
+    # (a style may append the axis offset, e.g. "Residual (x10^-2)")
+    assert residual.get_ylabel().startswith("Residual") and pull.get_ylabel().startswith("Pull")
+    assert [t.get_text() for t in residual.texts] == [r"(Data $-$ Fit) / Fit"]
+    values = pull.lines[0].get_ydata()
+    limit = max(3.0, 1.2 * np.nanmax(np.abs(values)))
+    assert np.allclose(pull.get_ylim(), (-limit, limit))
+    assert sorted(round(abs(p.get_y()), 6) for p in pull.patches) == [1, 2]  # the +-1 and +-2 bands
+    assert any(t.get_text() == r"(Data $-$ Fit) / $\sigma$" for t in pull.texts)
+
+
+def test_fit_residual_masks_the_tails(make_project):
+    """Bins where the fit is below 1e-3 of its maximum are not drawn as residuals."""
+    figures = _capture()
+    make_project({"Fits": _fit_frame()})
+    line.main(["--datafile", "Fits", "-x", "Values", "-y", "Counts", "--fit", "--lower", "residual"])
+    frame = _fit_frame().iloc[0]
+    a, mu, sigma = frame["Params"]
+    fit = a * np.exp(-0.5 * ((frame["Values"] - mu) / sigma) ** 2)
+    drawn = figures[-1].axes[1].lines[0].get_ydata()
+    tails = fit < 1e-3 * fit.max()
+    assert tails.any() and np.isnan(drawn[tails]).all()
+    assert np.allclose(drawn[~tails], ((frame["Counts"] - fit) / fit)[~tails])
+
+
+def test_fit_pull_without_errors_warns_and_draws_nothing(make_project, capsys):
+    figures = _capture()
+    make_project({"Fits": _fit_frame().drop(columns="CountsError")})
+    line.main(["--datafile", "Fits", "-x", "Values", "-y", "Counts", "--fit", "--lower", "pull"])
+    assert not figures[-1].axes[1].collections and len(figures[-1].axes[1].lines) == 1  # only the zero line
+    assert "--lower pull needs the CountsError column" in " ".join(capsys.readouterr().out.split())
+
+
 def test_fit_without_lower(make_project):
     out = make_project({"Fits": _fit_frame()})
     outputs = line.main(["--datafile", "Fits", "-x", "Values", "-y", "Counts", "--fit", "--no-fit_errors",

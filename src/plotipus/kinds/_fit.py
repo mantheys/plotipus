@@ -6,9 +6,9 @@ Rows describe a fitted series: ``x``/``y`` arrays plus the model,
 ``ParamsLabel`` and optionally ``ParamsUnit``, ``ParamsFormat``,
 ``FitFunctionFormula``, ``Chi2`` and ``FitComponents`` ({label: [model,
 [parameter indices]]}, each drawn dashed). No fitting happens here: the stored
-model is evaluated, drawn over the data with a parameter box, and the lower
-panel shows the residual (data - fit) / fit, or with ``--lower pull`` the pull
-(data - fit) / error.
+model is evaluated, drawn over the data with a parameter box, and each
+``--lower`` entry adds a panel: ``residual`` (data - fit) / fit, or ``pull``
+(data - fit) / error with the stored ``{y}Error``.
 """
 
 import matplotlib.lines as mlines
@@ -20,7 +20,7 @@ from .. import style
 from ..args import resolve_axis_label
 from ..fits import get_function
 from ..format import _format_value_with_paren_error
-from ..lower import model_series
+from ..lower import MODEL_OPERATIONS, model_series, parse_lower
 from ..palettes import current_colors
 from ..panels import add_title_and_note, create_panels, save
 from ..plot import (apply_legend_pair_clear_of_data, apply_legend_style, apply_legend_style_clear_of_data,
@@ -37,7 +37,7 @@ def add_fit_args(parser):
     add = group.add_argument
     add("--fit", action="store_true", default=False,
         help="Draw the stored fit of each row (FitFunction/FitFunctionLabel, Params) over the data, "
-        "with its parameters; --lower residual shows (data - fit)/fit, --lower pull (data - fit)/error.")
+        "with its parameters; each --lower adds a panel: residual (data - fit)/fit or pull (data - fit)/error.")
     add("--chi2", action="store_true", default=False,
         help="Show chi2/ndof (stored Chi2 column, or Pearson chi2 for -y Counts).")
     add("--show_formula", action="store_true", default=False, help="Show FitFunctionFormula in the legend.")
@@ -161,9 +161,9 @@ def _parameter_legend_kwargs(lines):
                 handletextpad=0)
 
 
-def _draw_fit_rows(ax_top, ax_bottom, rows, args, kind):
-    """Data, fit curve, residuals and parameters of one hue value; returns
-    (residual limit, function label, formula)."""
+def _draw_fit_rows(ax_top, lowers, rows, args, kind):
+    """Data, fit curve, lower panels ((spec, axes) pairs) and parameters of one hue value; returns
+    (lower-panel limits, function label, formula, parameter lines)."""
     label_value = rows[args.iterable].iloc[0] if args.iterable is not None else "Data"
     function_label = rows["FitFunctionLabel"].iloc[0] if "FitFunctionLabel" in rows.columns else None
     formula = rows["FitFunctionFormula"].iloc[0] if "FitFunctionFormula" in rows.columns else None
@@ -210,35 +210,14 @@ def _draw_fit_rows(ax_top, ax_bottom, rows, args, kind):
     mask = np.isfinite(fit) & (fit != 0) & np.isfinite(diff)
     if args.fit_rangex is not None:
         mask &= (x >= lo) & (x <= hi)
-    residuals = np.full_like(diff, np.nan)
-    residual_error = None
-    error_column = f"{args.y}Error"
-    if _pull(args) and error_column in rows.columns:
-        # Pull: (data - fit) / data error, in units of the error.
-        stored = np.asarray(rows[error_column].values[0], dtype=float)
-        mask &= np.isfinite(stored) & (stored > 0)
-        residuals[mask] = diff[mask] / stored[mask]
-        if args.errory:
-            residual_error = np.where(mask, 1.0, np.nan)
-    else:
-        residuals[mask] = diff[mask] / fit[mask]
-        if args.errory and error is not None:
-            residual_error = np.full_like(y, np.nan)
-            residual_error[mask] = error[mask] / fit[mask]
-
-    finite = residuals[mask]
-    if finite.size:
-        low, high = np.percentile(finite, [5, 95])
-        limit = max(abs(low), abs(high)) * 2
-        if limit == 0 or not np.isfinite(limit):
-            limit = 1e-3
-    else:
-        limit = 1
-    if limit > 1e3 or not np.isfinite(limit):
-        limit = len(params)
-
-    if ax_bottom is not None:
-        plot_data(args, ax_bottom, x, y=residuals, errory=residual_error if args.errory else None,
+    limits = []
+    for spec, ax_bottom in lowers:
+        values, errors = _lower_values(spec, x, y, fit, error, rows, args, mask)
+        limit = _lower_limit(spec, values, len(params))
+        limits.append(limit)
+        if values is None:
+            continue
+        plot_data(args, ax_bottom, x, y=values, errory=errors if args.errory else None,
                   color=style.role("ink"), plot_type=plot_type, **style_kwargs)
         ax_bottom.set_ylim(-limit, limit)
 
@@ -251,12 +230,79 @@ def _draw_fit_rows(ax_top, ax_bottom, rows, args, kind):
     lines = _parameter_lines(args, rows, params, chi2, int(mask.sum()))
     if args.fitlegendposition is not None:
         _parameter_box(ax_top, args, lines)
-    return limit, function_label, formula, lines
+    return limits, function_label, formula, lines
 
 
-def _pull(args):
-    """--lower pull: the lower panel shows (data - fit) / error."""
-    return "pull" in (args.lower or [])
+def _lower_specs(args):
+    """One lower panel per --lower entry: residual or pull (anything else, as
+    before, is drawn as a residual)."""
+    specs = []
+    for text in args.lower or []:
+        spec = parse_lower(text)
+        if spec.name not in MODEL_OPERATIONS:
+            rprint(f"[yellow]Warning:[/yellow] --lower {text} is not available with --fit; drawing the residual.")
+            spec = parse_lower("residual")
+        specs.append(spec)
+    return specs
+
+
+def _lower_values(spec, x, y, fit, error, rows, args, mask):
+    """(values, errors) of one lower panel, NaN outside *mask*; values None
+    when a pull has no errors to divide by."""
+    if spec.name == "pull":
+        error_column = f"{args.y}Error"
+        if error_column not in rows.columns:
+            rprint(f"[yellow]Warning:[/yellow] --lower pull needs the {error_column} column; the pull panel is empty.")
+            return None, None
+        sigma = np.asarray(rows[error_column].values[0], dtype=float)
+        values = model_series(y, fit, sigma, "pull")
+        values[~(mask & (sigma > 0))] = np.nan
+        return values, np.where(np.isfinite(values), 1.0, np.nan)
+    # Where the fit is ~0 (the tails of a peak) the relative residual diverges.
+    small = np.abs(fit) < 1e-3 * np.nanmax(np.abs(fit[mask])) if mask.any() else np.zeros_like(mask)
+    values = model_series(y, fit, None, "residual")
+    values[~mask | small] = np.nan
+    errors = None
+    if error is not None:
+        with np.errstate(divide="ignore", invalid="ignore"):
+            errors = np.where(np.isfinite(values), np.asarray(error, dtype=float) / fit, np.nan)
+    return values, errors
+
+
+def _lower_limit(spec, values, n_params):
+    """Symmetric y range of one lower panel."""
+    finite = values[np.isfinite(values)] if values is not None else np.array([])
+    if spec.name == "pull":
+        return max(3.0, 1.2 * float(np.max(np.abs(finite)))) if finite.size else 3.0
+    if not finite.size:
+        return 1
+    low, high = np.percentile(finite, [5, 95])
+    limit = max(abs(low), abs(high)) * 2
+    if limit == 0 or not np.isfinite(limit):
+        limit = 1e-3
+    if limit > 1e3:
+        limit = n_params
+    return limit
+
+
+def _lower_label(spec):
+    """(y label, formula subtitle) of a lower panel. The formula goes inside
+    the panel: as the y label it is taller than a lower panel."""
+    if spec.name == "pull":
+        # Mathtext: the minus and sigma glyphs exist in every style's math font (not in cmr10 text).
+        return "Pull", r"(Data $-$ Fit) / $\sigma$"
+    return "Residual", r"(Data $-$ Fit) / Fit"
+
+
+def _lower_subtitle(ax, text):
+    ax.text(0.01, 0.97, text, transform=ax.transAxes, ha="left", va="top", fontsize="medium",
+            color=style.role("muted"))
+
+
+def _pull_bands(ax):
+    """Light bands at +-1 and +-2 sigma; where they overlap (within 1 sigma) they read darker."""
+    for width in (2, 1):
+        ax.axhspan(-width, width, color=style.role("faint"), alpha=0.7, linewidth=0, zorder=-2)
 
 
 def _residual_reference(ax, args):
@@ -301,12 +347,12 @@ def run_fit(df, args):
     configs, names = prepare_import(args)
     configs = configs if configs is not None else [None]
     names = names if names is not None else [None]
-    lower = not args.no_lower_plot and bool(args.lower)
+    specs = _lower_specs(args) if not args.no_lower_plot else []
     outputs = []
     for kdx, (config, name) in enumerate(zip(configs, names)):
-        fig, upper, lowers, _ = create_panels(1, n_lower=1 if lower else 0)
-        ax_top, ax_bottom = upper[0], (lowers[0][0] if lower else None)
-        if ax_bottom is not None:
+        fig, upper, lowers, _ = create_panels(1, n_lower=len(specs))
+        ax_top, ax_bottoms = upper[0], lowers[0]
+        if ax_bottoms:
             ax_top.xaxis.get_offset_text().set_visible(False)
         mask = pd.Series(True, index=df.index)
         if "Config" in df.columns:
@@ -315,7 +361,7 @@ def run_fit(df, args):
             mask &= df["Name"] == name
         group = df[mask]
         hues = group[args.iterable].unique() if args.iterable is not None else [None]
-        limit, function_label, formula, subset, parameter_lines = 1, None, None, group, None
+        limits, function_label, formula, subset, parameter_lines = None, None, None, group, None
         for jdx, hue in enumerate(hues):
             if args.reduce and args.iterable is not None and len(hues) > 8 and jdx % 2 == 1:
                 continue
@@ -324,12 +370,12 @@ def run_fit(df, args):
             if rows.empty:
                 continue
             subset = rows
-            result = _draw_fit_rows(ax_top, ax_bottom, rows, args, {"draw_fit": jdx == args.fitindex})
+            result = _draw_fit_rows(ax_top, list(zip(specs, ax_bottoms)), rows, args, {"draw_fit": jdx == args.fitindex})
             function_label, formula = result[1], result[2]
             if result[3] is not None:
                 parameter_lines = result[3]
             if result[0] is not None:
-                limit = result[0]
+                limits = result[0]
 
         if function_label is None:
             rprint("[yellow]Warning:[/yellow] No valid fit entries available to plot.")
@@ -376,19 +422,23 @@ def run_fit(df, args):
             _show_formula(fig, ax_top, legend, formula)
 
         xlabel = resolve_axis_label(_first(args.labelx), args.x, subset)
-        if ax_bottom is not None:
+        for spec, ax_bottom, limit in zip(specs, ax_bottoms, limits or [None] * len(specs)):
             if args.rangex is not None:
                 ax_bottom.set_xlim(args.rangex)
             _residual_reference(ax_bottom, args)
-            ax_bottom.set_xlabel(xlabel)
             if args.logx:
                 ax_bottom.set_xscale("log")
-            ax_bottom.set_ylim(-limit, limit)
-            ax_bottom.set_ylabel(args.lower_labely if args.lower_labely is not None
-                                 else "Pull" if _pull(args) else "(Data - Fit)/Fit",
-                                 fontsize=style.ysublabelfontsize)
-        else:
-            ax_top.set_xlabel(xlabel)
+            if spec.name == "pull":
+                _pull_bands(ax_bottom)
+            if limit is not None:
+                ax_bottom.set_ylim(-limit, limit)
+            label, subtitle = _lower_label(spec)
+            if args.lower_labely is not None:
+                label = args.lower_labely
+            else:
+                _lower_subtitle(ax_bottom, subtitle)
+            ax_bottom.set_ylabel(label, fontsize=style.ysublabelfontsize)
+        (ax_bottoms[-1] if ax_bottoms else ax_top).set_xlabel(xlabel)
 
         vertical, horizontal = args.vertical, args.horizontal
         vertical_labels = args.vertical_label
@@ -399,7 +449,7 @@ def run_fit(df, args):
             horizontal_labels = [format_ref_value(v) for v in horizontal] if args.line_labels and horizontal else []
         draw_vertical_lines(ax_top, vertical, labels=vertical_labels, styles=args.vertical_style,
                             colors=args.vertical_color, fontsize=style.linelabelfontsize)
-        if ax_bottom is not None:
+        for ax_bottom in ax_bottoms:
             draw_vertical_lines(ax_bottom, vertical, labels=[], fontsize=style.linelabelfontsize)
         draw_horizontal_lines(ax_top, horizontal, labels=horizontal_labels, styles=args.horizontal_style,
                               colors=args.horizontal_color, fontsize=style.linelabelfontsize)

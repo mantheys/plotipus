@@ -36,7 +36,7 @@ command lists.
 |---|---|---|---|
 | A Distributions | 5 | 2 | 5 |
 | B Relationships | 6 | 1 | 2 |
-| C Trends and fits | 4 | 4 | 2 |
+| C Trends and fits | 5 | 3 | 2 |
 | D Comparisons | 1 | 4 | 4 |
 | E Ratios and significance | 4 | 3 | 1 |
 | F ML diagnostics | 4 | 2 | 1 |
@@ -44,7 +44,7 @@ command lists.
 | H Small multiples and layout | 2 | 2 | 4 |
 | I Annotations | 5 | 2 | 3 |
 | J Tables | 4 | 1 | 2 |
-| **Total (89)** | **37** | **24** | **28** |
+| **Total (89)** | **38** | **23** | **28** |
 
 Nearly half of the ◐ entries are partial only because of a bug in
 [bugs.md](bugs.md), not because an option is missing. Fixing B01–B13 moves
@@ -90,8 +90,8 @@ about 12 of them to ✅.
 | C1 | Lines, colour by hue, style by a second variable | several series vs x | F11, F13 | ✅ | `line ... --hue Sample --style Stage` (example 1). Past the palette, colours repeat with a warning (B02, fixed in T01); `--palette` picks the palette. | — |
 | C2 | Line with uncertainty band | curve ± σ | F14, F15 | ✅ | `line --errory --plot_type line` (bands are the default for lines and steps), or `--errory_type bands` with any plot type (P09; B11, fixed in T07). | — |
 | C3 | Stored fit over data with parameter box | publish a fit result | F06, F08, F19 | ✅ | `line --datafile Fit -x X -y Counts --fit --plot_type errorbar --errory` (P04). Fit line in the style's `ink` role (`--fit_color`, T11). | — |
-| C4 | Fit with residual panel | fit quality | F01, F06, F07, F09 | ✅ | `... --fit --lower residual` (P04): (data−fit)/fit. This diverges in the tails (B13). | — |
-| C5 | Fit with pull panel | fit quality in σ | F01, F17 | ◐ | `--fit --lower pull` is accepted but draws the residual (B13). Without `--fit`, `--lower pull` works against stored models. | Fix B13. |
+| C4 | Fit with residual panel | fit quality | F01, F06, F07, F09 | ✅ | `... --fit --lower residual` (P04): (data−fit)/fit, masked where the fit is below 1e-3 of its peak (B13, fixed in T06). | — |
+| C5 | Fit with pull panel | fit quality in σ | F01, F17 | ✅ | `... --fit --lower pull` (P05): (data−fit)/σ with ±1σ/±2σ bands; `--lower residual --lower pull` stacks both (B13, fixed in T06). | — |
 | C6 | Several model curves over data | model comparison | F09, F12, F17 | ◐ | Model curves stored as extra hue rows (`--hue Model`), data as error bars; no per-series plot type (points for data, lines for models). | `--series_type VALUE=errorbar` (per-hue plot type). |
 | C7 | Stacked area | composition over x | F23 | ✗ | `--stacked` only stacks bars (B10). | Covered by the B10 fix (`--stacked --plot_type line` → `fill_between`). |
 | C8 | Time series with dates | monitoring, Keeling curve | F13 | ◐ | Works on numeric x (decimal year); no date axis formatting. | Convert datetime64 x and use `ConciseDateFormatter`. |

@@ -138,3 +138,31 @@ def test_variable_column_panels_hues_of_the_selection(make_project, capsys):
                "--variables", "A", "B"])
     assert len([ax for ax in figures[-1].axes if ax.has_data()]) == 2
     assert "extra" not in capsys.readouterr().out
+
+
+def test_hist_data_hue_points(tmp_path, monkeypatch):
+    from matplotlib.container import ErrorbarContainer
+
+    from plotipus import registry
+
+    out = make_project(tmp_path, monkeypatch, {"Energies": _frame()})
+    figures = []
+    registry.add_figure_hook(lambda fig, args: figures.append(fig))
+    try:
+        hist.main(["--datafile", "Energies", "-x", "True", "--hue", "Sample", "--data_hue", "a", "--bins", "20"])
+    finally:
+        registry.figure_hooks.clear()
+    ax = figures[0].axes[0]
+    points = [c for c in ax.containers if isinstance(c, ErrorbarContainer)]
+    assert len(points) == 1 and len([p for p in ax.patches if type(p).__name__ == "StepPatch"]) == 1
+    errors = points[0].lines[2][0].get_segments()
+    counts = points[0].lines[0].get_ydata()
+    heights = [abs(seg[1][1] - seg[0][1]) / 2 for seg in errors]
+    assert np.allclose(heights, np.sqrt(counts))  # unit weights: sqrt(N)
+    assert [t.get_text() for t in ax.get_legend().get_texts()] == ["a", "b"]
+
+
+def test_histogram_errors_scale_with_density():
+    counts, _, _, errors = hist.histogram_with_errors(np.array([0.5, 0.5, 1.5, 1.5]), np.array([0.0, 1.0, 2.0]),
+                                                      density=True)
+    assert np.allclose(counts, [0.5, 0.5]) and np.allclose(errors, np.sqrt(2) / 4)
