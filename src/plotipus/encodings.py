@@ -30,6 +30,7 @@ from .plot import (
     apply_legend_style_clear_of_data,
     apply_legend_style_free,
     enable_legend_frame,
+    follow_legend,
 )
 
 LINESTYLES = ["-", "--", ":", "-."]
@@ -100,8 +101,16 @@ def add_legend_args(parser):
     add("--legend_order", choices=["value", "data"], default="value",
         help="Legend entries in the order of the data: stacks top first, lines by their right-hand ends "
         "(value, default), or in drawing order (data).")
-    add("--legend_panel", type=int, default=-1,
-        help="Index of the panel carrying the legend (default -1: the last one).")
+    add("--legend_panel", type=_legend_panel, default=-1,
+        help="Index of the panel carrying the legend (default -1: the last one), or 'all': each panel shows "
+        "its own entries.")
+
+
+def _legend_panel(value):
+    """--legend_panel: a panel index, or 'all'."""
+    if str(value).strip().lower() == "all":
+        return "all"
+    return int(value)
 
 
 def setup_legend_frame(args):
@@ -300,6 +309,9 @@ def draw_legends(
         ax.add_artist(primary_legend)
         if comparable_loc:
             return apply_legend_style(ax, loc=comparable_loc, **secondary_kwargs)
+        if explicit_loc and not loc_kwargs:
+            # One --legend_loc places both legends: the style legend follows the colour legend.
+            return follow_legend(apply_legend_style(ax, loc="upper right", **secondary_kwargs), primary_legend)
         fig = ax.figure
         fig.canvas.draw()
         return apply_legend_style_clear_of_data(
@@ -315,8 +327,9 @@ def draw_legends(
         return None
 
     if not draw_primary:
-        if comparable_loc:
-            return apply_legend_style(ax, loc=comparable_loc, **secondary_kwargs)
+        # The style legend alone: --comparable_legend_loc, else --legend_loc.
+        if comparable_loc or explicit_loc:
+            return apply_legend_style(ax, loc=comparable_loc or explicit_loc, **secondary_kwargs)
         return apply_legend_style_clear_of_data(ax, **secondary_kwargs)
 
     if primary_loc_kwargs:

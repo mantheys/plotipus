@@ -798,7 +798,8 @@ def draw_figure(rows, args, kdx=None):
         if args.sum_iterables:
             iterable_style_map[args.sum_label] = resolve_linestyle(len(style_index), args, n_total=n_style, reverse=args.iterable_reverse)
 
-    legend_panel = args.legend_panel % n_panels
+    all_panels = args.legend_panel == "all"
+    legend_panel = None if all_panels else args.legend_panel % n_panels
     labeled = set()
     drawn = {i: [] for i in range(n_panels)}  # panel -> [Series]
     last_x = np.array([])
@@ -846,7 +847,8 @@ def draw_figure(rows, args, kdx=None):
                 _encode(s, args, hue_values, colors, style_index, n_style, comparable, comparable_values, invert,
                         same_column)
                 key = s.comparable if invert and comparable_value is not None else hue
-                if idx == legend_panel and key not in labeled and not (invert and s.is_sum and comparable_value is not None):
+                key = (idx, key) if all_panels else key  # --legend_panel all: each panel labels its own
+                if (all_panels or idx == legend_panel) and key not in labeled and not (invert and s.is_sum and comparable_value is not None):
                     s.label = s.comparable_label if invert and comparable_value is not None else s.hue_label
                     if s.is_sum and sdx != 0 and not invert:
                         s.label = None
@@ -1269,7 +1271,8 @@ def _finish_upper(fig, upper, lower, drawn, rows, args, variables, last_x, hue_v
     categorical = any(s.categorical for panel in drawn.values() for s in panel[-1:])
     rotated = categorical and args.plot_type != "barh"
     categorical_y = categorical and args.plot_type == "barh"
-    legend_panel = args.legend_panel % n_panels
+    all_panels = args.legend_panel == "all"
+    legend_panel = None if all_panels else args.legend_panel % n_panels
     comparable_panel = args.comparable_legend_panel % n_panels if args.comparable_legend_panel is not None else legend_panel
     base_selection = legend_selection(args)
 
@@ -1323,8 +1326,9 @@ def _finish_upper(fig, upper, lower, drawn, rows, args, variables, last_x, hue_v
         show_legend = len([v for v in hue_values]) > 1 or args.single_legend or (
             base_selection == "comparable" and secondary_style_map
         ) or bool(lower[idx])
-        if show_legend and idx in (legend_panel, comparable_panel) and base_selection != "none":
-            selection = _panel_selection(base_selection, idx, legend_panel, comparable_panel)
+        if show_legend and (all_panels or idx in (legend_panel, comparable_panel)) and base_selection != "none":
+            selection = base_selection if all_panels else _panel_selection(base_selection, idx, legend_panel,
+                                                                          comparable_panel)
             handles, labels = ax.get_legend_handles_labels()
             # matplotlib lists error bars after lines and patches: --data_hue entries go first.
             data_labels = {s.label for series in drawn.values() for s in series if s.is_data and s.label}
