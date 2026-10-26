@@ -12,3 +12,6 @@ examples/famous/input/data/*.pkl
 examples/mascot/output/
 examples/mascot/input/data/*.pkl
 examples/mascot/dark/output/
+examples/gallery/output/
+examples/gallery/input/data/*.pkl
+examples/gallery/input/famous_mappings.json
