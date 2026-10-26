@@ -4,7 +4,8 @@ Adds four options to every kind, applied by a figure hook just before the figure
 is saved, to the 2D histograms and images of every panel (colorbars follow):
 
 - ``--zpower GAMMA``: a power-law colour scale, value**GAMMA; 0.5 is the
-  square root of the density of the Gaia DR2 HR diagrams (F22);
+  square root of the density of the Gaia DR2 HR diagrams (F22). The colorbar
+  is ticked at the powers of ten, as Gaia's is;
 - ``--zcmap NAME``: the colour map, also for 2D histograms (``--cmap`` reaches
   only ``-z`` images);
 - ``--zmin VALUE`` and ``--zunder COLOUR``: the bottom of the scale, and the
@@ -13,6 +14,7 @@ is saved, to the 2D histograms and images of every panel (colorbars follow):
 plotipus has no built-in equivalent yet: they belong to T22.3.
 """
 
+import numpy as np
 from matplotlib.collections import QuadMesh
 from matplotlib.colors import PowerNorm
 from matplotlib.image import AxesImage
@@ -52,4 +54,21 @@ def apply_colour_scale(fig, args):
             if under is not None:
                 mappable.set_cmap(mappable.get_cmap().with_extremes(under=under))
             if mappable.colorbar is not None:
-                mappable.colorbar.update_normal(mappable)
+                _update_colorbar(mappable.colorbar, mappable, gamma)
+
+
+def _update_colorbar(colorbar, mappable, gamma):
+    """Redraw the colorbar for the new scale: on a power scale, ticks at the
+    powers of ten (linear ticks would crowd its top). The --zunder colour is
+    not shown on the bar: its extension is chosen when plotipus creates it."""
+    colorbar.update_normal(mappable)
+    if gamma is not None:
+        low, high = mappable.norm.vmin, mappable.norm.vmax
+        decades = 10.0 ** np.arange(np.ceil(np.log10(max(low, 1e-12))), np.floor(np.log10(high)) + 1)
+        # From the top down, drop a decade that would sit within 6% of the bar of the one above.
+        kept = []
+        for value in decades[::-1]:
+            if not kept or mappable.norm(kept[-1]) - mappable.norm(value) >= 0.06:
+                kept.append(value)
+        colorbar.set_ticks(kept[::-1], labels=[f"{d:g}" for d in kept[::-1]])
+        colorbar.ax.minorticks_off()
