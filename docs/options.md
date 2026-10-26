@@ -57,7 +57,9 @@ are the example list, `examples/input/plots/example_scripts.txt`;
   6 entries. `--legend_loc` pins a matplotlib location, `above` (or
   `outside`), `below` (under the lowest panel and its axis label) or `right`
   of the axes (the layout makes room), or `none`; `--legend_free` treats any
-  free spot like a corner. `--legend_panel all` gives every panel a legend of
+  free spot like a corner; `--legend_inside` keeps automatic legends inside
+  the axes (the emptiest place, over the data if nothing is free, also past
+  6 entries). `--legend_panel all` gives every panel a legend of
   its own entries. With `--style` on another column, `--legend_loc` alone
   places both legends together (the style legend follows the colour legend),
   and the style legend alone; `--comparable_legend_loc` still places it

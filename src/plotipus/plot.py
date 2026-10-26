@@ -529,6 +529,17 @@ def is_redundant_legend_title(title):
 _LEGEND_FRAME = {}
 
 
+# --legend_inside: automatic legends never leave the axes.
+_LEGEND_INSIDE = {"on": False}
+
+
+def keep_legends_inside(on=True):
+    """Keep every automatic legend inside its axes, over the data if it
+    must (--legend_inside); an explicit --legend_loc above/below/right
+    still places it outside."""
+    _LEGEND_INSIDE["on"] = bool(on)
+
+
 def enable_legend_frame(alpha=0.8):
     """Draw every following legend on a translucent paper-coloured box (--legend_frame)."""
     _LEGEND_FRAME.update(frameon=True, facecolor="role:paper", edgecolor="none", framealpha=alpha)
@@ -980,7 +991,9 @@ def place_legends(fig):
             _place_beside(ax, legend, renderer, info["mode"])
             continue
         lower_panel = _has_panel_above(ax)
-        if not lower_panel and (info["mode"] == "outside" or len(legend.get_texts()) > LEGEND_MAX_INSIDE_ENTRIES):
+        inside = _LEGEND_INSIDE["on"] and info["mode"] != "outside"
+        if not lower_panel and not inside and (
+                info["mode"] == "outside" or len(legend.get_texts()) > LEGEND_MAX_INSIDE_ENTRIES):
             _place_outside(ax, legend, renderer)
             continue
         others = [lg.get_window_extent(renderer) for lg in _axes_legends(ax)
@@ -993,6 +1006,10 @@ def place_legends(fig):
             fraction, setter = _best_inside(ax, legend, occupancy, renderer)
         if lower_panel and setter is not None:
             pass  # nothing above a lower panel but its upper panel: the emptiest place inside
+        elif inside:
+            # The emptiest place inside, over the data if need be; a legend
+            # larger than the axes keeps the upper right corner.
+            setter = setter or (lambda: _set_corner(legend, "upper right"))
         elif fraction > LEGEND_FREE_FRACTION or setter is None:
             _place_outside(ax, legend, renderer)
             continue

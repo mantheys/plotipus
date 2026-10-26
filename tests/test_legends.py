@@ -254,3 +254,18 @@ def test_long_axis_label_breaks_onto_two_lines(make_project):
     from plotipus.plot import _break_label
 
     assert _break_label("Events - Bkg") == "Events -\nBkg"  # no line starts with a lone operator
+
+
+@pytest.mark.parametrize("inside", [False, True])
+def test_legend_inside_keeps_a_long_legend_on_the_axes(make_project, inside):
+    make_project({"Spectra": _resonance()})
+    figures = _figures()
+    line.main(["--datafile", "Spectra", "-x", "Bin", "-y", "Counts", "--hue", "Sample",
+               *(["--legend_inside"] if inside else [])])
+    ax = figures[0].axes[0]
+    renderer = _drawn(figures[0])
+    box = _legends(ax)[0].get_window_extent(renderer)
+    if inside:
+        assert box.y1 <= ax.bbox.y1 + 1 and box.x1 <= ax.bbox.x1 + 1
+    else:
+        assert box.y0 >= ax.bbox.y1 - 1  # past 6 entries: above the axes
