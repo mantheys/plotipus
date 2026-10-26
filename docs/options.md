@@ -16,7 +16,13 @@ weighted down to the same total), in two forms:
   and `line --binned`;
 * **prebinned**: `Bin` (bin centres), `Counts`, `CountsError`, the true
   expectation `Expected` and `Pull` = (Counts - Expected) / CountsError, for
-  `line` and `cat`.
+  `line` and `cat`. Exponential, Landau, Log-normal and Chi-squared share one
+  binning (0 to 12 in steps of 0.25), so they overlay bin by bin.
+
+The figures follow one convention: data are points with error bars,
+simulation is a step histogram and a fit is a line; lower panels of data
+(ratios, pulls) are points too. Different distributions compared as shapes
+are normalised to unit area (`--density`) on the same binning.
 
 `Bivariate Gaussian` rows hold correlated `X`, `Y` samples instead.
 The Gaussian rows also store a Gaussian fit (`FitFunctionLabel`, `Params`,
@@ -77,46 +83,46 @@ are the example list, `examples/input/plots/example_scripts.txt`;
 plotipus line --datafile Histogram --configs data simulation --names landau -x Bin -y Counts --by_config --data_hue data --errory --labelx x --title 'One file per config'
 ```
 
-![Four distributions in the okabe-ito palette](images/options/palette.png)
+![Data of four distributions, normalised, as points in the okabe-ito palette](images/options/palette.png)
 
 ```bash
-plotipus line --datafile Distributions -x Bin -y Counts --hue Distribution --select Sample Distribution -s Data Exponential Landau Chi-squared Log-normal --plot_type step --palette okabe-ito --labelx x --title 'The okabe-ito palette'
+plotipus line --datafile Distributions -x Bin -y Counts --hue Distribution --select Sample Distribution -s Data Exponential Landau Chi-squared Log-normal --plot_type errorbar --errory --density --palette okabe-ito --labelx x --title 'The okabe-ito palette'
 ```
 
 ![Data and simulation of three distributions, one panel each](images/options/facets.png)
 
 ```bash
-plotipus line --datafile Distributions -x Bin -y Counts --hue Sample --variable_column Distribution --variables Gaussian Poisson Exponential --plot_type step --labelx x --title 'Prebinned counts, one panel per distribution'
+plotipus line --datafile Distributions -x Bin -y Counts --hue Sample --variable_column Distribution --variables Gaussian Poisson Exponential --data_hue Data --errory --labelx x --title 'Prebinned counts, one panel per distribution'
 ```
 
-![Three distributions coloured by --hue, data solid and simulation dashed by --style](images/options/encodings.png)
+![Three distributions coloured by --hue, normalised; --style separates the data (points) from the simulation (steps)](images/options/encodings.png)
 
 ```bash
-plotipus line --datafile Distributions -x Bin -y Counts --hue Distribution --style Sample --select Distribution -s Exponential Landau Chi-squared --plot_type step --labelx x --title 'Colour by --hue, line style by --style'
+plotipus line --datafile Distributions -x Bin -y Counts --hue Distribution --style Sample --data_hue Data --select Distribution -s Exponential Landau Chi-squared --errory --density --labelx x --title 'Colour by --hue, data and simulation by --style'
 ```
 
 ![Gaussian counts with error bars](images/options/errors.png)
 
 ```bash
-plotipus line --datafile Distributions -x Bin -y Counts --hue Sample --select Distribution -s Gaussian --plot_type errorbar --errory --labelx x --title 'Error bars from the CountsError column'
+plotipus line --datafile Distributions -x Bin -y Counts --hue Sample --select Distribution -s Gaussian --data_hue Data --errory --labelx x --title 'Error bars from the CountsError column'
 ```
 
 ![Exponential counts with error bands on a log scale](images/options/bands.png)
 
 ```bash
-plotipus line --datafile Distributions -x Bin -y Counts --hue Sample --select Distribution -s Exponential --plot_type step --errory --errory_type bands --logy --labelx x --title 'Error bands on a log scale'
+plotipus line --datafile Distributions -x Bin -y Counts --hue Sample --select Distribution -s Exponential --data_hue Data --errory --errory_type bands --logy --labelx x --title 'Error bands on a log scale'
 ```
 
 ![Exponential counts as a rate of order 1e-5 Hz: plain tick numbers, with the common power of ten in the y label](images/options/rate.png)
 
 ```bash
-plotipus line --datafile Distributions -x Bin -y Counts --hue Sample --select Distribution -s Exponential --plot_type step --multiply 1e-7 --labelx x --labely 'Rate per bin (Hz)' --title 'A rate: the power of ten in the label'
+plotipus line --datafile Distributions -x Bin -y Counts --hue Sample --select Distribution -s Exponential --data_hue Data --errory --multiply 1e-7 --labelx x --labely 'Rate per bin (Hz)' --title 'A rate: the power of ten in the label'
 ```
 
 ![Breit-Wigner peak with vertical lines at the half-maximum points, a horizontal line at half maximum and a note](images/options/overlays.png)
 
 ```bash
-plotipus line --datafile Distributions -x Bin -y Counts --hue Sample --select Distribution -s Breit-Wigner --plot_type step --vertical 89.94 92.44 --horizontal 128 --note 'FWHM = 2.50 GeV' --labelx 'Mass (GeV)' --title 'Reference lines and a note'
+plotipus line --datafile Distributions -x Bin -y Counts --hue Sample --select Distribution -s Breit-Wigner --data_hue Data --errory --vertical 89.94 92.44 --horizontal 128 --note 'FWHM = 2.50 GeV' --labelx 'Mass (GeV)' --title 'Reference lines and a note'
 ```
 
 ## Histograms
@@ -131,7 +137,7 @@ every mode.
 ![Breit-Wigner samples with the long tails collected in the first and last bins](images/options/flow.png)
 
 ```bash
-plotipus hist --datafile Distributions -x Value --hue Sample --weight Weight --select Distribution -s Breit-Wigner --bins 40 --rangex 81 101 --flow show --labelx 'Mass (GeV)' --title 'Histogram of samples with under/overflow'
+plotipus hist --datafile Distributions -x Value --hue Sample --weight Weight --select Distribution -s Breit-Wigner --data_hue Data --bins 40 --rangex 81 101 --flow show --labelx 'Mass (GeV)' --title 'Histogram of samples with under/overflow'
 ```
 
 ## Lower panels
@@ -155,10 +161,10 @@ derived from (or stored in) the same DataFrame. Each `--lower` adds one:
 plotipus line --datafile Distributions -x Bin -y Counts --hue Sample --select Distribution Sample -s Resonance Background Signal --stacked --lower group --reference_group Signal --other_group Background --group_significance --lower_labely '$S/\sqrt{B}$' --labelx 'Mass (GeV)' --labely 'Events / 2 GeV' --title 'Stacked simulation and the signal significance'
 ```
 
-![Landau data and simulation with their ratio in a lower panel](images/options/ratio.png)
+![Simulated Exponential, Landau and Log-normal shapes, normalised, with their ratio to the Exponential in a lower panel](images/options/ratio.png)
 
 ```bash
-plotipus line --datafile Distributions -x Bin -y Counts --hue Sample --select Distribution -s Landau --plot_type step --lower ratio --reference_value Simulation --labelx x --lower_labely 'Data / Sim.' --title 'Ratio to a reference series'
+plotipus line --datafile Distributions -x Bin -y Counts --hue Distribution --select Sample Distribution -s Simulation Exponential Landau Log-normal --plot_type step --density --lower ratio --reference_value Exponential --labelx x --lower_labely 'Ratio to Exp.' --title 'Ratio to a reference series'
 ```
 
 ![Gaussian data with its stored fit, parameters and pulls](images/options/fit.png)
@@ -170,7 +176,7 @@ plotipus line --datafile Distributions -x Bin -y Counts --select Distribution Sa
 ![Poisson counts with the stored Pull column in a lower panel](images/options/column.png)
 
 ```bash
-plotipus line --datafile Distributions -x Bin -y Counts --select Distribution Sample -s Poisson Data --plot_type step --lower column:Pull --labelx k --lower_labely Pull --title 'Lower panel from a stored column'
+plotipus line --datafile Distributions -x Bin -y Counts --hue Sample --select Distribution Sample -s Poisson Data --data_hue Data --errory --lower column:Pull --labelx k --lower_labely Pull --title 'Lower panel from a stored column'
 ```
 
 The lower panel is styled with the upper-panel options prefixed by `lower_`:
@@ -189,7 +195,14 @@ with `--stacked`), with error bands with `--errory`; stacked, `--errory`
 draws a hatched band of the total's error instead (its label, hatch and
 colour come from the style file's `plot_settings.stack_error`, default
 `{"label": "Sim. unc.", "hatch": "////", "color": "role:muted"}`). With
-`--by_config`, the `--data_hue` values name configs, names or hue values. `--lower ratio`
+`--by_config`, the `--data_hue` values name configs, names or hue values.
+They may also be values of the `--style` column: with `--hue Distribution
+--style Sample --data_hue Data`, each distribution's data are points in its
+hue colour and its simulation a solid step, and the style legend shows a
+point for the data. A `--lower column:NAME` panel of a data series is drawn
+as points. `line --density` normalises every series to unit area (y divided
+by the sum of y times the bin width, errors alike), to compare shapes of
+samples of different sizes; the y label becomes "Density". `--lower ratio`
 (also `subtract`, `relative_difference`) then compares the data with the
 total of the simulation: data points with their own errors over a band of
 the simulation's error, around a dashed line at 1 (0). `--reference_value`

@@ -63,6 +63,9 @@ def build_parser():
         help="Mapping giving the colour of each hue value.")
     add("--iterable_order", nargs="+", type=str, default=None,
         help="Draw/legend order of the hue values (listed first, others keep data order).")
+    add("--data_hue", nargs="+", default=None, metavar="VALUE",
+        help="Hue values drawn as data: points at the bin centres with sqrt(sum of squared weights) error "
+        "bars, in the ink colour, first in the legend. The other hue values stay step histograms.")
     add_legend_args(parser)
     add_panel_line_args(parser, horizontal=False)
     _base.add_output_args(parser)
@@ -116,19 +119,31 @@ def _histogram_range(samples, args, idx):
 def histogram(x, edges, weights=None, density=False, flow="none"):
     """(counts, underflow, overflow) of *x* in *edges*. ``flow="show"`` adds the
     outside weights to the first/last bin; density normalises what is drawn."""
+    counts, under, over, _ = histogram_with_errors(x, edges, weights, density=density, flow=flow)
+    return counts, under, over
+
+
+def histogram_with_errors(x, edges, weights=None, density=False, flow="none"):
+    """:func:`histogram` plus the error of each bin, sqrt(sum of squared
+    weights), scaled like the counts."""
     weights = np.ones_like(x) if weights is None else weights
     counts, _ = np.histogram(x, bins=edges, weights=weights)
-    counts = counts.astype(float)
-    under = float(np.sum(weights[x < edges[0]]))
-    over = float(np.sum(weights[x > edges[-1]]))
+    variance, _ = np.histogram(x, bins=edges, weights=weights**2)
+    counts, variance = counts.astype(float), variance.astype(float)
+    outside_low, outside_high = x < edges[0], x > edges[-1]
+    under, over = float(np.sum(weights[outside_low])), float(np.sum(weights[outside_high]))
     if flow == "show":
         counts[0] += under
         counts[-1] += over
+        variance[0] += float(np.sum(weights[outside_low] ** 2))
+        variance[-1] += float(np.sum(weights[outside_high] ** 2))
+    errors = np.sqrt(variance)
     if density:
         total = np.sum(counts)
         if total > 0:
-            counts = counts / (total * np.diff(edges))
-    return counts, under, over
+            scale = 1.0 / (total * np.diff(edges))
+            counts, errors = counts * scale, errors * scale
+    return counts, under, over, errors
 
 
 def _draw_flow_hints(ax, counts, edges, under, over, color):
@@ -168,8 +183,11 @@ def draw_figure(df, args, kdx, config, name):
             values = [v for v in args.iterable_order if v in values] + [v for v in values if v not in args.iterable_order]
     else:
         values = [None]
+    data = {str(v) for v in (args.data_hue or [])}
+    is_data = lambda value: value is not None and str(value) in data  # noqa: E731
+    values = [v for v in values if is_data(v)] + [v for v in values if not is_data(v)]  # data first
     colors = ColorAllocator()
-    colors.reserve(values, lambda value: _series_style(args, value, name)[1])
+    colors.reserve([v for v in values if not is_data(v)], lambda value: _series_style(args, value, name)[1])
     density = args.density or args.labely == "Density"
 
     for idx, variable in enumerate(variables):
@@ -195,18 +213,25 @@ def draw_figure(df, args, kdx, config, name):
         edges = np.histogram_bin_edges(ranges[idx], bins=args.bins, range=ranges[idx])  # the same edges for every hue
 
         for value, x, weights in series:
-            counts, under, over = histogram(x, edges, weights, density=density, flow=args.flow)
+            counts, under, over, errors = histogram_with_errors(x, edges, weights, density=density, flow=args.flow)
             label, mapped, linestyle = _series_style(args, value, name)
-            color = colors.color_for(value, mapped)
+            color = (mapped or style.role("ink")) if is_data(value) else colors.color_for(value, mapped)
             outside = int(np.sum(x < edges[0]) + np.sum(x > edges[-1]))
             if outside:
                 what = f"{args.iterable}={value}" if value is not None else "the sample"
                 rprint(f"[yellow]Warning:[/yellow] {outside} of {len(x)} entries of {what} (Variable={variable}) "
                        f"fall outside [{edges[0]:g}, {edges[-1]:g}] (--flow {args.flow}).")
-            ax.stairs(counts, edges, label=label, color=color, linestyle=_resolve_plot_style(linestyle) or "-",
-                      linewidth=style.default_linewidth)
+            if is_data(value):
+                ax.errorbar(0.5 * (edges[1:] + edges[:-1]), counts, yerr=errors, fmt="o", color=color, label=label,
+                            zorder=3)
+            else:
+                ax.stairs(counts, edges, label=label, color=color, linestyle=_resolve_plot_style(linestyle) or "-",
+                          linewidth=style.default_linewidth)
             if args.flow == "hint":
                 _draw_flow_hints(ax, counts, edges, under, over, color)
+
+    data_labels = {_series_style(args, v, name)[0] for v in values if is_data(v)}
+    is_data_label = lambda label: label in data_labels  # noqa: E731
 
     for idx, variable in enumerate(variables):
         ax = axes[idx]
@@ -234,7 +259,11 @@ def draw_figure(df, args, kdx, config, name):
             ax.semilogx()
         # A single series without --hue needs no legend.
         if idx == n_panels - 1 and args.iterable is not None and not args.no_legend and args.draw_legend != "none":
-            apply_legend_style(ax, title=args.labelz or args.iterable, capitalize_labels=args.capitalize_legend)
+            handles, labels = ax.get_legend_handles_labels()
+            # matplotlib lists error bars after the steps: the data entries go first.
+            order = sorted(range(len(labels)), key=lambda i: not is_data_label(labels[i]))
+            apply_legend_style(ax, title=args.labelz or args.iterable, handles=[handles[i] for i in order],
+                               labels=[labels[i] for i in order], capitalize_labels=args.capitalize_legend)
         draw_overlays(ax, args)
         draw_panel_lines(ax, args, idx)
 

@@ -30,6 +30,7 @@ from ..args import (
     resolve_axis_label,
 )
 from ..encodings import (
+    DATA_STYLE,
     add_encoding_args,
     comparable_legend_title,
     comparable_maps,
@@ -151,6 +152,9 @@ def build_parser():
     add("--sum_color", type=str, default=None,
         help="Colour of the --sum_iterables series (default: a palette colour no hue value has).")
     add("--rebin", type=int, default=None, help="Merge every N consecutive points of each series.")
+    add("--density", action="store_true", default=False,
+        help="Normalise each series to unit area (y / sum of y times the bin width, errors alike), so "
+        "samples of different sizes compare as shapes; the y label defaults to Density.")
     add("--rebin_sum", action="store_true", default=False,
         help="With --rebin: sum merged y values (counts) instead of averaging them.")
     add("--mirror", type=str, default=None, help="Config whose series is extended by its reflection.")
@@ -190,8 +194,9 @@ def build_parser():
     add("--data_hue", nargs="+", default=None, metavar="VALUE",
         help="Hue values drawn as data: points with error bars in the ink colour, first in the legend, never "
         "stacked. The other series are drawn as steps (bars with --stacked), with error bands with --errory, and "
-        "ratio/subtract/relative_difference lower panels compare the data with their total. With --by_config, "
-        "the values are configs, names or hue values.")
+        "ratio/subtract/relative_difference lower panels compare the data with their total. The values may "
+        "also be --style values: those series are drawn as points in their hue colour, and the style legend "
+        "shows a point for them. With --by_config, the values are configs, names or hue values.")
     add("--stack_reverse", action="store_true", default=False, help="Stack in reverse order (first series on top).")
     add("--bar_width", type=str, default=None,
         help="Stack as bars of this width: a number, or 'auto' for the x spacing without edges (default: "
@@ -488,6 +493,27 @@ def _error_kwargs(s, args):
     return {"errory": s.error, "errory_sym": "symmetric" if symmetric else "asymmetric"}
 
 
+_DENSITY_WARNED = set()
+
+
+def _to_density(s, args):
+    """Scale series ``s`` (and its errors) to unit area (--density). Stacked
+    series keep their counts: a stack needs one factor for all its parts."""
+    if args.stacked:
+        if "stacked" not in _DENSITY_WARNED:
+            _DENSITY_WARNED.add("stacked")
+            rprint("[yellow]Warning:[/yellow] --density is ignored with --stacked.")
+        return
+    if s.categorical or s.x_edges is None:
+        return
+    area = float(np.nansum(np.asarray(s.y, dtype=float) * np.diff(s.x_edges)))
+    if not np.isfinite(area) or area == 0:
+        return
+    s.y = np.asarray(s.y, dtype=float) / area
+    if s.error is not None:
+        s.error = np.asarray(s.error, dtype=float) / area
+
+
 def _is_data(hue, args):
     """Whether hue value ``hue`` is drawn as data (--data_hue)."""
     return bool(args.data_hue) and not isinstance(hue, _SumSlot) and str(hue) in {str(v) for v in args.data_hue}
@@ -679,6 +705,10 @@ def draw_figure(rows, args, kdx=None):
     if args.comparable_order_reverse:
         comparable_values = comparable_values[::-1]
     invert = args.invert_style and not same_column
+    # --data_hue naming --style values: those series are data, drawn first; the line styles go to the rest.
+    data_styles = [v for v in comparable_values if _is_data(v, args)] if not invert else []
+    if data_styles:
+        comparable_values = data_styles + [v for v in comparable_values if v not in data_styles]
     # Colours from the data or one --facecolor: only mapped values are allocated (no overflow warning).
     allocated = [v for v in drawn_hues if not _is_data(v, args)]
     if args.facecolor:
@@ -688,6 +718,14 @@ def draw_figure(rows, args, kdx=None):
     colors = _allocate_colors(allocated, comparable_values, args, invert)
 
     style_map, alpha_map = ({}, {}) if invert else comparable_maps(comparable_values, comparable, args)
+    if data_styles:
+        model_styles = [v for v in comparable_values if v not in data_styles]
+        style_map = {
+            map_iterable_label(v, comparable, args.comparable_mapping):
+                DATA_STYLE if v in data_styles else resolve_linestyle(model_styles.index(v), args, n_total=len(model_styles))
+            for v in comparable_values
+        }
+        alpha_map = {}
     iterable_style_map = {}
     if invert and n_style > 1:
         for value, index in style_index.items():
@@ -734,7 +772,10 @@ def draw_figure(rows, args, kdx=None):
                                + f", Variable={variable}. Skipping.")
                         continue
                 s.hue = hue
-                s.is_data = _is_data(hue, args)
+                s.is_data = _is_data(hue, args) or comparable_value in data_styles
+                s.data_by_style = comparable_value in data_styles
+                if args.density:
+                    _to_density(s, args)
                 s.comparable = comparable_value
                 s.comparable_index = sdx
                 _encode(s, args, hue_values, colors, style_index, n_style, comparable, comparable_values, invert,
@@ -847,14 +888,20 @@ def _encode(s, args, hue_values, colors, style_index, n_style, comparable, compa
         s.color = (args.sum_color if s.is_sum else None) or colors.color_for(s.comparable)
         index = len(style_index) if s.is_sum else style_index.get(s.hue, 0)
         s.linestyle = resolve_linestyle(index, args, n_total=n_style, reverse=args.iterable_reverse)
-    elif s.is_data:
+    elif s.is_data and not getattr(s, "data_by_style", False):
         s.color = map_iterable_color(s.hue, args.iterable_color_mapping) or style.role("ink")
+    elif s.is_data:
+        s.color = colors.color_for(s.hue)  # data told apart by --style: in its hue colour
     else:
         from_data = args.facecolor or (_row_value(s, args.color_column) is not None
                                        and map_iterable_color(s.hue, args.iterable_color_mapping) is None)
         s.color = None if from_data else colors.color_for(_SUM_KEY if s.is_sum else s.hue)
         if s.comparable is not None:
-            s.linestyle = resolve_linestyle(sdx, args, n_total=n_comparable)
+            model = [v for v in comparable_values if not _is_data(v, args)]
+            if len(model) < n_comparable and s.comparable in model:
+                s.linestyle = resolve_linestyle(model.index(s.comparable), args, n_total=len(model))
+            else:
+                s.linestyle = resolve_linestyle(sdx, args, n_total=n_comparable)
         elif same_column:
             # Line style by position: with 10 colours and 4 styles, distinct pairs for up to 20 values.
             index = len(style_index) if s.is_sum else style_index.get(s.hue, 0)
@@ -982,8 +1029,11 @@ def _draw_lower(ax, spec, series, args, comparable, comparable_values, colors):
             column_series = extract(error_rows, args, y_column=spec.name)
             if column_series is None:
                 continue
-            out.append(_lower_series(column_series.x, column_series.y, column_series.error, s.color, s.linestyle,
-                                     label if first else None, s.linewidth, column_series.x_edges))
+            lower_s = _lower_series(column_series.x, column_series.y, column_series.error, s.color, s.linestyle,
+                                    label if first else None, s.linewidth, column_series.x_edges)
+            if s.is_data:
+                lower_s.forced_type = "data"  # points, like the data above
+            out.append(lower_s)
             first = False
     elif spec.name in ("residual", "pull"):
         from . import _fit
@@ -1147,7 +1197,8 @@ def _finish_upper(fig, upper, lower, drawn, rows, args, variables, last_x, hue_v
                 lower[idx][-1].set_xlabel(xlabel)
             else:
                 ax.set_xlabel(xlabel)
-            ylabel = resolve_axis_label(args.labely, args.y, panel_rows)
+            ylabel = resolve_axis_label(args.labely if args.labely is not None or not args.density else "Density",
+                                        args.y, panel_rows)
         if rotated:
             ax.tick_params(axis="x", labelrotation=45)
 
