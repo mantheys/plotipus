@@ -26,6 +26,18 @@ def test_fit_with_residual(make_project):
 
 
 
+def test_fit_subtitle_follows_the_medium(make_project):
+    from plotipus import registry
+
+    figures = []
+    registry.add_figure_hook(lambda fig, args: figures.append(fig))
+    make_project({"Fits": _fit_frame()})
+    for medium, keep, title in (("slides", [], "Gaussian Fit"), ("paper", [], ""), ("paper", ["--keep_title"],
+                                                                                        "Gaussian Fit")):
+        line.main(["--datafile", "Fits", "-x", "Values", "-y", "Counts", "--fit", "--medium", medium, *keep])
+        assert figures[-1].axes[0].get_title() == title, (medium, keep)
+
+
 def test_fit_with_pull(make_project):
     """--lower pull divides data - fit by the stored error instead of the fit."""
     from plotipus import registry

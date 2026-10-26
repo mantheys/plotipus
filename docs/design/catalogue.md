@@ -144,7 +144,7 @@ All curves are precomputed by the analysis (plotipus does not fit or score).
 | id | chart | use | famous | status | command today / what is missing | smallest change |
 |---|---|---|---|---|---|---|
 | G1 | Symmetric / asymmetric error bars | measurements | F07, F09 | ✅ | `--errory` with `{y}Error`, or `{y}Error+`/`{y}Error-` columns. | — |
-| G2 | Computed Poisson (Garwood) intervals | low counts | F03, F16 | ✅ | `--errory_type poisson` in `line` and `hist` (Garwood, `intervals.garwood`); the default for `--overlay` data without an error column (T19). | — |
+| G2 | Computed Poisson (Garwood) intervals | low counts | F03, F16 | ✅ | `--errory_type poisson` in `line` and `hist` (Garwood, `intervals.garwood`); the default for `--overlay` data without an error column whose y are counts (T19). | — |
 | G3 | Efficiency intervals in plots | bounded efficiencies | — | ✅ | `line --errory_type clopper_pearson --count_column N [--efficiency_scale 100]`: bars or bands inside [0, 1] (T19, shared with `table --clopper_pearson`). | — |
 | G4 | Single band around a curve | systematic band | F14 | ✅ | `line --errory --errory_type bands` (B11, fixed in T07); series colour at `plot_settings.band_alpha` (default 0.2). | — |
 | G5 | Nested ±1σ/±2σ bands (Brazil plot) | expected limits | F02, F04, F05 | ✗ | One band per series only. | `--errory_column LimitErr1 LimitErr2` (one band per column, darker inside), with `--band_colors brazil`. |

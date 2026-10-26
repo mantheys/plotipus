@@ -393,7 +393,8 @@ def run_fit(df, args):
             ax_top.set_yscale("log")
         if args.logx:
             ax_top.set_xscale("log")
-        if args.fit_type_subtitle:
+        # Like a title, the model subtitle is dropped where the medium drops titles (paper).
+        if args.fit_type_subtitle and (style.draw_titles or args.keep_title):
             ax_top.set_title(f"{function_label} Fit", fontsize=style.subtitlefontsize)
 
         handles, labels = ax_top.get_legend_handles_labels()
