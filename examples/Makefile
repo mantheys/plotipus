@@ -49,7 +49,7 @@ FAMOUS_GALLERY = \
 	hrdiagram_bprp_mg_logz_hist2d.png:hr-diagram.png \
 	keeling_decimaldate_co2_series_line.png:keeling.png \
 	hockeystick_year_anomaly_error_series_line.png:hockey-stick.png \
-	anscombe_x_y_i_ii_iii_iv_type_line.png:anscombe.png
+	ngc3198_radius_velocity_error_component_line.png:ngc3198.png
 
 famous:
 	cd famous && $(PYTHON) make_data.py && rm -rf output && $(PLOTIPUS) run famous
