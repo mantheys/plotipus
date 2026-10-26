@@ -3,7 +3,7 @@
 #   make clean    delete generated data and outputs (both gitignored)
 #   make docs     the example figures, copied to docs/images/options for docs/options.md
 #   make mascot   draw the mascot (docs/tutorial.md, and on black for the README) into docs/images/mascot
-#   make famous   the famous-plot reproductions, also in the paper style; the README gallery (paper) goes to docs/images/famous
+#   make famous   the famous-plot reproductions for slides and paper; the README gallery (paper) goes to docs/images/famous
 #   make gallery  one example per working catalogue row (examples/gallery), with the page gallery/output/gallery.md
 PYTHON ?= $(if $(wildcard ../.venv/bin/python),$(abspath ../.venv/bin/python),python3)
 PLOTIPUS ?= $(PYTHON) -m plotipus
@@ -36,7 +36,7 @@ mascot:
 	cd mascot/dark && rm -rf output && $(PLOTIPUS) run mascot
 	cp mascot/dark/output/plots/*_dark.png ../docs/images/mascot/mascot-dark.png
 
-# The famous plots (examples/famous, and famous/paper in the paper style at one figure size);
+# The famous plots (examples/famous) for slides and, with --medium paper, at one paper-column size;
 # the README gallery is a selection of the paper renders, renamed.
 FAMOUS_GALLERY = \
 	higgsdiphoton_mass_events_error_component_weighting_unweighted_dataminusbackground_atlas.png:higgs-diphoton.png \
@@ -53,10 +53,9 @@ FAMOUS_GALLERY = \
 	ngc3198_radius_velocity_error_component_line.png:ngc3198.png
 
 famous:
-	cd famous && $(PYTHON) make_data.py && rm -rf output && $(PLOTIPUS) run famous
-	cd famous/paper && rm -rf output && $(PLOTIPUS) run famous
+	cd famous && $(PYTHON) make_data.py && rm -rf output && $(PLOTIPUS) run famous --medium all
 	rm -rf ../docs/images/famous && mkdir -p ../docs/images/famous
-	for pair in $(FAMOUS_GALLERY); do cp "famous/paper/output/plots/$${pair%%:*}" "../docs/images/famous/$${pair##*:}" || exit 1; done
+	for pair in $(FAMOUS_GALLERY); do cp "famous/output/plots/paper/$${pair%%:*}" "../docs/images/famous/$${pair##*:}" || exit 1; done
 
 # The gallery: its data (the example, famous and gallery themes), every command of
 # gallery/input/{plots,tables}/gallery_scripts.txt in its own folder, figures once per
@@ -65,6 +64,6 @@ gallery:
 	cd gallery && $(PYTHON) make_data.py && rm -rf output && $(PYTHON) make_page.py
 
 clean:
-	rm -rf output mascot/output mascot/dark/output famous/output famous/paper/output gallery/output
+	rm -rf output mascot/output mascot/dark/output famous/output gallery/output
 	rm -f input/data/*.pkl mascot/input/data/*.pkl famous/input/data/*.pkl gallery/input/data/*.pkl
 	rm -f gallery/input/famous_mappings.json

@@ -174,7 +174,7 @@ def test_propagated_stored_errors(make_project):
     for c, drawn in zip(centres, errors):
         stored = error[x == c]
         assert drawn == pytest.approx(np.sqrt(np.sum(stored**2)) / stored.size, abs=1e-12)
-    assert ax.get_ylabel() == r"Value (mean $\pm$ propagated error)"
+    assert ax.get_ylabel().replace("\n", " ") == r"Value (mean $\pm$ propagated error)"  # long labels may break
 
 
 def test_error_modes_and_label_switches(make_project):

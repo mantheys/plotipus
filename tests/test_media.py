@@ -139,3 +139,21 @@ def test_unknown_width_is_an_argument_error(make_project, spectra, capsys):
     with pytest.raises(SystemExit):
         line.main(["--datafile", "Spectra", "-x", "Energy", "-y", "Counts", "--width", "poster"])
     assert "Unknown width 'poster'" in capsys.readouterr().err
+
+
+def test_single_panel_size(make_project, spectra):
+    make_project({"Spectra": spectra})
+    single = _sizes("--medium", "paper")[0]
+    grid = _sizes("--medium", "paper", "--select", "Variable", "-s", "E", "F", "--variables", "E", "F",
+                  "--single_panel_size")[0]
+    lower = _sizes("--medium", "paper", "--lower", "ratio", "--single_panel_size")[0]
+    assert grid == pytest.approx(single) and lower == pytest.approx(single)
+
+
+def test_text_scale_follows_the_medium(make_project, spectra):
+    make_project({"Spectra": spectra})
+    scales = []
+    registry.add_figure_hook(lambda fig, args: scales.append(style.text_scale))
+    for medium in ("slides", "paper"):
+        line.main(["--datafile", "Spectra", "-x", "Energy", "-y", "Counts", "--medium", medium])
+    assert scales == [1.0, 0.75]

@@ -150,3 +150,19 @@ def test_unverified_entries_are_listed():
     assert set(notes) == set(style.experiments())
     assert notes["dune"] == []  # from DUNE's own plot-style repository
     assert any("SSO" in note for note in notes["cms"])
+
+
+def test_several_right_lines(make_project, spectra):
+    make_project({"Spectra": spectra})
+    fig = _draw("--experiment", "atlas", "--label_position", "inside", "--label_status", "2011 - 2012",
+                "--label_right", "$\\sqrt{s}$ = 7 TeV", "$\\sqrt{s}$ = 8 TeV")
+    box, = header.header_artists(fig.axes[0], "inside")
+    texts = [t.get_text() for t in _texts(box)]
+    assert texts == ["ATLAS", "2011 - 2012", "$\\sqrt{s}$ = 7 TeV", "$\\sqrt{s}$ = 8 TeV"]
+    renderer = fig.canvas.get_renderer()
+    lines = [t.get_window_extent(renderer) for t in _texts(box)]
+    assert lines[0].y0 > lines[2].y1 - 1 and lines[2].y0 > lines[3].y1 - 1  # one line under another
+    fig = _draw("--experiment", "cms", "--label_right", "line one", "line two")
+    right = header.header_artists(fig.axes[0], "above")[1]
+    a, b = [t.get_window_extent(renderer) for t in _texts(right)]
+    assert a.x1 == pytest.approx(b.x1, abs=1.5)  # right-aligned above the axes

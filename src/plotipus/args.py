@@ -759,6 +759,9 @@ def add_media_args(parser):
         help="Figure width: single, onehalf, double, nature, slide, half-slide (style 'widths') or inches "
         "(default: the medium's).")
     add("--aspect", type=float, default=None, help="Height/width of one row of panels (default: the style's).")
+    add("--single_panel_size", action="store_true", default=None,
+        help="Draw a figure of several panels (a grid, lower panels) at the size of one panel, so it matches "
+        "the other figures of a gallery.")
     add("--keep_title", action="store_true", default=False,
         help="Draw an explicit --title also where the medium drops it (paper).")
     add("--save_style", action="store_true", default=None,
@@ -776,7 +779,9 @@ def add_header_args(parser):
     add = group.add_argument
     add("--label", default=None, help="Header label above the axes on the left, e.g. the experiment name (bold).")
     add("--label_status", default=None, help="Text after the label, e.g. 'Preliminary' or 'Internal'.")
-    add("--label_right", default=None, help="Header text on the right, e.g. '13.6 TeV, 140 fb$^{-1}$'.")
+    add("--label_right", nargs="+", default=None,
+        help="Header text on the right, e.g. '13.6 TeV, 140 fb$^{-1}$'; several values give several lines "
+        "(under the label when the header is inside the axes).")
     add("--label_position", default=None, choices=["above", "inside"],
         help="Header above the axes (default) or inside the top-left corner (the preset's).")
     add("--watermark", default=None,

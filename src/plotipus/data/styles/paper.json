@@ -13,6 +13,7 @@
   "plot_settings": {
     "auto_title": false,
     "titles": false,
+    "text_scale": 0.75,
     "error_label": false,
     "default_linewidth": 1.2,
     "figure_layout": {

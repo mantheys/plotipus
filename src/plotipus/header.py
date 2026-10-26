@@ -137,7 +137,9 @@ def draw(fig, args=None):
     if cfg["status"]:
         pieces.append(area(cfg["status"], cfg["status_size"], cfg["status_weight"], cfg["status_style"]))
     lead = HPacker(children=pieces, align="baseline", pad=0, sep=gap) if pieces else None
-    right = area(cfg["right"], cfg["right_size"]) if cfg["right"] else None
+    # The right-hand text: one line or several (e.g. one per centre-of-mass energy).
+    right_lines = cfg["right"] if isinstance(cfg["right"], (list, tuple)) else [cfg["right"]] if cfg["right"] else []
+    right_areas = [area(line, cfg["right_size"]) for line in right_lines if line]
     corner_mark = None
     value = watermark_text(cfg["watermark"])
     if value is not None and cfg["watermark_style"] != "diagonal":
@@ -145,14 +147,16 @@ def draw(fig, args=None):
 
     artists = []
     if inside:
-        lines = [line for line in (lead, right, corner_mark) if line is not None]
+        lines = [line for line in (lead, *right_areas, corner_mark) if line is not None]
         if lines:
             artists.append(_anchor(first, VPacker(children=lines, align="left", pad=0, sep=0.3 * base),
                                    "upper left", inside=True))
     else:
         if lead is not None:
             artists.append(_anchor(first, lead, "lower left", inside=False))
-        if right is not None:
+        if right_areas:
+            right = right_areas[0] if len(right_areas) == 1 else VPacker(children=right_areas, align="right", pad=0,
+                                                                          sep=0.2 * base)
             artists.append(_anchor(last, right, "lower right", inside=False))
         if corner_mark is not None:
             artists.append(_anchor(first, corner_mark, "upper left", inside=True))
@@ -215,7 +219,9 @@ def make_room(fig):
     renderer = fig.canvas.get_renderer()
     for ax in fig.axes:
         boxes = [a.get_window_extent(renderer) for a in header_artists(ax, "inside")]
-        if not boxes or not ax.get_autoscaley_on() or getattr(ax, "_plotipus_fixed_ylim", False):
+        # A range set by an earlier make_room stays adjustable (set_ylim turns autoscaling off).
+        adjustable = ax.get_autoscaley_on() or getattr(ax, "_plotipus_header_room", False)
+        if not boxes or not adjustable or getattr(ax, "_plotipus_fixed_ylim", False):
             continue
         ax.get_xlim(), ax.get_ylim()  # autoscale now (the layout may not have drawn)
         mask, (x0, y0) = axes_occupancy(ax, renderer, exclude=header_artists(ax))
@@ -236,5 +242,6 @@ def make_room(fig):
             ax.set_ylim(low, 10 ** np.ceil(low_l + (value_l - low_l) / fraction))
         else:
             ax.set_ylim(low, max(high, low + (value - low) / fraction))
+        ax._plotipus_header_room = True
         changed = True
     return changed

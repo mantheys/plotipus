@@ -6,5 +6,6 @@ data_root = "input/data"
 plots = "input/plots"
 output = "output"
 style = ["style.json"]
+media = ["slides", "paper"]     # make famous: --medium all; the README gallery is the paper render
 python_path = ["."]
 plugins = ["models", "annotations", "colorscale"]

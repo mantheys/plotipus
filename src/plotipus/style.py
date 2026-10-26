@@ -213,7 +213,7 @@ def _publish():
     global note_style, base_font_size, mappings, auto_title, contours, stack_error, sci_in_label, error_label
     global capitalize_exceptions, redundant_legend_titles, title_short_forms
     global widths, figure_aspect, figure_width, figure_row_height, draw_titles
-    global fit_color, zero_line_color, diverging_cmap, header
+    global fit_color, zero_line_color, diverging_cmap, header, figure_single_panel, text_scale
 
     rcparams = _CONFIG.get("rcparams", {})
     plt.rcParams.update(rcparams)
@@ -259,12 +259,16 @@ def _publish():
     fit_color = settings.get("fit_color")
     zero_line_color = settings.get("zero_line_color", "role:muted")
     diverging_cmap = settings.get("diverging_cmap", "RdBu_r")
+    # Scale for the free texts of plugins and figure hooks (relative font
+    # sizes already follow the medium's font.size; dense media shrink them).
+    text_scale = float(settings.get("text_scale", 1.0))
     # The experiment header and watermark (see plotipus.header).
     header = dict(_CONFIG.get("header", {}))
 
     widths = {name: value for name, value in _CONFIG.get("widths", {}).items()}
     figure_aspect = float(_CONFIG.get("aspect", 0.75))
     geometry = _CONFIG.get("cli_geometry", {})
+    figure_single_panel = bool(geometry.get("single_panel", False))
     figure_width, figure_row_height = resolve_width(
         geometry.get("width", _CONFIG.get("width")), widths, figure_aspect, geometry.get("aspect"))
 
@@ -320,10 +324,13 @@ def resolve_width(spec, presets, aspect, forced_aspect=None):
     return width, float(height) if height is not None else ratio * width
 
 
-def set_geometry(width=None, aspect=None):
+def set_geometry(width=None, aspect=None, single_panel=None):
     """Draw at ``width`` (preset or inches) and/or ``aspect`` (height/width),
-    overriding the style (the --width and --aspect options)."""
-    geometry = {k: v for k, v in (("width", width), ("aspect", aspect)) if v is not None}
+    overriding the style (the --width and --aspect options); with
+    ``single_panel``, a figure of several panels keeps the size of one
+    (--single_panel_size)."""
+    geometry = {k: v for k, v in (("width", width), ("aspect", aspect), ("single_panel", single_panel))
+                if v is not None}
     _CONFIG["cli_geometry"] = geometry
     _publish()
 

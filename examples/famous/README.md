@@ -31,23 +31,23 @@ a project adapts plotipus without changing it:
   `--text_axes`, `--text_color`, `--text_size`, `--text_rotation`,
   `--text_weight`, `--text_style`, `--text_ha`), drawn by a figure hook. The
   figures use it for experiment labels, energies and luminosities, panel
-  letters and region labels. The project setting `text_scale` scales every
-  text, and `--single_panel_size` gives a grid of panels the size of a
-  single-panel figure;
+  letters and region labels; the sizes follow the medium
+  (`style.text_scale`);
 - `colorscale.py`: `--zpower GAMMA` (a power-law colour scale, 0.5 for the
   square root of the Gaia diagrams), `--zcmap NAME` (the colour map, 2D
   histograms included), `--zmin VALUE` and `--zunder COLOUR` (the colour of
   the sparsest bins) for map panels;
 - `style.json`: no automatic titles, a black-first colour cycle (data drawn
-  black, as in the originals), smaller legends, and one colour and label
-  mapping per figure.
+  black, as in the originals), one colour and label mapping per figure, and
+  the paper gallery size (`widths.single`, 3.5 × 2.7 in).
 
-`paper/` renders the same commands in the paper style: its `paper.json`
-loads the prototype `docs/design/styles/paper/plotipus-paper.mplstyle` (serif
-Computer Modern, 8 pt, 3.5 × 2.7 in) over `style.json`, and its
-`plotipus.toml` sets `text_scale = 0.75`. `cd paper && plotipus run famous`
-writes them to `paper/output/plots`; the README gallery is a selection of
-these (`make -C examples famous`).
+`plotipus run famous` renders every command in slides (`output/plots`) and
+in paper (`output/plots/paper`, `media` in `plotipus.toml`); `--medium paper`
+renders only the paper figures. The experiment headers are `--experiment
+atlas|cms` with `--label_position`, `--label_status` and `--label_right`
+(T17). Multi-panel figures of the gallery pass `--single_panel_size`, so
+every image has the same size. The README gallery is a selection of the
+paper figures (`make -C examples famous`).
 
 The frames follow the plotipus conventions:
 
@@ -100,10 +100,10 @@ Patterns the commands use:
 
 | figure | source | data | status | missing (task) |
 |---|---|---|---|---|
-| F01 H→γγ m_γγ | ATLAS, PLB 716 (2012) 1, Fig. 4 | **extracted** (figure) | ◐ | data drawn as a line in the `column:` lower panel (T21); 4 panels in one figure (T22.6); residual vs a fit component (T22.14) |
-| F03 H→ZZ*→4ℓ | CMS, PLB 716 (2012) 30, Fig. 4 | **extracted** (figure) | ◐ | Garwood bars computed from counts (T19; here the figure's bars); signal as an open outline on the stack (T18); inset (T22.7) |
-| F04 local p₀ | ATLAS, Fig. 9 | **extracted** (figure) | ◐ | markers on the observed curve (T21); band legend swatch and σ-line labels (T20) |
-| F05 Brazil band | ATLAS, Fig. 7(a) | **extracted** (figure) | ◐ | saturated band colours and swatches (T20); log-axis tick labels (T12) |
+| F01 H→γγ m_γγ | ATLAS, PLB 716 (2012) 1, Fig. 4 | **extracted** (figure) | ◐ | (ATLAS header inside: `--experiment atlas --label_position inside`) data drawn as a line in the `column:` lower panel (T21); 4 panels in one figure (T22.6); residual vs a fit component (T22.14) |
+| F03 H→ZZ*→4ℓ | CMS, PLB 716 (2012) 30, Fig. 4 | **extracted** (figure) | ◐ | (CMS header above: `--experiment cms`) Garwood bars computed from counts (T19; here the figure's bars); signal as an open outline on the stack (T18); inset (T22.7) |
+| F04 local p₀ | ATLAS, Fig. 9 | **extracted** (figure) | ◐ | (ATLAS header with two right lines) markers on the observed curve (T21); band legend swatch and σ-line labels (T20) |
+| F05 Brazil band | ATLAS, Fig. 7(a) | **extracted** (figure) | ◐ | (ATLAS header) saturated band colours and swatches (T20); log-axis tick labels (T12) |
 | F06 COBE FIRAS | Fixsen et al. 1996, Figs. 4-5 | **real** (NASA LAMBDA) | ◐ | an error scale option (T21); data drawn as a line in the lower panel (T21) |
 | F08 Hubble 1929 | PNAS 15, 168, Fig. 1 | **real** (Table 1) | ◐ | per-series markers: discs, circles, cross (T21) |
 | F09 SN Ia Hubble diagram | Riess et al. 1998, Fig. 4 | **real** (Union2.1) | ◐ | data drawn as a line in the lower panel (T21); log tick labels (T12) |
@@ -126,7 +126,6 @@ Patterns the commands use:
 | task | missing feature | figures |
 |---|---|---|
 | T12 | readable tick labels on log axes (`2×10²` instead of 200) | F05, F09 |
-| T17 | experiment labels as a style feature (here `--text`) | F01, F03, F04, F05 |
 | T18 | the signal as an open outline on top of a filled stack | F03 |
 | T19 | Garwood bars from the counts | F03 |
 | T20 | band colours independent of the line, saturated fills, band legend swatches; labelled σ lines | F04, F05, F15 |

@@ -251,3 +251,6 @@ def test_long_axis_label_breaks_onto_two_lines(make_project):
                "--labely", "A very long temperature anomaly label ($^\\circ$C)"])
     label = figures[0].axes[0].get_ylabel()
     assert "\n" in label and "$^\\circ$C" in label
+    from plotipus.plot import _break_label
+
+    assert _break_label("Events - Bkg") == "Events -\nBkg"  # no line starts with a lone operator

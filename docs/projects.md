@@ -56,6 +56,10 @@ rcParams, to `<figure>.style.json`.
   lower panel adds 30% of the upper height. Text is never scaled for more
   panels (`panel_font_scale` only applies to `classic` and to style files
   that set `"width": null`, the size from `figure_layout`).
+  `--single_panel_size` gives every figure the size of one panel.
+- **Text drawn by plugins**: `style.text_scale` is the medium's scale for
+  text a hook draws itself (1 in slides and web, 0.75 in paper), so labels
+  sized for slides stay in proportion on a paper figure.
 - **Output folders**: the project's own medium and theme write where they
   always did (`output/plots/`); any other pair writes to
   `output/plots/<medium>/` or `output/plots/<medium>-dark/`, and so do the
