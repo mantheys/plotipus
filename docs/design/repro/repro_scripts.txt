@@ -12,7 +12,7 @@ line --datafile Events -x TrueEnergy -y Resolution --hue Sample --binned --estim
 line --datafile Spectra -x Energy -y Counts --hue Sample --select Stage -s Raw --stacked --logy --output_suffix B06a.png
 line --datafile Spectra -x Energy -y Counts --hue Sample --select Stage -s Raw --plot_type step --logy --lower ratio --output_suffix B06b.png
 # B07 cat: line handles for bars, legend over bars; crash on scalar cells
-cat --datafile Spectra -x Stage -y Counts --integrate_over Energy --hue Sample --kind bar --output_suffix B07a.png
+cat --datafile Distributions -x Distribution --hue Sample -y Counts --select Distribution -s Resonance --kind bar --output_suffix B07a.png
 cat --datafile Importance -x Feature -y Importance --hue Model --kind bar --output_suffix B07b.png
 # B08 hist2d: only the last colorbar is labelled, independent colour scales
 map --datafile Events -x TrueEnergy -y RecoEnergy --iterable Sample --logz --output_suffix B08.png

@@ -338,7 +338,9 @@ plotipus line --datafile Distributions -x Value -y Residual --binned --plot_type
 
 `cat` draws one value per category: the sum of each row's `-y` array over its
 bins, or with `--integrate_over COL` the integral Σ y·Δx over that column
-(for densities), by `-x` category and `--hue`. `scatter` draws one point per
+(for densities), by `-x` category and `--hue`; a scalar `-y` cell is one
+value already. Category labels are rotated only when they would overlap
+(`--xtick_rotation DEG` forces an angle). `scatter` draws one point per
 entry of the array cells, with colour (`--colorby`), size (`--sizeby`) and
 marker (`--markerby`) encodings; only the drawn columns are exploded into
 points.

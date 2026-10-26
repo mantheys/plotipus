@@ -37,14 +37,14 @@ command lists.
 | A Distributions | 5 | 2 | 5 |
 | B Relationships | 6 | 1 | 2 |
 | C Trends and fits | 5 | 3 | 2 |
-| D Comparisons | 1 | 4 | 4 |
+| D Comparisons | 4 | 2 | 3 |
 | E Ratios and significance | 4 | 3 | 1 |
-| F ML diagnostics | 4 | 2 | 1 |
+| F ML diagnostics | 4 | 3 | 0 |
 | G Uncertainty | 2 | 3 | 4 |
 | H Small multiples and layout | 2 | 2 | 4 |
 | I Annotations | 5 | 2 | 3 |
 | J Tables | 4 | 1 | 2 |
-| **Total (89)** | **38** | **23** | **28** |
+| **Total (89)** | **41** | **22** | **26** |
 
 Nearly half of the ◐ entries are partial only because of a bug in
 [bugs.md](bugs.md), not because an option is missing. Fixing B01–B13 moves
@@ -102,12 +102,12 @@ about 12 of them to ✅.
 
 | id | chart | use | famous | status | command today / what is missing | smallest change |
 |---|---|---|---|---|---|---|
-| D1 | Bar chart (integrated arrays) | totals per category | — | ◐ | `cat --datafile Spectra -x Stage -y Counts --integrate_over Energy --hue Sample --kind bar` (example 8). Line handles, legend over bars, fixed rotation (B07). | Fix B07. |
-| D2 | Bar chart of scalar cells | one metric per category | — | ✗ | `cat` crashes on scalar cells (B07, P10). | Fix B07 (scalar = already integrated). |
-| D3 | Grouped bars | category × group | — | ◐ | `cat --kind bar --hue ...` dodges hues (example 8); same issues as D1. | Fix B07. |
+| D1 | Bar chart (integrated arrays) | totals per category | — | ✅ | `cat --datafile Distributions -x Distribution --hue Sample -y Counts --select Distribution -s Resonance --kind bar` (example `yields`): patch handles, legend clear of the bars, labels rotated only when they overlap (B07, fixed in T08). | — |
+| D2 | Bar chart of scalar cells | one metric per category | — | ✅ | `cat --datafile Importance -x Feature -y Importance --hue Model --kind bar` (P10): a scalar cell is one value already (B07, fixed in T08). | — |
+| D3 | Grouped bars | category × group | — | ✅ | `cat --kind bar --hue ...` dodges hues (example `yields`; B07 fixed in T08). | — |
 | D4 | Stacked bars per category | composition per category | F23 | ✗ | `cat` has no stacking. | `cat --kind bar --stacked`. |
 | D5 | Horizontal bars (sorted) | long labels, rankings | — | ✗ | `line --plot_type barh` fails on categorical x (exit 1); `cat` has no orientation. | `cat --orient h --sort`. |
-| D6 | Dot plot / Cleveland dot | many categories, precise values | — | ◐ | `cat --kind point` (crashes on scalars, P11); vertical only. | B07 fix + `--orient h`. |
+| D6 | Dot plot / Cleveland dot | many categories, precise values | — | ◐ | `cat --kind point` (P11), marker-only legend handles; vertical only. | `--orient h`. |
 | D7 | Lollipop | rankings with less ink | — | ✗ | — | `cat --kind lollipop` (stem + point). |
 | D8 | Heatmap of a category × category table | correlation / yields | F25 | ◐ | `map -z` draws the grid (P17) but without cell values, without categorical tick labels and with the y axis not inverted. | `map --annotate [FORMAT]`; string x/y become ticks. |
 | D9 | Before/after (slope) chart | paired change | — | ✅ | `cat --datafile Spectra -x Stage -y Counts --integrate_over Energy --hue Sample --kind line` (legend overlaps the lowest line, B06). | — |
@@ -136,7 +136,7 @@ All curves are precomputed by the analysis (plotipus does not fit or score).
 | F3 | Learning curve with band | over/under-fitting | — | ✅ | `line --datafile Learning -x TrainSize -y Score --hue Split --errory --errory_type bands --plot_type line --logx` (P09). | — |
 | F4 | Calibration (reliability) curve + counts | probability calibration | — | ◐ | Curve and diagonal: as F1. The lower histogram of counts needs a stored column (`--lower column:Count`), drawn as a line. | `--lower_plot_type bar` for a column lower panel. |
 | F5 | Confusion matrix | per-class errors | — | ◐ | `map -z Frac` (P17): no cell text, numeric ticks, y not inverted; row normalisation via `--norm horizontal` exists for histograms only. | D8 (`--annotate`, categorical ticks) + `--norm` for `-z` grids. |
-| F6 | Feature importance | model explanation | — | ✗ | `cat` crashes on scalar cells (B07); no horizontal sorted bars. | D2 + D5. |
+| F6 | Feature importance | model explanation | — | ◐ | `cat -y Importance --kind bar` on scalar cells (B07, fixed in T08); no horizontal sorted bars. | D5 (`--orient h`, `--sort`). |
 | F7 | Score distributions per class | separation | — | ✅ | `hist -x Score --hue Class --density --logy` (as P13). | — |
 
 ## G. Uncertainty
