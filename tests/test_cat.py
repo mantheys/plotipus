@@ -59,3 +59,69 @@ def test_bar_legend_shows_patches(make_project):
     cat.main(["--datafile", "Spectra", "-x", "Stage", "-y", "Counts", "--hue", "Sample", "--kind", "bar"])
     handles = figures[-1].axes[0].get_legend().legend_handles
     assert len(handles) == 2 and all(isinstance(h, Patch) for h in handles)
+
+
+# --- Scalar cells, handles and tick labels (T08) -----------------------------------------
+
+
+def _capture():
+    from plotipus import registry
+
+    figures = []
+    registry.add_figure_hook(lambda fig, args: figures.append(fig))
+    return figures
+
+
+def _importance(features):
+    rng = np.random.default_rng(4)
+    return pd.DataFrame({"Feature": features, "Importance": rng.uniform(0.1, 0.4, len(features)),
+                         "Model": "BDT"})
+
+
+def test_scalar_cells_render_one_bar_each(make_project):
+    """B07b: one scalar per row is taken as already integrated (no crash, no --integrate_over)."""
+    figures = _capture()
+    frame = _importance(["pt", "eta", "phi", "mass", "nhits", "chi2"])
+    make_project({"Importance": frame})
+    cat.main(["--datafile", "Importance", "-x", "Feature", "-y", "Importance", "--hue", "Model", "--kind", "bar"])
+    ax = figures[-1].axes[0]
+    heights = [p.get_height() for p in ax.patches]
+    assert np.allclose(heights, frame["Importance"])
+    assert ax.get_ylabel() == "Importance"
+
+
+def test_scalar_cell_error():
+    class Args:
+        y = "Counts"
+        integrate_over = None
+        integral_mode = "integrate"
+        integration_range = None
+        errory = True
+        multiply = 2.0
+
+    assert cat.integrate_row(pd.Series({"Counts": 3.0, "CountsError": 0.5}), Args) == (6.0, 1.0)
+
+
+def test_point_and_line_legend_handles(make_project):
+    figures = _capture()
+    make_project({"Cutflow": _frame()})
+    for kind in ("point", "line"):
+        cat.main(["--datafile", "Cutflow", "-x", "Stage", "-y", "Counts", "--hue", "Component",
+                  "--integrate_over", "Energy", "--kind", kind])
+    point, line = (fig.axes[0].get_legend().legend_handles for fig in figures)
+    assert all(h.get_linestyle() == "None" and h.get_marker() not in (None, "None", "") for h in point)
+    assert all(h.get_linestyle() == "-" and h.get_marker() not in (None, "None", "") for h in line)
+
+
+def test_tick_labels_rotate_only_when_they_overlap(make_project):
+    figures = _capture()
+    long = [f"a rather long feature name {i}" for i in range(12)]
+    make_project({"Short": _importance(["pt", "eta"]), "Long": _importance(long)})
+    cat.main(["--datafile", "Short", "-x", "Feature", "-y", "Importance", "--hue", "Model", "--kind", "bar"])
+    cat.main(["--datafile", "Long", "-x", "Feature", "-y", "Importance", "--hue", "Model", "--kind", "bar"])
+    cat.main(["--datafile", "Short", "-x", "Feature", "-y", "Importance", "--hue", "Model", "--kind", "bar",
+              "--xtick_rotation", "20", "--output_suffix", "forced.png"])
+    rotations = [{t.get_rotation() for t in fig.axes[0].get_xticklabels() if t.get_text()} for fig in figures]
+    # Long labels: 30 degrees, or 90 when the font is too large for 30 to clear the tick spacing.
+    assert rotations[0] == {0.0} and rotations[1] in ({30.0}, {90.0}) and rotations[2] == {20.0}
+    assert not any(gl.get_visible() for gl in figures[0].axes[0].get_ygridlines())  # no kind-specific grid

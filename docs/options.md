@@ -383,7 +383,9 @@ plotipus line --datafile Distributions -x Value -y Residual --binned --plot_type
 
 `cat` draws one value per category: the sum of each row's `-y` array over its
 bins, or with `--integrate_over COL` the integral Σ y·Δx over that column
-(for densities), by `-x` category and `--hue`. `scatter` draws one point per
+(for densities), by `-x` category and `--hue`; a scalar `-y` cell is one
+value already. Category labels are rotated only when they would overlap
+(`--xtick_rotation DEG` forces an angle). `scatter` draws one point per
 entry of the array cells, with colour (`--colorby`), size (`--sizeby`) and
 marker (`--markerby`) encodings; only the drawn columns are exploded into
 points.
@@ -392,6 +394,16 @@ points.
 
 ```bash
 plotipus cat --datafile Distributions -x Distribution --hue Sample -y Counts --select Distribution -s Resonance --kind bar --labely Events --title 'Yields: summed counts per sample'
+```
+
+A `-y` column with one scalar per row (here the standard deviation of each
+sample, with its error) is drawn as it is. Seven categories would overlap
+side by side, so their labels are rotated, and the layout makes room for them:
+
+![Standard deviation of seven distributions, data and simulation side by side, with error bars](images/options/moments.png)
+
+```bash
+plotipus cat --datafile Moments -x Config --hue Sample -y Value --errory --select Variable Config Config Config Config Config Config Config -s Std Gaussian Poisson Binomial Exponential Uniform Log-normal Chi-squared --kind bar --labelx Distribution --labely 'Standard deviation' --title 'One scalar per row: spread of each sample'
 ```
 
 ![True against measured values of exponential samples coloured by their residual](images/options/scatter.png)

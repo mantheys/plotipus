@@ -250,6 +250,16 @@ Lower panels in the upper colours draw no legend; otherwise each series is
 - Treat scalar cells as already integrated.
 - Move the grid decision into the style.
 
+**Fixed in T08.** A scalar `-y` cell (and scalar `{y}Error`) is taken as
+already integrated; its default y label drops "Integrated". Legend handles
+match the marks (`Patch` for bars, marker only for points, line + marker for
+lines). Tick labels stay horizontal unless two overlap; then 30° (90° when
+the rotated labels would still collide), and the measured layout makes room;
+`--xtick_rotation DEG` forces an angle. The `subplots_adjust(bottom=0.22)`
+band and the kind-specific y grid are gone; the legend is placed clear of
+the data unless `--legend_loc`. Restore option: `--xtick_rotation 20`; the
+grid comes from the style (`axes.grid`).
+
 ## B08 2D histogram colorbars
 
 **Reproduce:** `B08` (examples' `map --iterable Sample --logz`).

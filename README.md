@@ -200,7 +200,7 @@ Kinds follow the data relationship (as in seaborn/plotly), not the use case.
 | `scatter` | observations: exploded points with colour/size/marker encodings, or pairs of metrics (`--x_from Variable=Purity --y_from Variable=Completeness`) | `--colorby`, `--sizeby`, `--markerby`, `--aggregate` |
 | `hist` | 1D histograms of per-event arrays | `--bins`, `--weight`, `--density`, `--hist_combine`, `--flow none\|hint\|show`, `--errory_type poisson` |
 | `map` | 2D: histogram of point arrays, image of a grid (`-z`), contour layer (`--contour`) | `--norm`, `--diagonal`, `--logz`, `--colorbar`, `--contour_sigmas`, `--contour_dof`, `--contour_label`, `--fill_contours`, `--background`, `--no_best_fit` |
-| `cat` | one value per category (integrated arrays) | `--integrate_over`, `--kind point\|line\|bar` |
+| `cat` | one value per category (integrated arrays, or one scalar per row) | `--integrate_over`, `--kind point\|line\|bar`, `--xtick_rotation` |
 | `table` | aggregated values as LaTeX (and HTML) tables | `--variables`, `--agg`, `--error_band`, `--clopper_pearson`, `--siunitx`, `--caption_file` |
 
 `plotipus <kind> --help` lists every option. Figures are saved as PNG at
