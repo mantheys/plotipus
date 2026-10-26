@@ -714,13 +714,74 @@ COMMON_ARG_SPECS = {
         "kwargs": {
             "type": str,
             "default": None,
-            "choices": ["bars", "bands"],
+            "choices": ["bars", "bands", "poisson", "clopper_pearson"],
             "help": "Style of y-axis error display: 'bars' (errorbar) or 'bands' "
             "(shaded fill_between) (default: bands for --plot_type line/step, "
-            "bars for points)",
+            "bars for points); or the errors themselves, drawn the default way: "
+            "'poisson' (Garwood intervals of y as counts) or 'clopper_pearson' "
+            "(y an efficiency of --count_column trials)",
+        },
+    },
+    "confidence_level": {
+        "flags": ["--confidence_level"],
+        "kwargs": {
+            "type": float,
+            "default": 0.6827,
+            "help": "Coverage of the poisson/clopper_pearson intervals (default 0.6827, one sigma)",
+        },
+    },
+    "error_label": {
+        "flags": ["--error_label"],
+        "kwargs": {
+            "action": argparse.BooleanOptionalAction,
+            "default": None,
+            "help": "Name the poisson/clopper_pearson interval in the y label, e.g. '68%% CL (Poisson)' "
+            "(default: the style's plot_settings.error_label: off, on in slides)",
         },
     },
 }
+
+
+def add_media_args(parser):
+    """--medium, --theme, --width, --aspect and --keep_title (every kind).
+    They select the style before the other options are parsed, so
+    :func:`parse_media_args` reads them first."""
+    group = parser.add_argument_group("medium and size")
+    add = group.add_argument
+    add("--medium", default=None, choices=["slides", "paper", "web", "all"],
+        help="Draw for slides, paper or web (style layers, size, output folder); 'all' renders every "
+        "medium of [project] media (default: [project] medium).")
+    add("--theme", default=None, choices=["light", "dark"], help="Light or dark theme (default: [project] theme).")
+    add("--width", default=None,
+        help="Figure width: single, onehalf, double, nature, slide, half-slide (style 'widths') or inches "
+        "(default: the medium's).")
+    add("--aspect", type=float, default=None, help="Height/width of one row of panels (default: the style's).")
+    add("--keep_title", action="store_true", default=False,
+        help="Draw an explicit --title also where the medium drops it (paper).")
+
+
+def parse_media_args(argv):
+    """The media options of ``argv`` (other options are ignored)."""
+    parser = argparse.ArgumentParser(add_help=False)
+    add_media_args(parser)
+    known, _ = parser.parse_known_args(argv)
+    return known
+
+
+def with_medium(argv, medium):
+    """``argv`` with its --medium (if any) replaced by ``medium``."""
+    out, skip = [], False
+    for token in argv:
+        if skip:
+            skip = False
+            continue
+        if token == "--medium":
+            skip = True
+            continue
+        if token.startswith("--medium="):
+            continue
+        out.append(token)
+    return [*out, "--medium", medium]
 
 
 def add_common_args(parser, arg_names, overrides=None):
@@ -765,7 +826,8 @@ def add_common_args(parser, arg_names, overrides=None):
             "--legend_loc",
             action=_LegendLocAction,
             default=None,
-            help="Legend location for all panels (matplotlib loc, e.g. 'lower left'); default from the style",
+            help="Legend location for all panels: a matplotlib loc ('lower left', 'upper right', ...), "
+            "'outside' (above the axes) or 'none'; default (best): where it covers no data",
         )
 
     if "--legend_ncol" not in parser._option_string_actions:
@@ -793,6 +855,11 @@ class _LegendLocAction(argparse.Action):
     for every legend drawn by this run."""
 
     def __call__(self, parser, namespace, values, option_string=None):
+        from matplotlib.legend import Legend
+
+        allowed = [*Legend.codes, "outside", "none"]
+        if values not in allowed:
+            parser.error(f"--legend_loc must be one of: {', '.join(allowed)}")
         setattr(namespace, self.dest, values)
         style.set_legend_option("loc", values)
 

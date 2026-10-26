@@ -80,6 +80,35 @@ make -C examples mascot      # re-render the mascot and the tutorial figures
 `plotipus init my_project` creates an empty project (`plotipus.toml`,
 `input/{data,plots,tables}`, `output/`).
 
+## Slides first, paper later
+
+One command list renders for every medium, at the size it is shown at:
+slides first (8 × 4.5 in), then a paper column (3.4 in) or the web, with no
+change to the commands.
+
+```toml
+# plotipus.toml
+[project]
+medium = "slides"             # what plotipus run draws by default
+media = ["slides", "paper"]   # what --medium all draws
+```
+
+```bash
+plotipus run analysis                  # slides, in output/plots/
+plotipus run analysis --medium paper   # the same figures for the paper, in output/plots/paper/
+plotipus run analysis --medium all     # both in one run
+plotipus run analysis --theme dark     # dark slides, in output/plots/slides-dark/
+plotipus run analysis --medium paper --dry_run   # print each command's medium, size and style layers
+```
+
+File names stay the same in every folder, so a LaTeX `\includegraphics`
+only changes its directory. Paper figures carry no title (the caption is the
+title; `--keep_title` keeps an explicit `--title`). One command can choose
+its own size with `--width single|onehalf|double|nature|slide|half-slide`
+or inches, and `--aspect`; a row of panels shares the width, and a lower
+panel adds 30% of the upper panel's height. Without a medium anywhere,
+figures keep the classic 8 × 6 in size.
+
 ## Famous plots
 
 Famous figures from particle physics, cosmology, astronomy and climate
@@ -112,15 +141,35 @@ style: serif text, a 3.5 in column width and one figure size for all.
   <br><sub><a href="https://gml.noaa.gov/ccgg/trends/">Keeling curve, NOAA (real data)</a> · <a href="https://doi.org/10.1029/1999GL900070">hockey stick, Mann et al. 1999 (real data)</a> · <a href="https://ui.adsabs.harvard.edu/abs/1985ApJ...295..305V">dark halo of NGC 3198, van Albada et al. 1985 (SPARC data)</a></sub><br><br>
 </p>
 
+## Gallery
+
+`examples/gallery` has one example for every working row of the
+[chart catalogue](docs/design/catalogue.md): histograms, scatters, maps and
+contours, fits with residual and pull panels, ratio and significance panels,
+ROC and learning curves, error bars and bands, facets, annotations and
+LaTeX/HTML tables. It mixes a toy calorimeter test beam and a toy classifier
+(synthetic) with the famous-plot data, all in the default style. Build it
+with
+
+```bash
+make -C examples gallery
+```
+
+and open `examples/gallery/output/gallery.md`: a grid of the figures with the
+command under each, the tables as LaTeX, and the catalogue rows still waiting
+for a feature. The outputs are not committed. The command lists,
+`examples/gallery/input/{plots,tables}/gallery_scripts.txt`, are also a test
+(`tests/test_gallery.py`, marked `slow`).
+
 ## Plot kinds
 
 Kinds follow the data relationship (as in seaborn/plotly), not the use case.
 
 | Kind | Draws | Typical options |
 |---|---|---|
-| `line` | y against an ordered x, one series per `--hue` value, line style per `--style` value | `--plot_type step\|stepmid\|line\|errorbar\|plot\|bar\|barh\|box\|fill` (closed shapes, with `--color_column`, `--edgecolor_column`, `--linewidth_column`, `--plot_type_column`, `--axis equal off`; see the [tutorial](docs/tutorial.md)), `--lower`, `--stacked`, `--data_hue` (see [Data and simulation](docs/options.md#data-and-simulation)), `--sum_iterables`, `--merge_iterables`, `--rebin`, `--by_config`, `--fit` (see [Fits](docs/options.md#fits)), `--binned --estimator mean\|median\|std\|rms\|sum\|max\|min` (see [Binned estimators](docs/options.md#binned-estimators)) |
+| `line` | y against an ordered x, one series per `--hue` value, line style per `--style` value | `--plot_type step\|stepmid\|line\|errorbar\|plot\|bar\|barh\|box\|fill` (closed shapes, with `--color_column`, `--edgecolor_column`, `--linewidth_column`, `--plot_type_column`, `--axis equal off`; see the [tutorial](docs/tutorial.md)), `--errory_type poisson\|clopper_pearson`, `--lower`, `--stacked` (`--stack_total_error`), `--data_hue`/`--overlay` (see [Data and simulation](docs/options.md#data-and-simulation)), `--sum_iterables`, `--merge_iterables`, `--rebin`, `--by_config`, `--fit` (see [Fits](docs/options.md#fits)), `--binned --estimator mean\|median\|std\|rms\|sum\|max\|min` (see [Binned estimators](docs/options.md#binned-estimators)) |
 | `scatter` | observations: exploded points with colour/size/marker encodings, or pairs of metrics (`--x_from Variable=Purity --y_from Variable=Completeness`) | `--colorby`, `--sizeby`, `--markerby`, `--aggregate` |
-| `hist` | 1D histograms of per-event arrays | `--bins`, `--weight`, `--density`, `--hist_combine`, `--flow none\|hint\|show` |
+| `hist` | 1D histograms of per-event arrays | `--bins`, `--weight`, `--density`, `--hist_combine`, `--flow none\|hint\|show`, `--errory_type poisson` |
 | `map` | 2D: histogram of point arrays, image of a grid (`-z`), contour layer (`--contour`) | `--norm`, `--diagonal`, `--logz`, `--colorbar`, `--contour_sigmas`, `--contour_dof`, `--contour_label`, `--fill_contours`, `--background`, `--no_best_fit` |
 | `cat` | one value per category (integrated arrays, or one scalar per row) | `--integrate_over`, `--kind point\|line\|bar`, `--xtick_rotation` |
 | `table` | aggregated values as LaTeX (and HTML) tables | `--variables`, `--agg`, `--error_band`, `--clopper_pearson`, `--siunitx`, `--caption_file` |

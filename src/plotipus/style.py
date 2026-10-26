@@ -14,6 +14,11 @@ before the file's ``rcparams``) and ``contours`` (confidence contours of
 ``background``). Every section is optional and merged over the defaults shipped
 in ``plotipus/data/style.json``.
 
+Figure size: ``widths`` (named presets: inches, or ``{"width", "height"}``),
+``aspect`` (height/width) and ``width`` (the preset or inches to draw at).
+Without ``width`` the old geometry (``figure_layout`` base/panel widths)
+is used.
+
 Colours that are not data colours come from the ``roles`` (see :func:`role`):
 ``ink`` (text, data points, fit and reference lines), ``muted`` (guides),
 ``faint`` (pull bands, grids), ``paper`` (background, outlines on images) and
@@ -31,6 +36,8 @@ import matplotlib.pyplot as plt
 from . import palettes
 
 _DEFAULTS_PATH = Path(__file__).with_name("data") / "style.json"
+# Named style layers (media, themes; T16 adds the languages).
+STYLES_DIR = Path(__file__).with_name("data") / "styles"
 _MPLSTYLE_PATH = Path(__file__).with_name("data") / "plotipus.mplstyle"
 
 _FALLBACK_LEGEND_STYLE = {"frameon": False, "loc": "best"}
@@ -177,9 +184,10 @@ def _publish():
     global xlabelfontsize, ylabelfontsize, xsublabelfontsize, ysublabelfontsize
     global linelabelfontsize, nbins, default_linewidth, band_alpha, figure_base_width
     global figure_panel_width, figure_height, figure_panel_font_scale
-    global figure_margins_inches, figure_two_panel_hspace, legend_style
-    global note_style, base_font_size, mappings, auto_title, contours, stack_error, sci_in_label
+    global figure_margins_inches, figure_two_panel_hspace, legend_style, figure_pad_inches, figure_fixed_margins
+    global note_style, base_font_size, mappings, auto_title, contours, stack_error, sci_in_label, error_label
     global capitalize_exceptions, redundant_legend_titles, title_short_forms
+    global widths, figure_aspect, figure_width, figure_row_height, draw_titles
 
     rcparams = _CONFIG.get("rcparams", {})
     plt.rcParams.update(rcparams)
@@ -192,12 +200,16 @@ def _publish():
     base_font_size = float(plt.rcParams["font.size"])
 
     fonts = _CONFIG.get("font_sizes", {})
+    # Axis labels take rcParams axes.labelsize in every kind; a style's
+    # x/ylabelfontsize writes into it.
+    if "ylabelfontsize" in fonts or "xlabelfontsize" in fonts:
+        plt.rcParams["axes.labelsize"] = fonts.get("ylabelfontsize", fonts.get("xlabelfontsize"))
     titlefontsize = fonts.get("titlefontsize", "xx-large")
     subtitlefontsize = fonts.get("subtitlefontsize", "x-large")
     legendtitlefontsize = fonts.get("legendtitlefontsize", "xx-large")
     legendfontsize = fonts.get("legendfontsize", "x-large")
-    xlabelfontsize = fonts.get("xlabelfontsize", "xx-large")
-    ylabelfontsize = fonts.get("ylabelfontsize", "xx-large")
+    xlabelfontsize = fonts.get("xlabelfontsize", plt.rcParams["axes.labelsize"])
+    ylabelfontsize = fonts.get("ylabelfontsize", plt.rcParams["axes.labelsize"])
     xsublabelfontsize = fonts.get("xsublabelfontsize", "x-large")
     ysublabelfontsize = fonts.get("ysublabelfontsize", "x-large")
     linelabelfontsize = fonts.get("linelabelfontsize", "large")
@@ -208,11 +220,20 @@ def _publish():
     # Opacity of --errory_type bands (series colour, no edge).
     band_alpha = float(settings.get("band_alpha", 0.2))
     # Band of the stacked simulation's total error (--data_hue --stacked --errory).
+    error_label = bool(settings.get("error_label", False))
     stack_error = {"label": "Sim. unc.", "hatch": "////", "color": "role:muted", **settings.get("stack_error", {})}
     # Title from the datafile name when --title is not given.
     auto_title = bool(settings.get("auto_title", True))
     # A common power of ten in the axis label instead of offset text.
     sci_in_label = bool(settings.get("sci_in_label", True))
+    # An explicit --title is drawn (false in paper: the caption is the title).
+    draw_titles = bool(settings.get("titles", True))
+
+    widths = {name: value for name, value in _CONFIG.get("widths", {}).items()}
+    figure_aspect = float(_CONFIG.get("aspect", 0.75))
+    geometry = _CONFIG.get("cli_geometry", {})
+    figure_width, figure_row_height = resolve_width(
+        geometry.get("width", _CONFIG.get("width")), widths, figure_aspect, geometry.get("aspect"))
 
     layout = settings.get("figure_layout", {})
     figure_base_width = layout.get("base_width", 8)
@@ -225,6 +246,10 @@ def _publish():
     }
     figure_margins_inches = layout.get("margins_inches", dict(_FALLBACK_MARGINS_INCHES))
     figure_two_panel_hspace = layout.get("two_panel_hspace", 0)
+    # Measured layout: margins are the drawn extents plus this padding
+    # (margins_inches is then a minimum); fixed_margins keeps margins_inches exactly.
+    figure_pad_inches = float(layout.get("pad_inches", 0.04))
+    figure_fixed_margins = bool(layout.get("fixed_margins", False))
 
     legend_style = dict(
         settings.get(
@@ -241,6 +266,47 @@ def _publish():
 
     mappings = _CONFIG.get("mappings", {})
     contours = {**_FALLBACK_CONTOURS, **_CONFIG.get("contours", {})}
+
+
+def resolve_width(spec, presets, aspect, forced_aspect=None):
+    """(width, row height) in inches of a ``--width`` value: a preset name or
+    inches; (None, None) without one. A preset may fix its own height
+    (``{"width": 6.8, "height": 3.0}``) unless ``forced_aspect`` is given."""
+    if spec is None:
+        return None, None
+    entry = presets.get(str(spec).strip().lower(), spec)
+    try:
+        if isinstance(entry, dict):
+            width = float(entry["width"])
+            height = entry.get("height") if forced_aspect is None else None
+        else:
+            width, height = float(entry), None
+    except (TypeError, ValueError, KeyError):
+        raise ValueError(f"Unknown width '{spec}': use inches or one of {', '.join(presets)}.") from None
+    ratio = float(forced_aspect) if forced_aspect is not None else aspect
+    return width, float(height) if height is not None else ratio * width
+
+
+def set_geometry(width=None, aspect=None):
+    """Draw at ``width`` (preset or inches) and/or ``aspect`` (height/width),
+    overriding the style (the --width and --aspect options)."""
+    geometry = {k: v for k, v in (("width", width), ("aspect", aspect)) if v is not None}
+    _CONFIG["cli_geometry"] = geometry
+    _publish()
+
+
+def snapshot():
+    """The current settings and rcParams, for :func:`restore`."""
+    return copy.deepcopy(_CONFIG), dict(plt.rcParams)
+
+
+def restore(saved):
+    """Return to a :func:`snapshot` (e.g. before rendering another medium)."""
+    global _CONFIG
+    config, rc = saved
+    dict.update(plt.rcParams, rc)
+    _CONFIG = copy.deepcopy(config)
+    _publish()
 
 
 def reset():

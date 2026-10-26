@@ -201,12 +201,12 @@ def run_events(df, args, spec):
     if ax_bottom is not None:
         ax_bottom.set_ylabel(args.lower_labely if args.lower_labely is not None else spec.name,
                              fontsize=style.ysublabelfontsize)
-        ax_bottom.set_xlabel(xlabel, fontsize=style.xlabelfontsize)
+        ax_bottom.set_xlabel(xlabel)
         ax_bottom.grid(alpha=0.25)
         if ax_bottom.get_legend_handles_labels()[0]:
             apply_legend_style(ax_bottom, capitalize_labels=args.capitalize_legend)
     else:
-        ax_top.set_xlabel(xlabel, fontsize=style.xlabelfontsize)
+        ax_top.set_xlabel(xlabel)
 
     if args.rangex is not None:
         ax_top.set_xlim(args.rangex)

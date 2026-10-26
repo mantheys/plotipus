@@ -1,15 +1,20 @@
 """Write the example data of input/plots/example_scripts.txt (and of the
 figures of docs/options.md): Distributions.pkl, and two files derived from
 it, the per-config files of the --configs example and Moments.pkl for the
-table and scalar-cell cat examples."""
+table and scalar-cell cat examples.
 
+    python make_data.py          # into input/data
+    python make_data.py DIR      # into DIR (the gallery's data)
+"""
+
+import sys
 from pathlib import Path
 
 import numpy as np
 import pandas as pd
 
 rng = np.random.default_rng(1)
-out = Path(__file__).parent / "input" / "data"
+out = Path(sys.argv[1]) if len(sys.argv) > 1 else Path(__file__).parent / "input" / "data"
 out.mkdir(parents=True, exist_ok=True)
 
 
@@ -27,16 +32,17 @@ def _distributions():
 
     landau = getattr(stats, "landau", stats.moyal)
     integer = lambda lo, hi: np.arange(lo, hi + 1.5) - 0.5  # noqa: E731
+    positive = np.linspace(0, 12, 49)  # one binning for the positive, skewed shapes, so they overlay bin by bin
     return {
         "Gaussian": (stats.norm(0, 1), np.linspace(-4, 4, 41)),
         "Poisson": (stats.poisson(4), integer(0, 14)),
         "Binomial": (stats.binom(20, 0.3), integer(0, 14)),
-        "Exponential": (stats.expon(scale=2), np.linspace(0, 10, 41)),
+        "Exponential": (stats.expon(scale=2), positive),
         "Uniform": (stats.uniform(0, 1), np.linspace(-0.25, 1.25, 31)),
         "Breit-Wigner": (stats.cauchy(91.19, 2.50 / 2), np.linspace(81, 101, 41)),
-        "Landau": (landau(2, 0.5), np.linspace(0, 10, 41)),
-        "Log-normal": (stats.lognorm(0.5, scale=1.5), np.linspace(0, 6, 41)),
-        "Chi-squared": (stats.chi2(3), np.linspace(0, 15, 31)),
+        "Landau": (landau(2, 0.5), positive),
+        "Log-normal": (stats.lognorm(0.5, scale=1.5), positive),
+        "Chi-squared": (stats.chi2(3), positive),
     }, stats, optimize
 
 

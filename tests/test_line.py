@@ -172,7 +172,8 @@ def test_hue_and_style_on_one_column_draw_one_legend(make_project, spectra):
     legends = [a for a in ax.get_children() if isinstance(a, Legend)]
     assert len(legends) == 1
     handles = legends[0].legend_handles
-    assert [t.get_text() for t in legends[0].get_texts()] == ["A", "B", "C"]
+    # Entries follow the right-hand ends of the lines (B is twice A, C half of it).
+    assert [t.get_text() for t in legends[0].get_texts()] == ["B", "A", "C"]
     assert len({h.get_linestyle() for h in handles}) == 3
     assert len({to_hex(h.get_color()) for h in handles}) == 3
 
@@ -384,3 +385,137 @@ def test_stacked_binned_series_are_filled_histograms(make_project, spectra):
     assert len(filled) == 3 and np.allclose(filled[1].get_data().baseline, spectra["Counts"].iloc[0])
     run(make_project, spectra, "--hue", "Sample", "--select", "Stage", "-s", "Raw", "--stacked", "--bar_width", "auto")
     assert any(isinstance(p, Rectangle) for p in figures[-1].axes[0].patches)
+
+
+# --- Stacked simulation with overlaid data (T18) ----------------------------------------
+
+
+def _spectrum(total_error=False):
+    """The repro Spectrum: Poisson data over two backgrounds and a peak."""
+    rng = np.random.default_rng(0)
+    m = np.arange(100.5, 160, 1.0)
+    mc = {"bkg_a": 3000 * np.exp(-(m - 100) / 40), "bkg_b": 400 * np.exp(-(m - 100) / 25),
+          "signal": 120 * np.exp(-0.5 * ((m - 125) / 1.6) ** 2)}
+    data = rng.poisson(sum(mc.values())).astype(float)
+    rows = [{"Mass": m, "Counts": c, "CountsError": np.sqrt(c), "Sample": s}
+            for s, c in [("data", data), *mc.items()]]
+    if total_error:
+        for row in rows:
+            row["TotalError"] = 0.05 * sum(mc.values())
+    return pd.DataFrame(rows), data, mc
+
+
+def _stack_run(make_project, frame, *argv):
+    figures = _capture()
+    make_project({"Spectrum": frame})
+    line.main(["--datafile", "Spectrum", "-x", "Mass", "-y", "Counts", "--hue", "Sample", "--stacked", *argv])
+    return figures[-1]
+
+
+def test_stack_fill_overlay_band_and_ratio(make_project):
+    """The control plot: filled stacked steps, data points on top, the hatched total band, data / total."""
+    from matplotlib.patches import StepPatch
+
+    frame, data, mc = _spectrum()
+    fig = _stack_run(make_project, frame, "--plot_type", "fill", "--overlay", "data", "--stack_total_error",
+                     "--lower", "ratio")
+    upper, lower = fig.axes[:2]
+    filled = [p for p in upper.patches if isinstance(p, StepPatch) and p.get_fill()]
+    assert [p.get_label() for p in filled] == ["bkg_a", "bkg_b", "signal"]
+    total = sum(mc.values())
+    assert np.allclose(filled[-1].get_data().values, total)  # the top of the stack is the sum of the MC
+    assert np.allclose(filled[1].get_data().baseline, mc["bkg_a"])
+    assert all(to_hex(p.get_edgecolor()) != to_hex(p.get_facecolor()) for p in filled)  # a darker edge
+    (points,) = [c for c in upper.containers if isinstance(c, ErrorbarContainer)]
+    assert np.allclose(points.lines[0].get_ydata(), data)
+    (band,) = [p for p in upper.patches if isinstance(p, StepPatch) and not p.get_fill()]
+    error = np.sqrt(sum(np.square(np.sqrt(c)) for c in mc.values()))
+    assert np.allclose(band.get_data().values, total + error) and np.allclose(band.get_data().baseline, total - error)
+    (ratio,) = [c for c in lower.containers if isinstance(c, ErrorbarContainer)]
+    assert np.allclose(ratio.lines[0].get_ydata(), data / total)
+    labels = [t.get_text() for t in upper.get_legend().get_texts()]
+    assert labels == ["data", "signal", "bkg_b", "bkg_a", band.get_label()]
+
+
+def test_stack_step_outlines(make_project):
+    """B10a: --stacked --plot_type step stacks the outlines (each one's top, no closed bottom edge)."""
+    from matplotlib.patches import StepPatch
+
+    frame, _, mc = _spectrum()
+    fig = _stack_run(make_project, frame[frame.Sample != "data"], "--plot_type", "step")
+    outlines = [p for p in fig.axes[0].patches if isinstance(p, StepPatch)]
+    assert [p.get_label() for p in outlines] == ["bkg_a", "bkg_b", "signal"]
+    assert all(not p.get_fill() and p.get_data().baseline is None for p in outlines)
+    assert np.allclose(outlines[1].get_data().values, mc["bkg_a"] + mc["bkg_b"])
+    assert fig.axes[0].get_ylim()[0] == 0
+
+
+def test_stack_line_areas_and_reverse(make_project):
+    from matplotlib.collections import PolyCollection
+
+    frame, _, mc = _spectrum()
+    fig = _stack_run(make_project, frame[frame.Sample != "data"], "--plot_type", "line", "--stack_reverse")
+    areas = [c for c in fig.axes[0].collections if isinstance(c, PolyCollection)]
+    assert [a.get_label() for a in areas] == ["signal", "bkg_b", "bkg_a"]  # first series on top
+    top = areas[-1].get_paths()[0].vertices[:, 1].max()
+    assert np.isclose(top, sum(mc.values()).max())
+
+
+def test_stack_total_error_column_and_overlay_last(make_project):
+    from matplotlib.patches import StepPatch
+
+    frame, _, mc = _spectrum(total_error=True)
+    fig = _stack_run(make_project, frame, "--overlay", "data", "--stack_total_error_column", "TotalError",
+                     "--overlay_legend", "last")
+    ax = fig.axes[0]
+    (band,) = [p for p in ax.patches if isinstance(p, StepPatch) and not p.get_fill()]
+    total = sum(mc.values())
+    assert np.allclose(band.get_data().values, 1.05 * total)
+    labels = [t.get_text() for t in ax.get_legend().get_texts()]
+    assert labels == ["signal", "bkg_b", "bkg_a", band.get_label(), "data"]
+
+
+# --- Data and simulation conventions -----------------------------------------------------
+
+
+def test_density_gives_unit_area(make_project, spectra):
+    figures = _capture()
+    run(make_project, spectra, "--hue", "Sample", "--select", "Stage", "-s", "Raw", "--plot_type", "line",
+        "--density")
+    ax = figures[0].axes[0]
+    # Bins of unit width around the centres 0.5 .. 9.5: the area is the sum of y.
+    areas = [np.sum(line.get_ydata()) for line in ax.get_lines() if line.get_label() in ("A", "B", "C")]
+    assert len(areas) == 3 and np.allclose(areas, 1.0)
+    assert ax.get_ylabel() == "Density"
+
+
+def test_data_named_by_style_value(make_project, spectra):
+    from matplotlib.colors import to_hex
+    from matplotlib.container import ErrorbarContainer
+
+    figures = _capture()
+    run(make_project, spectra, "--hue", "Sample", "--style", "Stage", "--data_hue", "Raw", "--errory")
+    ax = figures[0].axes[0]
+    points = [c for c in ax.containers if isinstance(c, ErrorbarContainer)]
+    steps = [p for p in ax.patches if type(p).__name__ in ("Polygon", "StepPatch")]
+    assert len(points) == 3 and len(steps) == 3
+    # Data points take their hue colour; the one simulation style stays solid.
+    assert len({to_hex(c.lines[0].get_color()) for c in points}) == 3
+    assert all(p.get_linestyle() in ("-", "solid", (0, None)) for p in steps)  # solid
+    style_legend = [leg for leg in [ax.get_legend(), *[a for a in ax.artists]] if leg is not None
+                    and "Stage" in leg.get_title().get_text()][0]
+    handles = style_legend.legend_handles
+    assert handles[0].get_marker() == "o" and handles[0].get_linestyle() == "None"
+    assert [t.get_text() for t in style_legend.get_texts()] == ["Raw", "Smooth"]
+
+
+def test_column_panel_of_data_is_points(make_project, spectra):
+    from matplotlib.container import ErrorbarContainer
+
+    figures = _capture()
+    run(make_project, spectra, "--hue", "Sample", "--select", "Stage", "Sample", "-s", "Raw", "A",
+        "--data_hue", "A", "--errory", "--lower", "column:Significance")
+    lower = figures[0].axes[1]
+    assert any(isinstance(c, ErrorbarContainer) for c in lower.containers)
+    assert not [line for line in lower.get_lines() if line.get_linestyle() not in ("None", "")
+                and len(line.get_xdata()) > 2]

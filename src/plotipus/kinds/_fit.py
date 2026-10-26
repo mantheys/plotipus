@@ -289,8 +289,9 @@ def _lower_label(spec):
     """(y label, formula subtitle) of a lower panel. The formula goes inside
     the panel: as the y label it is taller than a lower panel."""
     if spec.name == "pull":
-        return "Pull", "(Data − Fit) / σ"
-    return "Residual", "(Data − Fit) / Fit"
+        # Mathtext: the minus and sigma glyphs exist in every style's math font (not in cmr10 text).
+        return "Pull", r"(Data $-$ Fit) / $\sigma$"
+    return "Residual", r"(Data $-$ Fit) / Fit"
 
 
 def _lower_subtitle(ax, text):
@@ -437,7 +438,7 @@ def run_fit(df, args):
             else:
                 _lower_subtitle(ax_bottom, subtitle)
             ax_bottom.set_ylabel(label, fontsize=style.ysublabelfontsize)
-        (ax_bottoms[-1] if ax_bottoms else ax_top).set_xlabel(xlabel, fontsize=style.xlabelfontsize)
+        (ax_bottoms[-1] if ax_bottoms else ax_top).set_xlabel(xlabel)
 
         vertical, horizontal = args.vertical, args.horizontal
         vertical_labels = args.vertical_label

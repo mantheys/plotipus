@@ -17,11 +17,12 @@ import json
 import matplotlib
 import matplotlib.lines as mlines
 import matplotlib.ticker
+from matplotlib.colors import to_hex
 import numpy as np
 import pandas as pd
 from rich import print as rprint
 
-from .. import style
+from .. import intervals, style
 from ..args import (
     add_common_args,
     add_panel_args,
@@ -30,6 +31,7 @@ from ..args import (
     resolve_axis_label,
 )
 from ..encodings import (
+    DATA_STYLE,
     add_encoding_args,
     comparable_legend_title,
     comparable_maps,
@@ -62,7 +64,7 @@ from ..panels import (
     rotate_categorical_labels,
     save,
 )
-from ..plot import (apply_legend_style, apply_legend_style_clear_of_data, apply_tick_formatter,
+from ..plot import (apply_legend_style, apply_legend_style_clear_of_data, apply_tick_formatter, order_legend_entries,
                     errory_type, plot_data)
 from ..selection import filter_dataframe
 from ..transforms import (
@@ -104,6 +106,7 @@ def build_parser():
             "ytick_label", "ytick_height", "ytick_side", "ytick_edge", "square", "square_label",
             "square_style", "square_color", "line", "line_label", "line_style", "line_color",
             "point", "point_label", "note", "multiply", "debug", "errory", "errory_type",
+            "confidence_level", "error_label",
         ],
         overrides={
             "datafile": {"required": True},
@@ -141,6 +144,11 @@ def build_parser():
     add("--errory_bounds", type=str, nargs=2, default=None, metavar=("LOW", "HIGH"),
         help="Columns holding the lower and upper edges of an asymmetric y interval.")
     add("--errory_x", action="store_true", default=False, help="Also draw x error bars (half bin widths).")
+    add("--count_column", type=str, default=None, metavar="N",
+        help="With --errory_type clopper_pearson: array column with the number of trials of each point "
+        "(k = y / --efficiency_scale * N).")
+    add("--efficiency_scale", type=float, default=1.0,
+        help="Value of y at 100%% efficiency, with --errory_type clopper_pearson (default 1; 100 for percent).")
     add("--extrapolate", action="store_true", default=False,
         help="Draw points flagged in '{y}Extrapolated' as a dashed continuation (dropped otherwise).")
     add("--merge_iterables", nargs="+", default=None, metavar="VALUES=LABEL",
@@ -151,6 +159,9 @@ def build_parser():
     add("--sum_color", type=str, default=None,
         help="Colour of the --sum_iterables series (default: a palette colour no hue value has).")
     add("--rebin", type=int, default=None, help="Merge every N consecutive points of each series.")
+    add("--density", action="store_true", default=False,
+        help="Normalise each series to unit area (y / sum of y times the bin width, errors alike), so "
+        "samples of different sizes compare as shapes; the y label defaults to Density.")
     add("--rebin_sum", action="store_true", default=False,
         help="With --rebin: sum merged y values (counts) instead of averaging them.")
     add("--mirror", type=str, default=None, help="Config whose series is extended by its reflection.")
@@ -185,14 +196,24 @@ def build_parser():
     add("--connect", action="store_true", default=False,
         help="Join the points: with steps without --plot_type, with lines for points with error bars.")
     add("--stacked", action="store_true", default=False,
-        help="Stack the series: filled histograms over binned x, bars over categories, with --bar_width or "
-        "with --plot_type bar.")
-    add("--data_hue", nargs="+", default=None, metavar="VALUE",
+        help="Stack the series: filled histograms over binned x (outlines with --plot_type step, filled steps "
+        "with a darker edge with fill, a stacked area with line), bars over categories, with --bar_width or "
+        "with --plot_type bar. --overlay values stay out of the stack.")
+    add("--data_hue", "--overlay", nargs="+", default=None, metavar="VALUE",
         help="Hue values drawn as data: points with error bars in the ink colour, first in the legend, never "
         "stacked. The other series are drawn as steps (bars with --stacked), with error bands with --errory, and "
-        "ratio/subtract/relative_difference lower panels compare the data with their total. With --by_config, "
-        "the values are configs, names or hue values.")
+        "ratio/subtract/relative_difference lower panels compare the data with their total. The values may "
+        "also be --style values: those series are drawn as points in their hue colour, and the style legend "
+        "shows a point for them. With --by_config, the values are configs, names or hue values.")
     add("--stack_reverse", action="store_true", default=False, help="Stack in reverse order (first series on top).")
+    add("--stack_total_error", action="store_true", default=False,
+        help="With --stacked: a hatched band around the stack total, from the stacked series' errors added in "
+        "quadrature (also drawn with --overlay and --errory).")
+    add("--stack_total_error_column", type=str, default=None, metavar="COL",
+        help="Array column with a precomputed error of the stack total (e.g. with systematics), read from the "
+        "first stacked series that has it; implies --stack_total_error.")
+    add("--overlay_legend", choices=["first", "last"], default="first",
+        help="Legend position of the --overlay (--data_hue) entries: before the stack (default) or after it.")
     add("--bar_width", type=str, default=None,
         help="Stack as bars of this width: a number, or 'auto' for the x spacing without edges (default: "
         "filled histograms over binned x, bars of width 0.8 over categories).")
@@ -402,6 +423,7 @@ class Series:
         self.label = None
         self.is_sum = False
         self.is_data = False
+        self.interval = None  # poisson / clopper_pearson errors
 
 
 def extract(subset, args, x_column=None, y_column=None):
@@ -488,6 +510,58 @@ def _error_kwargs(s, args):
     return {"errory": s.error, "errory_sym": "symmetric" if symmetric else "asymmetric"}
 
 
+_DENSITY_WARNED = set()
+
+
+def _to_density(s, args):
+    """Scale series ``s`` (and its errors) to unit area (--density). Stacked
+    series keep their counts: a stack needs one factor for all its parts."""
+    if args.stacked:
+        if "stacked" not in _DENSITY_WARNED:
+            _DENSITY_WARNED.add("stacked")
+            rprint("[yellow]Warning:[/yellow] --density is ignored with --stacked.")
+        return
+    if s.categorical or s.x_edges is None:
+        return
+    area = float(np.nansum(np.asarray(s.y, dtype=float) * np.diff(s.x_edges)))
+    if not np.isfinite(area) or area == 0:
+        return
+    s.y = np.asarray(s.y, dtype=float) / area
+    if s.error is not None:
+        s.error = np.asarray(s.error, dtype=float) / area
+
+
+def _interval_errors(s, args):
+    """Replace the errors of ``s`` by an interval: --errory_type poisson
+    (Garwood, y as counts; also the default for --overlay data without an
+    error column) or clopper_pearson (y an efficiency of --count_column
+    trials). Stored as 2xN (below, above) distances, never crossing 0 (or
+    100% for efficiencies)."""
+    kind = args.errory_type if args.errory_type in ("poisson", "clopper_pearson") else None
+    if kind is None and s.is_data and s.error is None and not s.categorical:
+        kind = "poisson"
+    if kind is None:
+        return
+    y = np.asarray(s.y, dtype=float)
+    if kind == "poisson":
+        low, high = intervals.garwood(y, args.confidence_level)
+    else:
+        if not args.count_column or s.rows is None or args.count_column not in s.rows.columns:
+            rprint("[yellow]Warning:[/yellow] --errory_type clopper_pearson needs --count_column (the trials); "
+                   "the stored errors are kept.")
+            return
+        counts = extract(s.rows, args, y_column=args.count_column)
+        if counts is None or len(counts.y) != len(y):
+            rprint(f"[yellow]Warning:[/yellow] {args.count_column} does not align with {args.y}; no interval drawn.")
+            return
+        total = np.asarray(counts.y, dtype=float)
+        passed = np.round(y / args.efficiency_scale * total)
+        low, high = intervals.clopper_pearson(passed, total, args.confidence_level)
+        low, high = low * args.efficiency_scale, high * args.efficiency_scale
+    s.error = np.vstack([np.clip(y - low, 0, None), np.clip(high - y, 0, None)])
+    s.interval = kind
+
+
 def _is_data(hue, args):
     """Whether hue value ``hue`` is drawn as data (--data_hue)."""
     return bool(args.data_hue) and not isinstance(hue, _SumSlot) and str(hue) in {str(v) for v in args.data_hue}
@@ -499,7 +573,8 @@ def draw_series(ax, s, args, plot_type=None, stack_bottom=None, dodge_shift=0.0)
     --errory_type bands, steps with --connect, lines for styled series).
     Error bars on points are joined only with --connect. Plot type "data"
     draws points with their error bars whatever --errory_type says."""
-    if plot_type == "fill":
+    stacking = args.stacked and stack_bottom is not None and s.x_edges is not None and not s.categorical
+    if plot_type == "fill" and not stacking:  # closed shapes; stacked, fill is filled steps (below)
         face = _shape_color(args.facecolor) or s.color
         edge = _shape_color(args.edgecolor) or s.edgecolor or "none"
         width = s.linewidth if s.linewidth is not None else (style.default_linewidth if edge != "none" else 0)
@@ -524,11 +599,26 @@ def draw_series(ax, s, args, plot_type=None, stack_bottom=None, dodge_shift=0.0)
         fill = {"fill_alpha": s.fill_alpha, "fill_hatch": s.fill_hatch, "fill_hatch_color": args.fill_hatch_color}
     linestyle = s.linestyle if s.linestyle is not None else args.plot_style
 
-    if (args.stacked and stack_bottom is not None and plot_type is None and args.bar_width is None
-            and s.x_edges is not None and not s.categorical):
-        # Binned series stack as filled histograms (bars with --bar_width or --plot_type bar).
+    if stacking and (plot_type in ("step", "fill", "line") or (plot_type is None and args.bar_width is None)):
+        # Binned series stack in data space: each one from the running total up (bars with --bar_width or
+        # --plot_type bar).
         bottom = np.array(stack_bottom, dtype=float)  # a copy: the running stack grows in place
-        ax.stairs(bottom + np.asarray(s.y, dtype=float), s.x_edges, baseline=bottom, fill=True, **common)
+        top = bottom + np.asarray(s.y, dtype=float)
+        if plot_type == "line":
+            ax.fill_between(s.x, bottom, top, linewidth=0, **common)
+        elif plot_type == "step":
+            # Each outline is its top and its two outer sides: a closed outline would draw its bottom edge
+            # over the top of the series below.
+            line = dict(color=s.color, linestyle=linestyle,
+                        linewidth=s.linewidth if s.linewidth is not None else style.default_linewidth)
+            outline = ax.stairs(top, s.x_edges, baseline=None, label=s.label, **line)
+            outline.sticky_edges.y.append(0)  # the axis starts at 0, as for filled stacks
+            ax.vlines([s.x_edges[0], s.x_edges[-1]], [bottom[0], bottom[-1]], [top[0], top[-1]], **line)
+        elif plot_type == "fill":
+            ax.stairs(top, s.x_edges, baseline=bottom, fill=True, facecolor=s.color,
+                      edgecolor=style._mix(s.color, style.role("ink"), 0.7), linewidth=1, label=s.label)
+        else:
+            ax.stairs(top, s.x_edges, baseline=bottom, fill=True, **common)
         return
     if args.stacked and stack_bottom is not None and plot_type in (None, "bar"):
         width = {}
@@ -679,6 +769,10 @@ def draw_figure(rows, args, kdx=None):
     if args.comparable_order_reverse:
         comparable_values = comparable_values[::-1]
     invert = args.invert_style and not same_column
+    # --data_hue naming --style values: those series are data, drawn first; the line styles go to the rest.
+    data_styles = [v for v in comparable_values if _is_data(v, args)] if not invert else []
+    if data_styles:
+        comparable_values = data_styles + [v for v in comparable_values if v not in data_styles]
     # Colours from the data or one --facecolor: only mapped values are allocated (no overflow warning).
     allocated = [v for v in drawn_hues if not _is_data(v, args)]
     if args.facecolor:
@@ -688,6 +782,14 @@ def draw_figure(rows, args, kdx=None):
     colors = _allocate_colors(allocated, comparable_values, args, invert)
 
     style_map, alpha_map = ({}, {}) if invert else comparable_maps(comparable_values, comparable, args)
+    if data_styles:
+        model_styles = [v for v in comparable_values if v not in data_styles]
+        style_map = {
+            map_iterable_label(v, comparable, args.comparable_mapping):
+                DATA_STYLE if v in data_styles else resolve_linestyle(model_styles.index(v), args, n_total=len(model_styles))
+            for v in comparable_values
+        }
+        alpha_map = {}
     iterable_style_map = {}
     if invert and n_style > 1:
         for value, index in style_index.items():
@@ -734,7 +836,11 @@ def draw_figure(rows, args, kdx=None):
                                + f", Variable={variable}. Skipping.")
                         continue
                 s.hue = hue
-                s.is_data = _is_data(hue, args)
+                s.is_data = _is_data(hue, args) or comparable_value in data_styles
+                s.data_by_style = comparable_value in data_styles
+                _interval_errors(s, args)
+                if args.density:
+                    _to_density(s, args)
                 s.comparable = comparable_value
                 s.comparable_index = sdx
                 _encode(s, args, hue_values, colors, style_index, n_style, comparable, comparable_values, invert,
@@ -777,9 +883,9 @@ def draw_figure(rows, args, kdx=None):
                 drawn[idx].append(s)
                 last_x = s.x
 
-    if args.data_hue and args.stacked and args.errory:
+    if args.stacked and (args.stack_total_error or args.stack_total_error_column or (args.data_hue and args.errory)):
         for idx, series in drawn.items():
-            _draw_stack_error(upper[idx], series)
+            _draw_stack_error(upper[idx], series, args)
 
     if not any(drawn.values()):
         rprint("[yellow]Warning:[/yellow] No valid series to plot.")
@@ -800,14 +906,36 @@ def draw_figure(rows, args, kdx=None):
 _SUM_KEY = ("sum",)
 
 
-def _draw_stack_error(ax, series):
-    """Hatched band of the stacked simulation's total ± its error (--data_hue --stacked --errory),
-    styled by the style file's plot_settings.stack_error (label, hatch, color)."""
+def _stack_total_error(stacked, args):
+    """Error of the stack total: --stack_total_error_column of the first
+    stacked series that has it, else the stacked errors in quadrature (None
+    when one is missing)."""
+    column = getattr(args, "stack_total_error_column", None)
+    if column:
+        for s in stacked:
+            if s.rows is not None and column in s.rows.columns:
+                value = s.rows[column].iloc[0]
+                if np.ndim(value) == 1 and len(value) == len(s.y):
+                    return np.asarray(value, dtype=float)
+        rprint(f"[yellow]Warning:[/yellow] No stacked series has a {column} array of matching length; "
+               "using the stacked errors.")
+    if any(s.error is None or np.ndim(s.error) != 1 for s in stacked):
+        return None
+    return np.sqrt(np.sum([np.square(np.asarray(s.error, dtype=float)) for s in stacked], axis=0))
+
+
+def _draw_stack_error(ax, series, args):
+    """Hatched band of the stacked simulation's total ± its error (--stack_total_error, or --overlay with
+    --errory), styled by the style file's plot_settings.stack_error (label, hatch, color)."""
     stacked = [s for s in series if not s.is_data and not s.is_sum and not s.categorical]
-    if not stacked or any(s.error is None or np.ndim(s.error) != 1 or len(s.y) != len(stacked[0].y) for s in stacked):
+    if not stacked or any(len(s.y) != len(stacked[0].y) for s in stacked):
         return
     total = np.sum([np.asarray(s.y, dtype=float) for s in stacked], axis=0)
-    error = np.sqrt(np.sum([np.square(np.asarray(s.error, dtype=float)) for s in stacked], axis=0))
+    error = _stack_total_error(stacked, args)
+    if error is None:
+        rprint("[yellow]Warning:[/yellow] The stack total error needs an error for every stacked series; "
+               "no band drawn.")
+        return
     band = style.role_colors(style.stack_error)
     ax.stairs(total + error, stacked[0].x_edges, baseline=total - error, fill=False, hatch=band["hatch"] or None,
               color=band["color"], linewidth=0, label=band["label"], zorder=2.5)
@@ -847,14 +975,20 @@ def _encode(s, args, hue_values, colors, style_index, n_style, comparable, compa
         s.color = (args.sum_color if s.is_sum else None) or colors.color_for(s.comparable)
         index = len(style_index) if s.is_sum else style_index.get(s.hue, 0)
         s.linestyle = resolve_linestyle(index, args, n_total=n_style, reverse=args.iterable_reverse)
-    elif s.is_data:
+    elif s.is_data and not getattr(s, "data_by_style", False):
         s.color = map_iterable_color(s.hue, args.iterable_color_mapping) or style.role("ink")
+    elif s.is_data:
+        s.color = colors.color_for(s.hue)  # data told apart by --style: in its hue colour
     else:
         from_data = args.facecolor or (_row_value(s, args.color_column) is not None
                                        and map_iterable_color(s.hue, args.iterable_color_mapping) is None)
         s.color = None if from_data else colors.color_for(_SUM_KEY if s.is_sum else s.hue)
         if s.comparable is not None:
-            s.linestyle = resolve_linestyle(sdx, args, n_total=n_comparable)
+            model = [v for v in comparable_values if not _is_data(v, args)]
+            if len(model) < n_comparable and s.comparable in model:
+                s.linestyle = resolve_linestyle(model.index(s.comparable), args, n_total=len(model))
+            else:
+                s.linestyle = resolve_linestyle(sdx, args, n_total=n_comparable)
         elif same_column:
             # Line style by position: with 10 colours and 4 styles, distinct pairs for up to 20 values.
             index = len(style_index) if s.is_sum else style_index.get(s.hue, 0)
@@ -982,8 +1116,11 @@ def _draw_lower(ax, spec, series, args, comparable, comparable_values, colors):
             column_series = extract(error_rows, args, y_column=spec.name)
             if column_series is None:
                 continue
-            out.append(_lower_series(column_series.x, column_series.y, column_series.error, s.color, s.linestyle,
-                                     label if first else None, s.linewidth, column_series.x_edges))
+            lower_s = _lower_series(column_series.x, column_series.y, column_series.error, s.color, s.linestyle,
+                                    label if first else None, s.linewidth, column_series.x_edges)
+            if s.is_data:
+                lower_s.forced_type = "data"  # points, like the data above
+            out.append(lower_s)
             first = False
     elif spec.name in ("residual", "pull"):
         from . import _fit
@@ -1004,7 +1141,6 @@ def _draw_lower(ax, spec, series, args, comparable, comparable_values, colors):
             out.append(_lower_series(reference.x, values, None, other.color, linestyle,
                                      label if hdx == 0 else None, resolve_linewidth(hdx, args, len(hues))))
     else:
-        first = True
         for value, members in by_comparable.items():
             x, aligned = _aligned(members)
             if not aligned:
@@ -1012,7 +1148,7 @@ def _draw_lower(ax, spec, series, args, comparable, comparable_values, colors):
             if (any(s.is_data for s in aligned) and spec.name in DATA_COMPARISONS
                     and args.reference_value is None and not args.reference_sum):
                 # The y label names the comparison; no legend over the points.
-                out.extend(_data_lower(x, aligned, spec.name, None))
+                out.extend(_data_lower(x, aligned, spec.name, None, args))
                 ax.axhline(REFERENCE_LINES[spec.name], color=style.role("muted"), linestyle="--", linewidth=1, zorder=1)
                 continue
             labels = [str(s.hue_label) for s in aligned]
@@ -1023,6 +1159,7 @@ def _draw_lower(ax, spec, series, args, comparable, comparable_values, colors):
                 except ValueError:
                     rprint(f"[yellow]Warning:[/yellow] reference value '{args.reference_value}' not found; using index {args.reference}.")
             series_colors = {str(s.hue_label): s.color for s in aligned}
+            reference_label = labels[max(0, min(reference_index, len(labels) - 1))]
             if args.reference_sum:
                 sum_label = str(args.reference_sum_label or " + ".join(map(str, args.reference_sum)))
                 series_colors[sum_label] = args.reference_sum_color or colors.next_free(("reference_sum", sum_label))
@@ -1033,19 +1170,28 @@ def _draw_lower(ax, spec, series, args, comparable, comparable_values, colors):
                     color = colors.next_free((spec.name,))
                 else:
                     color = series_colors.get(out_label)
-                out.append(_lower_series(x, values, None, color, aligned[0].linestyle, label if first else None,
-                                         aligned[0].linewidth))
-                first = False
+                entry = label if spec.name in ("sum", "mean", "rms") else _pair_label(out_label, reference_label, spec.name)
+                out.append(_lower_series(x, values, None, color, aligned[0].linestyle, entry, aligned[0].linewidth))
 
     for s in out:
         draw_series(ax, s, args, getattr(s, "forced_type", None) or plot_type or "line")
-    _finish_lower(ax, spec, args, label, has_content=bool(out))
+    # Lower series in the colours of the upper ones need no legend: the y
+    # label says what is shown.
+    upper_colors = {to_hex(s.color) for s in series if s.color is not None}
+    new_colors = any(s.color is None or to_hex(s.color) not in upper_colors for s in out if s.label)
+    _finish_lower(ax, spec, args, label, has_content=bool(out) and new_colors)
+
+
+def _pair_label(value, reference, operation):
+    """Legend entry of a lower series compared with the reference series."""
+    symbol = {"ratio": "/", "subtract": "\u2212"}.get(operation)
+    return f"{value} {symbol} {reference}" if symbol else f"{value} vs {reference}"
 
 
 DATA_COMPARISONS = ("ratio", "subtract", "relative_difference")
 
 
-def _data_lower(x, aligned, operation, label):
+def _data_lower(x, aligned, operation, label, args=None):
     """--data_hue lower panel: each data series against the total of the
     other series, as points with the data errors over a band of the total's
     error (in the colour of the total when it is one series)."""
@@ -1054,8 +1200,7 @@ def _data_lower(x, aligned, operation, label):
     if not model:
         return []
     total = np.sum([np.asarray(s.y, dtype=float) for s in model], axis=0)
-    errors = [s.error for s in model if s.error is not None and np.ndim(s.error) == 1]
-    total_error = np.sqrt(np.sum(np.square(errors), axis=0)) if len(errors) == len(model) else None
+    total_error = _stack_total_error(model, args)
 
     def scaled(error):
         # Error of the comparison for an error on the compared values.
@@ -1144,10 +1289,15 @@ def _finish_upper(fig, upper, lower, drawn, rows, args, variables, last_x, hue_v
         else:
             xlabel = resolve_axis_label(labelx, args.x, panel_rows)
             if has_lower:
-                lower[idx][-1].set_xlabel(xlabel, fontsize=style.xlabelfontsize)
+                lower[idx][-1].set_xlabel(xlabel)
             else:
                 ax.set_xlabel(xlabel)
-            ylabel = resolve_axis_label(args.labely, args.y, panel_rows)
+            ylabel = resolve_axis_label(args.labely if args.labely is not None or not args.density else "Density",
+                                        args.y, panel_rows)
+            kinds = {getattr(s, "interval", None) for s in drawn.get(idx, [])} - {None}
+            show = args.error_label if args.error_label is not None else style.error_label
+            if show and len(kinds) == 1 and ylabel:
+                ylabel = f"{ylabel}, {intervals.label(kinds.pop(), args.confidence_level)}"
         if rotated:
             ax.tick_params(axis="x", labelrotation=45)
 
@@ -1177,8 +1327,15 @@ def _finish_upper(fig, upper, lower, drawn, rows, args, variables, last_x, hue_v
             handles, labels = ax.get_legend_handles_labels()
             # matplotlib lists error bars after lines and patches: --data_hue entries go first.
             data_labels = {s.label for series in drawn.values() for s in series if s.is_data and s.label}
-            order = sorted(range(len(labels)), key=lambda i: labels[i] not in data_labels)
-            handles, labels = [handles[i] for i in order], [labels[i] for i in order]
+            if args.legend_order == "data":
+                order = sorted(range(len(labels)), key=lambda i: labels[i] not in data_labels)
+                handles, labels = [handles[i] for i in order], [labels[i] for i in order]
+            else:
+                band_label = style.stack_error.get("label") if args.stacked else None
+                overlay_last = args.overlay_legend == "last"
+                handles, labels = order_legend_entries(
+                    ax, handles, labels, stacked=args.stacked, keep_first=() if overlay_last else data_labels,
+                    keep_last=([band_label] if band_label else []) + (sorted(data_labels) if overlay_last else []))
             for label, color in extrapolated_axes.get(ax, []):
                 handles.append(mlines.Line2D([], [], color=color, linestyle=EXTRAPOLATED_LINESTYLE, linewidth=1))
                 labels.append(f"{label} Extrapolated")
@@ -1528,6 +1685,8 @@ def run_by_config(df, args):
 
 def run(args):
     _check_args(args, build_parser())
+    if args.errory_type in ("poisson", "clopper_pearson"):
+        args.errory = True  # an interval is an error to draw
     df = load(args)
     if df.empty:
         rprint("[yellow]Warning:[/yellow] No datafiles found. Exiting...")

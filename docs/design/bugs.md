@@ -214,6 +214,17 @@ offset text; the old `4e-2` labels are not restorable (they were the bug).
 - When no corner is free, reserve headroom: extend the y range by the legend height, or place the legend above the axes (matplotlib's `loc="outside upper center"`).
 - In ratio panels, either label each series "X / reference" or put no legend at all and let the y label say "Ratio to Signal" (the colours already match the upper panel).
 
+**Fixed in T15.** Automatic legends are placed when the figure is saved, on
+the finished axes: an occupancy mask (the data artists rendered once, so
+bars, bands, images and filled contours count whole) scores every corner
+and free position; with no free place the y range gets headroom (log axes
+by decades, not when the range is fixed), else the legend goes above the
+axes in as many columns as fit, as it does past 6 entries or with
+`--legend_loc outside`. Entries follow the data (stacks top first, lines by
+their right-hand ends; `--legend_order data` keeps the drawing order).
+Lower panels in the upper colours draw no legend; otherwise each series is
+"X / reference". Restore option: `--legend_loc <corner>` pins a location.
+
 ## B07 cat: legend handles, layout and scalar crash
 
 **Reproduce:** `B07a` (examples' cat plot) and `B07b` (traceback).
@@ -243,7 +254,7 @@ offset text; the old `4e-2` labels are not restorable (they were the bug).
 already integrated; its default y label drops "Integrated". Legend handles
 match the marks (`Patch` for bars, marker only for points, line + marker for
 lines). Tick labels stay horizontal unless two overlap; then 30° (90° when
-the rotated labels would still collide), with the figure grown for them;
+the rotated labels would still collide), and the measured layout makes room;
 `--xtick_rotation DEG` forces an angle. The `subplots_adjust(bottom=0.22)`
 band and the kind-specific y grid are gone; the legend is placed clear of
 the data unless `--legend_loc`. Restore option: `--xtick_rotation 20`; the
@@ -318,6 +329,18 @@ simulation).
 **Fix.**
 - Implement stacking in data space: cumulative sums drawn as `stairs` with `baseline` = the previous cumulative sum, or `fill_between`. This works for step, filled step and bars.
 - Add `--overlay VALUE [...]` (hue values drawn on top, unstacked, as points with Poisson errors) and `--stack_total_error` (hatched band on the stack total).
+
+**Fixed in T18.** `--stacked` stacks in data space for every binned plot
+type: filled steps (default), outlines (`step`: each series' top and outer
+sides), filled steps with a darker edge (`fill`), stacked areas (`line`,
+`fill_between`) and bars. `--overlay` (alias of `--data_hue`) keeps hue
+values out of the stack as ink points with error bars; `--lower ratio` then
+compares them with the stack total over the relative MC band.
+`--stack_total_error` draws the hatched total band without `--errory`, and
+`--stack_total_error_column COL` takes a precomputed total error. Legend:
+overlays, the stack from the top, the band (`--overlay_legend last`).
+Restore option: none (the unstacked steps were a bug); B10b needs
+`--overlay data` to keep the data out of the stack.
 
 ## B11 `--errory_type bands` ignored unless `--plot_type line`
 
@@ -430,6 +453,13 @@ left edge. In the column-width candidate styles it is clipped:
 - Measure, then set margins: after drawing, compute each axis's tight bbox and grow the margins to fit, keeping the axes size fixed.
 - Alternatively, use matplotlib's constrained layout with fixed figure width.
 - Set all label sizes in one place (rcParams), and remove the per-call `fontsize=`.
+
+**Fixed in T13.** Before saving, `apply_measured_layout` measures every
+panel's drawn box (with its colorbars) and sets the margins and panel
+spacing to fit, at the fixed figure size; the title is stacked just above
+the panels. Colorbars follow their panels (an axes locator) instead of
+taking space from them. Axis labels use rcParams `axes.labelsize` in every
+kind. Restore option: `"figure_layout": {"fixed_margins": true}`.
 
 ## B16 Box plots
 

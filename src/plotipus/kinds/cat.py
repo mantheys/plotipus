@@ -23,7 +23,7 @@ from ..args import add_common_args, map_iterable_color, map_iterable_label, reso
 from ..encodings import LINESTYLES
 from ..io import import_data, prepare_import
 from ..palettes import ColorAllocator
-from ..panels import add_title_and_note, create_panels, draw_horizontal_overlay, grow_for_tick_labels, save
+from ..panels import add_title_and_note, create_panels, draw_horizontal_overlay, save
 from ..plot import apply_legend_style, apply_legend_style_clear_of_data, plot_data
 from ..selection import filter_dataframe
 from . import _base
@@ -208,8 +208,7 @@ def draw_figure(rows, args, kdx, comparable):
         ax.set_ylim(args.rangey)
     ax.set_xlim(-0.5, len(categories) - 0.5)
     draw_horizontal_overlay(ax, args)
-    rotated, past_left = _rotate_tick_labels(fig, ax, args.xtick_rotation)
-    grow_for_tick_labels(fig, rotated_x=rotated, categorical_y=past_left)
+    _rotate_tick_labels(fig, ax, args.xtick_rotation)  # the measured layout makes room for them
 
     handles = list(hue_handles)
     if style_handles:
@@ -228,24 +227,28 @@ def draw_figure(rows, args, kdx, comparable):
 
 def _rotate_tick_labels(fig, ax, rotation=None, pad_px=4):
     """Rotate the x tick labels by *rotation*, or, when any two would overlap,
-    by 30 degrees (90 if they would still collide); returns (rotated, whether
-    the first label reaches past the left edge of the figure)."""
+    by 30 degrees (90 if they would still collide)."""
     labels = [label for label in ax.get_xticklabels() if label.get_text()]
     if rotation is None:
         fig.canvas.draw()
         boxes = sorted((label.get_window_extent() for label in labels), key=lambda box: box.x0)
         rotation = 30 if any(a.x1 + pad_px > b.x0 for a, b in zip(boxes, boxes[1:])) else 0
         if rotation:
-            # Rotated labels are parallel lines spacing * sin(angle) apart.
+            # Rotated labels are parallel lines spacing * sin(angle) apart. The measured layout then
+            # narrows the axes by however far the first label reaches past the figure's left edge,
+            # and the spacing with them.
             centres = sorted((box.x0 + box.x1) / 2 for box in boxes)
             spacing = min(np.diff(centres)) if len(centres) > 1 else np.inf
-            if spacing * np.sin(np.radians(30)) < max(box.height for box in boxes) + pad_px:
+            height = max(box.height for box in boxes)
+            plt.setp(labels, rotation=30, ha="right", rotation_mode="anchor")
+            fig.canvas.draw()
+            width = ax.get_window_extent().width
+            overflow = max(0.0, -min(label.get_window_extent().x0 for label in labels))
+            spacing *= max(width - overflow, 0.0) / width
+            if spacing * np.sin(np.radians(30)) < height + pad_px:
                 rotation = 90
-    if not rotation:
-        return False, False
-    plt.setp(labels, rotation=rotation, ha="right", rotation_mode="anchor")
-    fig.canvas.draw()
-    return True, min(label.get_window_extent().x0 for label in labels) < 0
+    if rotation:
+        plt.setp(labels, rotation=rotation, ha="right", rotation_mode="anchor")
 
 
 def run(args):

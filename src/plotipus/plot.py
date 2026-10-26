@@ -3,7 +3,6 @@ import numpy as np
 import matplotlib.pyplot as plt
 from matplotlib.patches import Rectangle
 from matplotlib.transforms import Bbox
-from matplotlib import cbook
 from matplotlib.legend import Legend
 from typing import Any
 
@@ -16,8 +15,11 @@ def panel_font_scale(ncols=1):
 
 def apply_panel_font_scale(ncols=1):
     """Set the base font size for the next figure; every relative font size
-    (x-large, xx-large, ...) and the tick labels follow it."""
-    plt.rcParams["font.size"] = _style.base_font_size * panel_font_scale(ncols)
+    (x-large, xx-large, ...) and the tick labels follow it. Only in the old
+    geometry (no --width) or with fixed_margins: text is otherwise drawn at
+    its printed size, never scaled to fit more panels."""
+    scale = panel_font_scale(ncols) if _style.figure_width is None or _style.figure_fixed_margins else 1.0
+    plt.rcParams["font.size"] = _style.base_font_size * scale
 
 
 PLOT_STYLE_OPTIONS = {
@@ -34,10 +36,32 @@ PLOT_STYLE_OPTIONS = {
 }
 
 
-def get_common_figsize(ncols=1, nrows=1):
+# Height of a lower panel relative to its upper panel when drawing at a width.
+LOWER_PANEL_FRACTION = 0.3
+
+
+def lower_height_ratios(n_lower):
+    """Height ratios of an upper panel and ``n_lower`` lower panels."""
+    if _style.figure_width is None:
+        return [3] + [1] * n_lower
+    return [1] + [LOWER_PANEL_FRACTION] * n_lower
+
+
+def get_common_figsize(ncols=1, nrows=1, height_ratios=None):
+    """Figure size (inches). At a --width (or the medium's), a row of panels
+    shares the width and each row is the preset's height; ``height_ratios``
+    (upper panel first) add the lower panels' height instead of squeezing.
+    Without a width, the old geometry: base width plus a panel width per
+    extra column."""
+    rows = max(1, int(nrows))
+    if _style.figure_width is not None:
+        height = _style.figure_row_height * rows
+        if height_ratios:
+            height *= sum(height_ratios) / height_ratios[0]
+        return (float(_style.figure_width), float(height))
     panel_count = max(1, int(ncols))
     width = _style.figure_base_width + _style.figure_panel_width * (panel_count - 1)
-    height = _style.figure_height * max(1, int(nrows))
+    height = _style.figure_height * rows
     return (float(width), float(height))
 
 
@@ -95,9 +119,10 @@ def create_common_subplots(nrows=1, ncols=1, **kwargs) -> tuple[Any, Any]:
     return fig, ax
 
 
-def create_common_two_panel_figure(ncols=1, height_ratios=(3, 1), hspace=None) -> tuple[Any, Any]:
+def create_common_two_panel_figure(ncols=1, height_ratios=None, hspace=None) -> tuple[Any, Any]:
     apply_panel_font_scale(ncols)
-    fig = plt.figure(figsize=get_common_figsize(ncols=ncols))
+    height_ratios = list(height_ratios or lower_height_ratios(1))
+    fig = plt.figure(figsize=get_common_figsize(ncols=ncols, height_ratios=height_ratios))
     resolved_hspace = _style.figure_two_panel_hspace if hspace is None else hspace
     grid = fig.add_gridspec(
         nrows=2,
@@ -107,6 +132,170 @@ def create_common_two_panel_figure(ncols=1, height_ratios=(3, 1), hspace=None) -
     )
     apply_common_figure_margins(fig, hspace=resolved_hspace)
     return fig, grid
+
+
+# --- Measured layout ---------------------------------------------------------
+#
+# The figure size is the print size. Before saving, the margins (and the
+# space between panels) are set from what was drawn: the tight box of every
+# panel (tick labels, axis labels, offset texts, titles, legends, colorbars)
+# plus figure_layout.pad_inches, never less than figure_layout.margins_inches.
+# "fixed_margins": true keeps the old fixed-inch margins instead.
+
+
+def measured_layout_enabled():
+    return not _style.figure_fixed_margins
+
+
+def reserve_top(fig, artist):
+    """Stack ``artist`` (a figure-level text, e.g. an experiment header)
+    between the figure title and the panels; the layout makes room for it."""
+    fig.__dict__.setdefault("_plotipus_top_artists", []).append(artist)
+
+
+def _minimum_margins(fig):
+    """figure_layout.margins_inches (scaled with the text) in inches."""
+    margins = _style.figure_margins_inches if isinstance(_style.figure_margins_inches, dict) else {}
+    text_scale = float(plt.rcParams["font.size"]) / _style.base_font_size
+    return {side: float(margins.get(side, 0.0)) * text_scale for side in ("left", "right", "bottom", "top")}
+
+
+def _layout_panels(fig):
+    """(gridspec, [(ax, rows, cols)]) of the visible gridspec panels, or None
+    when they do not share one gridspec."""
+    panels = []
+    for ax in fig.axes:
+        spec = ax.get_subplotspec()
+        if not ax.get_visible() or spec is None or hasattr(ax, "_colorbar"):
+            continue
+        panels.append((ax, spec.rowspan, spec.colspan, spec.get_gridspec()))
+    gridspecs = {id(gs) for *_, gs in panels}
+    if not panels or len(gridspecs) != 1:
+        return None
+    return panels[0][3], [(ax, rows, cols) for ax, rows, cols, _ in panels]
+
+
+def _panel_overhangs(fig, panels, renderer):
+    """Inches each panel's drawn box (with the colorbars it carries) reaches
+    beyond its gridspec slot: {ax: (left, right, bottom, top)}."""
+    dpi = fig.dpi
+    width, height = fig.get_size_inches()
+    extra = {}
+    for cax in fig.axes:
+        parents = getattr(cax, "_plotipus_colorbar_of", None)
+        if parents and cax.get_visible():
+            owner = max(parents, key=lambda a: a.get_position(original=True).x1)
+            extra.setdefault(owner, []).append(cax.get_tightbbox(renderer, for_layout_only=True))
+    overhangs = {}
+    for ax, _, _ in panels:
+        boxes = [ax.get_tightbbox(renderer, for_layout_only=True), *extra.get(ax, [])]
+        box = Bbox.union([b for b in boxes if b is not None and b.width > 0])
+        slot = ax.get_position(original=True)
+        overhangs[ax] = (
+            max(0.0, slot.x0 * width - box.x0 / dpi),
+            max(0.0, box.x1 / dpi - slot.x1 * width),
+            max(0.0, slot.y0 * height - box.y0 / dpi),
+            max(0.0, box.y1 / dpi - slot.y1 * height),
+        )
+    return overhangs
+
+
+def _top_artists(fig):
+    artists = [getattr(fig, "_suptitle", None), *getattr(fig, "_plotipus_top_artists", [])]
+    return [a for a in artists if a is not None and a.get_visible() and a.get_text()]
+
+
+def _spacing(gaps, available, count, minimum):
+    """gridspec wspace/hspace (a fraction of the panel size) leaving ``gaps``
+    inches between ``count`` panels in ``available`` inches."""
+    if count < 2:
+        return minimum
+    gap = max(gaps, default=0.0)
+    panel = (available - (count - 1) * gap) / count
+    return max(minimum, gap / panel) if panel > 0 else minimum
+
+
+def apply_measured_layout(fig, iterations=2):
+    """Set the margins and panel spacing of ``fig`` from its drawn extents
+    (see the section comment); the figure size never changes."""
+    if not measured_layout_enabled() or _layout_panels(fig) is None:
+        return
+    # Text widths depend on the resolution (hinting), so measure at the
+    # resolution the file is saved at.
+    save_dpi = plt.rcParams["savefig.dpi"]
+    figure_dpi = fig.dpi
+    if save_dpi != "figure":
+        fig.set_dpi(float(save_dpi))
+    try:
+        _measured_layout(fig, iterations)
+    finally:
+        fig.set_dpi(figure_dpi)
+
+
+def _measured_layout(fig, iterations):
+    found = _layout_panels(fig)
+    gridspec, panels = found
+    nrows, ncols = gridspec.get_geometry()
+    pad = _style.figure_pad_inches
+    minimum = _minimum_margins(fig)
+    width, height = fig.get_size_inches()
+    params = fig.subplotpars
+    min_wspace = gridspec.wspace if gridspec.wspace is not None else params.wspace
+    min_hspace = gridspec.hspace if gridspec.hspace is not None else params.hspace
+    # Upper/lower stacks keep their configured gap; grids of panels are measured.
+    fixed_hspace = gridspec.hspace is not None
+    fig.align_ylabels([ax for ax, _, _ in panels])
+
+    for _ in range(iterations):
+        fig.draw_without_rendering()
+        renderer = fig.canvas.get_renderer()
+        over = _panel_overhangs(fig, panels, renderer)
+        header = sum(a.get_window_extent(renderer).height / fig.dpi + pad for a in _top_artists(fig))
+
+        def side(index, test):
+            return max((over[ax][index] for ax, rows, cols in panels if test(rows, cols)), default=0.0)
+
+        left = max(minimum["left"], side(0, lambda r, c: c.start == 0) + pad)
+        right = max(minimum["right"], side(1, lambda r, c: c.stop == ncols) + pad)
+        bottom = max(minimum["bottom"], side(2, lambda r, c: r.stop == nrows) + pad)
+        top = max(minimum["top"], side(3, lambda r, c: r.start == 0) + pad + header)
+        wgaps = [side(1, lambda r, c, k=k: c.stop == k + 1) + side(0, lambda r, c, k=k: c.start == k + 1) + pad
+                 for k in range(ncols - 1)]
+        hgaps = [side(2, lambda r, c, k=k: r.stop == k + 1) + side(3, lambda r, c, k=k: r.start == k + 1) + pad
+                 for k in range(nrows - 1)]
+        # Never squeeze the panels below a quarter of the figure.
+        left, right = (min(left, 0.375 * width), min(right, 0.375 * width))
+        bottom, top = (min(bottom, 0.375 * height), min(top, 0.375 * height))
+        update = dict(left=left / width, right=1 - right / width, bottom=bottom / height, top=1 - top / height,
+                      wspace=_spacing(wgaps, width - left - right, ncols, min_wspace))
+        if not fixed_hspace:
+            update["hspace"] = _spacing(hgaps, height - bottom - top, nrows, min_hspace)
+        gridspec.update(**update)
+        params.update(**update)
+    _place_top_artists(fig, panels)
+
+
+def _place_top_artists(fig, panels):
+    """Stack the title (and reserved header artists) just above the panels,
+    the title centred over them."""
+    artists = _top_artists(fig)
+    if not artists:
+        return
+    fig.draw_without_rendering()
+    renderer = fig.canvas.get_renderer()
+    to_figure = fig.transFigure.inverted()
+    tops = [ax.get_tightbbox(renderer, for_layout_only=True) for ax, _, _ in panels]
+    y = max(to_figure.transform((0, b.y1))[1] for b in tops if b is not None)
+    pad = _style.figure_pad_inches / fig.get_figheight()
+    slots = [ax.get_position(original=True) for ax, _, _ in panels]
+    centre = (min(b.x0 for b in slots) + max(b.x1 for b in slots)) / 2
+    for artist in reversed(artists):
+        y += pad
+        artist.set_verticalalignment("bottom")
+        artist.set_y(y)
+        if getattr(artist, "_plotipus_centered", False):
+            artist.set_x(centre)
+        y += to_figure.transform((0, artist.get_window_extent(renderer).height))[1] - to_figure.transform((0, 0))[1]
 
 
 def _resolve_plot_style(plot_style):
@@ -321,10 +510,22 @@ def apply_legend_style(
         # Nothing labelled: an empty legend (matplotlib 3.11 rejects empty handles together with empty labels).
         return ax.legend(handles=[], **style)
 
+    # "best" (the style default) and "outside" are placed when the figure is
+    # saved (place_legends), on the finished axes; "none" hides the legend.
+    loc = style.get("loc", "best")
+    mode = None
+    if loc in (None, "best", "auto", "outside", "none") and "bbox_to_anchor" not in style:
+        mode = {"none": "none", "outside": "outside"}.get(loc, "auto")
+        style["loc"] = "upper right"
     if handles is not None or labels is not None:
-        return ax.legend(handles=handles, labels=labels, **style)
-
-    return ax.legend(**style)
+        legend = ax.legend(handles=handles, labels=labels, **style)
+    else:
+        legend = ax.legend(**style)
+    if mode == "none":
+        legend.set_visible(False)
+    elif mode is not None:
+        _defer_placement(legend, mode, handles, labels, style)
+    return legend
 
 
 LEGEND_PLACEMENT_CANDIDATES = (
@@ -335,359 +536,320 @@ LEGEND_PLACEMENT_CANDIDATES = (
     "lower left",
     "lower right",
 )
+# A placement is free when data covers less than this fraction of its box.
+LEGEND_FREE_FRACTION = 0.002
+# Legends with more entries go above the axes.
+LEGEND_MAX_INSIDE_ENTRIES = 6
+_LEGEND_PAD_PX = 4.0
+_legend_counter = iter(range(1 << 62))
 
 
-def sample_axes_data_points(ax):
-    """Sample the data drawn on *ax* as display-coordinate points.
-
-    Line vertices and collection offsets are transformed to display
-    coordinates; points outside the axes (NaN gaps, clipped tails) are
-    dropped. Used only to measure where a legend would cover data.
-    """
-    points = []
-    for line in ax.lines:
-        try:
-            x_data = np.asarray(line.get_xdata(), dtype=float)
-            y_data = np.asarray(line.get_ydata(), dtype=float)
-        except (TypeError, ValueError):
-            continue  # categorical axis; nothing numeric to sample
-        if x_data.size == 0 or x_data.shape != y_data.shape:
-            continue
-        points.append(ax.transData.transform(np.column_stack((x_data, y_data))))
-    for collection in ax.collections:
-        try:
-            offsets = np.asarray(collection.get_offsets(), dtype=float)
-        except (AttributeError, TypeError, ValueError):
-            offsets = np.empty((0, 2))
-        if offsets.size:
-            points.append(ax.transData.transform(offsets))
-
-    if not points:
-        return np.zeros((0, 2))
-
-    all_points = np.vstack(points)
-    return all_points[np.isfinite(all_points).all(axis=1)]
+def _defer_placement(legend, mode, handles, labels, style):
+    """Mark ``legend`` for :func:`place_legends`; keep what rebuilding it
+    (with more columns, above the axes) needs."""
+    legend._plotipus_placement = {"mode": mode, "order": next(_legend_counter), "handles": handles,
+                                  "labels": labels, "style": dict(style)}
 
 
-def sample_axes_drawn_points(ax, spacing_px=3.0):
-    """Sample everything drawn on *ax* densely along its drawn path.
-
-    Unlike sample_axes_data_points, this follows each segment of lines
-    (including their step drawstyle) and of patches (e.g. step histograms
-    from ax.hist), with one point every *spacing_px* display pixels, so a
-    legend box placed between two vertices still registers the data it
-    covers. Used by the free legend placement.
-    """
-    paths = []
-    for line in ax.lines:
-        try:
-            xy = np.asarray(line.get_xydata(), dtype=float)
-        except (TypeError, ValueError):
-            continue
-        if xy.ndim != 2 or len(xy) == 0:
-            continue
-        drawstyle = line.get_drawstyle()
-        if drawstyle in cbook.STEP_LOOKUP_MAP and drawstyle != "default" and len(xy) > 1:
-            xs, ys = cbook.STEP_LOOKUP_MAP[drawstyle](xy[:, 0], xy[:, 1])
-            xy = np.column_stack((xs, ys))
-        if ax.get_yscale() == "log":
-            # Steps that drop to y = 0 cannot be placed on a log axis: pin them
-            # below the axes so their vertical edges are still sampled.
-            xy = xy.copy()
-            xy[:, 1] = np.where(xy[:, 1] > 0, xy[:, 1], ax.get_ylim()[0] * 1e-3)
-        paths.append(ax.transData.transform(xy))
-    for patch in ax.patches:
-        path = patch.get_path()
-        if path is None or len(path.vertices) == 0:
-            continue
-        vertices = np.asarray(patch.get_patch_transform().transform(path.vertices), dtype=float)
-        if ax.get_yscale() == "log" and patch.get_transform().contains_branch(ax.transData):
-            # Step outlines drop to y = 0, which a log axis cannot place: pin those
-            # vertices below the axes so the vertical edges are still sampled.
-            vertices[:, 1] = np.where(vertices[:, 1] > 0, vertices[:, 1], ax.get_ylim()[0] * 1e-3)
-            paths.append(ax.transData.transform(vertices))
-        else:
-            paths.append(patch.get_transform().transform(path.vertices))
-    for collection in ax.collections:
-        # Line collections (e.g. error bars) are sampled along their segments.
-        for segment in getattr(collection, "get_segments", lambda: [])():
-            segment = np.asarray(segment, dtype=float)
-            if segment.ndim == 2 and len(segment):
-                paths.append(collection.get_transform().transform(segment))
-        try:
-            offsets = np.asarray(collection.get_offsets(), dtype=float)
-        except (AttributeError, TypeError, ValueError):
-            offsets = np.empty((0, 2))
-        if offsets.size:
-            paths.append(ax.transData.transform(offsets))
-
-    points = []
-    for display in paths:
-        display = display[np.isfinite(display).all(axis=1)]
-        if len(display) == 0:
-            continue
-        points.append(display)
-        if len(display) < 2:
-            continue
-        starts, ends = display[:-1], display[1:]
-        lengths = np.hypot(*(ends - starts).T)
-        for start, end, length in zip(starts, ends, lengths):
-            n_steps = int(length // spacing_px)
-            if n_steps > 1:
-                frac = np.linspace(0, 1, n_steps + 1)[1:-1, None]
-                points.append(start + frac * (end - start))
-    if not points:
-        return np.zeros((0, 2))
-    all_points = np.vstack(points)
-    axes_box = ax.get_window_extent()
-    inside = (
-        (all_points[:, 0] >= axes_box.x0) & (all_points[:, 0] <= axes_box.x1)
-        & (all_points[:, 1] >= axes_box.y0) & (all_points[:, 1] <= axes_box.y1)
-    )
-    return all_points[inside]
+def apply_legend_style_clear_of_data(ax, avoid_boxes=(), candidate_locs=None, pad_px=None,
+                                     max_height_fraction=None, **legend_kwargs):
+    """A legend placed where it covers the least data (corners first, then
+    any free position; see :func:`place_legends`). Legends already on the
+    axes are avoided, so ``avoid_boxes`` is no longer needed."""
+    legend_kwargs.setdefault("loc", "best")
+    return apply_legend_style(ax, **legend_kwargs)
 
 
-def apply_legend_style_free(ax, grid=13, pad_px=6.0, inset_px=10.0, **legend_kwargs):
-    """Draw a legend at the free position (not only a corner) clearest of data.
+def apply_legend_style_free(ax, **legend_kwargs):
+    """Like :func:`apply_legend_style_clear_of_data`, but every free position
+    is as good as a corner (--legend_free)."""
+    legend = apply_legend_style_clear_of_data(ax, **legend_kwargs)
+    if hasattr(legend, "_plotipus_placement"):
+        legend._plotipus_placement["mode"] = "free"
+    return legend
 
-    Probes the legend on a grid of anchor positions spanning the axes and
-    keeps the one covering the fewest densely sampled drawn points; ties go
-    to the position farthest from the nearest drawn point. Opt-in per plot
-    (--legend_free): the default placement stays apply_legend_style_clear_of_data.
-    """
+
+def apply_legend_pair_clear_of_data(ax, primary_kwargs, secondary_kwargs, candidate_locs=None, pad_px=None,
+                                    max_height_fraction=None, primary_loc=None, secondary_loc=None):
+    """Two legends on one axes (colour and line style), each where it covers
+    the least data and away from the other. Both are returned; the primary
+    is kept alive with ``ax.add_artist``."""
+    primary = apply_legend_style(ax, **({"loc": primary_loc} if primary_loc else {}), **primary_kwargs)
+    ax.add_artist(primary)
+    secondary = apply_legend_style(ax, **({"loc": secondary_loc} if secondary_loc else {}), **secondary_kwargs)
+    return primary, secondary
+
+
+def _axes_legends(ax):
+    found = [a for a in ax.artists if isinstance(a, Legend)]
+    if ax.legend_ is not None and ax.legend_ not in found:
+        found.append(ax.legend_)
+    return found
+
+
+def axes_occupancy(ax, renderer=None, extra_boxes=()):
+    """Occupancy of ``ax``: a boolean mask over its pixels (row 0 at the
+    bottom), True where a data artist (line, patch, collection, image, text)
+    draws anything. Filled bars, bands and filled contours count whole.
+    ``extra_boxes`` (display boxes, e.g. legends already placed) are marked
+    occupied too."""
+    from matplotlib.backends.backend_agg import RendererAgg
+
     fig = ax.figure
-    fig.canvas.draw()
-    renderer = fig.canvas.get_renderer()
-    data_points = sample_axes_drawn_points(ax)
-    axes_box = ax.get_window_extent(renderer)
-    probe_box = probe_legend_box(ax, renderer, "upper left", **legend_kwargs)
-    width = probe_box.width / axes_box.width
-    height = probe_box.height / axes_box.height
-    # Keep the legend off the axes frame, like the default corner padding.
-    inset_x = inset_px / axes_box.width
-    inset_y = inset_px / axes_box.height
-    if width + 2 * inset_x >= 1 or height + 2 * inset_y >= 1:
-        return apply_legend_style_clear_of_data(ax, **legend_kwargs)
-
-    best = None
-    for fx in np.linspace(inset_x, 1 - width - inset_x, grid):
-        for fy in np.linspace(height + inset_y, 1 - inset_y, grid):
-            x0 = axes_box.x0 + fx * axes_box.width
-            y1 = axes_box.y0 + fy * axes_box.height
-            box = Bbox.from_extents(x0, y1 - probe_box.height, x0 + probe_box.width, y1)
-            score = _legend_obstruction_score(box, data_points, pad_px=pad_px)
-            if len(data_points):
-                cx = np.clip(data_points[:, 0], box.x0, box.x1)
-                cy = np.clip(data_points[:, 1], box.y0, box.y1)
-                clearance = float(np.min(np.hypot(data_points[:, 0] - cx, data_points[:, 1] - cy)))
-            else:
-                clearance = 0.0
-            key = (score, -clearance)
-            if best is None or key < best[0]:
-                best = (key, (fx, fy))
-
-    # Legend frame padding (borderaxespad) is not applied with an explicit
-    # anchor in axes fraction, so the probed and drawn boxes coincide.
-    return apply_legend_style(
-        ax, loc="upper left", bbox_to_anchor=best[1], borderaxespad=0.0, **legend_kwargs
-    )
+    width, height = int(np.ceil(fig.bbox.width)), int(np.ceil(fig.bbox.height))
+    agg = RendererAgg(width, height, fig.dpi)
+    artists = [*ax.lines, *ax.patches, *ax.collections, *ax.images, *ax.texts,
+               *(a for a in ax.artists if not isinstance(a, Legend))]
+    for artist in sorted(artists, key=lambda a: a.get_zorder()):
+        if artist.get_visible():
+            artist.draw(agg)
+    alpha = np.asarray(agg.buffer_rgba())[::-1, :, 3] > 0  # flip: row 0 at the bottom
+    box = ax.bbox
+    x0, x1 = max(0, int(np.floor(box.x0))), min(width, int(np.ceil(box.x1)))
+    y0, y1 = max(0, int(np.floor(box.y0))), min(height, int(np.ceil(box.y1)))
+    mask = alpha[y0:y1, x0:x1].copy()
+    for extra in extra_boxes:
+        ex0, ex1 = int(extra.x0) - x0, int(np.ceil(extra.x1)) - x0
+        ey0, ey1 = int(extra.y0) - y0, int(np.ceil(extra.y1)) - y0
+        mask[max(0, ey0):max(0, ey1), max(0, ex0):max(0, ex1)] = True
+    return mask, (x0, y0)
 
 
-def _legend_obstruction_score(legend_box, data_points, avoid_boxes=(), pad_px=10.0, avoid_pad_px=2.0):
-    """Count how much a candidate legend box obstructs the plot.
+class _Occupancy:
+    """Fraction of occupied pixels in any display box (summed-area table)."""
 
-    One point per data sample inside the padded box, plus a dominant penalty
-    for any overlap with the given avoid boxes (e.g. legends already placed).
-    """
-    padded = Bbox.from_extents(
-        legend_box.x0 - pad_px,
-        legend_box.y0 - pad_px,
-        legend_box.x1 + pad_px,
-        legend_box.y1 + pad_px,
-    )
-    score = 0.0
-    if len(data_points):
-        inside = (
-            (data_points[:, 0] >= padded.x0)
-            & (data_points[:, 0] <= padded.x1)
-            & (data_points[:, 1] >= padded.y0)
-            & (data_points[:, 1] <= padded.y1)
-        )
-        score += float(inside.sum())
-    for avoid in avoid_boxes:
-        if avoid is None:
-            continue
-        padded_avoid = Bbox.from_extents(
-            avoid.x0 - avoid_pad_px,
-            avoid.y0 - avoid_pad_px,
-            avoid.x1 + avoid_pad_px,
-            avoid.y1 + avoid_pad_px,
-        )
-        overlap = Bbox.intersection(padded, padded_avoid)
-        if overlap is not None and overlap.width > 0 and overlap.height > 0:
-            score += 1e6 + overlap.width * overlap.height
-    return score
+    def __init__(self, mask, origin):
+        self.origin = origin
+        self.shape = mask.shape
+        self.table = np.pad(mask.astype(np.int32).cumsum(0).cumsum(1), ((1, 0), (1, 0)))
+
+    def fraction(self, box, pad=_LEGEND_PAD_PX):
+        x0, y0 = self.origin
+        h, w = self.shape
+        c0, c1 = int(np.clip(box.x0 - pad - x0, 0, w)), int(np.clip(box.x1 + pad - x0, 0, w))
+        r0, r1 = int(np.clip(box.y0 - pad - y0, 0, h)), int(np.clip(box.y1 + pad - y0, 0, h))
+        area = (c1 - c0) * (r1 - r0)
+        if area <= 0:
+            return 1.0
+        t = self.table
+        return float(t[r1, c1] - t[r0, c1] - t[r1, c0] + t[r0, c0]) / area
 
 
-def _legend_variants(ax, renderer, legend_kwargs, max_height_fraction):
-    """Return the legend kwargs variants to try: as given, plus column-folded.
-
-    The folded variant is appended only when folding actually changes the
-    column count, so a pinned style is never overridden.
-    """
-    variants = [dict(legend_kwargs)]
-    folded = dict(legend_kwargs)
-    fold_legend_columns(ax, renderer, folded, max_height_fraction)
-    if folded.get("ncol") != variants[0].get("ncol"):
-        variants.append(folded)
-    return variants
-
-
-def apply_legend_style_clear_of_data(
-    ax,
-    avoid_boxes=(),
-    candidate_locs=LEGEND_PLACEMENT_CANDIDATES,
-    pad_px=10.0,
-    max_height_fraction=0.2,
-    **legend_kwargs,
-):
-    """Draw a legend at the location least obstructed by data.
-
-    Probes each candidate corner with the final legend content, scores how
-    many sampled data points the legend box would cover (plus penalties for
-    overlapping any *avoid_boxes*, such as legends already on the axes), and
-    keeps the winner. Falls back to the first candidate on an empty axes.
-
-    A legend taller than *max_height_fraction* of the axes is additionally
-    tried with more columns (while it still fits the axes width), since an
-    oversized legend cannot avoid the data anywhere; the variant/corner
-    combination with the least obstruction wins.
-    """
-    fig = ax.figure
-    fig.canvas.draw()
-    renderer = fig.canvas.get_renderer()
-    variants = _legend_variants(ax, renderer, legend_kwargs, max_height_fraction)
-    data_points = sample_axes_drawn_points(ax)
-    avoid = [b for b in avoid_boxes if b is not None]
-
-    best = None
-    for variant in variants:
-        for loc in candidate_locs:
-            probe_box = probe_legend_box(ax, renderer, loc, **variant)
-            score = _legend_obstruction_score(probe_box, data_points, avoid, pad_px=pad_px)
-            if best is None or score < best[0]:
-                best = (score, loc, variant)
-
-    return apply_legend_style(ax, loc=best[1], **best[2])
+def _corner_box(ax, loc, width, height, pad):
+    """Display box of a legend of the given size at a corner ``loc``."""
+    box = ax.bbox
+    x0 = box.x0 + pad if "left" in loc else box.x1 - pad - width
+    if loc.startswith("upper"):
+        y0 = box.y1 - pad - height
+    elif loc.startswith("lower"):
+        y0 = box.y0 + pad
+    else:
+        y0 = (box.y0 + box.y1 - height) / 2
+    return Bbox.from_bounds(x0, y0, width, height)
 
 
-def apply_legend_pair_clear_of_data(
-    ax,
-    primary_kwargs,
-    secondary_kwargs,
-    candidate_locs=LEGEND_PLACEMENT_CANDIDATES,
-    pad_px=10.0,
-    max_height_fraction=0.2,
-    primary_loc=None,
-    secondary_loc=None,
-):
-    """Draw two legends on the same axes with a joint obstruction score.
-
-    Tries every pair of candidate corners (and, for oversized legends, the
-    column-folded variants) and keeps the combination that covers the least
-    data overall, with a dominant penalty whenever the two boxes would
-    overlap. *primary_loc* / *secondary_loc* pin one of the two legends to a
-    fixed location; the other is then placed around it.
-
-    The caller must keep the primary legend alive (``ax.add_artist``) when it
-    is superseded by the secondary axes legend; both are returned.
-    """
-    fig = ax.figure
-    fig.canvas.draw()
-    renderer = fig.canvas.get_renderer()
-    primary_variants = _legend_variants(ax, renderer, primary_kwargs, max_height_fraction)
-    secondary_variants = _legend_variants(ax, renderer, secondary_kwargs, max_height_fraction)
-    data_points = sample_axes_drawn_points(ax)
-
-    primary_locs = (primary_loc,) if primary_loc else candidate_locs
-    secondary_locs = (secondary_loc,) if secondary_loc else candidate_locs
-
-    def cached_box(which, loc, variant):
-        return probe_legend_box(ax, renderer, loc, **variant)
-
-    best = None
-    for variant_primary in primary_variants:
-        for loc_primary in primary_locs:
-            box_primary = cached_box("primary", loc_primary, variant_primary)
-            score_primary = _legend_obstruction_score(box_primary, data_points, (), pad_px)
-            for variant_secondary in secondary_variants:
-                for loc_secondary in secondary_locs:
-                    if loc_secondary == loc_primary:
-                        continue
-                    box_secondary = cached_box("secondary", loc_secondary, variant_secondary)
-                    score_secondary = _legend_obstruction_score(
-                        box_secondary, data_points, (box_primary,), pad_px
-                    )
-                    total = score_primary + score_secondary
-                    if best is None or total < best[0]:
-                        best = (
-                            total,
-                            loc_primary,
-                            variant_primary,
-                            loc_secondary,
-                            variant_secondary,
-                        )
-
-    if best is None:
-        # Only reachable when both legends are pinned to the same location.
-        best = (
-            0.0,
-            primary_locs[0],
-            primary_variants[0],
-            secondary_locs[-1] if len(secondary_locs) > 1 else "lower right",
-            secondary_variants[0],
-        )
-
-    leg_primary = apply_legend_style(ax, loc=best[1], **best[2])
-    ax.add_artist(leg_primary)
-    leg_secondary = apply_legend_style(ax, loc=best[3], **best[4])
-    return leg_primary, leg_secondary
+def _free_boxes(ax, width, height, pad, grid=9):
+    box = ax.bbox
+    for fx in np.linspace(0, 1, grid):
+        for fy in np.linspace(0, 1, grid):
+            x0 = box.x0 + pad + fx * (box.width - width - 2 * pad)
+            y0 = box.y0 + pad + fy * (box.height - height - 2 * pad)
+            yield Bbox.from_bounds(x0, y0, width, height)
 
 
-def fold_legend_columns(ax, renderer, legend_kwargs, max_height_fraction=0.2):
-    """Fold a legend into more columns while it is taller than the fraction.
+def _best_inside(ax, legend, occupancy, renderer):
+    """(fraction, setter) of the best inside position of ``legend``."""
+    size = legend.get_window_extent(renderer)
+    pad = legend.borderaxespad * legend._fontsize * ax.figure.dpi / 72.0
+    if size.width + 2 * pad > ax.bbox.width or size.height + 2 * pad > ax.bbox.height:
+        return 1.0, None
+    mode = legend._plotipus_placement["mode"]
+    corners = [(occupancy.fraction(_corner_box(ax, loc, size.width, size.height, pad)), loc)
+               for loc in LEGEND_PLACEMENT_CANDIDATES]
+    best_corner = min(corners, key=lambda item: item[0])
+    if mode != "free" and best_corner[0] <= LEGEND_FREE_FRACTION:
+        return best_corner[0], lambda: _set_corner(legend, best_corner[1])
+    free = min(((occupancy.fraction(b), b) for b in _free_boxes(ax, size.width, size.height, pad)),
+               key=lambda item: item[0])
+    if best_corner[0] <= free[0]:
+        return best_corner[0], lambda: _set_corner(legend, best_corner[1])
+    return free[0], lambda: _set_anchor(legend, ax, free[1])
 
-    No-op when a column count is already pinned through the style or explicit
-    kwargs, or when the legend already fits. Mutates *legend_kwargs* in place.
-    """
-    style_ncol = _style.legend_style.get("ncol") if isinstance(_style.legend_style, dict) else None
-    if "ncol" in legend_kwargs or style_ncol is not None:
-        return
 
-    axes_box = ax.get_window_extent(renderer)
-    box, n_entries = probe_legend_box(ax, renderer, LEGEND_PLACEMENT_CANDIDATES[0], with_entries=True, **legend_kwargs)
-    ncol = 1
-    while box.height > max_height_fraction * axes_box.height and ncol < n_entries:
-        trial_box, _ = probe_legend_box(
-            ax, renderer, LEGEND_PLACEMENT_CANDIDATES[0], with_entries=True, ncol=ncol + 1, **legend_kwargs
-        )
-        if trial_box.width > 0.95 * axes_box.width:
+def _set_corner(legend, loc):
+    legend.set_bbox_to_anchor(None)
+    legend.set_loc(loc)
+
+
+def _set_anchor(legend, ax, box):
+    corner = ax.transAxes.inverted().transform((box.x0, box.y1))
+    legend.borderaxespad = 0.0
+    legend.set_loc("upper left")
+    legend.set_bbox_to_anchor(tuple(corner), transform=ax.transAxes)
+
+
+def _headroom(ax, legend, renderer):
+    """Extend the top of the y range by the legend's height (log axes by
+    whole decades); False when the range is fixed (--rangey, set limits)."""
+    if not ax.get_autoscaley_on() or getattr(ax, "_plotipus_fixed_ylim", False):
+        return False
+    size = legend.get_window_extent(renderer)
+    pad = legend.borderaxespad * legend._fontsize * ax.figure.dpi / 72.0
+    fraction = (size.height + 2 * pad) / ax.bbox.height
+    if fraction >= 0.6:
+        return False
+    bottom, top = ax.get_ylim()
+    if ax.get_yscale() == "log":
+        low, high = np.log10(bottom), np.log10(top)
+        ax.set_ylim(bottom, 10 ** np.ceil(low + (high - low) / (1 - fraction)))
+    else:
+        ax.set_ylim(bottom, bottom + (top - bottom) / (1 - fraction))
+    return True
+
+
+def _has_panel_above(ax):
+    """A lower panel: another visible axes sharing x sits right above it."""
+    box = ax.get_position()
+    return any(other is not ax and other.get_visible() and other.get_position().y0 >= box.y1 - 1e-6
+               for other in ax.get_shared_x_axes().get_siblings(ax))
+
+
+def _place_outside(ax, legend, renderer):
+    """Above the axes (and its title), in as many columns as fit. The anchor
+    is a fixed offset in points from the axes top, so it stays clear of the
+    title when the layout resizes the axes."""
+    from matplotlib.transforms import offset_copy
+
+    info = legend._plotipus_placement
+    style = dict(info["style"], loc="lower center")
+    entries = max(1, len(legend.get_texts()))
+    # Above the panel title and any legend already placed above the axes.
+    above = [t.get_window_extent(renderer) for t in (ax.title, ax._left_title, ax._right_title)
+             if t.get_visible() and t.get_text()]
+    above += [lg.get_window_extent(renderer) for lg in _axes_legends(ax)
+              if lg is not legend and getattr(lg, "_plotipus_placement", {}).get("outside")]
+    rise = max([0.0, *(b.y1 - ax.bbox.y1 for b in above)]) * 72.0 / ax.figure.dpi
+    anchor = offset_copy(ax.transAxes, fig=ax.figure, y=rise, units="points")
+    rebuilt = legend
+    for ncol in range(entries, 0, -1):
+        rebuilt = _rebuild_legend(ax, rebuilt, dict(style, ncol=ncol, bbox_to_anchor=(0.5, 1.0),
+                                                    bbox_transform=anchor, borderaxespad=0.2))
+        if rebuilt.get_window_extent(renderer).width <= ax.bbox.width or ncol == 1:
             break
-        ncol += 1
-        box = trial_box
-    if ncol > 1:
-        legend_kwargs["ncol"] = ncol
+    return rebuilt
 
 
-def probe_legend_box(ax, renderer, loc, with_entries=False, **legend_kwargs):
-    """Create a throwaway legend at *loc* and return its window extent."""
-    probe = apply_legend_style(ax, loc=loc, **legend_kwargs)
-    box = probe.get_window_extent(renderer)
-    n_entries = max(1, len(probe.get_texts()))
-    probe.remove()
-    if with_entries:
-        return box, n_entries
-    return box
+def _rebuild_legend(ax, legend, style):
+    """Replace ``legend`` by a new one with ``style`` (same entries)."""
+    info = legend._plotipus_placement
+    kept = legend in ax.artists
+    zorder = legend.get_zorder()
+    legend.remove()
+    if kept:
+        new = Legend(ax, *_legend_entries(ax, info), **style)
+        ax.add_artist(new)
+    else:
+        if info["handles"] is not None or info["labels"] is not None:
+            new = ax.legend(handles=info["handles"], labels=info["labels"], **style)
+        else:
+            new = ax.legend(**style)
+    new.set_zorder(zorder)
+    new._plotipus_placement = dict(info, mode="placed", outside=True)
+    return new
+
+
+def _legend_entries(ax, info):
+    handles, labels = info["handles"], info["labels"]
+    if handles is None and labels is None:
+        return ax.get_legend_handles_labels()
+    if handles is None:
+        return ax.get_legend_handles_labels()[0], labels
+    return handles, labels if labels is not None else [h.get_label() for h in handles]
+
+
+def _right_edge_value(handle, ax):
+    """y of a legend handle's series at its right-most x in view, or None."""
+    from matplotlib.container import Container
+    from matplotlib.patches import StepPatch
+
+    if isinstance(handle, Container) and len(handle) and isinstance(handle[0], plt.Line2D):
+        handle = handle[0]
+    if isinstance(handle, plt.Line2D):
+        try:
+            x = np.asarray(handle.get_xdata(), dtype=float)
+            y = np.asarray(handle.get_ydata(), dtype=float)
+        except (TypeError, ValueError):
+            return None
+        low, high = sorted(ax.get_xlim())
+        keep = np.isfinite(x) & np.isfinite(y) & (x >= low) & (x <= high)
+        return float(y[keep][np.argmax(x[keep])]) if keep.any() else None
+    if isinstance(handle, StepPatch):
+        values = np.asarray(handle.get_data().values, dtype=float)
+        finite = values[np.isfinite(values)]
+        return float(finite[-1]) if finite.size else None
+    return None
+
+
+def order_legend_entries(ax, handles, labels, stacked=False, keep_first=(), keep_last=()):
+    """Legend entries in the order of the data: a stack top first, lines by
+    the height of their right-hand ends (highest first; entries without a
+    value keep their place at the end). Labels in ``keep_first`` (e.g. data)
+    stay in front, those in ``keep_last`` (e.g. an uncertainty band) at the
+    end, in that order."""
+    first = [i for i, label in enumerate(labels) if label in keep_first]
+    last = [i for label in keep_last for i, other in enumerate(labels) if other == label and i not in first]
+    rest = [i for i in range(len(labels)) if i not in first and i not in last]
+    if stacked:
+        rest = rest[::-1]
+    else:
+        values = {i: _right_edge_value(handles[i], ax) for i in rest}
+        valued = sorted((i for i in rest if values[i] is not None), key=lambda i: -values[i])
+        rest = valued + [i for i in rest if values[i] is None]
+    order = first + rest + last
+    return [handles[i] for i in order], [labels[i] for i in order]
+
+
+def _area(box):
+    return box.width * box.height
+
+
+def place_legends(fig):
+    """Place every automatic legend of ``fig`` on its finished axes: the
+    emptiest corner, else the emptiest free position, else headroom above
+    the data, else above the axes (also with more than
+    LEGEND_MAX_INSIDE_ENTRIES entries or loc "outside"). Legends placed
+    earlier on the same axes are avoided. Returns whether any moved."""
+    pending = [(ax, legend) for ax in fig.axes for legend in _axes_legends(ax)
+               if getattr(legend, "_plotipus_placement", {}).get("mode") in ("auto", "free", "outside")
+               and legend.get_visible()]
+    if not pending:
+        return False
+    # The axes are laid out already, and a legend computes its own box from
+    # its location: no full draw is needed. Larger legends choose first.
+    renderer = fig.canvas.get_renderer()
+    pending.sort(key=lambda item: (-_area(item[1].get_window_extent(renderer)), item[1]._plotipus_placement["order"]))
+    for ax, legend in pending:
+        info = legend._plotipus_placement
+        lower_panel = _has_panel_above(ax)
+        if not lower_panel and (info["mode"] == "outside" or len(legend.get_texts()) > LEGEND_MAX_INSIDE_ENTRIES):
+            _place_outside(ax, legend, renderer)
+            continue
+        others = [lg.get_window_extent(renderer) for lg in _axes_legends(ax)
+                  if lg is not legend and lg.get_visible()
+                  and getattr(lg, "_plotipus_placement", {}).get("mode") not in ("auto", "free", "outside")]
+        occupancy = _Occupancy(*axes_occupancy(ax, renderer, others))
+        fraction, setter = _best_inside(ax, legend, occupancy, renderer)
+        if fraction > LEGEND_FREE_FRACTION and _headroom(ax, legend, renderer):
+            occupancy = _Occupancy(*axes_occupancy(ax, renderer, others))
+            fraction, setter = _best_inside(ax, legend, occupancy, renderer)
+        if lower_panel and setter is not None:
+            pass  # nothing above a lower panel but its upper panel: the emptiest place inside
+        elif fraction > LEGEND_FREE_FRACTION or setter is None:
+            _place_outside(ax, legend, renderer)
+            continue
+        setter()
+        info["mode"] = "placed"
+    return True
 
 
 # Plot types whose y errors follow --errory_type (bar charts and scatter
@@ -699,8 +861,9 @@ def errory_type(args, plot_type):
     """--errory_type, or its default for the plot type: bands for lines and
     steps, bars for points."""
     selected = getattr(args, "errory_type", None)
-    if selected is not None:
+    if selected in ("bars", "bands"):
         return selected
+    # None, or an interval (poisson, clopper_pearson): the errors are drawn the default way.
     return "bars" if plot_type in ("errorbar", "scatter") else "bands"
 
 
@@ -1007,13 +1170,15 @@ def add_note_to_axes(ax, note_text, fontsize=None):
         fontsize = configured_fontsize
     
     # Candidate anchors (x, y) in axes coordinates, in order of preference;
-    # the note goes where it covers the least drawn data, clear of legends.
+    # the note goes where it covers the least drawn data, clear of fixed
+    # legends (automatic legends are placed later, around the note).
     positions = [(0.98, 0.98), (0.02, 0.98), (0.02, 0.02), (0.98, 0.02), (0.98, 0.5), (0.02, 0.5)]
     fig = ax.figure
-    fig.canvas.draw()
+    fig.draw_without_rendering()
     renderer = fig.canvas.get_renderer()
-    points = sample_axes_drawn_points(ax)
-    legends = [a.get_window_extent(renderer) for a in ax.get_children() if isinstance(a, Legend)]
+    legends = [lg.get_window_extent(renderer) for lg in _axes_legends(ax) if lg.get_visible()
+               and getattr(lg, "_plotipus_placement", {}).get("mode") not in ("auto", "free", "outside")]
+    occupancy = _Occupancy(*axes_occupancy(ax, renderer, legends))
 
     def place(x, y):
         return ax.text(
@@ -1029,7 +1194,7 @@ def add_note_to_axes(ax, note_text, fontsize=None):
     best = None
     for x, y in positions:
         probe = place(x, y)
-        score = _legend_obstruction_score(probe.get_window_extent(renderer), points, legends)
+        score = occupancy.fraction(probe.get_window_extent(renderer))
         probe.remove()
         if best is None or score < best[0]:
             best = (score, x, y)
@@ -1073,6 +1238,7 @@ def add_centered_suptitle(fig, title, fontsize=None, **kwargs):
         kwargs.setdefault("x", (x0 + x1) / 2)
 
     text = fig.suptitle(title, fontsize=fontsize, **kwargs)
+    text._plotipus_centered = True
     _shorten_title_to_fit(fig, text)
     return text
 
@@ -1485,6 +1651,8 @@ def _expand_margins_for_artists(fig, artists, pad_px=4):
     and the Axes box is kept at its original absolute (inch) size and shifted
     to make room, so only the surrounding whitespace grows.
     """
+    if measured_layout_enabled():
+        return  # the pointer labels belong to the axes, so the layout makes room
     try:
         renderer = fig.canvas.get_renderer()
     except Exception:

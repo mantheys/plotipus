@@ -1,0 +1,13 @@
+# The gallery (T23): one example per working catalogue row
+# (docs/design/catalogue.md). `make -C .. gallery`, or by hand:
+#   python make_data.py && python make_page.py
+# The famous-plot commands need the famous project's plugins and its colour
+# and label mappings (copied by make_data.py); the style is the default.
+[project]
+data_root = "input/data"
+plots = "input/plots"
+tables = "input/tables"
+output = "output"
+style = ["input/famous_mappings.json", "style.json"]
+python_path = ["../famous"]
+plugins = ["models", "annotations", "colorscale"]

@@ -1,0 +1,19 @@
+# The gallery's tables (catalogue section J), same format as
+# ../plots/gallery_scripts.txt: plotipus run gallery --tables.
+
+# == J Tables
+
+# J1 Values ± errors per config and variable
+table --datafile Summary -y Value --variables Efficiency Purity Rate --title 'Detector performance' --output_name J1.tex
+
+# J2 Efficiency table with Clopper–Pearson intervals
+table --datafile TriggerEfficiency -x Energy --rangex 30 100 -y Efficiency --variable_name Particle --variables electron pion --clopper_pearson Passed --title 'Trigger efficiency (\%) above 30 GeV' --output_name J2.tex
+
+# J3 siunitx / booktabs output with caption and label
+table --datafile Summary -y Value --variables Efficiency Purity Rate --siunitx --caption 'Efficiency, purity and rate of the two layouts.' --label tab:summary --output_name J3.tex
+
+# J4 HTML twin of a table
+table --datafile Summary -y Value --variables Efficiency Purity Rate --html --title 'Detector performance' --output_name J4.tex
+
+# J5 Cut flow
+# needs T22.11: table --datafile Yields -y Counts --variable_name Stage --cutflow --output_name J5.tex
