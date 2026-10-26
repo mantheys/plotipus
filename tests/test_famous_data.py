@@ -130,7 +130,7 @@ def test_physics_anchors(frames):
 
 @pytest.mark.parametrize("command", COMMANDS, ids=[f"{i:02d}" for i in range(len(COMMANDS))])
 def test_command_renders(command, frames, make_project):
-    config = (f'python_path = ["{FAMOUS.as_posix()}"]\nplugins = ["models", "annotations"]\n'
+    config = (f'python_path = ["{FAMOUS.as_posix()}"]\nplugins = ["models", "annotations", "colorscale"]\n'
               f'style = ["{(FAMOUS / "style.json").as_posix()}"]\n')
     out = make_project(frames, config=config)
     kind, *argv = build_command(command)
@@ -149,7 +149,8 @@ def test_paper_style_keeps_one_figure_size(frames, make_project):
     from PIL import Image
 
     styles = ", ".join(f'"{(path).as_posix()}"' for path in (FAMOUS / "style.json", FAMOUS / "paper" / "paper.json"))
-    config = (f'python_path = ["{FAMOUS.as_posix()}"]\nplugins = ["models", "annotations"]\nstyle = [{styles}]\n'
+    config = (f'python_path = ["{FAMOUS.as_posix()}"]\nplugins = ["models", "annotations", "colorscale"]\n'
+              f'style = [{styles}]\n'
               "[settings]\ntext_scale = 0.75\n")
     out = make_project(frames, config=config)
     command = next(c for c in COMMANDS if c.startswith("line --datafile Anscombe") and "--single_panel_size" in c)

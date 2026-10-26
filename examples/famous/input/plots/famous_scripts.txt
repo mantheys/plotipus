@@ -107,10 +107,10 @@ line --datafile Moseley -x AtomicNumber -y SqrtFrequency --hue Series --select T
 line --datafile Leavitt -x LogPeriod -y Magnitude --hue Brightness --data_hue Maximum Minimum --iterable_color_mapping leavitt_colors --plot_type line --rangex 0 2.2 --rangey 17 10.5 --legend_loc 'lower right' --labelx 'log P (days)' --labely 'Apparent magnitude'
 line --datafile Leavitt -x LogPeriod -y Magnitude --hue Brightness --select Type -s Data --fit --rangey 17 10.5 --labelx 'log P (days)' --labely 'Apparent magnitude'
 
-# F22 Gaia DR2 HR diagram (Babusiaux et al. 2018, Fig. 1): 2D histogram, log colour, M_G inverted
-# gap: --cmap is ignored for 2D histograms (the colour map comes from the project style) -> T22.3
+# F22 Gaia DR2 HR diagram (Babusiaux et al. 2018, Fig. 5): 2D histogram, square-root red colour scale, M_G inverted
+# gap: a square-root (power) colour scale and --cmap for 2D histograms (here the colorscale.py plugin) -> T22.3
 # gap: a top axis in temperature and a right axis in luminosity -> TODO.md (postponed)
-map --datafile HRDiagram -x BPRP -y MG --logz --bins 150 --rangex -0.7 5 --rangey 16.5 -4 --labelx '$G_{BP}-G_{RP}$' --labely '$M_G$'
+map --datafile HRDiagram -x BPRP -y MG --bins 200 --zpower 0.5 --zcmap hot --rangex -0.7 5 --rangey 16.5 -4 --labelx '$G_{BP}-G_{RP}$' --labely '$M_G$'
 
 # F25 Anscombe's quartet (real data): four panels with the shared regression line
 # gap: shared axes across the panels -> T22.6

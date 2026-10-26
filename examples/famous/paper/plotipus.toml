@@ -6,7 +6,7 @@ plots = "../input/plots"
 output = "output"
 style = ["../style.json", "paper.json"]
 python_path = [".."]
-plugins = ["models", "annotations"]
+plugins = ["models", "annotations", "colorscale"]
 
 [settings]
 text_scale = 0.75
