@@ -84,8 +84,8 @@ make -C examples mascot      # re-render the mascot and the tutorial figures
 
 Famous figures from particle physics, cosmology, astronomy and climate
 science, redrawn by plotipus from datasets built to match the
-originals (synthetic, except Hubble's published table and the Gaia DR2 star
-counts, queried as in the paper). Each
+originals: public data where it exists (Gaia, NOAA, SPARC, Hubble's table)
+and synthetic data otherwise. Each
 one was compared with the published figure. The data generators, the
 commands and what is still missing are in
 [examples/famous](examples/famous/README.md); `make -C examples famous`
@@ -104,11 +104,11 @@ style: serif text, a 3.5 in column width and one figure size for all.
   <a href="https://arxiv.org/abs/astro-ph/9805201"><img src="docs/images/famous/omega-contours.png" width="32%" alt="Confidence regions in the matter and dark-energy densities with deceleration and geometry lines"></a>
   <a href="https://doi.org/10.1073/pnas.15.3.168"><img src="docs/images/famous/hubble-1929.png" width="32%" alt="Velocity against distance of 24 nebulae with Hubble's two fitted lines"></a>
   <a href="https://arxiv.org/abs/1804.09378"><img src="docs/images/famous/hr-diagram.png" width="32%" alt="Hertzsprung-Russell diagram of 66 million Gaia DR2 stars on a square-root colour scale"></a>
-  <br><sub><a href="https://arxiv.org/abs/astro-ph/9805201">Ω<sub>M</sub>–Ω<sub>Λ</sub>, Riess et al. 1998</a> · <a href="https://doi.org/10.1073/pnas.15.3.168">Hubble 1929 (real data)</a> · <a href="https://arxiv.org/abs/1804.09378">HR diagram, Gaia DR2 2018 (real data)</a></sub><br><br>
+  <br><sub><a href="https://arxiv.org/abs/astro-ph/9805201">Ω<sub>M</sub>–Ω<sub>Λ</sub>, Riess et al. 1998 (Union2.1 data)</a> · <a href="https://doi.org/10.1073/pnas.15.3.168">Hubble 1929 (real data)</a> · <a href="https://arxiv.org/abs/1804.09378">HR diagram, Gaia DR2 2018 (real data)</a></sub><br><br>
   <a href="https://gml.noaa.gov/ccgg/trends/"><img src="docs/images/famous/keeling.png" width="32%" alt="Monthly atmospheric CO2 at Mauna Loa since 1958 with the deseasonalised trend"></a>
   <a href="https://doi.org/10.1029/1999GL900070"><img src="docs/images/famous/hockey-stick.png" width="32%" alt="Northern Hemisphere temperature reconstruction since AD 1000 with its uncertainty band and the instrumental record"></a>
   <a href="https://ui.adsabs.harvard.edu/abs/1985ApJ...295..305V"><img src="docs/images/famous/ngc3198.png" width="32%" alt="Rotation curve of the galaxy NGC 3198: flat HI data explained by disk, gas and dark halo components"></a>
-  <br><sub><a href="https://gml.noaa.gov/ccgg/trends/">Keeling curve, NOAA</a> · <a href="https://doi.org/10.1029/1999GL900070">hockey stick, Mann et al. 1999</a> · <a href="https://ui.adsabs.harvard.edu/abs/1985ApJ...295..305V">dark halo of NGC 3198, van Albada et al. 1985</a></sub><br><br>
+  <br><sub><a href="https://gml.noaa.gov/ccgg/trends/">Keeling curve, NOAA (real data)</a> · <a href="https://doi.org/10.1029/1999GL900070">hockey stick, Mann et al. 1999 (real data)</a> · <a href="https://ui.adsabs.harvard.edu/abs/1985ApJ...295..305V">dark halo of NGC 3198, van Albada et al. 1985 (SPARC data)</a></sub><br><br>
 </p>
 
 ## Plot kinds

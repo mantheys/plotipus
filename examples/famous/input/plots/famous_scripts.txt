@@ -40,7 +40,7 @@ line --datafile HiggsLocalP0 -x Mass -y P0 --hue Hypothesis --style Hypothesis -
 # line --datafile HiggsLimit -x Mass -y MuLimit --select Limit -s Observed -s Expected --hue Limit --style Limit --plot_type line --errory --errory_column MuLimit1Sigma MuLimit2Sigma --band_colors brazil --logy --logx --horizontal 1 --labelx '$m_H$ [GeV]' --labely '95% CL Limit on $\mu$'
 line --datafile HiggsLimit -x Mass -y MuLimit --hue Limit --style Limit --iterable_color_mapping limit_colors --iterable_mapping limit_labels --comparable_linestyles solid solid dashed solid --linewidth_column Width --legend_loc 'upper right' --plot_type line --errory --errory_type bands --logy --logx --rangex 110 600 --rangey 0.07 40 --horizontal 1 --horizontal_color blue --horizontal_style dashed --labelx '$m_H$ [GeV]' --labely '95% CL Limit on $\mu$' --text 0.04 0.92 'ATLAS' --text 0.3 0.92 '2011 - 2012' --text 0.04 0.84 '$\sqrt{s}$ = 7 TeV: $\int L dt$ = 4.6-4.8 fb$^{-1}$' --text 0.04 0.77 '$\sqrt{s}$ = 8 TeV: $\int L dt$ = 5.8-5.9 fb$^{-1}$' --text 0.97 0.06 'CL$_s$ Limits' --text_weight bold normal --text_style italic normal --text_size xx-large xx-large medium medium xx-large --text_ha left left left left right
 
-# F06 COBE FIRAS (Fixsen 1996, Figs. 4-5): spectrum on the 2.725 K blackbody, residuals in kJy/sr
+# F06 COBE FIRAS (Fixsen 1996, Figs. 4-5; LAMBDA data): spectrum on the 2.725 K blackbody, residuals in kJy/sr
 # gap: the x400 errors come from a stored column (IntensityErrorX400), not an error scale -> T21
 # gap: a top axis in GHz -> TODO.md (postponed)
 line --datafile FIRAS -x Wavenumber -y Intensity --hue Component --data_hue 'FIRAS data' --iterable_color_mapping firas_colors --iterable_mapping firas_labels --plot_type line --errory --errory_column IntensityErrorX400 --lower column:Residual --lower_labely 'Residual (kJy/sr)' --lower_rangey -100 100 --no_lower_legend --rangex 1 23 --rangey 0 420 --legend_loc 'upper right' --labelx 'Frequency (cm$^{-1}$)' --labely 'Intensity (MJy/sr)'
@@ -50,34 +50,33 @@ line --datafile FIRAS -x Wavenumber -y Intensity --select Component -s 'FIRAS da
 # gap: per-series markers (filled discs, open circles, a cross; colours stand in for them) -> T21
 line --datafile Hubble1929 -x Distance -y Velocity --hue Sample --style Sample --data_hue 'Individual nebulae' Groups 'Mean of 22 nebulae' --iterable_color_mapping hubble_colors --comparable_linestyles solid solid solid solid dashed --plot_type line --rangex 0 2.2 --rangey -300 1200 --legend_loc 'upper left' --labelx 'Distance (10$^6$ parsecs)' --labely 'Velocity (km/s)' --text 0.5 1.05 'Velocity-Distance Relation among Extra-Galactic Nebulae' --text_ha center --text_size large
 
-# F09 Riess 1998, Fig. 4: SN Ia distance moduli, three cosmologies, residuals to (0.20, 0)
-# gap: an open marker for SN 1997ck (grey here) -> T21
+# F09 Riess 1998, Fig. 4, with the 580 Union2.1 supernovae (real data): three cosmologies, residuals to (0.20, 0)
 # gap: plain tick labels on the log x axis (0.01, 0.10, 1.00) -> T12
-line --datafile SupernovaHubble -x Redshift -y DistanceModulus --hue Series --style Series --data_hue 'Nearby SNe' 'High-z SNe' 'SN 1997ck' --iterable_color_mapping sn_colors --comparable_linestyles solid solid solid solid dotted dashed --plot_type line --errory --logx --rangex 0.005 1.5 --rangey 32.5 45.5 --lower column:DeltaMu --lower_labely '$\Delta$(m-M) (mag)' --lower_rangey -0.9 0.9 --no_lower_legend --legend_loc 'lower right' --labelx 'z' --labely 'm-M (mag)' --text 0.06 0.88 'MLCS' --text_size xx-large
+line --datafile SupernovaHubble -x Redshift -y DistanceModulus --hue Series --style Series --data_hue 'Union2.1 SNe' --iterable_color_mapping sn_colors --comparable_linestyles solid solid dotted dashed --plot_type line --errory --logx --rangex 0.008 1.6 --rangey 32.5 46.5 --lower column:DeltaMu --lower_labely '$\Delta$(m-M) (mag)' --lower_rangey -0.9 0.9 --no_lower_legend --legend_loc 'lower right' --labelx 'z' --labely 'm-M (mag)' --text 0.06 0.88 'Union2.1' --text_size xx-large
 
-# F10 Riess 1998, Fig. 6: Omega_M-Omega_Lambda confidence regions with the reference lines
+# F10 Riess 1998, Fig. 6: Omega_M-Omega_Lambda confidence regions of the Union2.1 supernovae, with the reference lines
 # gap: the shaded "No Big Bang" region -> T22.8 (--region)
-map --datafile OmegaContours --configs SN --names Riess1998 -x OmegaM -y OmegaLambda -z DeltaChi2 --contour --contour_sigmas 1 2 3 --background none --rangex 0 2.6 --rangey -1 3 --horizontal 0 --horizontal_color black --horizontal_style solid --line 0 1 2 -1 0 0.5 2.6 1.8 0 0 2.6 1.3 0 -0.5 2.6 0.8 --line_label '$\Omega_{tot}$=1' 'q$_0$=-0.5' 'q$_0$=0' 'q$_0$=0.5' --line_style solid dashed dashed dashed --line_color black gray gray gray --labelx '$\Omega_M$' --labely '$\Omega_\Lambda$' --text 0.25 2.55 'No Big Bang' --text 1.45 1.05 'Accelerating' --text 1.45 0.8 'Decelerating' --text 1.55 0.12 'Expands to Infinity' --text 1.55 -0.13 'Recollapses' --text 2.3 -0.13 '$\Omega_\Lambda$=0' --text 1.4 -0.3 'Closed' --text 1.2 -0.52 'Open' --text 0.06 -0.8 'MLCS' --text_coords data --text_rotation 30 13 13 0 0 0 -25 -25 0 --text_size large --output_suffix riess.png
+map --datafile OmegaContours --configs SN --names Riess1998 -x OmegaM -y OmegaLambda -z DeltaChi2 --contour --contour_sigmas 1 2 3 --background none --rangex 0 2.6 --rangey -1 3 --horizontal 0 --horizontal_color black --horizontal_style solid --line 0 1 2 -1 0 0.5 2.6 1.8 0 0 2.6 1.3 0 -0.5 2.6 0.8 --line_label '$\Omega_{tot}$=1' 'q$_0$=-0.5' 'q$_0$=0' 'q$_0$=0.5' --line_style solid dashed dashed dashed --line_color black gray gray gray --labelx '$\Omega_M$' --labely '$\Omega_\Lambda$' --text 0.25 2.55 'No Big Bang' --text 1.45 1.05 'Accelerating' --text 1.45 0.8 'Decelerating' --text 1.55 0.12 'Expands to Infinity' --text 1.55 -0.13 'Recollapses' --text 2.3 -0.13 '$\Omega_\Lambda$=0' --text 1.4 -0.3 'Closed' --text 1.2 -0.52 'Open' --text 0.06 -0.8 'Union2.1' --text_coords data --text_rotation 30 13 13 0 0 0 -25 -25 0 --text_size large --output_suffix riess.png
 map --datafile OmegaContours --configs SN CMB --names Riess1998 Riess1998 -x OmegaM -y OmegaLambda -z DeltaChi2 --contour --contour_sigmas 1 2 3 --fill_contours --background none --rangex 0 2.6 --rangey -1 3 --horizontal 0 --horizontal_color black --horizontal_style solid --line 0 0 2.6 1.3 --line_label 'q$_0$=0' --line_style dashed --line_color black --labelx '$\Omega_M$' --labely '$\Omega_\Lambda$'
 
-# F11 Rubin, Ford & Thonnard 1980: 21 flat rotation curves and a Keplerian fall-off
+# F11 Rubin, Ford & Thonnard 1980: 21 flat rotation curves (SPARC, real data) and a Keplerian fall-off
 # gap: one ordered colour map for 21 galaxies instead of a cycling palette -> T22.5
 line --datafile RotationCurves -x Radius -y Velocity --hue Galaxy --style Type --plot_type line --no_legend --rangex 0 125 --rangey 0 350 --labelx 'R (kpc)' --labely 'V (km/s)' --text 0.97 0.06 'Keplerian, $V \propto R^{-1/2}$' --text_ha right --text_size large
 line --datafile RotationCurves -x Radius -y Velocity --hue Galaxy --variables '$R_{max}$ < 12 kpc' '12-35 kpc' '$R_{max}$ > 35 kpc' --plot_type line --no_legend --labelx 'R (kpc)' --labely 'V (km/s)' --output_suffix panels.png
 
-# F12 van Albada et al. 1985: NGC 3198 rotation curve with disk, gas and halo
+# F12 van Albada et al. 1985: NGC 3198 rotation curve (SPARC, real data) with disk, gas and fitted halo
 line --datafile NGC3198 -x Radius -y Velocity --hue Component --style Component --data_hue Data --iterable_color_mapping ngc3198_colors --iterable_mapping ngc3198_labels --comparable_linestyles solid dashed dotted dashdot solid --plot_type line --errory --rangex 0 32 --rangey 0 240 --legend_loc 'upper right' --legend_ncol 2 --labelx 'R (kpc)' --labely 'V$_{rot}$ (km/s)' --text 0.05 0.92 'NGC 3198' --text_size xx-large --text_ha left
 
-# F13 Keeling curve (NOAA GML plot): monthly means in red, deseasonalised in black
+# F13 Keeling curve (NOAA GML data and plot): monthly means in red, deseasonalised in black
 # gap: the seasonal cycle as an inset -> T22.7
 line --datafile Keeling -x DecimalDate -y CO2 --hue Series --iterable_color_mapping keeling_colors --plot_type line --no_legend --labelx 'Year' --labely 'CO$_2$ mole fraction (ppm)' --title 'Atmospheric CO$_2$ at Mauna Loa Observatory' --text 0.04 0.92 'Scripps Institution of Oceanography' --text 0.04 0.85 'NOAA Global Monitoring Laboratory' --text_size large
 line --datafile Keeling -x MonthOfYear -y Detrended --select Series -s 'Monthly mean' --binned --estimator mean --bins 13 --horizontal 0 --labelx 'Month' --labely 'CO$_2$ seasonal cycle (ppm)' --output_suffix cycle.png
 
-# F14 Mann, Bradley & Hughes 1999, Fig. 3(a): reconstruction, 2-sigma band, 40-year smoothing, instrumental record
+# F14 Mann, Bradley & Hughes 1999, Fig. 3(a) (NOAA paleo data): reconstruction, 2-sigma band, 40-year smoothing, instrumental record
 # gap: the legend below the axes (here inside, with a lower y limit) -> T15
 line --datafile HockeyStick -x Year -y Anomaly --hue Series --style Series --iterable_color_mapping mbh_colors --iterable_mapping mbh_labels --comparable_linestyles solid solid solid dashdot --linewidth_column Width --plot_type line --errory --errory_type bands --horizontal 0 --horizontal_style dashed --horizontal_color black --rangex 1000 2000 --rangey -1.5 1 --legend_loc 'lower left' --labelx 'YEAR' --labely 'TEMPERATURE ANOMALY ($^\circ$C)' --text 1975 0.9 '1998 $\rightarrow$' --text_coords data --text_ha right --text_size large
 
-# F15 LIGO GW150914, Fig. 1: strain, 90% reconstructions and residual per detector; time-frequency maps
+# F15 LIGO GW150914, Fig. 1 (the figure's data files): strain, 90% reconstructions and residual per detector; time-frequency maps
 # gap: the 4 x 2 grid (rows per quantity, columns per detector, shared axes) -> T22.6
 # gap: a legend in every panel (one legend for all panels today) -> T15
 # gap: a log frequency axis on the map -> T22.3

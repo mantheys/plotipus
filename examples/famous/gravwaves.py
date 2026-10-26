@@ -1,46 +1,32 @@
-"""F15: GW150914 strain in the two LIGO detectors.
+"""F15: GW150914 strain in the two LIGO detectors, from the data behind the
+paper's Fig. 1.
 
 Sources and the "Data" recipe are in docs/design/research.md, Part 3.
 """
 
 import numpy as np
 import pandas as pd
-from scipy.signal import fftconvolve
+from scipy.signal import fftconvolve, hilbert
 
-from _common import rng_for
+from _common import DATA
 
-SAMPLE_RATE = 4096.0
-T_SUN = 4.925491e-6  # G M_sun / c^3 in s
-
-
-def _bandpass(values, low=35.0, high=350.0):
-    spectrum = np.fft.rfft(values)
-    frequency = np.fft.rfftfreq(values.size, 1 / SAMPLE_RATE)
-    spectrum[(frequency < low) | (frequency > high)] = 0
-    return np.fft.irfft(spectrum, values.size)
+GW = DATA / "gw150914"
+DELAY = 0.0069  # L1 leads H1 by 6.9 ms (PRL 116, 061102, Fig. 1 caption)
 
 
-def _chirp(time, t_merger, chirp_mass=30.0, f_merger=150.0, f_ring=250.0, damping=0.004):
-    """Leading-order inspiral (f ~ tau^-3/8, amplitude ~ f^2/3) up to
-    ``f_merger``, then a ringdown at ``f_ring`` decaying with ``damping``;
-    peak amplitude 1. Returns (strain, envelope, frequency)."""
-    tau = np.clip(t_merger - time, 1e-6, None)
-    frequency = (5 / (256 * tau)) ** 0.375 * (chirp_mass * T_SUN) ** -0.625 / np.pi
-    t_peak = time[np.argmax(frequency >= f_merger)]
-    after = time >= t_peak
-    frequency[after] = f_ring - (f_ring - f_merger) * np.exp(-(time[after] - t_peak) / 0.0015)
-    envelope = (frequency / f_merger) ** (2 / 3)
-    envelope[after] = np.exp(-(time[after] - t_peak) / damping)
-    phase = 2 * np.pi * np.cumsum(frequency) / SAMPLE_RATE
-    return envelope * np.cos(phase), envelope, frequency
+def _series(kind, detector):
+    """Time (s after 09:50:45 UTC) and strain (1e-21) of a LIGO Fig. 1 file."""
+    time, strain = np.loadtxt(GW / f"fig1-{kind}-{detector}.txt", unpack=True)
+    return time, strain
 
 
 def _scalogram(time, values, frequencies, q=6.0):
     """Normalised Morlet amplitude |W(t, f)| (rows: frequencies)."""
+    rate = 1 / np.median(np.diff(time))
     out = np.empty((frequencies.size, time.size))
     for i, f in enumerate(frequencies):
         width = q / (2 * np.pi * f)
-        t = np.arange(-4 * width, 4 * width, 1 / SAMPLE_RATE)
+        t = np.arange(-4 * width, 4 * width, 1 / rate)
         kernel = np.exp(-0.5 * (t / width) ** 2) * np.exp(2j * np.pi * f * t)
         out[i] = np.abs(fftconvolve(values, kernel / np.abs(kernel).sum(), mode="same"))
     return out / out.max()
@@ -48,20 +34,21 @@ def _scalogram(time, values, frequencies, q=6.0):
 
 def gw150914():
     """F15: GW150914 whitened strain, reconstructions, residuals and
-    time-frequency maps for H1 and L1.
+    time-frequency maps for H1 and L1 (real data).
 
-    Source: LIGO/Virgo, PRL 116, 061102 (2016), arXiv:1602.03837, Fig. 1.
+    Source: LIGO/Virgo, PRL 116, 061102 (2016), arXiv:1602.03837, Fig. 1;
+    data: the files of that figure from GWOSC (data/gw150914,
+    fetch_data.py).
 
-    From the paper: the layout (H1 and L1 columns; strain, reconstruction,
-    residual and time-frequency rows), the 0.25-0.46 s window after
-    09:50:45 UTC, the 35-350 Hz band-pass, strain in units of 1e-21, L1
-    leading H1 by 6.9 ms with the H1 signal inverted, the 32-512 Hz
-    log-frequency map, and the two 90% reconstructions (BBH templates,
-    sine-Gaussian wavelets). The detector colours are (unverified).
-    Synthetic: the waveform (leading-order chirp with a chirp mass of
-    30 M_sun, merger at 150 Hz, ringdown at 250 Hz, peak strain 1e-21),
-    the noise (white, band-passed, sigma 0.12e-21), and the 90% band widths.
-    The real filtered series are public (LIGO DCC G1600204, GWOSC).
+    Real: the 35-350 Hz filtered strain of both detectors, the numerical
+    relativity waveform projected on each, and the residuals, 0.25-0.46 s
+    after 09:50:45 UTC at 16384 Hz, in units of 1e-21. The L1 panel also
+    shows the H1 data shifted by 6.9 ms and inverted, as in the figure.
+    Ours: the time-frequency maps (a Morlet transform of the filtered strain,
+    32-512 Hz; the paper's maps use the unfiltered data) and the widths of
+    the two 90% reconstruction bands (BBH templates, sine-Gaussian wavelets),
+    which are not among the published files: 0.08 + 0.15 and 0.12 + 0.3
+    times the waveform's envelope. The detector colours are (unverified).
 
     Datafiles: ``GW150914`` (rows ``Detector`` x ``Component``, panels by
     ``Variable``: Whitened strain, Reconstructed, Residual; the two 90%
@@ -71,43 +58,37 @@ def gw150914():
     ``GW150914Spectrogram`` (``Name`` H1/L1, grids ``Time``,
     ``FrequencyGrid``, ``Amplitude``).
     """
-    rng = rng_for("F15")
-    full = np.arange(0.0, 1.0, 1 / SAMPLE_RATE)
-    window = (full >= 0.25) & (full < 0.46)
-    time = full[window]
-    delay = 0.0069
-    hanford, envelope, _ = _chirp(full, 0.425)
-    shifted = -np.interp(full + delay, full, hanford)
-    signals = {"H1": hanford, "L1": 0.9 * shifted}
-
     rows, maps = [], []
     observed = {}
-    for detector, signal in signals.items():
-        noise = _bandpass(rng.normal(size=full.size))
-        noisy = signal + 0.12 * noise / noise.std()
-        observed[detector] = noisy
-        envelope_detector = envelope if detector == "H1" else np.interp(full + delay, full, envelope)
-        template = 0.08 + 0.15 * envelope_detector[window]
-        wavelet = 0.12 + 0.3 * envelope_detector[window]
+    for detector, code in (("H1", "H"), ("L1", "L")):
+        time, strain = _series("observed", code)
+        observed[detector] = (time, strain)
+        waveform = np.interp(time, *_series("waveform", code))
+        residual = np.interp(time, *_series("residual", code))
+        envelope = np.abs(hilbert(waveform))
+        envelope /= envelope.max()
+        template = 0.08 + 0.15 * envelope
+        wavelet = 0.12 + 0.3 * envelope
         rows += [
-            {"Time": time, "Strain": noisy[window], "Detector": detector, "Component": f"{detector} observed",
+            {"Time": time, "Strain": strain, "Detector": detector, "Component": f"{detector} observed",
              "Variable": "Whitened strain"},
-            {"Time": time, "Strain": signal[window], "Detector": detector, "Component": "Reconstructed (wavelet)",
+            {"Time": time, "Strain": waveform, "Detector": detector, "Component": "Reconstructed (wavelet)",
              "Variable": "Reconstructed", "StrainError": wavelet, "Width": 0.0},
-            {"Time": time, "Strain": signal[window], "Detector": detector, "Component": "Reconstructed (template)",
+            {"Time": time, "Strain": waveform, "Detector": detector, "Component": "Reconstructed (template)",
              "Variable": "Reconstructed", "StrainError": template, "Width": 0.0},
-            {"Time": time, "Strain": signal[window], "Detector": detector, "Component": "Numerical relativity",
+            {"Time": time, "Strain": waveform, "Detector": detector, "Component": "Numerical relativity",
              "Variable": "Reconstructed", "StrainTemplate+": template, "StrainTemplate-": template,
              "StrainWavelet+": wavelet, "StrainWavelet-": wavelet},
-            {"Time": time, "Strain": noisy[window] - signal[window], "Detector": detector, "Component": "Residual",
+            {"Time": time, "Strain": residual, "Detector": detector, "Component": "Residual",
              "Variable": "Residual"},
         ]
         frequencies = np.geomspace(32, 512, 48)
-        amplitude = _scalogram(full, noisy, frequencies)[:, window][:, ::4]
-        maps.append({"Time": time[::4], "FrequencyGrid": frequencies, "Amplitude": amplitude,
-                     "Config": "GW150914", "Name": detector})
+        maps.append({"Time": time[::16], "FrequencyGrid": frequencies,
+                     "Amplitude": _scalogram(time, strain, frequencies)[:, ::16], "Config": "GW150914",
+                     "Name": detector})
     # The L1 panel also shows the H1 data shifted by 6.9 ms and inverted.
-    rows.insert(6, {"Time": time, "Strain": -np.interp(full + delay, full, observed["H1"])[window], "Detector": "L1",
+    time, strain = observed["H1"]
+    rows.insert(6, {"Time": time, "Strain": -np.interp(time + DELAY, time, strain), "Detector": "L1",
                     "Component": "H1 observed (shifted, inverted)", "Variable": "Whitened strain"})
     return {"GW150914": pd.DataFrame(rows), "GW150914Spectrogram": pd.DataFrame(maps)}
 

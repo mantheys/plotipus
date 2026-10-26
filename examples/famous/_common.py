@@ -1,9 +1,14 @@
-"""Helpers shared by the generators: seeded generators and stored fits."""
+"""Helpers shared by the generators: the real-data folder, seeded generators
+and stored fits."""
 
 import zlib
+from pathlib import Path
 
 import numpy as np
 from scipy.optimize import curve_fit
+
+# Public datasets fetched by fetch_data.py and fetch_gaia.py (see data/README.md).
+DATA = Path(__file__).parent / "data"
 
 
 def rng_for(figure):

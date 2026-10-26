@@ -99,6 +99,33 @@ def distance_modulus(z, omega_m, omega_lambda, h0=65.0):
     return 5 * np.log10(luminosity_distance) + 25
 
 
+def distance_modulus_grid(z, omega_m, omega_lambda, h0=65.0, steps=300):
+    """:func:`distance_modulus` for many cosmologies at once: rows follow the
+    ``omega_m``/``omega_lambda`` arrays, columns ``z``; NaN rows have no big
+    bang or no positive distance."""
+    z = np.asarray(z, dtype=float)
+    omega_m, omega_lambda = np.asarray(omega_m, dtype=float)[:, None], np.asarray(omega_lambda, dtype=float)[:, None]
+    omega_k = 1 - omega_m - omega_lambda
+    grid = np.linspace(0, z.max(), steps)
+    e2 = omega_m * (1 + grid) ** 3 + omega_k * (1 + grid) ** 2 + omega_lambda
+    valid = np.all(e2 > 0, axis=1)
+    inverse_e = 1 / np.sqrt(np.where(e2 > 0, e2, np.nan))
+    chi = np.concatenate([np.zeros((len(e2), 1)), np.cumsum((inverse_e[:, 1:] + inverse_e[:, :-1]) / 2
+                                                              * np.diff(grid), axis=1)], axis=1)
+    # Linear interpolation of every row at the same redshifts.
+    index = np.clip(np.searchsorted(grid, z) - 1, 0, steps - 2)
+    share = (z - grid[index]) / (grid[index + 1] - grid[index])
+    chi = chi[:, index] * (1 - share) + chi[:, index + 1] * share
+    root = np.sqrt(np.abs(omega_k))
+    with np.errstate(invalid="ignore", divide="ignore"):
+        transverse = np.where(omega_k > 1e-8, np.sinh(root * chi) / np.where(root > 0, root, 1),
+                              np.where(omega_k < -1e-8, np.sin(root * chi) / np.where(root > 0, root, 1), chi))
+        valid &= np.all(transverse > 0, axis=1)
+        modulus = 5 * np.log10((1 + z) * C_KMS / h0 * transverse) + 25
+    modulus[~valid] = np.nan
+    return modulus
+
+
 # --- F12: disk and halo rotation curves ----------------------------------------------
 
 
