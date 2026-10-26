@@ -31,10 +31,19 @@ a project adapts plotipus without changing it:
   `--text_axes`, `--text_color`, `--text_size`, `--text_rotation`,
   `--text_weight`, `--text_style`, `--text_ha`), drawn by a figure hook. The
   figures use it for experiment labels, energies and luminosities, panel
-  letters and region labels;
+  letters and region labels. The project setting `text_scale` scales every
+  text, and `--single_panel_size` gives a grid of panels the size of a
+  single-panel figure;
 - `style.json`: no automatic titles, a black-first colour cycle (data drawn
   black, as in the originals), smaller legends, and one colour and label
   mapping per figure.
+
+`paper/` renders the same commands in the paper style: its `paper.json`
+loads the prototype `docs/design/styles/paper/plotipus-paper.mplstyle` (serif
+Computer Modern, 8 pt, 3.5 × 2.7 in) over `style.json`, and its
+`plotipus.toml` sets `text_scale = 0.75`. `cd paper && plotipus run famous`
+writes them to `paper/output/plots`; the README gallery is a selection of
+these (`make -C examples famous`).
 
 The frames follow the plotipus conventions:
 
