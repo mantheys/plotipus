@@ -320,6 +320,18 @@ simulation).
 - Implement stacking in data space: cumulative sums drawn as `stairs` with `baseline` = the previous cumulative sum, or `fill_between`. This works for step, filled step and bars.
 - Add `--overlay VALUE [...]` (hue values drawn on top, unstacked, as points with Poisson errors) and `--stack_total_error` (hatched band on the stack total).
 
+**Fixed in T18.** `--stacked` stacks in data space for every binned plot
+type: filled steps (default), outlines (`step`: each series' top and outer
+sides), filled steps with a darker edge (`fill`), stacked areas (`line`,
+`fill_between`) and bars. `--overlay` (alias of `--data_hue`) keeps hue
+values out of the stack as ink points with error bars; `--lower ratio` then
+compares them with the stack total over the relative MC band.
+`--stack_total_error` draws the hatched total band without `--errory`, and
+`--stack_total_error_column COL` takes a precomputed total error. Legend:
+overlays, the stack from the top, the band (`--overlay_legend last`).
+Restore option: none (the unstacked steps were a bug); B10b needs
+`--overlay data` to keep the data out of the stack.
+
 ## B11 `--errory_type bands` ignored unless `--plot_type line`
 
 **Reproduce:** `B11` draws error bars although bands were requested.

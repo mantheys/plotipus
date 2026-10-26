@@ -387,6 +387,94 @@ def test_stacked_binned_series_are_filled_histograms(make_project, spectra):
     assert any(isinstance(p, Rectangle) for p in figures[-1].axes[0].patches)
 
 
+# --- Stacked simulation with overlaid data (T18) ----------------------------------------
+
+
+def _spectrum(total_error=False):
+    """The repro Spectrum: Poisson data over two backgrounds and a peak."""
+    rng = np.random.default_rng(0)
+    m = np.arange(100.5, 160, 1.0)
+    mc = {"bkg_a": 3000 * np.exp(-(m - 100) / 40), "bkg_b": 400 * np.exp(-(m - 100) / 25),
+          "signal": 120 * np.exp(-0.5 * ((m - 125) / 1.6) ** 2)}
+    data = rng.poisson(sum(mc.values())).astype(float)
+    rows = [{"Mass": m, "Counts": c, "CountsError": np.sqrt(c), "Sample": s}
+            for s, c in [("data", data), *mc.items()]]
+    if total_error:
+        for row in rows:
+            row["TotalError"] = 0.05 * sum(mc.values())
+    return pd.DataFrame(rows), data, mc
+
+
+def _stack_run(make_project, frame, *argv):
+    figures = _capture()
+    make_project({"Spectrum": frame})
+    line.main(["--datafile", "Spectrum", "-x", "Mass", "-y", "Counts", "--hue", "Sample", "--stacked", *argv])
+    return figures[-1]
+
+
+def test_stack_fill_overlay_band_and_ratio(make_project):
+    """The control plot: filled stacked steps, data points on top, the hatched total band, data / total."""
+    from matplotlib.patches import StepPatch
+
+    frame, data, mc = _spectrum()
+    fig = _stack_run(make_project, frame, "--plot_type", "fill", "--overlay", "data", "--stack_total_error",
+                     "--lower", "ratio")
+    upper, lower = fig.axes[:2]
+    filled = [p for p in upper.patches if isinstance(p, StepPatch) and p.get_fill()]
+    assert [p.get_label() for p in filled] == ["bkg_a", "bkg_b", "signal"]
+    total = sum(mc.values())
+    assert np.allclose(filled[-1].get_data().values, total)  # the top of the stack is the sum of the MC
+    assert np.allclose(filled[1].get_data().baseline, mc["bkg_a"])
+    assert all(to_hex(p.get_edgecolor()) != to_hex(p.get_facecolor()) for p in filled)  # a darker edge
+    (points,) = [c for c in upper.containers if isinstance(c, ErrorbarContainer)]
+    assert np.allclose(points.lines[0].get_ydata(), data)
+    (band,) = [p for p in upper.patches if isinstance(p, StepPatch) and not p.get_fill()]
+    error = np.sqrt(sum(np.square(np.sqrt(c)) for c in mc.values()))
+    assert np.allclose(band.get_data().values, total + error) and np.allclose(band.get_data().baseline, total - error)
+    (ratio,) = [c for c in lower.containers if isinstance(c, ErrorbarContainer)]
+    assert np.allclose(ratio.lines[0].get_ydata(), data / total)
+    labels = [t.get_text() for t in upper.get_legend().get_texts()]
+    assert labels == ["data", "signal", "bkg_b", "bkg_a", band.get_label()]
+
+
+def test_stack_step_outlines(make_project):
+    """B10a: --stacked --plot_type step stacks the outlines (each one's top, no closed bottom edge)."""
+    from matplotlib.patches import StepPatch
+
+    frame, _, mc = _spectrum()
+    fig = _stack_run(make_project, frame[frame.Sample != "data"], "--plot_type", "step")
+    outlines = [p for p in fig.axes[0].patches if isinstance(p, StepPatch)]
+    assert [p.get_label() for p in outlines] == ["bkg_a", "bkg_b", "signal"]
+    assert all(not p.get_fill() and p.get_data().baseline is None for p in outlines)
+    assert np.allclose(outlines[1].get_data().values, mc["bkg_a"] + mc["bkg_b"])
+    assert fig.axes[0].get_ylim()[0] == 0
+
+
+def test_stack_line_areas_and_reverse(make_project):
+    from matplotlib.collections import PolyCollection
+
+    frame, _, mc = _spectrum()
+    fig = _stack_run(make_project, frame[frame.Sample != "data"], "--plot_type", "line", "--stack_reverse")
+    areas = [c for c in fig.axes[0].collections if isinstance(c, PolyCollection)]
+    assert [a.get_label() for a in areas] == ["signal", "bkg_b", "bkg_a"]  # first series on top
+    top = areas[-1].get_paths()[0].vertices[:, 1].max()
+    assert np.isclose(top, sum(mc.values()).max())
+
+
+def test_stack_total_error_column_and_overlay_last(make_project):
+    from matplotlib.patches import StepPatch
+
+    frame, _, mc = _spectrum(total_error=True)
+    fig = _stack_run(make_project, frame, "--overlay", "data", "--stack_total_error_column", "TotalError",
+                     "--overlay_legend", "last")
+    ax = fig.axes[0]
+    (band,) = [p for p in ax.patches if isinstance(p, StepPatch) and not p.get_fill()]
+    total = sum(mc.values())
+    assert np.allclose(band.get_data().values, 1.05 * total)
+    labels = [t.get_text() for t in ax.get_legend().get_texts()]
+    assert labels == ["signal", "bkg_b", "bkg_a", band.get_label(), "data"]
+
+
 # --- Data and simulation conventions -----------------------------------------------------
 
 

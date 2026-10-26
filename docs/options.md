@@ -200,14 +200,22 @@ for the old red line); `--fit_color` sets the fit line (default `ink`).
 
 ## Data and simulation
 
-`--data_hue VALUE [VALUE ...]` draws those hue values as data, the usual
+`--data_hue VALUE [VALUE ...]` (alias `--overlay`) draws those hue values as data, the usual
 HEP comparison: points with error bars in the style's `ink` colour, first
 in the legend and above the rest, never stacked and not taking a palette
 colour. The other series are the simulation: steps (filled and stacked
-with `--stacked`), with error bands with `--errory`; stacked, `--errory`
-draws a hatched band of the total's error instead (its label, hatch and
-colour come from the style file's `plot_settings.stack_error`, default
-`{"label": "Sim. unc.", "hatch": "////", "color": "role:muted"}`). With
+with `--stacked`), with error bands with `--errory`. `--stacked` stacks in
+data space, each series from the running total up: filled steps by default,
+outlines with `--plot_type step`, filled steps with a darker edge with
+`fill`, a stacked area with `line`, bars with `bar` (`--stack_reverse` puts
+the first series on top). Stacked, `--errory` with data, or
+`--stack_total_error`, draws a hatched band of the total's error (the
+stacked errors in quadrature, or a precomputed array column with
+`--stack_total_error_column COL`, e.g. with systematics); its label, hatch
+and colour come from the style file's `plot_settings.stack_error`, default
+`{"label": "Sim. unc.", "hatch": "////", "color": "role:muted"}`. The
+legend lists the data first (`--overlay_legend last` moves them to the
+end), then the stack from the top down, then the band. With
 `--by_config`, the `--data_hue` values name configs, names or hue values.
 They may also be values of the `--style` column: with `--hue Distribution
 --style Sample --data_hue Data`, each distribution's data are points in its
