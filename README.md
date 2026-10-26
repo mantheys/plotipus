@@ -80,6 +80,35 @@ make -C examples mascot      # re-render the mascot and the tutorial figures
 `plotipus init my_project` creates an empty project (`plotipus.toml`,
 `input/{data,plots,tables}`, `output/`).
 
+## Slides first, paper later
+
+One command list renders for every medium, at the size it is shown at:
+slides first (8 × 4.5 in), then a paper column (3.4 in) or the web, with no
+change to the commands.
+
+```toml
+# plotipus.toml
+[project]
+medium = "slides"             # what plotipus run draws by default
+media = ["slides", "paper"]   # what --medium all draws
+```
+
+```bash
+plotipus run analysis                  # slides, in output/plots/
+plotipus run analysis --medium paper   # the same figures for the paper, in output/plots/paper/
+plotipus run analysis --medium all     # both in one run
+plotipus run analysis --theme dark     # dark slides, in output/plots/slides-dark/
+plotipus run analysis --medium paper --dry_run   # print each command's medium, size and style layers
+```
+
+File names stay the same in every folder, so a LaTeX `\includegraphics`
+only changes its directory. Paper figures carry no title (the caption is the
+title; `--keep_title` keeps an explicit `--title`). One command can choose
+its own size with `--width single|onehalf|double|nature|slide|half-slide`
+or inches, and `--aspect`; a row of panels shares the width, and a lower
+panel adds 30% of the upper panel's height. Without a medium anywhere,
+figures keep the classic 8 × 6 in size.
+
 ## Famous plots
 
 Famous figures from particle physics, cosmology, astronomy and climate

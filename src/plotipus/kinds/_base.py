@@ -5,14 +5,16 @@ parses ``argv``, loads the project (style, plugins) and calls ``run``.
 """
 
 import argparse
+import sys
 
 import matplotlib
 
 from .. import registry
-from ..args import add_common_args
+from .. import style
+from ..args import add_common_args, add_media_args, parse_media_args, with_medium
 from ..encodings import setup_legend_frame
 from ..io import prepare_import
-from ..project import load_project
+from ..project import apply_rendering, load_project
 
 
 def make_parser(kind, description):
@@ -30,6 +32,7 @@ def add_output_args(parser):
     add("--filename_prefix", type=str, default=None, help="First part of the output file name.")
     add("--format", type=str, default=None, help="File format when --output_suffix has no extension (default png).")
     add("--show", action="store_true", default=False, help="Keep figures open (interactive use).")
+    add_media_args(parser)
     add("--sci_in_label", action="store_true", default=None,
         help="Put a common power of ten in the axis label, e.g. 'Density (x10^-2)' (default: the style's "
         "plot_settings.sci_in_label, true).")
@@ -39,8 +42,31 @@ def add_output_args(parser):
 
 def main(module, argv=None):
     # The project (style) loads first: options such as --legend_loc adjust
-    # the loaded style while the arguments are parsed.
-    load_project()
+    # the loaded style while the arguments are parsed. --medium/--theme/
+    # --width/--aspect pick the style, so they are read before that.
+    argv = list(sys.argv[1:] if argv is None else argv)
+    media = parse_media_args(argv)
+    project = load_project()
+    if media.medium == "all":
+        outputs = []
+        for medium in project.all_media():
+            outputs += main(module, with_medium(argv, medium)) or []
+        return outputs
+    if all(getattr(media, k) is None for k in ("medium", "theme", "width", "aspect")):
+        return _run(module, argv)
+    saved, rendering = style.snapshot(), project.rendering
+    try:
+        try:
+            apply_rendering(media.medium, media.theme, media.width, media.aspect)
+        except ValueError as error:
+            module.build_parser().error(str(error))
+        return _run(module, argv)
+    finally:
+        style.restore(saved)
+        project.rendering = rendering
+
+
+def _run(module, argv):
     parser = module.build_parser()
     args = parser.parse_args(argv)
     if not getattr(args, "show", False):

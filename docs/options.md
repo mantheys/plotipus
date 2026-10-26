@@ -66,6 +66,9 @@ are the example list, `examples/input/plots/example_scripts.txt`;
   axis label, "Density (×10⁻²)", inside the unit when there is one: "Rate
   (×10⁻⁵ Hz)". `--no-sci_in_label` keeps matplotlib's
   offset text at the end of the axis instead. Log axes label decades (10ⁿ).
+* **Medium and size**: `--medium slides|paper|web|all`, `--theme
+  light|dark`, `--width single|onehalf|double|nature|slide|half-slide|INCHES`,
+  `--aspect H/W`, `--keep_title` (see [Projects](projects.md#media-and-themes)).
 * **Output**: `-o DIR [DIR ...]`, `--subfolder`, `--output_suffix`,
   `--filename_select` (keys that must stay in the generated file name),
   `--format` (`png` by default, written at 300 dpi). For papers use

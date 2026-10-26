@@ -16,8 +16,11 @@ def panel_font_scale(ncols=1):
 
 def apply_panel_font_scale(ncols=1):
     """Set the base font size for the next figure; every relative font size
-    (x-large, xx-large, ...) and the tick labels follow it."""
-    plt.rcParams["font.size"] = _style.base_font_size * panel_font_scale(ncols)
+    (x-large, xx-large, ...) and the tick labels follow it. Only in the old
+    geometry (no --width) or with fixed_margins: text is otherwise drawn at
+    its printed size, never scaled to fit more panels."""
+    scale = panel_font_scale(ncols) if _style.figure_width is None or _style.figure_fixed_margins else 1.0
+    plt.rcParams["font.size"] = _style.base_font_size * scale
 
 
 PLOT_STYLE_OPTIONS = {
@@ -34,10 +37,32 @@ PLOT_STYLE_OPTIONS = {
 }
 
 
-def get_common_figsize(ncols=1, nrows=1):
+# Height of a lower panel relative to its upper panel when drawing at a width.
+LOWER_PANEL_FRACTION = 0.3
+
+
+def lower_height_ratios(n_lower):
+    """Height ratios of an upper panel and ``n_lower`` lower panels."""
+    if _style.figure_width is None:
+        return [3] + [1] * n_lower
+    return [1] + [LOWER_PANEL_FRACTION] * n_lower
+
+
+def get_common_figsize(ncols=1, nrows=1, height_ratios=None):
+    """Figure size (inches). At a --width (or the medium's), a row of panels
+    shares the width and each row is the preset's height; ``height_ratios``
+    (upper panel first) add the lower panels' height instead of squeezing.
+    Without a width, the old geometry: base width plus a panel width per
+    extra column."""
+    rows = max(1, int(nrows))
+    if _style.figure_width is not None:
+        height = _style.figure_row_height * rows
+        if height_ratios:
+            height *= sum(height_ratios) / height_ratios[0]
+        return (float(_style.figure_width), float(height))
     panel_count = max(1, int(ncols))
     width = _style.figure_base_width + _style.figure_panel_width * (panel_count - 1)
-    height = _style.figure_height * max(1, int(nrows))
+    height = _style.figure_height * rows
     return (float(width), float(height))
 
 
@@ -95,9 +120,10 @@ def create_common_subplots(nrows=1, ncols=1, **kwargs) -> tuple[Any, Any]:
     return fig, ax
 
 
-def create_common_two_panel_figure(ncols=1, height_ratios=(3, 1), hspace=None) -> tuple[Any, Any]:
+def create_common_two_panel_figure(ncols=1, height_ratios=None, hspace=None) -> tuple[Any, Any]:
     apply_panel_font_scale(ncols)
-    fig = plt.figure(figsize=get_common_figsize(ncols=ncols))
+    height_ratios = list(height_ratios or lower_height_ratios(1))
+    fig = plt.figure(figsize=get_common_figsize(ncols=ncols, height_ratios=height_ratios))
     resolved_hspace = _style.figure_two_panel_hspace if hspace is None else hspace
     grid = fig.add_gridspec(
         nrows=2,

@@ -1,0 +1,7 @@
+{
+  "_comment": "Medium stub (T14): figure size only (a slide-wide figure at screen resolution); T16 ships the full web style.",
+  "width": "slide",
+  "aspect": 0.5625,
+  "rcparams": {"figure.dpi": 96, "savefig.dpi": 96},
+  "plot_settings": {"auto_title": false}
+}
