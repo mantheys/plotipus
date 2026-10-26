@@ -1,0 +1,188 @@
+# The gallery (T23): one example per working row of docs/design/catalogue.md,
+# grouped like the catalogue. Build: make -C examples gallery (data, figures
+# and output/gallery.md), or plotipus run gallery after python make_data.py.
+#
+# Format, read by make_page.py:
+#   # == <letter> <section>          a section of the catalogue
+#   # <id> <title>                   the catalogue row(s) of the next command
+#   <command>                        rendered and tested (tests/test_gallery.py)
+#   # needs Txx: <command>           waits for task Txx (a progress tracker;
+#                                    uncomment it when the task lands)
+#
+# Data: detector.py and ml.py (this folder, synthetic), ../make_data.py
+# (Distributions) and ../famous (the famous plots, T24).
+
+# == A Distributions
+
+# A1 Histogram, step outline
+hist --datafile Showers -x Response --hue Particle --select Particle -s electron pion --bins 60 --rangex 0.4 1.4 --flow hint --labelx 'Response $E_{reco}/E_{true}$' --title 'Calorimeter response to electrons and pions' --output_suffix A1
+
+# A2 Histogram of pre-binned counts
+line --datafile Yields -x Energy -y Counts --hue Particle --select Stage -s Preselection --plot_type step --logy --labelx 'Reconstructed energy (GeV)' --labely 'Events / 5 GeV' --title 'Pre-binned spectra after the preselection' --output_suffix A2
+
+# A3 Filled / stacked histogram (stacked MC)
+# needs T18: line --datafile Distributions -x Bin -y Counts --hue Sample --select Distribution Sample -s Resonance Background Signal --stacked --plot_type step --labelx 'Mass (GeV)' --title 'Stacked simulation as filled steps' --output_suffix A3
+
+# A4 Normalised / density histogram
+hist --datafile Showers -x Hits --hue Particle --bins 50 --density --logy --labelx 'Hits' --title 'Hit multiplicity, normalised to unit area' --output_suffix A4
+
+# A5 Weighted histogram
+hist --datafile Showers -x TrueEnergy --hue Particle --select Particle -s electron pion --weight Weight --bins 38 --rangex 5 100 --labelx 'Beam energy (GeV)' --labely 'Events (prescale-weighted)' --title 'Beam energy, weighted by the trigger prescale' --output_suffix A5
+
+# A6 Histogram with Poisson errors
+# needs T19: hist --datafile Showers -x RecoEnergy --select Particle -s muon --bins 40 --rangex 0 6 --errory_type poisson --labelx 'Deposited energy (GeV)' --title 'Muon deposits with Poisson intervals' --output_suffix A6
+
+# A7 KDE
+# needs T22.4: hist --datafile Scores -x Score --hue Class --select Model -s BDT --hist_type kde --labelx 'BDT score' --title 'Score densities' --output_suffix A7
+
+# A8 ECDF / cumulative
+# needs T22.4: hist --datafile Scores -x Score --hue Class --select Model -s BDT --hist_type ecdf --labelx 'BDT score' --title 'Cumulative score distributions' --output_suffix A8
+
+# A9 Box plot per category
+line --datafile Showers -x TrueEnergy -y Residual --binned --plot_type box --hue Particle --select Particle -s electron pion --bins 8 --rangex 5 75 --no_fliers --labelx 'Beam energy (GeV)' --labely '$(E_{reco}-E_{true})/E_{true}$' --title 'Energy residuals per beam-energy bin' --output_suffix A9
+
+# A10 Violin / strip / box per category
+# needs T22.2: cat --datafile Showers -x Particle -y Response --kind violin --labely 'Response' --title 'Response per particle' --output_suffix A10
+
+# == B Relationships
+
+# B1 Scatter
+scatter --datafile Showers -x TrueEnergy -y RecoEnergy --hue Particle --select Particle -s electron pion --marker_size 2 --labelx 'Beam energy (GeV)' --labely 'Reconstructed energy (GeV)' --title 'Reconstructed against beam energy' --output_suffix B1
+
+# B2 Scatter with error bars
+line --datafile SupernovaHubble -x Redshift -y DistanceModulus --select Series -s 'Union2.1 SNe' --plot_type errorbar --errory --logx --labelx 'z' --labely 'm-M (mag)' --title 'Union2.1 supernovae: distance modulus against redshift' --output_suffix B2
+
+# B3 Scatter coloured / sized by a third variable
+scatter --datafile Showers -x TrueEnergy -y Response --colorby Hits --sizeby Hits --select Particle -s pion --marker_size 6 --labelx 'Beam energy (GeV)' --labely 'Response $E_{reco}/E_{true}$' --title 'Pion response, coloured and sized by the hits' --output_suffix B3
+
+# B6 Gridded map (z on x×y)
+map --datafile GW150914Spectrogram -x Time -y FrequencyGrid -z Amplitude --iterable Name --cmap viridis --rangex 0.25 0.46 --labelx 'Time (s)' --labely 'Frequency (Hz)' --labelz 'Normalized amplitude' --title 'GW150914: time-frequency maps' --output_suffix B6
+
+# B7 Contour lines / filled contours
+map --datafile OmegaContours --configs SN CMB --names Riess1998 Riess1998 -x OmegaM -y OmegaLambda -z DeltaChi2 --contour --contour_sigmas 1 2 3 --fill_contours --background none --rangex 0 1.4 --rangey -0.4 1.6 --labelx '$\Omega_M$' --labely '$\Omega_\Lambda$' --title 'Supernova and CMB confidence regions' --output_suffix B7
+
+# B9 Profile (mean y per x bin)
+line --datafile Showers -x TrueEnergy -y Response --binned --estimator mean --hue Particle --select Particle -s electron pion --bins 13 --rangex 5 100 --labelx 'Beam energy (GeV)' --labely 'Response $E_{reco}/E_{true}$' --title 'Calorimeter linearity' --output_suffix B9
+
+# == C Trends and fits
+
+# C1 Lines, colour by hue, style by a second variable
+line --datafile RotationCurves -x Radius -y Velocity --hue Galaxy --style Type --plot_type line --no_legend --rangex 0 125 --rangey 0 350 --labelx 'R (kpc)' --labely 'V (km/s)' --title 'Rotation curves of 21 galaxies, style by type' --output_suffix C1
+
+# C2 Line with uncertainty band
+line --datafile HockeyStick -x Year -y Anomaly --hue Series --style Series --iterable_color_mapping mbh_colors --iterable_mapping mbh_labels --comparable_linestyles solid solid solid dashdot --linewidth_column Width --plot_type line --errory --errory_type bands --horizontal 0 --rangex 1000 2000 --rangey -1.5 1 --legend_loc 'lower left' --labelx 'Year' --labely 'Temperature anomaly ($^\circ$C)' --title 'Northern-hemisphere temperatures with a 2σ band' --output_suffix C2
+
+# C3 Stored fit over data with parameter box
+line --datafile Moseley -x AtomicNumber -y SqrtFrequency --hue Series --select Type -s Data --fit --errory --labelx 'Atomic number Z' --labely '$\sqrt{\nu}$ ($10^{8}$ Hz$^{1/2}$)' --title "Moseley's law: stored straight-line fits" --output_suffix C3
+
+# C4 Fit with residual panel
+line --datafile HiggsDiphoton -x Mass -y Events --select Component -s Data --select Weighting -s Unweighted --fit --data_hue Data --errory --lower residual --no-fit_type_subtitle --max_fit_params 3 --labelx '$m_{\gamma\gamma}$ [GeV]' --labely 'Events / 2 GeV' --title 'H→γγ: signal + background fit and residuals' --output_suffix C4
+
+# C5 Fit with pull panel
+line --datafile Distributions -x Bin -y Counts --select Distribution Sample -s Resonance Data --fit --data_hue Data --lower pull --chi2 --max_fit_params 3 --labelx 'Mass (GeV)' --labely 'Events / 2 GeV' --title 'A resonance fit with pulls' --output_suffix C5
+
+# C6 Several model curves over data
+# needs T21: line --datafile ZLineshape -x Energy -y CrossSection --hue Model --series_type Data=errorbar --plot_type line --errory --error_scale 10 --labelx '$E_{cm}$ [GeV]' --labely '$\sigma_{had}$ [nb]' --title 'Z line shape and the number of neutrinos' --output_suffix C6
+
+# C10 Many series with a sequential colour
+# needs T22.5: line --datafile RotationCurves -x Radius -y Velocity --hue Galaxy --hue_cmap viridis --plot_type line --labelx 'R (kpc)' --labely 'V (km/s)' --title 'Rotation curves on a colour map' --output_suffix C10
+
+# == D Comparisons
+
+# D1 Bar chart (integrated arrays)
+# needs T08: cat --datafile Yields -x Stage -y Counts --hue Particle --kind bar --labely Events --title 'Yields per selection stage' --output_suffix D1
+
+# D9 Before/after (slope) chart
+cat --datafile Yields -x Stage -y Counts --hue Particle --kind line --labely Events --title 'Yields before and after the selection' --output_suffix D9
+
+# == E Ratios and significance
+
+# E1 Ratio panel to a reference series
+line --datafile Distributions -x Bin -y Counts --hue Distribution --select Sample Distribution -s Simulation Exponential Landau Log-normal --plot_type step --density --lower ratio --reference_value Exponential --labelx x --lower_labely 'Ratio to Exp.' --title 'Shapes against a reference shape' --output_suffix E1
+
+# E2 Data / (sum of MC) ratio
+line --datafile Distributions -x Bin -y Counts --hue Sample --select Distribution -s Resonance --data_hue Data --stacked --errory --lower ratio --labelx 'Mass (GeV)' --labely 'Events / 2 GeV' --lower_labely 'Data / Sim.' --title 'Data against the stacked simulation' --output_suffix E2
+
+# E3 Data points over stacked MC with ratio panel
+# needs T18: line --datafile FourLepton -x Mass -y Events --hue Sample --stacked --plot_type step --overlay Data --stack_total_error --lower ratio --labelx '$m_{4\ell}$ (GeV)' --labely 'Events / 3 GeV' --title 'Data over the stacked backgrounds' --output_suffix E3
+
+# E4 Several lower panels
+line --datafile Distributions -x Bin -y Counts --hue Sample --select Distribution -s Landau --data_hue Data --errory --lower ratio --lower subtract --labelx x --title 'Ratio and difference to the simulation' --output_suffix E4
+
+# E5 S/√B or significance panel
+line --datafile Distributions -x Bin -y Counts --hue Sample --select Distribution Sample -s Resonance Background Signal --stacked --lower group --reference_group Signal --other_group Background --group_significance --lower_labely '$S/\sqrt{B}$' --labelx 'Mass (GeV)' --labely 'Events / 2 GeV' --title 'Stacked simulation and the signal significance' --output_suffix E5
+
+# E7 Local p0 scan with σ reference lines
+# needs T20: line --datafile HiggsLocalP0 -x Mass -y P0 --hue Hypothesis --plot_type line --errory --logy --sigma_lines 1 2 3 4 5 --labelx '$m_H$ [GeV]' --labely 'Local $p_0$' --title 'Local p0 with σ lines' --output_suffix E7
+
+# == F ML diagnostics
+
+# F1 ROC curve
+line --datafile ROC -x FPR -y TPR --hue Model --plot_type line --line 0 0 1 1 --rangex 0 1 --rangey 0 1 --labelx 'False-positive rate' --labely 'True-positive rate' --title 'ROC curves of three classifiers' --output_suffix F1
+
+# F2 Precision–recall
+line --datafile ROC -x Recall -y Precision --hue Model --plot_type line --rangex 0 1 --rangey 0 1 --labelx 'Recall' --labely 'Precision' --title 'Precision against recall (10:1 background)' --output_suffix F2
+
+# F3 Learning curve with band
+line --datafile LearningCurve -x TrainSize -y Accuracy --hue Split --errory --plot_type line --logx --labelx 'Training events' --labely 'Accuracy' --title 'Learning curve, spread over five folds' --output_suffix F3
+
+# F5 Confusion matrix
+# needs T22.3: map --datafile Confusion -x Predicted -y True -z Fraction --annotate '{:.0%}' --matrix --title 'Confusion matrix' --output_suffix F5
+
+# F6 Feature importance
+# needs T22.1: cat --datafile Importance -x Feature -y Importance --kind bar --orient h --sort desc --title 'Feature importance' --output_suffix F6
+
+# F7 Score distributions per class
+hist --datafile Scores -x Score --hue Class --select Model -s DNN --bins 50 --rangex 0 1 --density --logy --labelx 'DNN score' --title 'Classifier score per class' --output_suffix F7
+
+# == G Uncertainty
+
+# G1 Symmetric / asymmetric error bars
+line --datafile TriggerEfficiency -x Energy -y Efficiency --hue Particle --select Config -s L1 --plot_type errorbar --errory --logx --horizontal 100 --labelx 'Energy (GeV)' --labely 'Efficiency (%)' --title 'L1 turn-on with Clopper-Pearson intervals' --output_suffix G1
+
+# G3 Efficiency intervals in plots
+# needs T19: line --datafile TriggerEfficiency -x Energy -y Efficiency --hue Particle --select Config -s L1 --plot_type errorbar --errory_type clopper_pearson --count_column Total --logx --labelx 'Energy (GeV)' --labely 'Efficiency (%)' --title 'Intervals computed from the counts' --output_suffix G3
+
+# G4 Single band around a curve
+line --datafile TriggerEfficiency -x Energy -y Efficiency --hue Particle --select Config -s HLT --plot_type line --errory --logx --horizontal 100 --labelx 'Energy (GeV)' --labely 'Efficiency (%)' --title 'HLT turn-on with its uncertainty band' --output_suffix G4
+
+# G5 Nested ±1σ/±2σ bands (Brazil plot)
+# needs T20: line --datafile HiggsLimit -x Mass -y MuLimit --select Limit -s Observed -s Expected --hue Limit --style Limit --plot_type line --errory --errory_column MuLimit1Sigma MuLimit2Sigma --band_colors brazil --logy --logx --horizontal 1 --labelx '$m_H$ [GeV]' --labely '95% CL Limit on $\mu$' --title 'Brazil plot' --output_suffix G5
+
+# == H Small multiples and layout
+
+# H1 Facets by a column (wrapped grid)
+line --datafile Anscombe -x X -y Y --hue Type --data_hue Data --variables I II III IV --plot_type line --no_legend --rangex 2 20 --rangey 2 14 --labelx 'x' --labely 'y' --single_panel_size --title "Anscombe's quartet, one panel per dataset" --output_suffix H1
+
+# H2 Shared axes and colour scales across facets
+# needs T22.6: line --datafile Anscombe -x X -y Y --hue Type --data_hue Data --variables I II III IV --plot_type line --sharex --sharey --no_legend --title 'Shared axes' --output_suffix H2
+
+# H4 Upper + lower panels
+line --datafile SupernovaHubble -x Redshift -y DistanceModulus --hue Series --style Series --data_hue 'Union2.1 SNe' --iterable_color_mapping sn_colors --comparable_linestyles solid solid dotted dashed --plot_type line --errory --logx --rangex 0.008 1.6 --rangey 32.5 46.5 --lower column:DeltaMu --lower_labely '$\Delta$(m-M) (mag)' --lower_rangey -0.9 0.9 --no_lower_legend --legend_loc 'lower right' --labelx 'z' --labely 'm-M (mag)' --title 'Supernovae and three cosmologies, residuals below' --output_suffix H4
+
+# H5 Inset axes
+# needs T22.7: line --datafile Keeling -x DecimalDate -y CO2 --hue Series --plot_type line --inset 2015 2020 --inset_pos 0.55 0.1 0.4 0.35 --title 'Keeling curve with a zoom' --output_suffix H5
+
+# H8 Figure sized for a journal column
+# needs T14: line --datafile ROC -x FPR -y TPR --hue Model --plot_type line --medium paper --width single --output_suffix H8
+
+# == I Annotations
+
+# I1 Reference lines (h/v/diagonal) with labels
+line --datafile Moseley -x AtomicNumber -y SqrtFrequency --hue Series --data_hue 'K$\alpha$' 'L$\alpha$' --iterable_color_mapping moseley_colors --plot_type line --rangex 10 82 --rangey 4 24 --vertical 43 61 75 --vertical_label 'Z=43' 'Z=61' 'Z=75' --vertical_style dotted dotted dotted --legend_loc 'upper left' --labelx 'Atomic number Z' --labely '$\sqrt{\nu}$ ($10^{8}$ Hz$^{1/2}$)' --title "Moseley's missing elements" --output_suffix I1
+
+# I2 Highlighted points and regions
+line --datafile Distributions -x Bin -y Counts --hue Sample --select Distribution -s Breit-Wigner --data_hue Data --errory --square 89.94 0 92.44 125 --square_label 'FWHM' --point 91.19 262 --point_label '$m_Z$' --labelx 'Mass (GeV)' --title 'The Z peak: a marked point and a region' --output_suffix I2
+
+# I3 Free text box
+line --datafile Distributions -x Bin -y Counts --hue Sample --select Distribution -s Breit-Wigner --data_hue Data --errory --vertical 89.94 92.44 --note 'FWHM = 2.50 GeV' --labelx 'Mass (GeV)' --title 'A Breit-Wigner peak with a note' --output_suffix I3
+
+# I4 Experiment / status label
+line --datafile FourLepton -x Mass -y Events --hue Sample --data_hue Data --iterable_color_mapping zz_colors --iterable_mapping zz_labels --stacked --rangex 70 181 --rangey 0 17.5 --legend_loc 'upper left' --labelx '$m_{4\ell}$ (GeV)' --labely 'Events / 3 GeV' --text 0.0 1.03 'CMS' --text 1.0 1.03 '$\sqrt{s}$ = 7 TeV, L = 5.1 fb$^{-1}$  $\sqrt{s}$ = 8 TeV, L = 5.3 fb$^{-1}$' --text_ha left right --text_size large --title None --output_suffix I4
+# needs T17: line --datafile FourLepton -x Mass -y Events --hue Sample --data_hue Data --stacked --experiment cms --label_status Preliminary --label_right '$\sqrt{s}$ = 8 TeV' --output_suffix I4b
+
+# I7 Inverted axis
+line --datafile Leavitt -x LogPeriod -y Magnitude --hue Brightness --data_hue Maximum Minimum --iterable_color_mapping leavitt_colors --plot_type line --rangex 0 2.2 --rangey 17 10.5 --legend_loc 'lower right' --labelx 'log P (days)' --labely 'Apparent magnitude' --title "Leavitt's period-luminosity relation, magnitudes inverted" --output_suffix I7
+
+# I10 Legend outside / above the axes
+# needs T15: line --datafile ROC -x FPR -y TPR --hue Model --plot_type line --legend_loc outside --output_suffix I10

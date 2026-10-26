@@ -1,15 +1,20 @@
 """Write the example data of input/plots/example_scripts.txt (and of the
 figures of docs/options.md): Distributions.pkl, and two files derived from
 it, the per-config files of the --configs example and Moments.pkl for the
-table example."""
+table example.
 
+    python make_data.py          # into input/data
+    python make_data.py DIR      # into DIR (the gallery's data)
+"""
+
+import sys
 from pathlib import Path
 
 import numpy as np
 import pandas as pd
 
 rng = np.random.default_rng(1)
-out = Path(__file__).parent / "input" / "data"
+out = Path(sys.argv[1]) if len(sys.argv) > 1 else Path(__file__).parent / "input" / "data"
 out.mkdir(parents=True, exist_ok=True)
 
 

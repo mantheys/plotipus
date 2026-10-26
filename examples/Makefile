@@ -4,10 +4,11 @@
 #   make docs     the example figures, copied to docs/images/options for docs/options.md
 #   make mascot   draw the mascot (docs/tutorial.md, and on black for the README) into docs/images/mascot
 #   make famous   the famous-plot reproductions, also in the paper style; the README gallery (paper) goes to docs/images/famous
+#   make gallery  one example per working catalogue row (examples/gallery), with the page gallery/output/gallery.md
 PYTHON ?= $(if $(wildcard ../.venv/bin/python),$(abspath ../.venv/bin/python),python3)
 PLOTIPUS ?= $(PYTHON) -m plotipus
 
-.PHONY: all data plots tables docs mascot famous clean
+.PHONY: all data plots tables docs mascot famous gallery clean
 
 all: clean plots tables
 
@@ -57,6 +58,13 @@ famous:
 	rm -rf ../docs/images/famous && mkdir -p ../docs/images/famous
 	for pair in $(FAMOUS_GALLERY); do cp "famous/paper/output/plots/$${pair%%:*}" "../docs/images/famous/$${pair##*:}" || exit 1; done
 
+# The gallery: its data (the example, famous and gallery themes), every command of
+# gallery/input/{plots,tables}/gallery_scripts.txt in its own folder, and the page.
+# Default medium only until T14 (--medium all) lands.
+gallery:
+	cd gallery && $(PYTHON) make_data.py && rm -rf output && $(PYTHON) make_page.py
+
 clean:
-	rm -rf output mascot/output mascot/dark/output famous/output famous/paper/output
-	rm -f input/data/*.pkl mascot/input/data/*.pkl famous/input/data/*.pkl
+	rm -rf output mascot/output mascot/dark/output famous/output famous/paper/output gallery/output
+	rm -f input/data/*.pkl mascot/input/data/*.pkl famous/input/data/*.pkl gallery/input/data/*.pkl
+	rm -f gallery/input/famous_mappings.json
