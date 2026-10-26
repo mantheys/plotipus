@@ -168,7 +168,7 @@ _HEADER_KEYS = {"label": "label", "label_status": "status", "label_right": "righ
 
 
 def apply_rendering(medium=None, theme=None, width=None, aspect=None, project=None, preset=None,
-                    save_style=None, experiment=None):
+                    save_style=None, experiment=None, single_panel=None):
     """Apply the style of a named preset and/or medium/theme (default: the
     project's) and the --width/--aspect overrides; returns the Rendering."""
     project = project or load_project()
@@ -186,8 +186,8 @@ def apply_rendering(medium=None, theme=None, width=None, aspect=None, project=No
     style.apply_layers(layers[len(layers) - len(project.styles):])
     if project.header:
         style.configure(header=project.header)
-    if width is not None or aspect is not None:
-        style.set_geometry(width=width, aspect=aspect)
+    if width is not None or aspect is not None or single_panel:
+        style.set_geometry(width=width, aspect=aspect, single_panel=single_panel)
     project.rendering = Rendering(medium, theme, style.figure_width, style.figure_row_height, layers,
                                   project.output_folder(medium, theme), language,
                                   project.save_style if save_style is None else save_style)

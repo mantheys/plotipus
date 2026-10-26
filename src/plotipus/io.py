@@ -586,6 +586,9 @@ def save_figure_to_paths(fig, output_arg, output_file, default_output_dir=None, 
     moved = make_room(fig)  # data under an inside experiment header
     if place_legends(fig) or moved:
         apply_measured_layout(fig)
+        # That layout may have shrunk the axes under an inside header.
+        if make_room(fig):
+            apply_measured_layout(fig)
     attach_legends(fig)  # legends kept next to another one, on the final layout
 
     # Layout may have narrowed the title since it was set; re-check it fits.

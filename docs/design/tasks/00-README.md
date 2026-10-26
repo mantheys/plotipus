@@ -114,10 +114,10 @@ Struck through: done and merged into `main`.
 | ~~[T11](T11-style-infrastructure.md)~~ | ~~`mplstyle` key and colour roles~~ | 3 | M | low |
 | ~~[T12](T12-ticks-and-output.md)~~ | ~~Tick labels and output resolution~~ | 4 | S | low |
 | ~~[T13](T13-measured-layout.md)~~ | ~~Measured layout~~ | 4 | L | med |
-| ~~[T14](T14-media-widths-themes.md)~~ | ~~Media (slides/paper/web), widths, themes~~ | 5 | L | med |
+| ~~[T14](T14-media-widths-themes.md)~~ | ~~Media (slides/paper/web), widths, themes~~ (famous-plot follow-up: `style.text_scale`, `--single_panel_size`; the famous paper gallery is `--medium paper`) | 5 | L | med |
 | ~~[T15](T15-legends.md)~~ | ~~Legends that never cover data~~ (famous-plot follow-up: a legend per panel, below/right of the axes, one `--legend_loc` for both legends) | 5 | M | med |
 | [T16](T16-ship-styles.md) | Ship the styles; `classic` for compatibility | 6 | M | high |
-| [T17](T17-experiments-watermarks.md) | Experiment presets and watermarks | 6 | M | low |
+| [T17](T17-experiments-watermarks.md) | Experiment presets and watermarks (famous-plot follow-up: several `--label_right` lines; F01, F03–F05 use the headers) | 6 | M | low |
 | ~~[T18](T18-stacking-overlay.md)~~ | ~~Stacked simulation with overlaid data~~ | 7 | M | med |
 | ~~[T19](T19-poisson-cp-errors.md)~~ | ~~Poisson and Clopper–Pearson intervals in plots~~ | 7 | M | low |
 | [T20](T20-bands-sigma-lines.md) | Nested bands, Brazil plots, σ lines | 7 | M | low |

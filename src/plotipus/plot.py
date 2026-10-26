@@ -52,7 +52,10 @@ def get_common_figsize(ncols=1, nrows=1, height_ratios=None):
     shares the width and each row is the preset's height; ``height_ratios``
     (upper panel first) add the lower panels' height instead of squeezing.
     Without a width, the old geometry: base width plus a panel width per
-    extra column."""
+    extra column. With --single_panel_size every figure has the size of one
+    panel."""
+    if _style.figure_single_panel:
+        ncols, nrows, height_ratios = 1, 1, None
     rows = max(1, int(nrows))
     if _style.figure_width is not None:
         height = _style.figure_row_height * rows
@@ -256,13 +259,16 @@ def _visible_length(text):
 
 def _break_label(text):
     """``text`` on two lines, broken at the space (outside ``$...$`` math)
-    that makes the longer line shortest; None when there is no such space."""
+    that makes the longer line shortest; None when there is no such space.
+    A lone operator ("Events - Bkg") stays at the end of the first line."""
     spaces, math = [], False
     for i, char in enumerate(text):
         if char == "$":
             math = not math
         elif char == " " and not math:
-            spaces.append(i)
+            following = text[i + 1:].split(" ")[0]
+            if not (len(following) == 1 and not following.isalnum()):
+                spaces.append(i)
     if not spaces or "\n" in text:
         return None
     cut = min(spaces, key=lambda i: max(_visible_length(text[:i]), _visible_length(text[i + 1:])))

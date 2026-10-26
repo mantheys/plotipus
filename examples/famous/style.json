@@ -1,19 +1,13 @@
 {
-  "_comment_width": "The gallery sizes its figures itself (figure_layout): no preset width (T16).",
-  "width": null,
+  "_comment_widths": "The README gallery (--medium paper, a single column) at 3.5 x 2.7 in: 1050 x 810 px at 300 dpi.",
+  "widths": {"single": {"width": 3.5, "height": 2.7}},
   "rcparams": {
     "axes.prop_cycle": "cycler('color', ['black', '#e41a1c', '#377eb8', '#4daf4a', '#ff7f00', '#984ea3', '#a65628', '#f781bf', '#999999'])",
     "errorbar.capsize": 0,
     "image.cmap": "inferno"
   },
   "plot_settings": {
-    "auto_title": false,
-    "legend_style": {
-      "fontsize": "large",
-      "title_fontsize": "large",
-      "frameon": false,
-      "loc": "best"
-    }
+    "auto_title": false
   },
   "labels": {
     "redundant_legend_titles": [
@@ -201,9 +195,5 @@
       "SN": "#3a6fb0",
       "CMB": "#e6550d"
     }
-  },
-  "font_sizes": {
-    "legendfontsize": "large",
-    "legendtitlefontsize": "large"
   }
 }

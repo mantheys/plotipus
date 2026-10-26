@@ -54,13 +54,14 @@ def main(module, argv=None):
             outputs += main(module, with_medium(argv, medium)) or []
         return outputs
     if all(getattr(media, k) is None for k in ("medium", "theme", "width", "aspect", "style_preset", "save_style",
-                                       "experiment")):
+                                       "experiment", "single_panel_size")):
         return _run(module, argv)
     saved, rendering = style.snapshot(), project.rendering
     try:
         try:
             apply_rendering(media.medium, media.theme, media.width, media.aspect, preset=media.style_preset,
-                            save_style=media.save_style, experiment=media.experiment)
+                            save_style=media.save_style, experiment=media.experiment,
+                            single_panel=media.single_panel_size)
         except ValueError as error:
             module.build_parser().error(str(error))
         return _run(module, argv)

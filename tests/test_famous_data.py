@@ -157,23 +157,25 @@ def test_command_renders(command, frames, make_project):
         assert (out / output).exists(), output
 
 
-def test_paper_style_keeps_one_figure_size(frames, make_project):
-    """The paper gallery: a 2 x 2 grid with --single_panel_size is saved at
-    the single-panel size of the paper style (3.5 x 2.7 in at 300 dpi)."""
+@pytest.mark.parametrize("start", ["line --datafile Anscombe", "line --datafile HiggsDiphoton -x Mass -y Events --hue",
+                                   "line --datafile HockeyStick"])
+def test_paper_style_keeps_one_figure_size(frames, make_project, start):
+    """The README gallery is the main project rendered with --medium paper:
+    a 2 x 2 grid and a figure with a lower panel (--single_panel_size) and
+    one with a legend below the axes all have the gallery's single-column
+    size (3.5 x 2.7 in at 300 dpi)."""
     from PIL import Image
 
-    styles = ", ".join(f'"{(path).as_posix()}"' for path in (FAMOUS / "style.json", FAMOUS / "paper" / "paper.json"))
     config = (f'python_path = ["{FAMOUS.as_posix()}"]\nplugins = ["models", "annotations", "colorscale"]\n'
-              f'style = [{styles}]\n'
-              "[settings]\ntext_scale = 0.75\n")
+              f'style = ["{(FAMOUS / "style.json").as_posix()}"]\n')
     out = make_project(frames, config=config)
-    command = next(c for c in COMMANDS if c.startswith("line --datafile Anscombe") and "--single_panel_size" in c)
+    command = next(c for c in COMMANDS if c.startswith(start))
     kind, *argv = build_command(command)
     try:
-        outputs = plotipus.plot(kind, argv)
+        outputs = plotipus.plot(kind, [*argv, "--medium", "paper"])
     finally:
         plt.close("all")
-    assert Image.open(out / outputs[0]).size == (1050, 810)
+    assert Image.open(out / "paper" / outputs[0]).size == (1050, 810)
 
 
 def test_gaia_counts_match_the_paper(frames):
