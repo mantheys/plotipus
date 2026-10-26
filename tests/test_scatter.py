@@ -61,3 +61,53 @@ def test_points_of_the_selected_row_only_drawn_columns(make_project):
     scatter.main(["--datafile", "Points", "-x", "X", "-y", "Y", "--select", "Kind", "-s", "b"])
     offsets = np.vstack([c.get_offsets() for c in figures[-1].axes[0].collections if len(c.get_offsets())])
     assert len(offsets) == 7 and (offsets[:, 1] <= 0).all()
+
+
+# --- --hue keeps every group (T05) -------------------------------------------------------
+
+
+def _groups():
+    rng = np.random.default_rng(3)
+    return pd.DataFrame({"Group": ["A", "B", "C"], "Variable": "Ev",
+                         "Xv": [rng.normal(m, 1, 50) for m in (0, 1, 2)],
+                         "Yv": [rng.normal(m, 1, 50) for m in (0, 1, 2)]})
+
+
+def _point_collections(ax):
+    return [c for c in ax.collections if len(c.get_offsets())]
+
+
+def test_scatter_hue_draws_every_group(make_project, capsys):
+    from matplotlib.colors import to_hex
+
+    from plotipus import registry
+
+    figures = []
+    registry.add_figure_hook(lambda fig, args: figures.append(fig))
+    make_project({"Ev": _groups()})
+    scatter.main(["--datafile", "Ev", "-x", "Xv", "-y", "Yv", "--hue", "Group", "--marker_size", "2"])
+    ax = figures[0].axes[0]
+    collections = _point_collections(ax)
+    assert len(collections) == 3 and all(len(c.get_offsets()) == 50 for c in collections)
+    assert len({to_hex(c.get_facecolor()[0]) for c in collections}) == 3
+    assert [t.get_text() for t in ax.get_legend().get_texts()] == ["A", "B", "C"]
+    assert "--markerby not set" not in capsys.readouterr().out
+
+
+def test_scatter_without_hue_keeps_first_row_and_warns(make_project, capsys):
+    from plotipus import registry
+
+    figures = []
+    registry.add_figure_hook(lambda fig, args: figures.append(fig))
+    make_project({"Ev": _groups()})
+    scatter.main(["--datafile", "Ev", "-x", "Xv", "-y", "Yv"])
+    offsets = np.vstack([c.get_offsets() for c in _point_collections(figures[0].axes[0])])
+    assert np.allclose(offsets[:, 0], _groups()["Xv"][0])  # the first row only
+    out = " ".join(capsys.readouterr().out.split())
+    assert "--markerby not set" in out and "differ in Group" in out
+
+
+def test_explode_points_per_point_hue_is_not_a_row_key():
+    frame = pd.DataFrame({"X": [[0.0, 1.0], [2.0]], "PDG": [[11, 22], [13]]})
+    exploded = scatter.explode_points(frame, columns=["X", "PDG"], hue="PDG")
+    assert exploded["PDG"].tolist() == [11, 22]  # one row kept, its per-point hue kept as a column
