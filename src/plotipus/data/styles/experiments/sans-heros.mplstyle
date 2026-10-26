@@ -1,0 +1,5 @@
+# Helvetica-like sans for the experiment presets (mplhep's ATLAS, CMS, ALICE
+# styles use TeX Gyre Heros); DejaVu Sans when none is installed.
+font.family: sans-serif
+font.sans-serif: TeX Gyre Heros, Helvetica, Nimbus Sans, Liberation Sans, Arial, DejaVu Sans
+mathtext.fontset: dejavusans

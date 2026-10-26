@@ -135,7 +135,10 @@ plotipus line ... --save_style               # also write <figure>.style.json: t
 `--medium` and `--theme` change one part of the name (`--style_preset open
 --theme dark` is `open-dark`). Styles are layered: the named style, then
 what plugins set, then the project's style files, then `--width` and
-`--aspect`. **Upgrading?** See the [changelog](CHANGELOG.md):
+`--aspect`. An experiment header and a status watermark go on top of any
+style: `--experiment dune --label_status Preliminary --watermark wip`, or
+`[header]` in `plotipus.toml` ([Projects](docs/projects.md#header-and-watermark)).
+**Upgrading?** See the [changelog](CHANGELOG.md):
 `style = ["classic"]` keeps the old look.
 
 ## Famous plots

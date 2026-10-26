@@ -764,6 +764,26 @@ def add_media_args(parser):
     add("--save_style", action="store_true", default=None,
         help="Write <figure>.style.json (the style layers and rcParams used) next to each figure "
         "(default: [project] save_style).")
+    add("--experiment", default=None, choices=[*style.experiments(), "none"],
+        help="Experiment preset: the header label, its typography and the experiment's fonts and palette "
+        "(default: [header] experiment; 'none' drops the project's).")
+
+
+def add_header_args(parser):
+    """--label, --label_status, --label_right, --watermark, --watermark_style
+    (every plot kind); see :mod:`plotipus.header`."""
+    group = parser.add_argument_group("header and watermark")
+    add = group.add_argument
+    add("--label", default=None, help="Header label above the axes on the left, e.g. the experiment name (bold).")
+    add("--label_status", default=None, help="Text after the label, e.g. 'Preliminary' or 'Internal'.")
+    add("--label_right", default=None, help="Header text on the right, e.g. '13.6 TeV, 140 fb$^{-1}$'.")
+    add("--label_position", default=None, choices=["above", "inside"],
+        help="Header above the axes (default) or inside the top-left corner (the preset's).")
+    add("--watermark", default=None,
+        help="Status watermark: wip (Work In Progress), preliminary, internal, simulation, draft, any text, "
+        "or none to drop the project's.")
+    add("--watermark_style", default=None, choices=["corner", "diagonal"],
+        help="corner: under the header in the muted colour (default); diagonal: large faint text behind the data.")
 
 
 def parse_media_args(argv):

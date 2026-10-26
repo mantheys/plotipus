@@ -57,6 +57,12 @@ NAMES = {
     "classic": ("classic", None, "light"),
 }
 DEFAULT_NAME = "slides"
+EXPERIMENTS_DIR = STYLES_DIR / "experiments"
+
+
+def experiments():
+    """Names of the experiment presets (``--experiment``)."""
+    return sorted(path.stem for path in EXPERIMENTS_DIR.glob("*.json"))
 _MPLSTYLE_PATH = Path(__file__).with_name("data") / "plotipus.mplstyle"
 
 _FALLBACK_LEGEND_STYLE = {"frameon": False, "loc": "best"}
@@ -207,7 +213,7 @@ def _publish():
     global note_style, base_font_size, mappings, auto_title, contours, stack_error, sci_in_label, error_label
     global capitalize_exceptions, redundant_legend_titles, title_short_forms
     global widths, figure_aspect, figure_width, figure_row_height, draw_titles
-    global fit_color, zero_line_color, diverging_cmap
+    global fit_color, zero_line_color, diverging_cmap, header
 
     rcparams = _CONFIG.get("rcparams", {})
     plt.rcParams.update(rcparams)
@@ -253,6 +259,8 @@ def _publish():
     fit_color = settings.get("fit_color")
     zero_line_color = settings.get("zero_line_color", "role:muted")
     diverging_cmap = settings.get("diverging_cmap", "RdBu_r")
+    # The experiment header and watermark (see plotipus.header).
+    header = dict(_CONFIG.get("header", {}))
 
     widths = {name: value for name, value in _CONFIG.get("widths", {}).items()}
     figure_aspect = float(_CONFIG.get("aspect", 0.75))
@@ -343,14 +351,20 @@ def layer_path(name):
     return None
 
 
-def name_layers(language, medium=None, theme="light"):
+def name_layers(language, medium=None, theme="light", experiment=None):
     """[(layer, path)] of a language/medium/theme combination, in the order
-    they apply: the language, the medium and the dark theme. ``classic`` is
-    complete on its own (no medium or theme layer)."""
+    they apply: the language, the medium, the experiment preset and the dark
+    theme (whose readable colours win over an experiment's palette).
+    ``classic`` is complete on its own (no medium or theme layer)."""
     names = [language] if language == "classic" else [n for n in (language, medium) if n]
-    if language != "classic" and theme == "dark":
-        names.append("dark")
     found = [(n, layer_path(n)) for n in names]
+    if experiment and experiment != "none":
+        path = EXPERIMENTS_DIR / f"{experiment}.json"
+        if not path.is_file():
+            raise ValueError(f"Unknown experiment '{experiment}': use one of {', '.join(experiments())}.")
+        found.append((f"experiment-{experiment}", path))
+    if language != "classic" and theme == "dark":
+        found.append(("dark", layer_path("dark")))
     missing = [n for n, path in found if path is None]
     if missing:
         raise ValueError(f"Unknown style layer(s): {', '.join(missing)}.")

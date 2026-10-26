@@ -173,7 +173,7 @@ All curves are precomputed by the analysis (plotipus does not fit or score).
 | I1 | Reference lines (h/v/diagonal) with labels | thresholds, expectations | F04, F05, F08 | ✅ | `--horizontal`, `--vertical`, `--line x0 y0 x1 y1`, `--diagonal` (map). | — |
 | I2 | Highlighted points and regions | best fit, signal window | F08, F10 | ✅ | `--point`, `--square`. | — |
 | I3 | Free text box | selection, dataset | — | ✅ | `--note`. | — |
-| I4 | Experiment / status label ("plotipus Preliminary", lumi, √s) | publication | F01–F05 | ✅ | Via plugin figure hook (`registry.add_figure_hook`). | Built-in `--label 'TEXT' --label_right 'TEXT'` header (mplhep style). |
+| I4 | Experiment / status label ("plotipus Preliminary", lumi, √s) | publication | F01–F05 | ✅ | Built in (T17): `--label 'TEXT' --label_status Preliminary --label_right 'TEXT'`, `--experiment atlas|cms|lhcb|alice|dune`, `--watermark wip`; logos through a figure hook. | — |
 | I5 | Text at data coordinates, arrows | region labels | F10, F18 | ✗ | — | `--text X Y 'TEXT' [--arrow X2 Y2]` (repeatable). |
 | I6 | Direct labels at line ends (no legend) | few series | F17 | ✗ | — | `--direct_labels`: label each series at its last point, de-overlapped. |
 | I7 | Inverted axis | magnitudes | F21, F22 | ✅ | Reversed range: `--rangey 1 0` (Q1). | — |

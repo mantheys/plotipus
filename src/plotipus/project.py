@@ -20,6 +20,14 @@ working directory is the project root and every setting has its default::
     language = "plotipus"           # plotipus | open | classic
     save_style = false              # write <figure>.style.json next to each figure
 
+    [header]                        # the experiment header and watermark
+    experiment = "dune"             # a preset: atlas, cms, lhcb, alice, dune
+    label = "plotipus"              # (or the preset's) bold label, top left
+    label_status = "Preliminary"
+    label_right = "13.6 TeV, 140 fb$^{-1}$"
+    watermark = "wip"               # wip, preliminary, internal, simulation, draft, or text
+    watermark_style = "corner"      # corner | diagonal
+
     [outputs.plots]                 # extra -o targets per command list
     solar = ["../THESIS/figures/solar"]
 
@@ -34,7 +42,10 @@ named style's language, medium and dark theme from
 ``plotipus/data/styles/`` (default ``slides``: plotipus, slides, light;
 ``--style_preset``, ``--medium`` and ``--theme`` change it), then whatever
 plugins changed, then the project's ``style`` files, which have the last
-word, then ``--width``/``--aspect``. The project's own medium and theme
+word, then ``[header]``, then ``--width``/``--aspect``. An experiment
+preset (``--experiment``, ``[header] experiment`` or ``experiment-NAME`` in
+the style list) is a layer between the medium and the dark theme. The
+project's own medium and theme
 write to ``output/plots``; any other pair writes to
 ``output/plots/<medium>[-dark]``.
 """
@@ -72,6 +83,8 @@ class Project:
     theme: str = None
     language: str = None
     preset: str = None
+    experiment: str = None
+    header: dict = field(default_factory=dict)
     save_style: bool = False
     styles: list = field(default_factory=list)
     rendering: "Rendering" = None
@@ -110,10 +123,12 @@ class Project:
             return None
         return pair[0] + ("-dark" if pair[1] == "dark" else "")
 
-    def layers(self, language, medium, theme):
-        """Style layers [(name, path)]: the named layers of the combination,
-        then the project style files."""
-        return style.name_layers(language, medium, theme) + [(Path(s).name, self._resolve(s)) for s in self.styles]
+    def layers(self, language, medium, theme, experiment=None):
+        """Style layers [(name, path)]: the named layers of the combination
+        (with the experiment preset), then the project style files."""
+        experiment = self.experiment if experiment is None else experiment
+        return (style.name_layers(language, medium, theme, experiment)
+                + [(Path(s).name, self._resolve(s)) for s in self.styles])
 
 
 @dataclass
@@ -147,8 +162,13 @@ def _check(value, allowed, option):
     return value
 
 
+# [header] keys of plotipus.toml -> keys of the style's "header" section.
+_HEADER_KEYS = {"label": "label", "label_status": "status", "label_right": "right",
+                "watermark": "watermark", "watermark_style": "watermark_style"}
+
+
 def apply_rendering(medium=None, theme=None, width=None, aspect=None, project=None, preset=None,
-                    save_style=None):
+                    save_style=None, experiment=None):
     """Apply the style of a named preset and/or medium/theme (default: the
     project's) and the --width/--aspect overrides; returns the Rendering."""
     project = project or load_project()
@@ -157,13 +177,15 @@ def apply_rendering(medium=None, theme=None, width=None, aspect=None, project=No
     language, own_medium, own_theme = project.own_style(preset)
     medium = _check(medium or own_medium, MEDIA, "--medium")
     theme = _check(theme or own_theme or DEFAULT_THEME, THEMES, "--theme")
-    layers = project.layers(language, medium, theme)
+    layers = project.layers(language, medium, theme, experiment)
     style.restore(style.base_state())
     style.apply_layers(layers[:len(layers) - len(project.styles)])
     # Plugins (and settings changed before the project loaded) keep their
     # say over the named style; the project's style files have the last word.
     style.replay(project._changes)
     style.apply_layers(layers[len(layers) - len(project.styles):])
+    if project.header:
+        style.configure(header=project.header)
     if width is not None or aspect is not None:
         style.set_geometry(width=width, aspect=aspect)
     project.rendering = Rendering(medium, theme, style.figure_width, style.figure_row_height, layers,
@@ -172,12 +194,13 @@ def apply_rendering(medium=None, theme=None, width=None, aspect=None, project=No
     return project.rendering
 
 
-def describe_rendering(medium=None, theme=None, width=None, aspect=None, project=None, preset=None):
+def describe_rendering(medium=None, theme=None, width=None, aspect=None, project=None, preset=None,
+                       experiment=None):
     """The Rendering a command would get, without changing the current style."""
     project = project or load_project()
     saved = style.snapshot()
     try:
-        return apply_rendering(medium, theme, width, aspect, project, preset)
+        return apply_rendering(medium, theme, width, aspect, project, preset, experiment=experiment)
     finally:
         style.restore(saved)
 
@@ -253,10 +276,21 @@ def load_project(start=None, reload=False):
     # entries are style files.
     styles = section.get("style", [])
     for entry in [styles] if isinstance(styles, str) else styles:
-        if str(entry).strip().lower() in style.NAMES and not project._resolve(entry).exists():
-            project.preset = str(entry).strip().lower()
+        name = str(entry).strip().lower()
+        if project._resolve(entry).exists():
+            project.styles.append(entry)
+        elif name in style.NAMES:
+            project.preset = name
+        elif name.startswith("experiment-"):
+            project.experiment = name[len("experiment-"):]
         else:
             project.styles.append(entry)
+    header = dict(config.get("header", {}))
+    project.experiment = header.pop("experiment", project.experiment)
+    unknown = set(header) - set(_HEADER_KEYS)
+    if unknown:
+        raise ValueError(f"Unknown [header] key(s) in {config_file}: {', '.join(sorted(unknown))}.")
+    project.header = {_HEADER_KEYS[key]: value for key, value in header.items()}
     project._changes = style.difference(style.default_state(), style.snapshot())
     apply_rendering(project=project)
     return project

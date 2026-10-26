@@ -1,0 +1,10 @@
+{
+  "_source": [
+    "mplhep exp_lhcb.py: 'LHCb' in the style's serif face, regular weight and style, inside the top-left corner (loc 1). https://raw.githubusercontent.com/scikit-hep/mplhep/master/src/mplhep/exp_lhcb.py",
+    "mplhep styles/lhcb.py (LHCb2): serif TeX Gyre Termes (a Times clone). https://raw.githubusercontent.com/scikit-hep/mplhep/master/src/mplhep/styles/lhcb.py"
+  ],
+  "_unverified": ["Typography follows mplhep's LHCb label; no official LHCb style guide was checked."],
+  "mplstyle": "serif-termes.mplstyle",
+  "header": {"label": "LHCb", "label_weight": "normal", "label_style": "normal", "status_weight": "normal",
+             "status_style": "normal", "label_size": 1.3, "status_size": 1.0, "right_size": 0.95, "position": "inside"}
+}

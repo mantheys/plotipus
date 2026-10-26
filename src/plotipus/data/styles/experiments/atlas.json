@@ -1,0 +1,11 @@
+{
+  "_source": [
+    "mplhep exp_atlas.py: 'ATLAS' bold italic (bold from label_base, italic set here), the status upright, inside the top-left corner (loc 4) with sqrt(s) and the luminosity on the line below; sizes 1.3x / 1.2x / 1x of font.size. https://raw.githubusercontent.com/scikit-hep/mplhep/master/src/mplhep/exp_atlas.py",
+    "mplhep styles/atlas.py: TeX Gyre Heros / Helvetica / Nimbus Sans; ATLAS1 uses Petroff-10, so the plotipus palette is kept. https://raw.githubusercontent.com/scikit-hep/mplhep/master/src/mplhep/styles/atlas.py"
+  ],
+  "_unverified": ["Typography follows mplhep's ATLAS label; the ATLAS publication style guide is internal and was not checked.",
+                  "Placed above the axes like the other headers; mplhep's ATLAS default is inside the top-left corner (--label_position inside)."],
+  "mplstyle": "sans-heros.mplstyle",
+  "header": {"label": "ATLAS", "label_weight": "bold", "label_style": "italic", "status_weight": "normal",
+             "status_style": "normal", "label_size": 1.3, "status_size": 1.2, "right_size": 1.0, "position": "above"}
+}

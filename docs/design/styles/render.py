@@ -6,8 +6,10 @@ Each name (slides, slides-dark, paper, paper-dark, open, open-dark,
 classic) is selected by the project style list (``style = [name,
 "style.json"]``, the examples' mappings). Outputs: ``<name>/png/NN_<slug>.png``
 and ``compare/NN_<slug>.png`` (slides, slides-dark, paper, open, open-dark,
-classic). The paper/open/hep/slides folders also keep the prototypes the
-shipped styles were ported from (plotipus-<name>.mplstyle, style.json).
+classic), plus the experiment-header renders of examples 01 and 03
+(``slides+atlas+wip``, ``paper+dune+preliminary``) as extra columns. The
+paper/open/hep/slides folders also keep the prototypes the shipped styles
+were ported from (plotipus-<name>.mplstyle, style.json).
 """
 
 import shlex
@@ -28,6 +30,15 @@ REPO = HERE.parents[2]
 EXAMPLES = REPO / "examples"
 NAMES = ["slides", "slides-dark", "paper", "paper-dark", "open", "open-dark", "classic"]
 SHEET = ["slides", "slides-dark", "paper", "open", "open-dark", "classic"]
+# Experiment presets and watermarks (T17): folder -> (style, extra options, examples).
+EXTRAS = {
+    "slides+atlas+wip": ("slides", ["--experiment", "atlas", "--label_status", "Internal",
+                                    "--label_right", r"$\sqrt{s}$ = 13.6 TeV, 140 fb$^{-1}$", "--watermark", "wip"],
+                         ["01_hue_style", "03_stacked_significance"]),
+    "paper+dune+preliminary": ("paper", ["--experiment", "dune", "--label_status", "Preliminary",
+                                         "--watermark", "preliminary", "--watermark_style", "diagonal"],
+                               ["01_hue_style", "03_stacked_significance"]),
+}
 
 # A representative set of the example commands of examples/input/plots/example_scripts.txt.
 COMMANDS = {
@@ -42,21 +53,23 @@ COMMANDS = {
 }
 
 
-def render(name, workdir):
-    project = workdir / name
+def render(name, workdir, folder=None, extra=(), slugs=None):
+    project = workdir / (folder or name)
     (project / "input" / "data").mkdir(parents=True)
     shutil.copy(EXAMPLES / "make_data.py", project / "make_data.py")
     subprocess.run([sys.executable, "make_data.py"], cwd=project, check=True, capture_output=True)
     shutil.copy(EXAMPLES / "style.json", project / "style.json")
     (project / "plotipus.toml").write_text(
         f'[project]\ndata_root = "input/data"\noutput = "output"\nstyle = ["{name}", "style.json"]\n')
-    out = HERE / name / "png"
+    out = HERE / (folder or name) / "png"
     out.mkdir(parents=True, exist_ok=True)
     for slug, command in COMMANDS.items():
+        if slugs is not None and slug not in slugs:
+            continue
         target = project / "out" / slug
-        result = subprocess.run([sys.executable, "-m", "plotipus", *shlex.split(command), "-o", str(target)],
+        result = subprocess.run([sys.executable, "-m", "plotipus", *shlex.split(command), *extra, "-o", str(target)],
                                 cwd=project, capture_output=True, text=True)
-        pngs = sorted(target.glob("*.png"))
+        pngs = sorted(target.rglob("*.png"))
         if result.returncode or not pngs:
             print(f"[{name}] {slug} failed:\n{result.stdout[-800:]}{result.stderr[-800:]}")
             continue
@@ -84,7 +97,11 @@ def main():
     with tempfile.TemporaryDirectory() as tmp:
         for name in names:
             render(name, Path(tmp))
-    compare([HERE / name / "png" for name in SHEET], SHEET)
+        if not sys.argv[1:]:
+            for folder, (name, extra, slugs) in EXTRAS.items():
+                render(name, Path(tmp), folder, extra, slugs)
+    columns = SHEET + list(EXTRAS)
+    compare([HERE / name / "png" for name in columns], columns)
 
 
 if __name__ == "__main__":

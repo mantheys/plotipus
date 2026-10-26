@@ -97,7 +97,15 @@ are the example list, `examples/input/plots/example_scripts.txt`;
   offset text at the end of the axis instead. Log axes label decades (10ⁿ).
 * **Medium and size**: `--medium slides|paper|web|all`, `--theme
   light|dark`, `--width single|onehalf|double|nature|slide|half-slide|INCHES`,
-  `--aspect H/W`, `--keep_title` (see [Projects](projects.md#media-and-themes)).
+  `--aspect H/W`, `--keep_title` (see [Projects](projects.md#styles-media-and-themes)).
+* **Header and watermark**: `--experiment atlas|cms|lhcb|alice|dune` (the
+  experiment's label, its typography, and its fonts and palette where its
+  guidelines or mplhep set them), `--label TEXT` (bold, above the axes on
+  the left), `--label_status TEXT` ("Preliminary"), `--label_right TEXT`
+  ("13.6 TeV, 140 fb$^{-1}$", on the right), `--label_position above|inside`,
+  `--watermark wip|preliminary|internal|simulation|draft|TEXT|none` and
+  `--watermark_style corner|diagonal` (see [Projects](projects.md#header-and-watermark)).
+  Text only: add logos with a figure hook.
 * **Output**: `-o DIR [DIR ...]`, `--subfolder`, `--output_suffix`,
   `--filename_select` (keys that must stay in the generated file name),
   `--format` (`png` by default, written at 300 dpi). For papers use
