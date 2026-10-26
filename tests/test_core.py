@@ -290,16 +290,81 @@ def test_note_avoids_data_and_legend():
     plt.close(fig)
 
 
-def test_tick_labels_decided_per_axis():
-    """One axis never mixes plain and scientific labels, and plain labels share their decimals."""
-    from plotipus.plot import _make_threshold_formatter
+def _density_hist(make_project, tmp_path, *argv, style_json=None):
+    from plotipus.kinds import hist
 
-    def labels(locs):
-        formatter = _make_threshold_formatter(0.1)
-        formatter.set_locs(locs)
-        return [formatter(v) for v in locs]
+    if style_json is not None:
+        (tmp_path / "style.json").write_text(json.dumps(style_json))
+    rng = np.random.default_rng(1)
+    frame = pd.DataFrame([{"E": rng.normal(50, 10, 2000), "Sample": "a"}])
+    make_project({"Ev": frame}, 'style = ["style.json"]\n' if style_json is not None else "")
+    figures = _figures()
+    hist.main(["--datafile", "Ev", "-x", "E", "--bins", "20", "--density", "--labely", "Density", *argv])
+    return figures[0].axes[0]
 
-    assert labels([-0.1, -0.05, 0, 0.05, 0.1]) == ["-0.10", "-0.05", "0", "0.05", "0.10"]
-    assert labels([0.85, 0.9, 0.95]) == ["0.85", "0.90", "0.95"]
-    assert labels([0, 0.002, 0.004]) == ["0", "2e-3", "4e-3"]
-    assert labels([0, 250, 500]) == ["0", "250", "500"]
+
+def _tick_texts(axis):
+    formatter = axis.get_major_formatter()
+    return formatter.format_ticks(axis.get_majorticklocs())
+
+
+def test_density_ticks_without_e_notation(make_project, tmp_path):
+    ax = _density_hist(make_project, tmp_path)
+    texts = _tick_texts(ax.yaxis)
+    assert texts and not any("e-" in t for t in texts)
+    assert ax.get_ylabel() == "Density"  # 0.04 prints as 0.04 within the default limits
+
+
+def test_power_of_ten_moves_into_the_label(make_project, tmp_path):
+    limits = {"rcparams": {"axes.formatter.limits": [-2, 4]}}
+    ax = _density_hist(make_project, tmp_path, style_json=limits)
+    assert not any("e-" in t for t in _tick_texts(ax.yaxis))
+    assert ax.get_ylabel().replace("\u2212", "-").endswith(r"($\times\mathdefault{10^{-2}}$)")
+    assert not ax.yaxis.offsetText.get_visible()
+
+
+def test_sci_in_label_off_keeps_offset_text(make_project, tmp_path):
+    limits = {"rcparams": {"axes.formatter.limits": [-2, 4]}}
+    ax = _density_hist(make_project, tmp_path, "--no-sci_in_label", style_json=limits)
+    assert ax.get_ylabel() == "Density"
+    assert ax.yaxis.offsetText.get_visible() and ax.yaxis.get_major_formatter().get_offset()
+
+
+def test_sci_in_label_style_setting(make_project, tmp_path):
+    style_json = {"rcparams": {"axes.formatter.limits": [-2, 4]}, "plot_settings": {"sci_in_label": False}}
+    ax = _density_hist(make_project, tmp_path, style_json=style_json)
+    assert ax.get_ylabel() == "Density"
+
+
+def test_log_axes_keep_decade_labels():
+    from matplotlib.ticker import LogFormatterSciNotation
+
+    from plotipus.plot import apply_tick_formatter, finish_tick_labels
+
+    fig, ax = plt.subplots()
+    ax.plot([1, 10, 100, 1000], [1e-3, 1, 1e2, 1e3])
+    ax.set_yscale("log")
+    ax.set_ylabel("Counts")
+    apply_tick_formatter(ax)
+    finish_tick_labels(fig)
+    assert isinstance(ax.yaxis.get_major_formatter(), LogFormatterSciNotation)
+    minor = ax.yaxis.get_minor_formatter()
+    assert all(text == "" for text in minor.format_ticks(ax.yaxis.get_minorticklocs()))
+    assert ax.get_ylabel() == "Counts"
+    plt.close(fig)
+
+
+def test_threshold_formatter_wrapper_is_deprecated():
+    from matplotlib.ticker import ScalarFormatter
+
+    from plotipus.plot import apply_scientific_threshold_formatter
+
+    fig, ax = plt.subplots()
+    with pytest.warns(DeprecationWarning):
+        apply_scientific_threshold_formatter(ax, threshold=0.1, axis="y")
+    assert isinstance(ax.yaxis.get_major_formatter(), ScalarFormatter)
+    plt.close(fig)
+
+
+def test_savefig_dpi_default():
+    assert plt.rcParams["savefig.dpi"] == 300

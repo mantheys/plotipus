@@ -124,7 +124,8 @@ Kinds follow the data relationship (as in seaborn/plotly), not the use case.
 | `cat` | one value per category (integrated arrays) | `--integrate_over`, `--kind point\|line\|bar` |
 | `table` | aggregated values as LaTeX (and HTML) tables | `--variables`, `--agg`, `--error_band`, `--clopper_pearson`, `--siunitx`, `--caption_file` |
 
-`plotipus <kind> --help` lists every option.
+`plotipus <kind> --help` lists every option. Figures are saved as PNG at
+300 dpi; for papers use `--format pdf` (vector, at the printed size).
 
 ## Further reading
 

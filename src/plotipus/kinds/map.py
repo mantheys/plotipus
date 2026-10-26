@@ -42,7 +42,7 @@ from ..panels import add_colorbar, add_title_and_note, create_panels, draw_overl
 from ..plot import (
     apply_legend_style,
     apply_legend_style_clear_of_data,
-    apply_scientific_threshold_formatter,
+    apply_tick_formatter,
     draw_horizontal_lines,
     draw_lines,
     draw_squares,
@@ -329,7 +329,7 @@ def draw_histogram_figure(rows, args, kdx):
             ax.set_xlim(args.rangex)
         if args.rangey is not None:
             ax.set_ylim(args.rangey)
-        apply_scientific_threshold_formatter(ax, threshold=0.1, axis="both")
+        apply_tick_formatter(ax, axis="both")
         draw_overlays(ax, args)
         if regions.get(pdx):
             apply_legend_style_clear_of_data(ax, handles=regions[pdx], labels=[h.get_label() for h in regions[pdx]])
@@ -1095,7 +1095,7 @@ def draw_contour_figure(df, args):
                 ax.set_xlim(args.rangex)
             if args.rangey is not None:
                 ax.set_ylim(args.rangey)
-            apply_scientific_threshold_formatter(ax, threshold=0.1, axis="both")
+            apply_tick_formatter(ax, axis="both")
             points = parse_point_pairs(args.point)
             point_labels, warning = normalize_point_labels(args.point_label, len(points))
             if warning:

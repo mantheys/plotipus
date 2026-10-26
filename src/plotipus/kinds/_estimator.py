@@ -29,7 +29,7 @@ from ..plot import (
     apply_common_figure_margins,
     apply_legend_style,
     apply_note_to_figure,
-    apply_scientific_threshold_formatter,
+    apply_tick_formatter,
     get_common_figsize,
     plot_data,
 )
@@ -264,7 +264,7 @@ def _panel_figure(df, args, kdx, config, name):
             ax.set_xlim(None)
         if args.rangey is not None:
             ax.set_ylim(args.rangey[0], args.rangey[1])
-        apply_scientific_threshold_formatter(ax, threshold=0.1, axis="both")
+        apply_tick_formatter(ax, axis="both")
         if args.logy:
             ax.semilogy()
         if args.logx:
@@ -396,7 +396,7 @@ def _compact_figure(df, args, kdx, config, name):
     if args.rangey is not None:
         ax.set_ylim(args.rangey[0], args.rangey[1])
     # y only: the x ticks carry the per-panel values set above.
-    apply_scientific_threshold_formatter(ax, threshold=0.1, axis="y")
+    apply_tick_formatter(ax, axis="y")
     if args.logy:
         ax.semilogy()
     # Without --hue no series is labelled; an empty legend fails on matplotlib >= 3.11.

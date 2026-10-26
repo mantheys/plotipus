@@ -61,8 +61,14 @@ are the example list, `examples/input/plots/example_scripts.txt`;
 * **Axes and overlays**: `--labelx/--labely/--labelz`, `--rangex/--rangey`,
   `--logx/--logy`, `--horizontal`, `--vertical`, `--point`, `--square`,
   `--line`, `--xtick`, `--note`, `--title`.
+* **Tick labels**: plain numbers ("0.04", never "4e-2"); when the style's
+  `axes.formatter.limits` call for a common power of ten, it goes into the
+  axis label, "Density (×10⁻²)". `--no-sci_in_label` keeps matplotlib's
+  offset text at the end of the axis instead. Log axes label decades (10ⁿ).
 * **Output**: `-o DIR [DIR ...]`, `--subfolder`, `--output_suffix`,
-  `--filename_select` (keys that must stay in the generated file name).
+  `--filename_select` (keys that must stay in the generated file name),
+  `--format` (`png` by default, written at 300 dpi). For papers use
+  `--format pdf`: vector output at the printed size, sharp at any zoom.
 
 ![Landau data and simulation read from one file per config, data as points](images/options/configs.png)
 

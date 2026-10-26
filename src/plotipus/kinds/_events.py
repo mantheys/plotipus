@@ -242,6 +242,6 @@ def run_events(df, args, spec):
 
     name = _output_name(args, row, spec.name)
     apply_figure_hooks(fig, args)
-    save_figure_to_paths(fig, args.output, name, subfolder=args.subfolder)
+    save_figure_to_paths(fig, args.output, name, subfolder=args.subfolder, sci_in_label=getattr(args, "sci_in_label", None))
     plt.close(fig)
     return name

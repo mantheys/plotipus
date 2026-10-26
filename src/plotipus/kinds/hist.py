@@ -23,7 +23,7 @@ from ..io import import_data, prepare_import
 from ..palettes import ColorAllocator
 from ..panel_lines import add_panel_line_args, draw_panel_lines, panel_rangex, resolve_panel_lines
 from ..panels import add_title_and_note, create_panels, draw_overlays, save
-from ..plot import _resolve_plot_style, apply_legend_style, apply_scientific_threshold_formatter
+from ..plot import _resolve_plot_style, apply_legend_style, apply_tick_formatter
 from ..selection import filter_dataframe
 from . import _base
 
@@ -227,7 +227,7 @@ def draw_figure(df, args, kdx, config, name):
             ax.set_xlim(args.rangex[0], args.rangex[1])
         if args.rangey is not None:
             ax.set_ylim(args.rangey[0], args.rangey[1])
-        apply_scientific_threshold_formatter(ax, threshold=0.1, axis="both")
+        apply_tick_formatter(ax, axis="both")
         if args.logy:
             ax.semilogy()
         if args.logx:
