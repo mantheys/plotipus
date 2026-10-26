@@ -58,12 +58,12 @@ def test_fit_residual_and_pull_panels(make_project):
     _, residual, pull = figures[-1].axes
     # (a style may append the axis offset, e.g. "Residual (x10^-2)")
     assert residual.get_ylabel().startswith("Residual") and pull.get_ylabel().startswith("Pull")
-    assert [t.get_text() for t in residual.texts] == ["(Data \u2212 Fit) / Fit"]
+    assert [t.get_text() for t in residual.texts] == [r"(Data $-$ Fit) / Fit"]
     values = pull.lines[0].get_ydata()
     limit = max(3.0, 1.2 * np.nanmax(np.abs(values)))
     assert np.allclose(pull.get_ylim(), (-limit, limit))
     assert sorted(round(abs(p.get_y()), 6) for p in pull.patches) == [1, 2]  # the +-1 and +-2 bands
-    assert any(t.get_text() == "(Data \u2212 Fit) / \u03c3" for t in pull.texts)
+    assert any(t.get_text() == r"(Data $-$ Fit) / $\sigma$" for t in pull.texts)
 
 
 def test_fit_residual_masks_the_tails(make_project):

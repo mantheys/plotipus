@@ -289,8 +289,9 @@ def _lower_label(spec):
     """(y label, formula subtitle) of a lower panel. The formula goes inside
     the panel: as the y label it is taller than a lower panel."""
     if spec.name == "pull":
-        return "Pull", "(Data − Fit) / σ"
-    return "Residual", "(Data − Fit) / Fit"
+        # Mathtext: the minus and sigma glyphs exist in every style's math font (not in cmr10 text).
+        return "Pull", r"(Data $-$ Fit) / $\sigma$"
+    return "Residual", r"(Data $-$ Fit) / Fit"
 
 
 def _lower_subtitle(ax, text):
