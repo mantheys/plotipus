@@ -176,3 +176,78 @@ def test_legend_loc_rejects_unknown_values(make_project, capsys):
     with pytest.raises(SystemExit):
         line.main(["--datafile", "Spectra", "-x", "Bin", "-y", "Counts", "--legend_loc", "somewhere"])
     assert "--legend_loc must be one of" in capsys.readouterr().err
+
+
+# --- Famous-plot follow-up: panels, outside placements, the style legend -----------------
+
+def _panels_frame():
+    x = np.linspace(0, 1, 20)
+    rows = [{"X": x, "Y": np.sin(6 * x) + k, "Part": part, "Component": comp, "Kind": kind}
+            for k, (part, comp, kind) in enumerate([("Strain", "Observed", "a"), ("Strain", "Shifted", "b"),
+                                                     ("Model", "Template", "a"), ("Residual", "Residual", "a")])]
+    return pd.DataFrame(rows)
+
+
+def test_legend_in_every_panel(make_project):
+    make_project({"Panels": _panels_frame()})
+    figures = _figures()
+    line.main(["--datafile", "Panels", "-x", "X", "-y", "Y", "--hue", "Component", "--variable_column", "Part",
+               "--variables", "Strain", "Model", "Residual", "--legend_panel", "all", "--plot_type", "line"])
+    texts = [[t.get_text() for t in _legends(ax)[0].get_texts()] for ax in figures[0].axes[:3]]
+    assert [sorted(t) for t in texts] == [["Observed", "Shifted"], ["Template"], ["Residual"]]
+
+
+@pytest.mark.parametrize("loc", ["below", "right"])
+def test_legend_outside_the_axes(make_project, loc):
+    make_project({"Spectra": _resonance()})
+    figures = _figures()
+    line.main(["--datafile", "Spectra", "-x", "Bin", "-y", "Counts", "--hue", "Sample", "--select", "Sample",
+               "-s", "Data", "Background", "Signal", "--legend_loc", loc, "--labelx", "Mass"])
+    fig = figures[0]
+    ax = fig.axes[0]
+    renderer = _drawn(fig)
+    box = _legends(ax)[0].get_window_extent(renderer)
+    assert box.x0 >= -1 and box.y0 >= -1 and box.x1 <= fig.bbox.width + 1 and box.y1 <= fig.bbox.height + 1
+    if loc == "below":
+        assert box.y1 <= ax.xaxis.label.get_window_extent(renderer).y0 + 1  # under the axis label
+    else:
+        assert box.x0 >= ax.bbox.x1 - 1
+
+
+def test_legend_below_a_lower_panel(make_project):
+    make_project({"Spectra": _resonance()})
+    figures = _figures()
+    line.main(["--datafile", "Spectra", "-x", "Bin", "-y", "Counts", "--hue", "Sample", "--select", "Sample",
+               "-s", "Data", "Background", "--lower", "ratio", "--legend_loc", "below"])
+    fig = figures[0]
+    upper, lower = fig.axes[:2]
+    renderer = _drawn(fig)
+    box = _legends(upper)[0].get_window_extent(renderer)
+    assert box.y1 <= lower.get_tightbbox(renderer).y0 + 1 and box.y0 >= -1
+
+
+def test_one_legend_loc_for_the_style_legend(make_project):
+    frame = _panels_frame()
+    make_project({"Panels": frame})
+    figures = _figures()
+    base = ["--datafile", "Panels", "-x", "X", "-y", "Y", "--hue", "Component", "--style", "Kind",
+            "--plot_type", "line", "--legend_loc", "lower left"]
+    line.main([*base, "--draw_legend", "comparable"])
+    line.main(base)
+    alone = _legends(figures[0].axes[0])
+    assert len(alone) == 1 and alone[0]._loc == Legend.codes["lower left"]
+    renderer = _drawn(figures[1])
+    primary, secondary = sorted(_legends(figures[1].axes[0]), key=lambda lg: -len(lg.get_texts()))
+    a, b = primary.get_window_extent(renderer), secondary.get_window_extent(renderer)
+    assert a.x0 == pytest.approx(b.x0, abs=1.5)  # the same side,
+    assert b.y0 == pytest.approx(a.y1, abs=1.5) or b.y1 == pytest.approx(a.y0, abs=1.5)  # stacked together
+
+
+def test_long_axis_label_breaks_onto_two_lines(make_project):
+    make_project({"Spectra": _resonance()})
+    figures = _figures()
+    line.main(["--datafile", "Spectra", "-x", "Bin", "-y", "Counts", "--hue", "Sample", "--select", "Sample",
+               "-s", "Data", "--width", "3", "--aspect", "0.4",
+               "--labely", "A very long temperature anomaly label ($^\\circ$C)"])
+    label = figures[0].axes[0].get_ylabel()
+    assert "\n" in label and "$^\\circ$C" in label

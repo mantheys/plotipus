@@ -111,8 +111,8 @@ Patterns the commands use:
 | F11 rotation curves | Rubin, Ford & Thonnard 1980 | **real** (SPARC) | ◐ | an ordered colour map for 21 hues (T22.5); figure layout unverified |
 | F12 NGC 3198 | van Albada et al. 1985 | **real** (SPARC); fitted halo | ✅ | (figure styles unverified) |
 | F13 Keeling curve | NOAA GML plot | **real** (NOAA GML) | ✅ | the seasonal-cycle inset of other versions (T22.7) |
-| F14 hockey stick | Mann, Bradley & Hughes 1999, Fig. 3(a) | **real** (NOAA paleo) | ✅ | a legend outside the axes (T15) |
-| F15 GW150914 | PRL 116, 061102, Fig. 1 | **real** (GWOSC); synthetic band widths | ◐ | 4 × 2 grid (T22.6); a legend per panel (T15); log frequency axis on the map (T22.3) |
+| F14 hockey stick | Mann, Bradley & Hughes 1999, Fig. 3(a) | **real** (NOAA paleo) | ✅ | — (the legend below the axes: `--legend_loc below`) |
+| F15 GW150914 | PRL 116, 061102, Fig. 1 | **real** (GWOSC); synthetic band widths | ◐ | 4 × 2 grid (T22.6); log frequency axis on the map (T22.3) (a legend per panel: `--legend_panel all`) |
 | F16 KamLAND L₀/E | PRL 100, 221803, Fig. 3 | **extracted** (figure) | ◐ | x error bars from the bin widths (T21) |
 | F17 LEP Z lineshape | Phys. Rept. 427 (2006) 257, Fig. 1.13 | **extracted** (figure) | ✅ | an error scale option instead of a stored column (T21); labels on curves are `--text` (T22.8) |
 | F19 Geiger–Marsden | Phil. Mag. 25, 604 (1913) | synthetic | ✅ | (no original figure) |
@@ -126,7 +126,6 @@ Patterns the commands use:
 | task | missing feature | figures |
 |---|---|---|
 | T12 | readable tick labels on log axes (`2×10²` instead of 200) | F05, F09 |
-| T15 | a legend in every panel; a legend below the axes | F15, F14 |
 | T17 | experiment labels as a style feature (here `--text`) | F01, F03, F04, F05 |
 | T18 | the signal as an open outline on top of a filled stack | F03 |
 | T19 | Garwood bars from the counts | F03 |
