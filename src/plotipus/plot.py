@@ -136,63 +136,69 @@ def _apply_plot_style(kwargs, plot_style):
     kwargs["ls"] = plot_style
 
 from matplotlib.colors import LogNorm, to_rgba
-from matplotlib.ticker import Formatter
+from matplotlib.ticker import ScalarFormatter
 
 
-class _ThresholdFormatter(Formatter):
-    """Tick labels decided per axis, not per tick: scientific ("5e-3") when
-    every tick is below *threshold* in size, else plain numbers sharing one
-    number of decimals ("-0.10, -0.05, 0, 0.05, 0.10")."""
-
-    def __init__(self, threshold=0.1):
-        self.threshold = threshold
-        self.scale = None
-        self.decimals = None
-
-    def set_locs(self, locs):
-        super().set_locs(locs)
-        values = np.asarray([v for v in locs if np.isfinite(v)], dtype=float)
-        nonzero = np.abs(values[values != 0])
-        self.scale = float(nonzero.max()) if nonzero.size else None
-        self.decimals = None
-        if self.scale is not None and self.threshold <= self.scale < 1e5:
-            # The fewest decimals that still tell every tick apart exactly.
-            tolerance = 1e-9 * self.scale
-            self.decimals = next((d for d in range(7) if np.allclose(np.round(values, d), values, atol=tolerance)), 6)
-
-    def __call__(self, value, pos=None):
-        if not np.isfinite(value):
-            return ""
-        if value == 0:
-            return "0"
-        scale = self.scale if self.scale is not None else abs(value)
-        if scale < self.threshold:
-            scientific = f"{value:.1e}"
-            mantissa, exponent = scientific.split("e")
-            if mantissa.endswith(".0"):
-                mantissa = mantissa[:-2]
-            sign = exponent[0]
-            digits = exponent[1:].lstrip("0") or "0"
-            return f"{mantissa}e{sign}{digits}"
-        if self.decimals is not None:
-            return f"{value:.{self.decimals}f}"
-        return f"{value:g}"
-
-
-def _make_threshold_formatter(threshold=0.1):
-    return _ThresholdFormatter(threshold=threshold)
+def apply_tick_formatter(ax, axis="both"):
+    """Plain tick numbers with a common power of ten (``ScalarFormatter`` with
+    mathtext, limits from the style's ``axes.formatter.limits``) on the linear
+    axes of ``ax``; log axes keep matplotlib's 10^n labels. With
+    ``sci_in_label`` the power of ten moves into the axis label when the
+    figure is saved (:func:`finish_tick_labels`)."""
+    for name in ("x", "y"):
+        if axis not in (name, "both"):
+            continue
+        target = getattr(ax, f"{name}axis", None)
+        if target is not None and target.get_scale() == "linear":
+            target.set_major_formatter(ScalarFormatter(useMathText=True))
 
 
 def apply_scientific_threshold_formatter(ax, threshold=0.1, axis="both"):
-    formatter = _make_threshold_formatter(threshold=threshold)
+    """Deprecated: use :func:`apply_tick_formatter` (``threshold`` is ignored)."""
+    import warnings
 
-    if axis in ("x", "both") and hasattr(ax, "xaxis") and ax.xaxis is not None:
-        ax.xaxis.set_major_formatter(formatter)
-
-    if axis in ("y", "both") and hasattr(ax, "yaxis") and ax.yaxis is not None:
-        ax.yaxis.set_major_formatter(formatter)
+    warnings.warn("apply_scientific_threshold_formatter is deprecated; use apply_tick_formatter.",
+                  DeprecationWarning, stacklevel=2)
+    apply_tick_formatter(ax, axis=axis)
 
 
+def _offset_label(formatter):
+    """The offset/multiplier text of a drawn ``ScalarFormatter`` (mathtext
+    "$\\times10^{-2}$" with ``useMathText``), or None when it shows none."""
+    return formatter.get_offset().replace(r"\mathdefault{}", "") or None
+
+
+def _label_with_offset(label, offset):
+    """``label`` with ``offset`` inside its trailing unit, "Rate (Hz)" ->
+    "Rate ($\\times10^{-5}$ Hz)", else appended, "Density ($\\times10^{-2}$)"."""
+    unit = re.match(r"^(.*?)\s*([(\[])([^()\[\]]*)([)\]])\s*$", label)
+    if unit and unit.group(3).strip():
+        head, opening, inner, closing = unit.groups()
+        return f"{head} {opening}{offset} {inner.strip()}{closing}"
+    return f"{label} ({offset})"
+
+
+def finish_tick_labels(fig, sci_in_label=None):
+    """Write every common power of ten as "$\\times10^{n}$" (mathtext) and,
+    with ``sci_in_label`` (default: the style's ``plot_settings.sci_in_label``),
+    move the offset text of each labelled axis into its label ("Density
+    ($\\times10^{-2}$)", "Rate ($\\times10^{-5}$ Hz)") before saving."""
+    if sci_in_label is None:
+        sci_in_label = _style.sci_in_label
+    formatters = [(axis, axis.get_major_formatter()) for ax in fig.axes for axis in (ax.xaxis, ax.yaxis)]
+    formatters = [(axis, f) for axis, f in formatters if isinstance(f, ScalarFormatter)]
+    for _, formatter in formatters:
+        formatter.set_useMathText(True)
+    if not sci_in_label:
+        return
+    fig.draw_without_rendering()
+    for axis, formatter in formatters:
+        offset = _offset_label(formatter)
+        label = axis.label.get_text()
+        if offset is None or not label.strip() or not axis.offsetText.get_visible():
+            continue
+        axis.label.set_text(_label_with_offset(label, offset))
+        axis.offsetText.set_visible(False)
 
 
 def _capitalize_legend_label(label):

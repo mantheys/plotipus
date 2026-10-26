@@ -178,7 +178,7 @@ def _publish():
     global linelabelfontsize, nbins, default_linewidth, band_alpha, figure_base_width
     global figure_panel_width, figure_height, figure_panel_font_scale
     global figure_margins_inches, figure_two_panel_hspace, legend_style
-    global note_style, base_font_size, mappings, auto_title, contours, stack_error
+    global note_style, base_font_size, mappings, auto_title, contours, stack_error, sci_in_label
     global capitalize_exceptions, redundant_legend_titles, title_short_forms
 
     rcparams = _CONFIG.get("rcparams", {})
@@ -211,6 +211,8 @@ def _publish():
     stack_error = {"label": "Sim. unc.", "hatch": "////", "color": "role:muted", **settings.get("stack_error", {})}
     # Title from the datafile name when --title is not given.
     auto_title = bool(settings.get("auto_title", True))
+    # A common power of ten in the axis label instead of offset text.
+    sci_in_label = bool(settings.get("sci_in_label", True))
 
     layout = settings.get("figure_layout", {})
     figure_base_width = layout.get("base_width", 8)

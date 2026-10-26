@@ -12,3 +12,4 @@ xtick.minor.visible: True
 ytick.minor.visible: True
 lines.linewidth: 2
 legend.frameon: False
+savefig.dpi: 300

@@ -180,6 +180,14 @@ major formatter of both axes by `hist.py:175`, `line.py:1283`,
 - Better, move the power of ten into the axis label ("Density [10⁻²]") following the complaint consensus (research Part 2 §4).
 - Keep `LogFormatterSciNotation` on log axes.
 
+**Fixed in T12.** The threshold formatter is gone: `apply_tick_formatter`
+installs `ScalarFormatter(useMathText=True)` (limits from the style's
+`axes.formatter.limits`), and before saving a common power of ten moves
+into the axis label ("Density (×10⁻²)"). Restore option:
+`--no-sci_in_label` / `"plot_settings": {"sci_in_label": false}` keeps the
+offset text; the old `4e-2` labels are not restorable (they were the bug).
+`apply_scientific_threshold_formatter` remains as a deprecated wrapper.
+
 ## B06 Legends cover data
 
 **Reproduce:** `B06a` (stacked bars) and the examples' cat plot; `B06b`
@@ -438,6 +446,10 @@ the labels (bugs); `--no_fliers` hides the fliers, which are now drawn.
 - **Low resolution.** `savefig.dpi` is unset, so PNGs are written at the
   100 dpi figure DPI: 800×600 px for an 8×6 in figure. Use vector output
   (PDF) for papers and `savefig.dpi: 300` for PNG.
+
+  **Fixed in T12** (this point). The default mplstyle sets
+  `savefig.dpi: 300`; the docs recommend `--format pdf` for papers. Restore:
+  `"rcparams": {"savefig.dpi": 100}` in a style file.
 
 ## Non-bugs worth noting
 

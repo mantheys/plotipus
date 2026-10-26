@@ -62,7 +62,7 @@ from ..panels import (
     rotate_categorical_labels,
     save,
 )
-from ..plot import (apply_legend_style, apply_legend_style_clear_of_data, apply_scientific_threshold_formatter,
+from ..plot import (apply_legend_style, apply_legend_style_clear_of_data, apply_tick_formatter,
                     errory_type, plot_data)
 from ..selection import filter_dataframe
 from ..transforms import (
@@ -1502,7 +1502,7 @@ def run_by_config(df, args):
             ax.set_ylim(0, 0.5)
         if args.rangey is not None:
             ax.set_ylim(args.rangey[0], args.rangey[1])
-        apply_scientific_threshold_formatter(ax, threshold=0.1, axis="both")
+        apply_tick_formatter(ax, axis="both")
         draw_overlays(ax, args)
         if args.logy:
             ax.set_yscale("log")

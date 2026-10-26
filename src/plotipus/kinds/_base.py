@@ -30,6 +30,11 @@ def add_output_args(parser):
     add("--filename_prefix", type=str, default=None, help="First part of the output file name.")
     add("--format", type=str, default=None, help="File format when --output_suffix has no extension (default png).")
     add("--show", action="store_true", default=False, help="Keep figures open (interactive use).")
+    add("--sci_in_label", action="store_true", default=None,
+        help="Put a common power of ten in the axis label, e.g. 'Density (x10^-2)' (default: the style's "
+        "plot_settings.sci_in_label, true).")
+    add("--no-sci_in_label", dest="sci_in_label", action="store_false",
+        help="Keep matplotlib's offset text at the end of the axis.")
 
 
 def main(module, argv=None):

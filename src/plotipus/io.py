@@ -556,10 +556,14 @@ def save_table_to_paths(write_func, output_arg, output_file, default_output_dir=
         rprint_func(f"[green]Success:[/green] Table saved to:\n{full_path}")
 
 
-def save_figure_to_paths(fig, output_arg, output_file, default_output_dir=None, rprint_func=None, subfolder=None):
+def save_figure_to_paths(fig, output_arg, output_file, default_output_dir=None, rprint_func=None, subfolder=None,
+                         sci_in_label=None):
     """Save ``fig`` into every --output directory (or the default plot
-    directory when none is given)."""
-    from .plot import _shorten_title_to_fit
+    directory when none is given); ``sci_in_label`` as in
+    :func:`plotipus.plot.finish_tick_labels`."""
+    from .plot import _shorten_title_to_fit, finish_tick_labels
+
+    finish_tick_labels(fig, sci_in_label)
 
     # Layout may have narrowed the title since it was set; re-check it fits.
     _shorten_title_to_fit(fig, getattr(fig, "_suptitle", None))
