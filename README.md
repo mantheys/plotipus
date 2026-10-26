@@ -141,6 +141,26 @@ style: serif text, a 3.5 in column width and one figure size for all.
   <br><sub><a href="https://gml.noaa.gov/ccgg/trends/">Keeling curve, NOAA (real data)</a> · <a href="https://doi.org/10.1029/1999GL900070">hockey stick, Mann et al. 1999 (real data)</a> · <a href="https://ui.adsabs.harvard.edu/abs/1985ApJ...295..305V">dark halo of NGC 3198, van Albada et al. 1985 (SPARC data)</a></sub><br><br>
 </p>
 
+## Gallery
+
+`examples/gallery` has one example for every working row of the
+[chart catalogue](docs/design/catalogue.md): histograms, scatters, maps and
+contours, fits with residual and pull panels, ratio and significance panels,
+ROC and learning curves, error bars and bands, facets, annotations and
+LaTeX/HTML tables. It mixes a toy calorimeter test beam and a toy classifier
+(synthetic) with the famous-plot data, all in the default style. Build it
+with
+
+```bash
+make -C examples gallery
+```
+
+and open `examples/gallery/output/gallery.md`: a grid of the figures with the
+command under each, the tables as LaTeX, and the catalogue rows still waiting
+for a feature. The outputs are not committed. The command lists,
+`examples/gallery/input/{plots,tables}/gallery_scripts.txt`, are also a test
+(`tests/test_gallery.py`, marked `slow`).
+
 ## Plot kinds
 
 Kinds follow the data relationship (as in seaborn/plotly), not the use case.
