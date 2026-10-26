@@ -366,6 +366,16 @@ although `pull` was requested.
 - Default to `pull` for count data.
 - Use the data colour (or ink) for the fit and residuals.
 
+**Fixed in T06.** With `--fit`, each `--lower residual|pull` adds its own
+panel, computed with `lower.model_series`. Pull: (data − fit) / σ from the
+stored `{y}Error`, range ±max(3, 1.2·max|pull|), ±1σ/±2σ bands in the `faint`
+role; without the error column a warning and an empty panel. Residual:
+bins where |fit| < 1e-3 of its maximum are masked. The y labels are "Pull"
+and "Residual", with the formula as a subtitle inside the panel
+(`--lower_labely` replaces both). Other `--lower` operations with `--fit`
+warn and draw the residual, as before. Restore option: `--lower_labely` for
+the old label; none for the rest (bugs).
+
 ## B14 Hard-coded colours ignore the style
 
 **Reproduce:** render any `--style` plot with the slides/dark overlay
