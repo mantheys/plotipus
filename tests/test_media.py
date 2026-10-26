@@ -36,9 +36,10 @@ def test_width_presets_and_inches(make_project, spectra):
     assert _sizes("--medium", "paper")[0][0] == pytest.approx(3.4)
 
 
-def test_no_medium_keeps_the_old_size(make_project, spectra):
+def test_default_is_slides_and_classic_keeps_the_old_size(make_project, spectra):
     make_project({"Spectra": spectra})
-    assert _sizes()[0] == pytest.approx((style.figure_base_width, style.figure_height))
+    assert _sizes()[0] == pytest.approx((8, 4.5))
+    assert _sizes("--style_preset", "classic")[0] == pytest.approx((8, 6))
 
 
 def test_panels_share_the_width(make_project, spectra):
@@ -103,8 +104,8 @@ def test_media_auto_title_off(make_project, spectra):
     titles = []
     registry.add_figure_hook(lambda fig, args: titles.append(fig._suptitle.get_text() if fig._suptitle else ""))
     line.main(["--datafile", "Spectra", "-x", "Energy", "-y", "Counts", "--medium", "slides"])
-    line.main(["--datafile", "Spectra", "-x", "Energy", "-y", "Counts"])
-    assert titles[0] == "" and titles[1]  # no medium: the old automatic title
+    line.main(["--datafile", "Spectra", "-x", "Energy", "-y", "Counts", "--style_preset", "classic"])
+    assert titles[0] == "" and titles[1]  # classic: the old automatic title
 
 
 def test_style_is_restored_after_a_medium(make_project, spectra):
@@ -129,7 +130,8 @@ def test_dry_run_prints_the_resolution(make_project, spectra, capsys):
     assert cli_main(["run", "demo", "--medium", "all", "--theme", "dark", "--dry_run"]) == 0
     printed = capsys.readouterr().out.splitlines()
     assert len(printed) == 3
-    assert "medium=paper theme=dark width=3.4 x 2.55 in layers=[paper, dark] -> plots/paper-dark" in printed[1]
+    assert ("language=plotipus medium=paper theme=dark width=3.4 x 2.55 in layers=[plotipus, paper, dark] "
+            "-> plots/paper-dark") in printed[1]
 
 
 def test_unknown_width_is_an_argument_error(make_project, spectra, capsys):

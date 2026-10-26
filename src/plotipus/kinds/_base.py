@@ -52,12 +52,13 @@ def main(module, argv=None):
         for medium in project.all_media():
             outputs += main(module, with_medium(argv, medium)) or []
         return outputs
-    if all(getattr(media, k) is None for k in ("medium", "theme", "width", "aspect")):
+    if all(getattr(media, k) is None for k in ("medium", "theme", "width", "aspect", "style_preset", "save_style")):
         return _run(module, argv)
     saved, rendering = style.snapshot(), project.rendering
     try:
         try:
-            apply_rendering(media.medium, media.theme, media.width, media.aspect)
+            apply_rendering(media.medium, media.theme, media.width, media.aspect, preset=media.style_preset,
+                            save_style=media.save_style)
         except ValueError as error:
             module.build_parser().error(str(error))
         return _run(module, argv)

@@ -1,0 +1,29 @@
+# web medium (style_spec 2.11): 8 in at screen resolution (96 dpi), 12 pt sans.
+font.family: sans-serif
+font.sans-serif: DejaVu Sans, Nimbus Sans, Liberation Sans, Arial
+font.size: 12
+mathtext.fontset: dejavusans
+axes.unicode_minus: True
+axes.labelsize: large
+axes.titlesize: large
+axes.linewidth: 0.8
+xtick.labelsize: medium
+ytick.labelsize: medium
+xtick.major.size: 4
+xtick.minor.size: 2
+xtick.major.width: 0.8
+xtick.minor.width: 0.6
+ytick.major.size: 4
+ytick.minor.size: 2
+ytick.major.width: 0.8
+ytick.minor.width: 0.6
+lines.linewidth: 1.8
+lines.markersize: 5
+patch.linewidth: 0.8
+hatch.linewidth: 0.8
+grid.linewidth: 0.8
+legend.fontsize: medium
+legend.title_fontsize: medium
+figure.dpi: 96
+savefig.dpi: 96
+savefig.pad_inches: 0.02

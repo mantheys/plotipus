@@ -743,11 +743,14 @@ COMMON_ARG_SPECS = {
 
 
 def add_media_args(parser):
-    """--medium, --theme, --width, --aspect and --keep_title (every kind).
-    They select the style before the other options are parsed, so
-    :func:`parse_media_args` reads them first."""
-    group = parser.add_argument_group("medium and size")
+    """--style_preset, --medium, --theme, --width, --aspect, --keep_title
+    and --save_style (every kind). They select the style before the other
+    options are parsed, so :func:`parse_media_args` reads them first."""
+    group = parser.add_argument_group("style, medium and size")
     add = group.add_argument
+    add("--style_preset", default=None, choices=list(style.NAMES),
+        help="Named style: slides (default), slides-dark, paper, paper-dark, open, open-dark, or classic "
+        "(the look before the redesign). --medium and --theme change its parts.")
     add("--medium", default=None, choices=["slides", "paper", "web", "all"],
         help="Draw for slides, paper or web (style layers, size, output folder); 'all' renders every "
         "medium of [project] media (default: [project] medium).")
@@ -758,11 +761,15 @@ def add_media_args(parser):
     add("--aspect", type=float, default=None, help="Height/width of one row of panels (default: the style's).")
     add("--keep_title", action="store_true", default=False,
         help="Draw an explicit --title also where the medium drops it (paper).")
+    add("--save_style", action="store_true", default=None,
+        help="Write <figure>.style.json (the style layers and rcParams used) next to each figure "
+        "(default: [project] save_style).")
 
 
 def parse_media_args(argv):
     """The media options of ``argv`` (other options are ignored)."""
-    parser = argparse.ArgumentParser(add_help=False)
+    # No abbreviations: --style (the comparable alias) is not --style_preset.
+    parser = argparse.ArgumentParser(add_help=False, allow_abbrev=False)
     add_media_args(parser)
     known, _ = parser.parse_known_args(argv)
     return known

@@ -1,14 +1,15 @@
-"""Render the same example commands in every candidate style, side by side.
+"""Render the example commands in every shipped style, side by side.
 
-    python docs/design/styles/render.py [candidate ...]   # e.g. paper open+slides
+    python docs/design/styles/render.py [name ...]   # e.g. paper open-dark
 
-Each candidate directory holds ``plotipus-<name>.mplstyle`` (rcParams) and
-``style.json`` (plotipus settings); the project style names the .mplstyle
-with the ``mplstyle`` key. Outputs: ``<candidate>/png/NN_<slug>.png`` and
-``compare/NN_<slug>.png`` (current look, then each candidate).
+Each name (slides, slides-dark, paper, paper-dark, open, open-dark,
+classic) is selected by the project style list (``style = [name,
+"style.json"]``, the examples' mappings). Outputs: ``<name>/png/NN_<slug>.png``
+and ``compare/NN_<slug>.png`` (slides, slides-dark, paper, open, open-dark,
+classic). The paper/open/hep/slides folders also keep the prototypes the
+shipped styles were ported from (plotipus-<name>.mplstyle, style.json).
 """
 
-import json
 import shlex
 import shutil
 import subprocess
@@ -25,7 +26,8 @@ import matplotlib.pyplot as plt  # noqa: E402
 HERE = Path(__file__).resolve().parent
 REPO = HERE.parents[2]
 EXAMPLES = REPO / "examples"
-CANDIDATES = ["paper", "open", "hep"]
+NAMES = ["slides", "slides-dark", "paper", "paper-dark", "open", "open-dark", "classic"]
+SHEET = ["slides", "slides-dark", "paper", "open", "open-dark", "classic"]
 
 # A representative set of the example commands of examples/input/plots/example_scripts.txt.
 COMMANDS = {
@@ -40,36 +42,15 @@ COMMANDS = {
 }
 
 
-def project_style(candidate):
-    """Merged project style of ``candidate`` (``base+overlay`` applies an overlay folder's style.json)."""
-    candidate, *overlays = candidate.split("+")
-    if candidate == "current":
-        return json.loads((EXAMPLES / "style.json").read_text())
-    folder = HERE / candidate
-    merged = json.loads((folder / "style.json").read_text())
-    merged["mplstyle"] = str(folder / f"plotipus-{candidate}.mplstyle")
-    merged["mappings"] = json.loads((EXAMPLES / "style.json").read_text())["mappings"]
-    for overlay in overlays:
-        merged = _deep_merge(merged, json.loads((HERE / overlay / "style.json").read_text()))
-    return merged
-
-
-def _deep_merge(base, update):
-    merged = dict(base)
-    for key, value in update.items():
-        merged[key] = _deep_merge(merged[key], value) if isinstance(value, dict) and isinstance(merged.get(key), dict) else value
-    return merged
-
-
-def render(candidate, workdir):
-    project = workdir / candidate
+def render(name, workdir):
+    project = workdir / name
     (project / "input" / "data").mkdir(parents=True)
     shutil.copy(EXAMPLES / "make_data.py", project / "make_data.py")
     subprocess.run([sys.executable, "make_data.py"], cwd=project, check=True, capture_output=True)
-    (project / "style.json").write_text(json.dumps(project_style(candidate), indent=2))
+    shutil.copy(EXAMPLES / "style.json", project / "style.json")
     (project / "plotipus.toml").write_text(
-        '[project]\ndata_root = "input/data"\noutput = "output"\nstyle = ["style.json"]\n')
-    out = workdir / "current_png" if candidate == "current" else HERE / candidate.split("+")[-1] / "png"
+        f'[project]\ndata_root = "input/data"\noutput = "output"\nstyle = ["{name}", "style.json"]\n')
+    out = HERE / name / "png"
     out.mkdir(parents=True, exist_ok=True)
     for slug, command in COMMANDS.items():
         target = project / "out" / slug
@@ -77,7 +58,7 @@ def render(candidate, workdir):
                                 cwd=project, capture_output=True, text=True)
         pngs = sorted(target.glob("*.png"))
         if result.returncode or not pngs:
-            print(f"[{candidate}] {slug} failed:\n{result.stdout[-800:]}{result.stderr[-800:]}")
+            print(f"[{name}] {slug} failed:\n{result.stdout[-800:]}{result.stderr[-800:]}")
             continue
         shutil.copy(pngs[0], out / f"{slug}.png")
     return out
@@ -99,11 +80,11 @@ def compare(folders, names):
 
 
 def main():
-    candidates = sys.argv[1:] or CANDIDATES + ["open+slides"]
+    names = sys.argv[1:] or NAMES
     with tempfile.TemporaryDirectory() as tmp:
-        workdir = Path(tmp)
-        folders = [render("current", workdir)] + [render(c, workdir) for c in candidates]
-        compare(folders, ["current"] + candidates)
+        for name in names:
+            render(name, Path(tmp))
+    compare([HERE / name / "png" for name in SHEET], SHEET)
 
 
 if __name__ == "__main__":

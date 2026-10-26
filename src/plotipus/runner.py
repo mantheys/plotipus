@@ -125,7 +125,8 @@ def _describe(argv, project):
     media = parse_media_args(argv[1:])
     medium = None if media.medium == "all" else media.medium
     try:
-        return "  # " + describe_rendering(medium, media.theme, media.width, media.aspect, project).describe()
+        return "  # " + describe_rendering(medium, media.theme, media.width, media.aspect, project,
+                                           media.style_preset).describe()
     except ValueError as error:
         return f"  # {error}"
 

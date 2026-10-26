@@ -1232,7 +1232,8 @@ def _finish_lower(ax, spec, args, label, has_content):
     if getattr(args, "logx", False):
         ax.set_xscale("log")
     if args.lower_zero_line:
-        ax.axhline(y=0, color=args.lower_zero_color or style.role("muted"), linestyle="--", zorder=-1)
+        ax.axhline(y=0, color=args.lower_zero_color or style.role_colors(style.zero_line_color), linestyle="--",
+                   zorder=-1)
     draw_horizontal_overlay(ax, args, prefix="lower_")
     if args.vertical:
         from ..plot import draw_vertical_lines

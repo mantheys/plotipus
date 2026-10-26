@@ -1,0 +1,9 @@
+{
+  "_comment": "open language: the same Petroff-10 colours as plotipus, so a category keeps its colour in every style.",
+  "mplstyle": "open.mplstyle",
+  "palette": "petroff10",
+  "plot_settings": {
+    "figure_layout": {"two_panel_hspace": 0.08},
+    "diverging_cmap": "RdBu_r"
+  }
+}

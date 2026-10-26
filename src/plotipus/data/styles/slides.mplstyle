@@ -1,0 +1,30 @@
+# slides medium (style_spec 2.11): 8 x 4.5 in, 14 pt sans with matching math,
+# lines 2.4, markers 7.
+font.family: sans-serif
+font.sans-serif: DejaVu Sans, Nimbus Sans, TeX Gyre Heros, Liberation Sans, Arial
+font.size: 14
+mathtext.fontset: dejavusans
+axes.unicode_minus: True
+axes.labelsize: large
+axes.titlesize: large
+axes.linewidth: 1.0
+xtick.labelsize: medium
+ytick.labelsize: medium
+xtick.major.size: 6
+xtick.minor.size: 3
+xtick.major.width: 1.0
+xtick.minor.width: 0.8
+ytick.major.size: 6
+ytick.minor.size: 3
+ytick.major.width: 1.0
+ytick.minor.width: 0.8
+lines.linewidth: 2.4
+lines.markersize: 7
+patch.linewidth: 1.0
+hatch.linewidth: 1.0
+grid.linewidth: 0.8
+legend.fontsize: medium
+legend.title_fontsize: medium
+figure.dpi: 100
+savefig.dpi: 300
+savefig.pad_inches: 0.02

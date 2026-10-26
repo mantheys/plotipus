@@ -31,7 +31,7 @@ plotipus = "plotipus.cli:main"
 where = ["src"]
 
 [tool.setuptools.package-data]
-plotipus = ["data/*.json", "data/*.mplstyle", "data/styles/*.json", "data/styles/*.mplstyle"]
+plotipus = ["data/*.json", "data/*.mplstyle", "data/styles/*.json", "data/styles/*.mplstyle", "data/styles/classic/*"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]

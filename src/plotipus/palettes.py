@@ -23,6 +23,11 @@ PALETTES = {
     # is not needed: https://root.cern/doc/master/TColor_8cxx_source.html
     "petroff10": ["#3f90da", "#ffa90e", "#bd1f01", "#94a4a2", "#832db6",
                   "#a96b59", "#e76300", "#b9ac70", "#717581", "#92dadd"],
+    # petroff10 for dark backgrounds (#1b1d22): the same order, with lightened twins (same hue and
+    # saturation) of its darkest entries #bd1f01, #832db6 and #717581, so every colour reaches a WCAG
+    # contrast of at least 3.5:1 (style_spec 2.11).
+    "petroff10-dark": ["#3f90da", "#ffa90e", "#e12501", "#94a4a2", "#a04bd3",
+                       "#a96b59", "#e76300", "#b9ac70", "#7b7f8b", "#92dadd"],
     # https://github.com/matplotlib/matplotlib/blob/main/lib/matplotlib/mpl-data/stylelib/petroff8.mplstyle
     "petroff8": ["#1845fb", "#ff5e02", "#c91f16", "#c849a9", "#adad7d", "#86c8dd", "#578dff", "#656364"],
     # https://github.com/matplotlib/matplotlib/blob/main/lib/matplotlib/mpl-data/stylelib/petroff6.mplstyle

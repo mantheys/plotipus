@@ -1,7 +1,25 @@
 {
-  "_comment": "Medium stub (T14): figure size only (a slide-wide figure at screen resolution); T16 ships the full web style.",
+  "_comment": "web medium (style_spec 2.11): a slide-wide figure at screen resolution.",
+  "mplstyle": "web.mplstyle",
   "width": "slide",
   "aspect": 0.5625,
-  "rcparams": {"figure.dpi": 96, "savefig.dpi": 96},
-  "plot_settings": {"auto_title": false}
+  "font_sizes": {
+    "titlefontsize": "x-large", "subtitlefontsize": "large",
+    "legendtitlefontsize": "medium", "legendfontsize": "medium",
+    "xlabelfontsize": "large", "ylabelfontsize": "large",
+    "xsublabelfontsize": "medium", "ysublabelfontsize": "large",
+    "linelabelfontsize": "small"
+  },
+  "plot_settings": {
+    "auto_title": false,
+    "titles": true,
+    "error_label": true,
+    "default_linewidth": 1.8,
+    "figure_layout": {
+      "margins_inches": {"left": 0.35, "right": 0.12, "bottom": 0.3, "top": 0.12, "wspace": 0.25, "hspace": 0.25}
+    },
+    "legend_style": {"fontsize": "medium", "title_fontsize": "medium", "frameon": false, "loc": "best"},
+    "note_style": {"fontsize": "medium", "bbox": {"boxstyle": "round,pad=0.4", "facecolor": "role:paper",
+                                                  "alpha": 0.85, "edgecolor": "none", "linewidth": 0}}
+  }
 }

@@ -1,4 +1,6 @@
 {
+  "_comment_width": "The gallery sizes its figures itself (figure_layout): no preset width (T16).",
+  "width": null,
   "rcparams": {
     "axes.prop_cycle": "cycler('color', ['black', '#e41a1c', '#377eb8', '#4daf4a', '#ff7f00', '#984ea3', '#a65628', '#f781bf', '#999999'])",
     "errorbar.capsize": 0,

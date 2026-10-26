@@ -1,0 +1,24 @@
+# open language: the data-science frame (style_spec 2.5). L-shaped, ticks out,
+# no minor ticks, a faint y grid behind the data, bold left-aligned titles.
+axes.grid: True
+axes.grid.axis: y
+axes.axisbelow: True
+axes.spines.top: False
+axes.spines.right: False
+axes.titlelocation: left
+axes.titleweight: bold
+axes.formatter.use_mathtext: True
+axes.formatter.limits: -3, 5
+axes.xmargin: 0.02
+grid.color: e6e6e6
+xtick.direction: out
+ytick.direction: out
+xtick.top: False
+ytick.right: False
+xtick.minor.visible: False
+ytick.minor.visible: False
+errorbar.capsize: 0
+legend.frameon: False
+legend.handlelength: 1.6
+legend.labelspacing: 0.3
+image.cmap: viridis
