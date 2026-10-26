@@ -1,95 +1,107 @@
 """Galaxy rotation curves: F11 (Rubin, Ford & Thonnard 1980) and F12 (NGC 3198
-disk-halo decomposition).
+disk-halo decomposition), both from the SPARC database.
 
 Sources and the "Data" recipes are in docs/design/research.md, Part 3.
 """
 
+import re
+
 import numpy as np
 import pandas as pd
+from scipy.optimize import curve_fit
 
 import models
-from _common import rng_for
+from _common import DATA
 
+SPARC = DATA / "sparc"
 SIZE_CLASSES = ((12.0, "$R_{max}$ < 12 kpc"), (35.0, "12-35 kpc"), (np.inf, "$R_{max}$ > 35 kpc"))
+# SPARC's disk mass-to-light ratio at 3.6 microns (Lelli, McGaugh & Schombert 2016).
+DISK_ML = 0.5
+
+
+def _rotmod(galaxy):
+    """Radius, observed velocity, its error, and the gas and disk velocities
+    (M/L = 1) of a SPARC rotation-curve file."""
+    radius, velocity, error, gas, disk, _, _, _ = np.loadtxt(SPARC / f"{galaxy}_rotmod.dat", unpack=True)
+    return radius, velocity, error, gas, disk
+
+
+def _name(galaxy):
+    """SPARC's 'NGC0801' as 'NGC 801'."""
+    match = re.match(r"(NGC|UGC|ESO|IC|DDO)0*(\d.*)", galaxy)
+    return f"{match.group(1)} {match.group(2)}" if match else galaxy
 
 
 def rubin_rotation_curves():
-    """F11: flat rotation curves of 21 Sc galaxies.
+    """F11: flat rotation curves of 21 spiral galaxies (real data).
 
     Source: V. C. Rubin, W. K. Ford Jr., N. Thonnard, ApJ 238, 471 (1980),
     "Rotational properties of 21 Sc galaxies with a large range of
     luminosities and radii, from NGC 4605 (R = 4 kpc) to UGC 2885
-    (R = 122 kpc)".
+    (R = 122 kpc)"; data: SPARC, Lelli, McGaugh & Schombert, AJ 152, 157
+    (2016).
 
-    From the paper: 21 galaxies, outermost radii from 4 kpc (NGC 4605) to
-    122 kpc (UGC 2885), velocities rising to about 125 km/s by 5 kpc and
-    then flat or slowly rising, H0 = 50. The other 19 names are not used
-    (labelled Sc 02-Sc 20). The figure layout is (unverified).
-    Synthetic: V(R) = V_flat (1 - exp(-R/R_t)) + slope R, with V_flat
-    150-300 km/s growing with R_max, R_t 1-3 kpc, a small outer slope, and
-    10 km/s errors; the Keplerian comparison V = 250 km/s sqrt(5 kpc / R).
+    From the paper: 21 galaxies with flat or slowly rising curves, none
+    falling in Keplerian fashion. The figure layout is (unverified).
+    Real: the SPARC HI/H-alpha rotation curves (data/sparc, fetch_data.py)
+    of 21 galaxies: the three of Rubin's in SPARC (NGC 801, NGC 2998,
+    UGC 2885) and 18 quality-1 SBc-Scd galaxies spread in flat velocity
+    (Rubin's optical curves themselves are not in a public table).
+    Ours: the Keplerian comparison V = 250 km/s sqrt(5 kpc / R).
 
     Rows: ``Galaxy`` (21 data rows and Keplerian), ``Type`` (Data, Model),
     ``Variable`` (three R_max classes, for --variables panels).
     """
-    rng = rng_for("F11")
-    r_max = np.exp(np.linspace(np.log(4), np.log(122), 21))
-    fraction = np.log(r_max / 4) / np.log(122 / 4)
-    names = ["NGC 4605"] + [f"Sc {i:02d}" for i in range(2, 21)] + ["UGC 2885"]
+    galaxies = sorted((path.name.split("_")[0] for path in SPARC.glob("*_rotmod.dat")), key=lambda g: g != "NGC3198")
     rows = []
-    for name, outer, f in zip(names, r_max, fraction):
-        v_flat = 150 + 150 * f + rng.normal(0, 10)
-        r_turn = 1 + 2 * f + rng.uniform(-0.3, 0.3)
-        slope = rng.uniform(0, 20 / outer)
-        radius = np.sort(rng.uniform(0.3, outer, rng.integers(12, 26)))
-        radius[-1] = outer
-        velocity = v_flat * (1 - np.exp(-radius / r_turn)) + slope * radius + rng.normal(0, 10, radius.size)
-        size = next(label for limit, label in SIZE_CLASSES if outer < limit)
-        rows.append({"Radius": radius, "Velocity": velocity, "VelocityError": np.full(radius.size, 10.0),
-                     "Galaxy": name, "Type": "Data", "RMax": outer, "Variable": size})
-    radius = np.linspace(5, 122, 200)
+    for galaxy in galaxies:
+        if galaxy == "NGC3198":
+            continue
+        radius, velocity, error, _, _ = _rotmod(galaxy)
+        size = next(label for limit, label in SIZE_CLASSES if radius.max() < limit)
+        rows.append({"Radius": radius, "Velocity": velocity, "VelocityError": error, "Galaxy": _name(galaxy),
+                     "Type": "Data", "RMax": radius.max(), "Variable": size})
+    rows.sort(key=lambda row: row["RMax"])
+    radius = np.linspace(5, 125, 200)
     rows.append({"Radius": radius, "Velocity": 250 * np.sqrt(5 / radius), "Galaxy": "Keplerian", "Type": "Model"})
     return {"RotationCurves": pd.DataFrame(rows)}
 
 
 def ngc3198():
-    """F12: NGC 3198 rotation curve with disk, gas and halo components.
+    """F12: NGC 3198 rotation curve with disk, gas and halo components (real data).
 
     Source: T. S. van Albada, J. N. Bahcall, K. Begeman, R. Sancisi,
-    ApJ 295, 305 (1985) (citation seen only through citing papers).
+    ApJ 295, 305 (1985) (citation seen only through citing papers); data:
+    SPARC, Lelli, McGaugh & Schombert, AJ 152, 157 (2016).
 
     From the paper (via secondary sources): the HI curve to about 30 kpc,
-    flat at about 150 km/s, the exponential disk with h = 2.68 kpc, the
-    isothermal halo. Formulas: Freeman's exponential disk and the
-    pseudo-isothermal sphere of the research recipe; total = quadrature
-    sum. The line styles of the 1985 figure are (unverified).
-    Synthetic: the disk normalisation (peak 120 km/s), the gas disk
-    (h = 10 kpc, peak 25 km/s), the halo (r_c = 7 kpc, V_inf = 157 km/s),
-    the radii (1-29.5 kpc every 1.5 kpc), the 3-6 km/s errors and noise.
+    flat at about 150 km/s, decomposed into an exponential disk, the gas and
+    an isothermal halo; total = quadrature sum. The line styles of the 1985
+    figure are (unverified).
+    Real: the SPARC curve of NGC 3198 (D = 13.8 Mpc; data/sparc): the
+    observed velocities and errors, and the gas and stellar-disk
+    contributions (the disk scaled to SPARC's M/L = 0.5 at 3.6 microns).
+    Ours: the pseudo-isothermal halo (``isothermal_halo_velocity``) fitted to
+    what the disk and gas leave, and the total.
 
     Rows: ``Component`` (Data, Disk, Gas, Halo, Total).
     """
-    rng = rng_for("F12")
-    curve = np.linspace(0.2, 32, 300)
+    radius, velocity, error, gas, disk = _rotmod("NGC3198")
+    baryons = DISK_ML * disk**2 + gas * np.abs(gas)
 
-    def scaled_disk(radius, h, peak):
-        shape = models.exponential_disk_velocity(curve, 1e8, h)
-        return models.exponential_disk_velocity(radius, 1e8 * (peak / shape.max()) ** 2, h)
+    def total(r, rho0, rc):
+        return np.sqrt(np.interp(r, radius, baryons) + models.isothermal_halo_velocity(r, rho0, rc) ** 2)
 
-    rc, v_inf = 7.0, 157.0
-    rho0 = v_inf**2 / (4 * np.pi * models.G_KPC * rc**2)
-
-    def components(radius):
-        disk = scaled_disk(radius, 2.68, 120.0)
-        gas = scaled_disk(radius, 10.0, 25.0)
-        halo = models.isothermal_halo_velocity(radius, rho0, rc)
-        return {"Disk": disk, "Gas": gas, "Halo": halo, "Total": np.sqrt(disk**2 + gas**2 + halo**2)}
-
-    radius = np.arange(1, 30, 1.5)
-    error = 3 + 0.1 * radius
-    velocity = components(radius)["Total"] + rng.normal(0, error)
-    rows = [{"Radius": radius, "Velocity": velocity, "VelocityError": error, "Component": "Data"}]
-    rows += [{"Radius": curve, "Velocity": values, "Component": name} for name, values in components(curve).items()]
+    (rho0, rc), _ = curve_fit(total, radius, velocity, p0=[3e7, 5.0], sigma=error, absolute_sigma=True,
+                              bounds=([0, 0.1], [1e10, 50]))
+    curve = np.linspace(radius.min(), radius.max(), 300)
+    rows = [
+        {"Radius": radius, "Velocity": velocity, "VelocityError": error, "Component": "Data"},
+        {"Radius": radius, "Velocity": np.sqrt(DISK_ML) * disk, "Component": "Disk"},
+        {"Radius": radius, "Velocity": gas, "Component": "Gas"},
+        {"Radius": curve, "Velocity": models.isothermal_halo_velocity(curve, rho0, rc), "Component": "Halo"},
+        {"Radius": curve, "Velocity": total(curve, rho0, rc), "Component": "Total"},
+    ]
     return {"NGC3198": pd.DataFrame(rows)}
 
 

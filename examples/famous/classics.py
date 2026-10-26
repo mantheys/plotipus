@@ -4,13 +4,11 @@
 Sources and the "Data" recipes are in docs/design/research.md, Part 3.
 """
 
-from pathlib import Path
-
 import numpy as np
 import pandas as pd
 
 import models
-from _common import rng_for, stored_fit
+from _common import DATA, rng_for, stored_fit
 
 
 def geiger_marsden():
@@ -135,9 +133,6 @@ def leavitt():
     return {"Leavitt": pd.DataFrame(rows)}
 
 
-GAIA = Path(__file__).parent / "data"
-
-
 def hertzsprung_russell():
     """F22: Hertzsprung-Russell diagram, M_G vs BP - RP (real data).
 
@@ -162,7 +157,7 @@ def hertzsprung_russell():
     magnitude = np.arange(-6.0, 18.0, 0.05) + 0.025
     rows = []
     for selection in ("all", "200pc"):
-        path = GAIA / f"gaia_dr2_hrd_{selection}.csv.gz"
+        path = DATA / f"gaia_dr2_hrd_{selection}.csv.gz"
         if not path.exists():
             continue
         counts = pd.read_csv(path, comment="#")

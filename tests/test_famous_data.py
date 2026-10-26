@@ -170,3 +170,16 @@ def test_gaia_counts_match_the_paper(frames):
     stars = hrd.loc["all", "Stars"]
     assert stars.shape == (len(hrd.loc["all", "MG"]), len(hrd.loc["all", "BPRP"]))
     assert np.nanmin(stars) >= 1
+
+
+def test_real_datasets(frames):
+    """F06, F09, F13, F14, F15 and F12 read the public files in data/."""
+    assert len(frames["SupernovaHubble"].set_index("Series").loc["Union2.1 SNe", "Redshift"]) == 580
+    keeling = frames["Keeling"].set_index("Series").loc["Monthly mean", "CO2"]
+    assert keeling[0] == pytest.approx(315.71)
+    mbh = frames["HockeyStick"].set_index("Series").loc["Instrumental"]
+    assert mbh["Year"][-1] == 1998 and mbh["Anomaly"][-1] == pytest.approx(0.78)
+    assert len(frames["FIRAS"].iloc[0]["Wavenumber"]) == 43
+    strain = frames["GW150914"].query("Component == 'H1 observed'").iloc[0]["Strain"]
+    assert len(strain) == 3441
+    assert frames["RotationCurves"]["Galaxy"].nunique() == 22

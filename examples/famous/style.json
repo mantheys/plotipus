@@ -101,9 +101,7 @@
       "K = 513 (groups)": "#888888"
     },
     "sn_colors": {
-      "Nearby SNe": "black",
-      "High-z SNe": "black",
-      "SN 1997ck": "#888888",
+      "Union2.1 SNe": "black",
       "$\\Omega_M$=0.24, $\\Omega_\\Lambda$=0.76": "black",
       "$\\Omega_M$=0.20, $\\Omega_\\Lambda$=0": "black",
       "$\\Omega_M$=1.00, $\\Omega_\\Lambda$=0": "black"
