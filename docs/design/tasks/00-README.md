@@ -27,8 +27,8 @@ depends on are merged.
 |---|---|---|
 | 0 | ~~merge `design/examples-and-style` into `main`~~ | every brief links into `docs/design/` |
 | 1 | ~~**T01** colour allocator and palettes~~ | touches every kind; everything else conflicts with it |
-| 2 | ~~T02 contours~~ · ~~T03 estimator errors~~ · ~~T04 hist~~ · T05 scatter hue · T06 fit pull · ~~T07 error display~~ · T08 cat · **T24** famous-plot data (no `src/` changes; can start at wave 0) | disjoint files |
-| 3 | ~~T09 map colorbars (after T02)~~ · T10 box plots (after T03, T07) · ~~T11 style infrastructure~~ | T09 shares `map.py` with T02; T11 edits colours in every kind |
+| 2 | ~~T02 contours~~ · ~~T03 estimator errors~~ · ~~T04 hist~~ · ~~T05 scatter hue~~ · T06 fit pull · ~~T07 error display~~ · T08 cat · **T24** famous-plot data (no `src/` changes; can start at wave 0) | disjoint files |
+| 3 | ~~T09 map colorbars (after T02)~~ · ~~T10 box plots (after T03, T07)~~ · ~~T11 style infrastructure~~ | T09 shares `map.py` with T02; T11 edits colours in every kind |
 | 4 | T12 ticks and output → T13 measured layout | both edit `plot.py`/`panels.py`; in sequence |
 | 5 | T14 media, widths and themes → T15 legends | both build on T13's layout |
 | 6 | T16 ship the styles → T17 experiments and watermarks | the new defaults land here |
@@ -38,8 +38,8 @@ depends on are merged.
 ```
 T̶0̶1̶ ─┬─ T̶0̶2̶ ── T̶0̶9̶
      ├─ T̶0̶3̶ ─┐
-     ├─ T̶0̶7̶ ─┴─ T10
-     ├─ T̶0̶4̶, T05, T06, T08
+     ├─ T̶0̶7̶ ─┴─ T̶1̶0̶
+     ├─ T̶0̶4̶, T̶0̶5̶, T06, T08
      └─ T̶1̶1̶ ── T12 ── T13 ── T14 ── T15 ── T16 ── T17
                                          └── T18 ── T19, T21 ── T20 ── T22 …
 T24 (independent; open until the famous plots match)   T23 (incremental, after wave 2)
@@ -105,12 +105,12 @@ Struck through: done and merged into `main`.
 | ~~[T02](T02-contours.md)~~ | ~~Readable, correct confidence contours~~ | 2 | M | high |
 | ~~[T03](T03-estimator-uncertainty.md)~~ | ~~Uncertainties for binned estimators~~ | 2 | M | med |
 | ~~[T04](T04-hist.md)~~ | ~~`hist` edges, range and labels~~ | 2 | S | low |
-| [T05](T05-scatter-hue.md) | `scatter --hue` keeps every group | 2 | S | low |
+| ~~[T05](T05-scatter-hue.md)~~ | ~~`scatter --hue` keeps every group~~ | 2 | S | low |
 | [T06](T06-fit-pull.md) | `--fit` lower panel: residual and pull | 2 | S | low |
 | ~~[T07](T07-error-display.md)~~ | ~~Bands for every plot type; points not joined~~ | 2 | S | med |
 | [T08](T08-cat.md) | `cat` fixes | 2 | S | low |
 | ~~[T09](T09-map-colorbars.md)~~ | ~~Shared, labelled colorbars~~ | 3 | M | low |
-| [T10](T10-box-plots.md) | Box plots | 3 | S | low |
+| ~~[T10](T10-box-plots.md)~~ | ~~Box plots~~ | 3 | S | low |
 | ~~[T11](T11-style-infrastructure.md)~~ | ~~`mplstyle` key and colour roles~~ | 3 | M | low |
 | [T12](T12-ticks-and-output.md) | Tick labels and output resolution | 4 | S | low |
 | [T13](T13-measured-layout.md) | Measured layout | 4 | L | med |
