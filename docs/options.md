@@ -328,3 +328,12 @@ plotipus cat --datafile Distributions -x Distribution --hue Sample -y Counts --s
 ```bash
 plotipus scatter --datafile Distributions -x Value -y Smeared --colorby Residual --select Distribution Sample -s Exponential Data --marker_size 4 --labelx True --labely Measured --title 'Points coloured by a third column'
 ```
+
+`--hue` gives each row its own colour and legend entry. Here the rows are
+three distributions picked with `--select` (values of one key are OR-ed):
+
+![True against measured values of Gaussian, exponential and log-normal data, one colour each](images/options/hue.png)
+
+```bash
+plotipus scatter --datafile Distributions -x Value -y Smeared --hue Distribution --select Sample Distribution Distribution Distribution -s Data Gaussian Exponential Log-normal --marker_size 4 --labelx True --labely Measured --title 'Points coloured by group (--hue)'
+```
