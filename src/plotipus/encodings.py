@@ -31,6 +31,7 @@ from .plot import (
     apply_legend_style_free,
     enable_legend_frame,
     follow_legend,
+    keep_legends_inside,
 )
 
 LINESTYLES = ["-", "--", ":", "-."]
@@ -98,6 +99,9 @@ def add_legend_args(parser):
         help="Draw legends on a translucent white box (opacity ALPHA, default 0.8).")
     add("--legend_free", action="store_true", default=False,
         help="Place a single legend at the free position covering the least data (not only corners).")
+    add("--legend_inside", action="store_true", default=False,
+        help="Keep automatic legends inside the axes, over the data if they do not fit elsewhere "
+        "(never moved above the plot); an explicit --legend_loc above/below/right still applies.")
     add("--legend_order", choices=["value", "data"], default="value",
         help="Legend entries in the order of the data: stacks top first, lines by their right-hand ends "
         "(value, default), or in drawing order (data).")
@@ -116,6 +120,7 @@ def _legend_panel(value):
 def setup_legend_frame(args):
     if getattr(args, "legend_frame", None) is not None:
         enable_legend_frame(args.legend_frame)
+    keep_legends_inside(getattr(args, "legend_inside", False))
 
 
 def legend_selection(args):
