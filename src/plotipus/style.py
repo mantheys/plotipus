@@ -177,7 +177,7 @@ def _publish():
     global xlabelfontsize, ylabelfontsize, xsublabelfontsize, ysublabelfontsize
     global linelabelfontsize, nbins, default_linewidth, band_alpha, figure_base_width
     global figure_panel_width, figure_height, figure_panel_font_scale
-    global figure_margins_inches, figure_two_panel_hspace, legend_style
+    global figure_margins_inches, figure_two_panel_hspace, legend_style, figure_pad_inches, figure_fixed_margins
     global note_style, base_font_size, mappings, auto_title, contours, stack_error, sci_in_label
     global capitalize_exceptions, redundant_legend_titles, title_short_forms
 
@@ -192,12 +192,16 @@ def _publish():
     base_font_size = float(plt.rcParams["font.size"])
 
     fonts = _CONFIG.get("font_sizes", {})
+    # Axis labels take rcParams axes.labelsize in every kind; a style's
+    # x/ylabelfontsize writes into it.
+    if "ylabelfontsize" in fonts or "xlabelfontsize" in fonts:
+        plt.rcParams["axes.labelsize"] = fonts.get("ylabelfontsize", fonts.get("xlabelfontsize"))
     titlefontsize = fonts.get("titlefontsize", "xx-large")
     subtitlefontsize = fonts.get("subtitlefontsize", "x-large")
     legendtitlefontsize = fonts.get("legendtitlefontsize", "xx-large")
     legendfontsize = fonts.get("legendfontsize", "x-large")
-    xlabelfontsize = fonts.get("xlabelfontsize", "xx-large")
-    ylabelfontsize = fonts.get("ylabelfontsize", "xx-large")
+    xlabelfontsize = fonts.get("xlabelfontsize", plt.rcParams["axes.labelsize"])
+    ylabelfontsize = fonts.get("ylabelfontsize", plt.rcParams["axes.labelsize"])
     xsublabelfontsize = fonts.get("xsublabelfontsize", "x-large")
     ysublabelfontsize = fonts.get("ysublabelfontsize", "x-large")
     linelabelfontsize = fonts.get("linelabelfontsize", "large")
@@ -225,6 +229,10 @@ def _publish():
     }
     figure_margins_inches = layout.get("margins_inches", dict(_FALLBACK_MARGINS_INCHES))
     figure_two_panel_hspace = layout.get("two_panel_hspace", 0)
+    # Measured layout: margins are the drawn extents plus this padding
+    # (margins_inches is then a minimum); fixed_margins keeps margins_inches exactly.
+    figure_pad_inches = float(layout.get("pad_inches", 0.04))
+    figure_fixed_margins = bool(layout.get("fixed_margins", False))
 
     legend_style = dict(
         settings.get(

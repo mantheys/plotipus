@@ -307,8 +307,8 @@ def run_paired(df, args):
         else:
             ax.plot([p[2] for p in aggregated], [p[3] for p in aggregated], color=style.role("muted"), linestyle="--", linewidth=1, zorder=0)
 
-    ax.set_xlabel(resolve_axis_label(args.labelx, x_value, None), fontsize=style.xlabelfontsize)
-    ax.set_ylabel(resolve_axis_label(args.labely[0] if args.labely else None, y_value, None), fontsize=style.ysublabelfontsize)
+    ax.set_xlabel(resolve_axis_label(args.labelx, x_value, None))
+    ax.set_ylabel(resolve_axis_label(args.labely[0] if args.labely else None, y_value, None))
     if args.annotate or args.annotate_bins:
         ax.margins(x=0.25, y=0.15)
     elif dual:
@@ -552,8 +552,8 @@ def draw_points(rows, args, kdx):
             ylabel = resolve_axis_label(None, column, rows)
         else:
             ylabel = args.labely[min(i, len(args.labely) - 1)]
-        ax.set_xlabel(xlabel, fontsize=style.xlabelfontsize)
-        ax.set_ylabel(ylabel, fontsize=style.ylabelfontsize)
+        ax.set_xlabel(xlabel)
+        ax.set_ylabel(ylabel)
         if args.rangex is not None:
             ax.set_xlim(args.rangex)
     if args.rangey is not None:

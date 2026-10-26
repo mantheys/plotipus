@@ -109,6 +109,170 @@ def create_common_two_panel_figure(ncols=1, height_ratios=(3, 1), hspace=None) -
     return fig, grid
 
 
+# --- Measured layout ---------------------------------------------------------
+#
+# The figure size is the print size. Before saving, the margins (and the
+# space between panels) are set from what was drawn: the tight box of every
+# panel (tick labels, axis labels, offset texts, titles, legends, colorbars)
+# plus figure_layout.pad_inches, never less than figure_layout.margins_inches.
+# "fixed_margins": true keeps the old fixed-inch margins instead.
+
+
+def measured_layout_enabled():
+    return not _style.figure_fixed_margins
+
+
+def reserve_top(fig, artist):
+    """Stack ``artist`` (a figure-level text, e.g. an experiment header)
+    between the figure title and the panels; the layout makes room for it."""
+    fig.__dict__.setdefault("_plotipus_top_artists", []).append(artist)
+
+
+def _minimum_margins(fig):
+    """figure_layout.margins_inches (scaled with the text) in inches."""
+    margins = _style.figure_margins_inches if isinstance(_style.figure_margins_inches, dict) else {}
+    text_scale = float(plt.rcParams["font.size"]) / _style.base_font_size
+    return {side: float(margins.get(side, 0.0)) * text_scale for side in ("left", "right", "bottom", "top")}
+
+
+def _layout_panels(fig):
+    """(gridspec, [(ax, rows, cols)]) of the visible gridspec panels, or None
+    when they do not share one gridspec."""
+    panels = []
+    for ax in fig.axes:
+        spec = ax.get_subplotspec()
+        if not ax.get_visible() or spec is None or hasattr(ax, "_colorbar"):
+            continue
+        panels.append((ax, spec.rowspan, spec.colspan, spec.get_gridspec()))
+    gridspecs = {id(gs) for *_, gs in panels}
+    if not panels or len(gridspecs) != 1:
+        return None
+    return panels[0][3], [(ax, rows, cols) for ax, rows, cols, _ in panels]
+
+
+def _panel_overhangs(fig, panels, renderer):
+    """Inches each panel's drawn box (with the colorbars it carries) reaches
+    beyond its gridspec slot: {ax: (left, right, bottom, top)}."""
+    dpi = fig.dpi
+    width, height = fig.get_size_inches()
+    extra = {}
+    for cax in fig.axes:
+        parents = getattr(cax, "_plotipus_colorbar_of", None)
+        if parents and cax.get_visible():
+            owner = max(parents, key=lambda a: a.get_position(original=True).x1)
+            extra.setdefault(owner, []).append(cax.get_tightbbox(renderer, for_layout_only=True))
+    overhangs = {}
+    for ax, _, _ in panels:
+        boxes = [ax.get_tightbbox(renderer, for_layout_only=True), *extra.get(ax, [])]
+        box = Bbox.union([b for b in boxes if b is not None and b.width > 0])
+        slot = ax.get_position(original=True)
+        overhangs[ax] = (
+            max(0.0, slot.x0 * width - box.x0 / dpi),
+            max(0.0, box.x1 / dpi - slot.x1 * width),
+            max(0.0, slot.y0 * height - box.y0 / dpi),
+            max(0.0, box.y1 / dpi - slot.y1 * height),
+        )
+    return overhangs
+
+
+def _top_artists(fig):
+    artists = [getattr(fig, "_suptitle", None), *getattr(fig, "_plotipus_top_artists", [])]
+    return [a for a in artists if a is not None and a.get_visible() and a.get_text()]
+
+
+def _spacing(gaps, available, count, minimum):
+    """gridspec wspace/hspace (a fraction of the panel size) leaving ``gaps``
+    inches between ``count`` panels in ``available`` inches."""
+    if count < 2:
+        return minimum
+    gap = max(gaps, default=0.0)
+    panel = (available - (count - 1) * gap) / count
+    return max(minimum, gap / panel) if panel > 0 else minimum
+
+
+def apply_measured_layout(fig, iterations=2):
+    """Set the margins and panel spacing of ``fig`` from its drawn extents
+    (see the section comment); the figure size never changes."""
+    if not measured_layout_enabled() or _layout_panels(fig) is None:
+        return
+    # Text widths depend on the resolution (hinting), so measure at the
+    # resolution the file is saved at.
+    save_dpi = plt.rcParams["savefig.dpi"]
+    figure_dpi = fig.dpi
+    if save_dpi != "figure":
+        fig.set_dpi(float(save_dpi))
+    try:
+        _measured_layout(fig, iterations)
+    finally:
+        fig.set_dpi(figure_dpi)
+
+
+def _measured_layout(fig, iterations):
+    found = _layout_panels(fig)
+    gridspec, panels = found
+    nrows, ncols = gridspec.get_geometry()
+    pad = _style.figure_pad_inches
+    minimum = _minimum_margins(fig)
+    width, height = fig.get_size_inches()
+    params = fig.subplotpars
+    min_wspace = gridspec.wspace if gridspec.wspace is not None else params.wspace
+    min_hspace = gridspec.hspace if gridspec.hspace is not None else params.hspace
+    # Upper/lower stacks keep their configured gap; grids of panels are measured.
+    fixed_hspace = gridspec.hspace is not None
+    fig.align_ylabels([ax for ax, _, _ in panels])
+
+    for _ in range(iterations):
+        fig.draw_without_rendering()
+        renderer = fig.canvas.get_renderer()
+        over = _panel_overhangs(fig, panels, renderer)
+        header = sum(a.get_window_extent(renderer).height / fig.dpi + pad for a in _top_artists(fig))
+
+        def side(index, test):
+            return max((over[ax][index] for ax, rows, cols in panels if test(rows, cols)), default=0.0)
+
+        left = max(minimum["left"], side(0, lambda r, c: c.start == 0) + pad)
+        right = max(minimum["right"], side(1, lambda r, c: c.stop == ncols) + pad)
+        bottom = max(minimum["bottom"], side(2, lambda r, c: r.stop == nrows) + pad)
+        top = max(minimum["top"], side(3, lambda r, c: r.start == 0) + pad + header)
+        wgaps = [side(1, lambda r, c, k=k: c.stop == k + 1) + side(0, lambda r, c, k=k: c.start == k + 1) + pad
+                 for k in range(ncols - 1)]
+        hgaps = [side(2, lambda r, c, k=k: r.stop == k + 1) + side(3, lambda r, c, k=k: r.start == k + 1) + pad
+                 for k in range(nrows - 1)]
+        # Never squeeze the panels below a quarter of the figure.
+        left, right = (min(left, 0.375 * width), min(right, 0.375 * width))
+        bottom, top = (min(bottom, 0.375 * height), min(top, 0.375 * height))
+        update = dict(left=left / width, right=1 - right / width, bottom=bottom / height, top=1 - top / height,
+                      wspace=_spacing(wgaps, width - left - right, ncols, min_wspace))
+        if not fixed_hspace:
+            update["hspace"] = _spacing(hgaps, height - bottom - top, nrows, min_hspace)
+        gridspec.update(**update)
+        params.update(**update)
+    _place_top_artists(fig, panels)
+
+
+def _place_top_artists(fig, panels):
+    """Stack the title (and reserved header artists) just above the panels,
+    the title centred over them."""
+    artists = _top_artists(fig)
+    if not artists:
+        return
+    fig.draw_without_rendering()
+    renderer = fig.canvas.get_renderer()
+    to_figure = fig.transFigure.inverted()
+    tops = [ax.get_tightbbox(renderer, for_layout_only=True) for ax, _, _ in panels]
+    y = max(to_figure.transform((0, b.y1))[1] for b in tops if b is not None)
+    pad = _style.figure_pad_inches / fig.get_figheight()
+    slots = [ax.get_position(original=True) for ax, _, _ in panels]
+    centre = (min(b.x0 for b in slots) + max(b.x1 for b in slots)) / 2
+    for artist in reversed(artists):
+        y += pad
+        artist.set_verticalalignment("bottom")
+        artist.set_y(y)
+        if getattr(artist, "_plotipus_centered", False):
+            artist.set_x(centre)
+        y += to_figure.transform((0, artist.get_window_extent(renderer).height))[1] - to_figure.transform((0, 0))[1]
+
+
 def _resolve_plot_style(plot_style):
     if plot_style is None:
         return None
@@ -1073,6 +1237,7 @@ def add_centered_suptitle(fig, title, fontsize=None, **kwargs):
         kwargs.setdefault("x", (x0 + x1) / 2)
 
     text = fig.suptitle(title, fontsize=fontsize, **kwargs)
+    text._plotipus_centered = True
     _shorten_title_to_fit(fig, text)
     return text
 
@@ -1485,6 +1650,8 @@ def _expand_margins_for_artists(fig, artists, pad_px=4):
     and the Axes box is kept at its original absolute (inch) size and shifted
     to make room, so only the surrounding whitespace grows.
     """
+    if measured_layout_enabled():
+        return  # the pointer labels belong to the axes, so the layout makes room
     try:
         renderer = fig.canvas.get_renderer()
     except Exception:

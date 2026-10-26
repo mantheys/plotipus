@@ -421,6 +421,13 @@ left edge. In the column-width candidate styles it is clipped:
 - Alternatively, use matplotlib's constrained layout with fixed figure width.
 - Set all label sizes in one place (rcParams), and remove the per-call `fontsize=`.
 
+**Fixed in T13.** Before saving, `apply_measured_layout` measures every
+panel's drawn box (with its colorbars) and sets the margins and panel
+spacing to fit, at the fixed figure size; the title is stacked just above
+the panels. Colorbars follow their panels (an axes locator) instead of
+taking space from them. Axis labels use rcParams `axes.labelsize` in every
+kind. Restore option: `"figure_layout": {"fixed_margins": true}`.
+
 ## B16 Box plots
 
 **Reproduce:** `B16`.

@@ -31,6 +31,18 @@ power-of-ten offset text at the axis end instead of in the label), `labels` (cap
 legend titles to drop, title short forms) and `mappings` (named
 label/colour dictionaries used by the `*_mapping` options).
 
+* `plot_settings.figure_layout`: the figure size (`base_width`,
+  `panel_width` per extra panel, `height`) is the printed size and never
+  changes. Before saving, the margins and the space between panels are
+  measured from what was drawn (tick and axis labels, titles, legends,
+  colorbars) plus `pad_inches` (default 0.04), so nothing is clipped at any
+  size. `margins_inches` is the smallest margin allowed; `"fixed_margins":
+  true` uses it exactly instead (the layout before T13). Upper and lower
+  panels keep `two_panel_hspace` between them.
+* `font_sizes`: `xlabelfontsize`/`ylabelfontsize` set rcParams
+  `axes.labelsize`, which every kind uses for its axis labels; lower panels
+  use `ysublabelfontsize`.
+
 * `mplstyle`: a matplotlib style, or a list of them, applied with
   `plt.style.use` before the file's `rcparams`. An entry is a `.mplstyle`
   path (relative to the style file) or a style name (`"dark_background"`).

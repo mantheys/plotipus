@@ -437,7 +437,7 @@ def run_fit(df, args):
             else:
                 _lower_subtitle(ax_bottom, subtitle)
             ax_bottom.set_ylabel(label, fontsize=style.ysublabelfontsize)
-        (ax_bottoms[-1] if ax_bottoms else ax_top).set_xlabel(xlabel, fontsize=style.xlabelfontsize)
+        (ax_bottoms[-1] if ax_bottoms else ax_top).set_xlabel(xlabel)
 
         vertical, horizontal = args.vertical, args.horizontal
         vertical_labels = args.vertical_label
