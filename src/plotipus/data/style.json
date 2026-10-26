@@ -2,6 +2,15 @@
   "rcparams": {
     "font.size": 11
   },
+  "widths": {
+    "single": 3.4,
+    "onehalf": 5.3,
+    "double": {"width": 6.8, "height": 3.0},
+    "nature": 3.5,
+    "slide": 8.0,
+    "half-slide": 4.0
+  },
+  "aspect": 0.75,
   "font_sizes": {
     "titlefontsize": "xx-large",
     "subtitlefontsize": "x-large",

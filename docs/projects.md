@@ -11,6 +11,9 @@ output = "output"
 style = ["config/style.json"]
 plugins = ["my_project.plotipus_plugin"]
 python_path = ["src"]
+medium = "slides"            # slides | paper | web (unset: the classic look)
+media = ["slides", "paper"]  # rendered by --medium all and plotipus run
+theme = "light"              # light | dark
 
 [outputs.plots]              # extra output directories per command list
 paper = ["../paper/figures"]
@@ -18,6 +21,32 @@ paper = ["../paper/figures"]
 [settings]
 default_operation = "mean"
 ```
+
+## Media and themes
+
+A medium (`slides`, `paper`, `web`) and a theme (`light`, `dark`) select
+style layers by name: `plotipus`, then the medium, then `dark`, from
+`src/plotipus/data/styles/` (missing layers are skipped). The project's
+`style` files come after them and have the last word, then `--width` and
+`--aspect`. `plotipus run <list> --dry_run` prints, for every command, the
+medium, theme, size and layers it resolves to.
+
+- **Medium**: `--medium` on any kind or on `plotipus run`, else `[project]
+  medium`. `--medium all` (and `[project] media` with `plotipus run`)
+  renders every listed medium. Without a medium anywhere no layer applies:
+  the classic geometry and titles.
+- **Size**: each medium has a default `width` (slides and web: `slide`,
+  8 in at aspect 0.5625; paper: `single`, 3.4 in at 0.75). Presets live in
+  the style's `widths`; a preset is inches (height = `aspect` × width) or
+  `{"width": 6.8, "height": 3.0}`. A row of panels shares the width; each
+  lower panel adds 30% of the upper height. Text is never scaled for more
+  panels (`panel_font_scale` only applies to the classic geometry).
+- **Output folders**: the project's own medium and theme write where they
+  always did (`output/plots/`); any other pair writes to
+  `output/plots/<medium>/` or `output/plots/<medium>-dark/`, and so do the
+  `[outputs.plots]` and `-o` targets. File names are unchanged.
+- **Titles**: no automatic title from the datafile name in any medium; an
+  explicit `--title` is dropped in paper (with a note) unless `--keep_title`.
 
 ## Style files
 

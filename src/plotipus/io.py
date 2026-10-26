@@ -20,7 +20,7 @@ import pandas as pd
 from rich import print as rprint
 
 from . import registry
-from .project import load_project
+from .project import current_rendering, load_project
 from .selection import selection_pairs
 
 
@@ -571,6 +571,10 @@ def save_figure_to_paths(fig, output_arg, output_file, default_output_dir=None, 
 
     rprint_func = rprint_func or rprint
     default_dir = default_output_dir or globals()["default_output_dir"]("plots")
+    # Another medium/theme than the project's goes to <output>/<medium>[-dark].
+    rendering = current_rendering()
+    if rendering is not None and rendering.folder:
+        subfolder = os.path.join(rendering.folder, subfolder) if subfolder else rendering.folder
     for output_dir in _output_dirs(output_arg, default_dir, subfolder):
         os.makedirs(output_dir, exist_ok=True)
         full_path = os.path.join(output_dir, output_file)

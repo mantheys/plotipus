@@ -14,6 +14,11 @@ before the file's ``rcparams``) and ``contours`` (confidence contours of
 ``background``). Every section is optional and merged over the defaults shipped
 in ``plotipus/data/style.json``.
 
+Figure size: ``widths`` (named presets: inches, or ``{"width", "height"}``),
+``aspect`` (height/width) and ``width`` (the preset or inches to draw at).
+Without ``width`` the old geometry (``figure_layout`` base/panel widths)
+is used.
+
 Colours that are not data colours come from the ``roles`` (see :func:`role`):
 ``ink`` (text, data points, fit and reference lines), ``muted`` (guides),
 ``faint`` (pull bands, grids), ``paper`` (background, outlines on images) and
@@ -31,6 +36,8 @@ import matplotlib.pyplot as plt
 from . import palettes
 
 _DEFAULTS_PATH = Path(__file__).with_name("data") / "style.json"
+# Named style layers (media, themes; T16 adds the languages).
+STYLES_DIR = Path(__file__).with_name("data") / "styles"
 _MPLSTYLE_PATH = Path(__file__).with_name("data") / "plotipus.mplstyle"
 
 _FALLBACK_LEGEND_STYLE = {"frameon": False, "loc": "best"}
@@ -180,6 +187,7 @@ def _publish():
     global figure_margins_inches, figure_two_panel_hspace, legend_style, figure_pad_inches, figure_fixed_margins
     global note_style, base_font_size, mappings, auto_title, contours, stack_error, sci_in_label
     global capitalize_exceptions, redundant_legend_titles, title_short_forms
+    global widths, figure_aspect, figure_width, figure_row_height, draw_titles
 
     rcparams = _CONFIG.get("rcparams", {})
     plt.rcParams.update(rcparams)
@@ -217,6 +225,14 @@ def _publish():
     auto_title = bool(settings.get("auto_title", True))
     # A common power of ten in the axis label instead of offset text.
     sci_in_label = bool(settings.get("sci_in_label", True))
+    # An explicit --title is drawn (false in paper: the caption is the title).
+    draw_titles = bool(settings.get("titles", True))
+
+    widths = {name: value for name, value in _CONFIG.get("widths", {}).items()}
+    figure_aspect = float(_CONFIG.get("aspect", 0.75))
+    geometry = _CONFIG.get("cli_geometry", {})
+    figure_width, figure_row_height = resolve_width(
+        geometry.get("width", _CONFIG.get("width")), widths, figure_aspect, geometry.get("aspect"))
 
     layout = settings.get("figure_layout", {})
     figure_base_width = layout.get("base_width", 8)
@@ -249,6 +265,47 @@ def _publish():
 
     mappings = _CONFIG.get("mappings", {})
     contours = {**_FALLBACK_CONTOURS, **_CONFIG.get("contours", {})}
+
+
+def resolve_width(spec, presets, aspect, forced_aspect=None):
+    """(width, row height) in inches of a ``--width`` value: a preset name or
+    inches; (None, None) without one. A preset may fix its own height
+    (``{"width": 6.8, "height": 3.0}``) unless ``forced_aspect`` is given."""
+    if spec is None:
+        return None, None
+    entry = presets.get(str(spec).strip().lower(), spec)
+    try:
+        if isinstance(entry, dict):
+            width = float(entry["width"])
+            height = entry.get("height") if forced_aspect is None else None
+        else:
+            width, height = float(entry), None
+    except (TypeError, ValueError, KeyError):
+        raise ValueError(f"Unknown width '{spec}': use inches or one of {', '.join(presets)}.") from None
+    ratio = float(forced_aspect) if forced_aspect is not None else aspect
+    return width, float(height) if height is not None else ratio * width
+
+
+def set_geometry(width=None, aspect=None):
+    """Draw at ``width`` (preset or inches) and/or ``aspect`` (height/width),
+    overriding the style (the --width and --aspect options)."""
+    geometry = {k: v for k, v in (("width", width), ("aspect", aspect)) if v is not None}
+    _CONFIG["cli_geometry"] = geometry
+    _publish()
+
+
+def snapshot():
+    """The current settings and rcParams, for :func:`restore`."""
+    return copy.deepcopy(_CONFIG), dict(plt.rcParams)
+
+
+def restore(saved):
+    """Return to a :func:`snapshot` (e.g. before rendering another medium)."""
+    global _CONFIG
+    config, rc = saved
+    dict.update(plt.rcParams, rc)
+    _CONFIG = copy.deepcopy(config)
+    _publish()
 
 
 def reset():

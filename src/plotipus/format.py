@@ -27,6 +27,12 @@ def make_title_from_args(args):
     default title from the datafile names (unless the style turns
     ``plot_settings.auto_title`` off)."""
     if getattr(args, "title", None) is not None:
+        if args.title and not style.draw_titles and not getattr(args, "keep_title", False):
+            from rich import print as rprint
+
+            rprint(f"[dim]Note:[/dim] title '{args.title}' dropped in this medium (the caption is the title); "
+                   "--keep_title keeps it.")
+            return ""
         return args.title
     if not style.auto_title:
         return ""

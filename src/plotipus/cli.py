@@ -2,7 +2,8 @@
 
     plotipus <kind> [options]          draw one plot/table (kinds: line, scatter,
                                        hist, map, cat, table)
-    plotipus run <list> [--tables]     run a command list (--dry_run, --check, --jobs N)
+    plotipus run <list> [--tables]     run a command list (--dry_run, --check, --jobs N,
+                                       --medium slides|paper|web|all, --theme light|dark)
     plotipus translate <command...>    show the plotipus form of a legacy command
     plotipus init [directory]          create a project skeleton
 """
@@ -21,6 +22,9 @@ plots = "input/plots"
 tables = "input/tables"
 output = "output"
 # style = ["config/style.json"]
+# medium = "slides"            # slides | paper | web
+# media = ["slides", "paper"]  # rendered by plotipus run (--medium all)
+# theme = "light"              # light | dark
 # plugins = ["my_plugin"]
 
 # [outputs.plots]
@@ -66,11 +70,15 @@ def main(argv=None):
         parser.add_argument("--dry_run", "--dry-run", action="store_true", help="Print the translated commands only")
         parser.add_argument("--match", type=str, default=None, help="Only commands containing this text")
         parser.add_argument("--check", action="store_true", help="Only check that every command parses")
+        parser.add_argument("--medium", default=None, choices=["slides", "paper", "web", "all"],
+                            help="Render every plot command for this medium ('all': [project] media); "
+                            "default: [project] media, else [project] medium")
+        parser.add_argument("--theme", default=None, choices=["light", "dark"], help="Theme of every plot command")
         options = parser.parse_args(rest)
         from .runner import run_list
 
         failures = run_list(options.list, options.tables, options.show, options.debug, options.jobs,
-                            options.dry_run, options.match, options.check)
+                            options.dry_run, options.match, options.check, options.medium, options.theme)
         return 1 if failures else 0
     if command == "translate":
         tokens = shlex.split(" ".join(rest)) if len(rest) == 1 else rest

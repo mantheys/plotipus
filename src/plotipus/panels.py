@@ -20,6 +20,7 @@ from .plot import (
     draw_lines,
     draw_squares,
     draw_vertical_lines,
+    lower_height_ratios,
     measured_layout_enabled,
     place_point_label,
     set_axis_tick_labels,
@@ -58,7 +59,7 @@ def create_panels(n_panels=1, n_lower=0, grid=True, height_ratios=None):
             extra.set_visible(False)
         return fig, upper[:n_panels], [[] for _ in range(n_panels)], (nrows, ncols)
 
-    ratios = height_ratios or [3] + [1] * n_lower
+    ratios = height_ratios or lower_height_ratios(n_lower)
     fig, gs = create_common_two_panel_figure(ncols=n_panels, height_ratios=ratios) if n_lower == 1 else _stacked_figure(n_panels, ratios)
     upper, lower = [], []
     for col in range(n_panels):
@@ -78,8 +79,11 @@ def _stacked_figure(ncols, height_ratios):
     from .plot import apply_common_figure_margins, apply_panel_font_scale, get_common_figsize
 
     apply_panel_font_scale(ncols)
-    width, height = get_common_figsize(ncols=ncols)
-    fig = plt.figure(figsize=(width, height * (1 + 0.15 * (len(height_ratios) - 2))))
+    if style.figure_width is not None:
+        fig = plt.figure(figsize=get_common_figsize(ncols=ncols, height_ratios=height_ratios))
+    else:
+        width, height = get_common_figsize(ncols=ncols)
+        fig = plt.figure(figsize=(width, height * (1 + 0.15 * (len(height_ratios) - 2))))
     hspace = style.figure_two_panel_hspace
     grid = fig.add_gridspec(nrows=len(height_ratios), ncols=ncols, height_ratios=height_ratios, hspace=hspace)
     apply_common_figure_margins(fig, hspace=hspace)

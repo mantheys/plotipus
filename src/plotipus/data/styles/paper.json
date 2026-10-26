@@ -1,0 +1,33 @@
+{
+  "_comment": "Medium stub (T14): sizes only (spec 2.1: a single column, 8 pt text, thin lines); T16 ships the full paper style (type, frame, colours). Titles belong in the caption.",
+  "width": "single",
+  "aspect": 0.75,
+  "rcparams": {
+    "font.size": 8,
+    "axes.labelsize": "large",
+    "axes.titlesize": "large",
+    "xtick.labelsize": "medium",
+    "ytick.labelsize": "medium",
+    "legend.fontsize": "medium",
+    "lines.linewidth": 1.2,
+    "lines.markersize": 3.5
+  },
+  "font_sizes": {
+    "titlefontsize": "large", "subtitlefontsize": "medium",
+    "legendtitlefontsize": "medium", "legendfontsize": "medium",
+    "xlabelfontsize": "large", "ylabelfontsize": "large",
+    "xsublabelfontsize": "medium", "ysublabelfontsize": "medium",
+    "linelabelfontsize": "small"
+  },
+  "plot_settings": {
+    "auto_title": false,
+    "titles": false,
+    "default_linewidth": 1.2,
+    "figure_layout": {
+      "margins_inches": {"left": 0.3, "right": 0.08, "bottom": 0.25, "top": 0.08, "wspace": 0.3, "hspace": 0.3},
+      "two_panel_hspace": 0.06
+    },
+    "legend_style": {"fontsize": "medium", "title_fontsize": "medium", "frameon": false, "loc": "best"},
+    "note_style": {"fontsize": "medium"}
+  }
+}
