@@ -33,6 +33,7 @@ map --datafile Distributions -x MeanScan -y SigmaScan -z Chi2Scan --select Distr
 
 # Binned estimators
 line --datafile Distributions -x Value -y Residual --binned --estimator std --hue Sample --select Distribution -s Exponential --bins 11 --rangex 0 10 --labelx True --labely 'Measured - True' --title 'Binned estimator: resolution' --output_suffix binned
+line --datafile Distributions -x Value -y Residual --binned --plot_type box --hue Sample --select Distribution -s Exponential --bins 11 --rangex 0 10 --labelx True --labely 'Measured - True' --title 'Box plots per bin' --output_suffix box
 
 # Other kinds: categories and scatter
 cat --datafile Distributions -x Distribution --hue Sample -y Counts --select Distribution -s Resonance --kind bar --labely Events --title 'Yields: summed counts per sample' --output_suffix yields

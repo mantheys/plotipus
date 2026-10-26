@@ -409,6 +409,14 @@ left edge. In the column-width candidate styles it is clipped:
 axis formatter (or as bin ranges), and use one legend entry per group,
 coloured by group.
 
+**Fixed in T10.** The hues are dodged within each bin (each box 0.8 × bin
+width / number of hues), coloured by the T01 allocator (edge, whiskers and
+median in the hue colour, face at alpha 0.25, hollow fliers), the ticks are
+the bin centres to the bins' precision (`--box_tick_labels ranges` for
+"[a, b)", category names for non-numeric x), and the legend has one box per
+hue. `--whis` sets the whiskers. Restore option: none for the overlap and
+the labels (bugs); `--no_fliers` hides the fliers, which are now drawn.
+
 ## B17 Points joined by lines, and low-resolution output
 
 - **Points joined by lines.** With `--plot_type errorbar`, the line kind

@@ -8,14 +8,15 @@ Each bin carries the standard error of its statistic (``--estimator_error``;
 stored per-event errors from ``--errory`` are propagated, see
 :func:`plotipus.transforms.estimate`) and bins with fewer than
 ``--min_count`` entries are dropped.
-``--plot_type box`` draws a box per bin instead. ``--panels`` draws one x
+``--plot_type box`` draws a box per bin (per category for non-numeric x)
+instead, the hues dodged side by side within each bin. ``--panels`` draws one x
 column per panel; with ``--compact`` the panels share one axis, their
 ``--panel_rangex`` ranges stitched side by side.
 """
 
 import matplotlib.pyplot as plt
 import numpy as np
-from matplotlib.ticker import MaxNLocator
+from matplotlib.ticker import FixedFormatter, FixedLocator, MaxNLocator, NullLocator
 from rich import print as rprint
 
 from .. import style
@@ -23,6 +24,7 @@ from ..args import map_iterable_color, map_iterable_label, resolve_axis_label, r
 from ..format import make_subtitle_from_args, make_title_from_args
 from ..io import prepare_import
 from ..panel_lines import add_panel_line_args, draw_panel_lines, panel_rangex, resolve_panel_lines
+from ..palettes import ColorAllocator
 from ..panels import add_title_and_note, create_panels, draw_overlays, save
 from ..plot import (
     add_centered_suptitle,
@@ -39,6 +41,10 @@ from ..transforms import _ESTIMATORS, bin_estimate, bin_reduce, estimate, reduct
 ESTIMATORS = tuple(_ESTIMATORS)
 SUFFIXES = {"scatter_points": "scatter", "scatter": "scatter"}
 ERROR_MODES = ("sem", "std", "none")
+BOX_TICK_LABELS = ("centres", "ranges")
+# Most box tick labels on one axis (centres, ranges); past it, every k-th
+# bin is labelled.
+_MAX_BOX_TICKS = {"centres": 12, "ranges": 6}
 
 
 def add_estimator_args(parser):
@@ -57,6 +63,13 @@ def add_estimator_args(parser):
         help="Drop bins with fewer entries than this (default: 5; 1 draws every non-empty bin).")
     add("--no_error_label", action="store_true", default=False,
         help="Do not append the error description, e.g. '(mean ± s.e.m.)', to the y label.")
+    add("--whis", nargs="+", type=float, default=[1.5],
+        help="With --plot_type box: whisker reach in IQRs past the box, or two percentiles, e.g. 5 95 "
+             "(default: 1.5).")
+    add("--box_tick_labels", type=str, default="centres", choices=BOX_TICK_LABELS,
+        help="With --plot_type box: label the bins by their centres or as [a, b) ranges (default: centres).")
+    add("--no_fliers", action="store_true", default=False,
+        help="With --plot_type box: do not draw the points past the whiskers.")
     add("--panels", nargs="+", type=str, default=None, help="x columns, one per panel (replaces -x).")
     add_panel_line_args(parser)
 
@@ -123,8 +136,11 @@ def _shared_span(group, args, variable, x_col):
     rows = group if variable is None else group[group["Variable"] == variable]
     if x_col not in rows.columns:
         return None
-    arrays = [np.asarray(v, dtype=float).ravel() for v in filter_dataframe(rows, args)[x_col]
-              if not isinstance(v, list) and np.ndim(v) != 0 and np.size(v)]
+    try:
+        arrays = [np.asarray(v, dtype=float).ravel() for v in filter_dataframe(rows, args)[x_col]
+                  if not isinstance(v, list) and np.ndim(v) != 0 and np.size(v)]
+    except (TypeError, ValueError):
+        return None  # categorical x
     values = np.concatenate(arrays) if arrays else np.empty(0)
     values = values[np.isfinite(values)]
     return (float(values.min()), float(values.max())) if values.size else None
@@ -187,11 +203,15 @@ def _panel_figure(df, args, kdx, config, name):
     hues = group[args.iterable].unique() if args.iterable is not None else [None]
     first_subset = {}
     errors_drawn = propagated = False
+    box_colors = ColorAllocator()
+    box_colors.reserve(hues, lambda hue: map_iterable_color(hue, args.iterable_color_mapping))
+    box_ticks = {}  # panel -> (centres, edges, categories) of the boxes
 
     for idx, variable in enumerate(variables):
         ax = axes[idx]
         span = _shared_span(group, args, variable, args.panels[idx] if args.panels is not None else args.x)
-        for hue in hues:
+        categories = None
+        for jdx, hue in enumerate(hues):
             rows = group
             if variable is not None:
                 rows = rows[rows["Variable"] == variable]
@@ -210,18 +230,24 @@ def _panel_figure(df, args, kdx, config, name):
                 continue
 
             if args.plot_type == "box":
-                if np.ndim(x) == 0:
-                    if np.ndim(y) == 0:
-                        rprint("[yellow]Warning:[/yellow] box plots need array data; skipping.")
-                        continue
-                    data, centres, widths = [y], np.asarray([float(x)]), None
-                else:
-                    edges, centres = reduction_bins(x, args.bins if args.bins is not None else style.nbins, args.reduce,
-                                                    span)
-                    data = bin_reduce(x, y, edges, None, cumulative=args.threshold)
-                    widths = np.diff(edges) * 0.8 if np.issubdtype(np.asarray(x).dtype, np.integer) else None
-                plot_data(args, ax, centres, y=data, label=f"Median {args.y}", plot_type="boxplot",
-                          positions=centres, widths=widths, showfliers=False)
+                if np.ndim(x) == 0 and np.ndim(y) == 0:
+                    rprint("[yellow]Warning:[/yellow] box plots need array data; skipping.")
+                    continue
+                if categories is None and np.ndim(x) != 0 and not np.issubdtype(np.asarray(x).dtype, np.number):
+                    categories = _shared_categories(group, args, variable, x_col)
+                data, centres, edges = _box_groups(x, y, args, span, categories)
+                bin_widths = np.diff(edges) if edges is not None else np.ones(len(centres))
+                width = 0.8 * bin_widths / len(hues)
+                keep = np.array([np.size(d) > 0 for d in data], dtype=bool)
+                label = map_iterable_label(hue, args.iterable, args.iterable_mapping, len(hues)) \
+                    if args.iterable is not None else None
+                if keep.any():
+                    plot_data(args, ax, centres, y=[d for d, k in zip(data, keep) if k], label=label,
+                              plot_type="boxplot", color=box_colors.color_for(hue),
+                              positions=(centres + (jdx - (len(hues) - 1) / 2) * width)[keep], widths=width[keep],
+                              whis=args.whis[0] if len(args.whis) == 1 else tuple(args.whis[:2]),
+                              showfliers=not args.no_fliers, manage_ticks=False)
+                box_ticks.setdefault(idx, (centres, edges, categories))
                 continue
 
             reduced = _reduce_cell(x, y, args, error, span)
@@ -265,6 +291,8 @@ def _panel_figure(df, args, kdx, config, name):
         if args.rangey is not None:
             ax.set_ylim(args.rangey[0], args.rangey[1])
         apply_scientific_threshold_formatter(ax, threshold=0.1, axis="both")
+        if idx in box_ticks:
+            _set_box_ticks(ax, *box_ticks[idx], args)
         if args.logy:
             ax.semilogy()
         if args.logx:
@@ -281,6 +309,59 @@ def _panel_figure(df, args, kdx, config, name):
     else:
         add_title_and_note(fig, args)
     return save(fig, args, kdx, suffix=_suffix(args))
+
+
+def _shared_categories(group, args, variable, x_col):
+    """Sorted values of a non-numeric x column over every hue of one panel,
+    so the hues share the box positions."""
+    rows = group if variable is None else group[group["Variable"] == variable]
+    values = [np.asarray(v).ravel() for v in filter_dataframe(rows, args)[x_col] if np.ndim(v) != 0]
+    return sorted({str(v) for array in values for v in array})
+
+
+def _box_groups(x, y, args, span, categories):
+    """(per-box y arrays, centres, edges) of one series: per x bin, per
+    category (edges None, centres 0..n-1), or one box for a scalar x."""
+    if np.ndim(x) == 0:
+        return [np.asarray(y)], np.asarray([float(x)]), None
+    if categories is not None:
+        x, y = np.asarray(x).astype(str), np.asarray(y)
+        return [y[x == c] for c in categories], np.arange(len(categories), dtype=float), None
+    edges, centres = reduction_bins(x, args.bins if args.bins is not None else style.nbins, args.reduce, span)
+    return bin_reduce(x, y, edges, None, cumulative=args.threshold), np.asarray(centres, dtype=float), edges
+
+
+def _tick_number(values, step):
+    """Formatter of ``values`` to the precision of the bin width ``step``,
+    one more digit when that makes them exact (centres of unit bins at .5)."""
+    digits = max(0, -int(np.floor(np.log10(step)))) if step > 0 else 0
+    if not np.allclose(np.round(values, digits), values) and np.allclose(np.round(values, digits + 1), values):
+        digits += 1
+
+    def number(value):
+        text = f"{value:.{digits}f}"
+        return text.lstrip("-") if float(text) == 0 else text
+
+    return number
+
+
+def _set_box_ticks(ax, centres, edges, categories, args):
+    """Ticks at the box centres: the category names, else the bin centres
+    (or [a, b) ranges with --box_tick_labels ranges) to the bins' precision."""
+    if categories is not None:
+        labels = list(categories)
+    else:
+        step = float(np.min(np.diff(edges))) if edges is not None and len(edges) > 1 else 1.0
+        if args.box_tick_labels == "ranges" and edges is not None:
+            number = _tick_number(edges, step)
+            labels = [f"$\\geq${number(lo)}" if args.threshold else f"[{number(lo)}, {number(hi)})"
+                      for lo, hi in zip(edges[:-1], edges[1:])]
+        else:
+            labels = [_tick_number(centres, step)(c) for c in centres]
+    every = 1 if categories is not None else int(np.ceil(len(centres) / _MAX_BOX_TICKS[args.box_tick_labels]))
+    ax.xaxis.set_major_locator(FixedLocator(list(centres)[::every]))
+    ax.xaxis.set_major_formatter(FixedFormatter(labels[::every]))
+    ax.xaxis.set_minor_locator(NullLocator())
 
 
 def _marker_kwargs(args, plot_type):

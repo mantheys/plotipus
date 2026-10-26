@@ -1,3 +1,4 @@
+import matplotlib.pyplot as plt
 import numpy as np
 import pytest
 import pandas as pd
@@ -190,3 +191,87 @@ def test_error_modes_and_label_switches(make_project):
     assert figures[2].axes[0].get_ylabel() == "Value"
     line.main(["--datafile", "Sample", "-x", "Bin", "-y", "Value", "--binned", "--note", "mean ± s.e.m."])
     assert figures[3].axes[0].get_ylabel() == "Value"
+
+
+# --- Box plots (T10) -----------------------------------------------------------------
+
+
+def _three_groups():
+    rng = np.random.default_rng(4)
+    return pd.DataFrame([{"X": rng.uniform(0, 12, 1200), "Y": rng.normal(k, 1, 1200), "Group": g}
+                         for k, g in enumerate("ABC")])
+
+
+def _box_figure(make_project, *argv):
+    make_project({"Groups": _three_groups()})
+    figures = _capture()
+    line.main(["--datafile", "Groups", "-x", "X", "-y", "Y", "--hue", "Group", "--binned", "--bins", "13",
+               "--rangex", "0", "12", "--plot_type", "box", *argv])
+    figures[0].canvas.draw()
+    return figures[0].axes[0]
+
+
+def _boxes(ax):
+    from matplotlib.patches import PathPatch
+
+    return [p for p in ax.patches if isinstance(p, PathPatch)]
+
+
+def test_box_hues_dodged_per_bin(make_project):
+    ax = _box_figure(make_project)
+    boxes = _boxes(ax)
+    assert len(boxes) == 36
+    xs = [p.get_path().vertices[:, 0] for p in boxes]
+    centres = np.array([(x.min() + x.max()) / 2 for x in xs])
+    offsets = np.round(centres - (np.floor(centres) + 0.5), 6)
+    assert sorted(set(offsets)) == pytest.approx([-0.8 / 3, 0.0, 0.8 / 3], abs=1e-6)
+    widths = {round(np.ptp(p.get_path().vertices[:, 0]), 6) for p in boxes}
+    assert widths == {round(0.8 / 3, 6)}
+
+
+def test_box_colours_and_legend(make_project):
+    from matplotlib.colors import to_hex
+
+    ax = _box_figure(make_project)
+    legend = ax.get_legend()
+    assert [t.get_text() for t in legend.get_texts()] == ["A", "B", "C"]
+    handles = legend.legend_handles
+    edges = [to_hex(h.get_edgecolor()) for h in handles]
+    assert len(set(edges)) == 3
+    assert all(h.get_facecolor()[3] == pytest.approx(0.25) for h in handles)
+    # Median lines in the box colour; fliers hollow.
+    medians = [l for l in ax.lines if len(l.get_xdata()) == 2 and l.get_xdata()[0] != l.get_xdata()[1]]
+    assert {to_hex(l.get_color()) for l in medians} <= set(edges)
+    fliers = [l for l in ax.lines if l.get_marker() == "o"]
+    assert fliers and all(l.get_markerfacecolor() == "none" for l in fliers)
+
+
+def test_box_tick_labels(make_project):
+    ax = _box_figure(make_project)
+    labels = [t.get_text() for t in ax.get_xticklabels()]
+    assert labels == [f"{c + 0.5:.1f}" for c in range(12)]
+    plt.close("all")
+    ax = _box_figure(make_project, "--box_tick_labels", "ranges")
+    labels = [t.get_text() for t in ax.get_xticklabels()]
+    assert labels == ["[0, 1)", "[2, 3)", "[4, 5)", "[6, 7)", "[8, 9)", "[10, 11)"]
+
+
+def test_box_whis_and_fliers(make_project):
+    ax = _box_figure(make_project, "--whis", "0", "100")
+    assert not any(len(l.get_xdata()) for l in ax.lines if l.get_marker() == "o")
+    plt.close("all")
+    ax = _box_figure(make_project, "--no_fliers")
+    assert not [l for l in ax.lines if l.get_marker() == "o"]
+
+
+def test_box_categorical_x(make_project):
+    rng = np.random.default_rng(5)
+    frame = pd.DataFrame([{"Det": rng.choice(["Muon", "ECAL", "HCAL"], 300), "Y": rng.normal(0, 1, 300), "Run": r}
+                          for r in ("2023", "2024")])
+    make_project({"Cat": frame})
+    figures = _capture()
+    line.main(["--datafile", "Cat", "-x", "Det", "-y", "Y", "--hue", "Run", "--binned", "--plot_type", "box"])
+    ax = figures[0].axes[0]
+    figures[0].canvas.draw()
+    assert [t.get_text() for t in ax.get_xticklabels()] == ["ECAL", "HCAL", "Muon"]
+    assert len(_boxes(ax)) == 6
