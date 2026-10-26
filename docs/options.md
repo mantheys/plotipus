@@ -74,6 +74,17 @@ are the example list, `examples/input/plots/example_scripts.txt`;
   `--errory_type bars|bands` picks either for any plot type. The band takes
   the series colour at `plot_settings.band_alpha` (default 0.2). Points
   with error bars are not joined unless `--connect` is given.
+  `--errory_type poisson` computes the errors instead: the exact (Garwood)
+  Poisson interval of y as counts, asymmetric and never below 0 (in `hist`,
+  of the bin counts, or √Σw² with `--weight`); it is also what data drawn
+  with `--overlay`/`--data_hue` get when there is no error column.
+  `--errory_type clopper_pearson --count_column N` takes y as an efficiency
+  of N trials (`--efficiency_scale 100` for percent) and draws the
+  Clopper–Pearson interval, which never crosses 0 or 100%, as in `table
+  --clopper_pearson`. Both use `--confidence_level` (default 0.6827) and are
+  drawn as bars or bands by the plot type's default; `--error_label` names
+  the interval in the y label ("Counts, 68% CL (Poisson)"; on by default in
+  the slides style, `plot_settings.error_label`).
 * **Axes and overlays**: `--labelx/--labely/--labelz`, `--rangex/--rangey`,
   `--logx/--logy`, `--horizontal`, `--vertical`, `--point`, `--square`,
   `--line`, `--xtick`, `--note`, `--title`.

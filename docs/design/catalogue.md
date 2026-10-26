@@ -34,17 +34,17 @@ command lists.
 
 | Group | ✅ | ◐ | ✗ |
 |---|---|---|---|
-| A Distributions | 6 | 1 | 5 |
+| A Distributions | 7 | 0 | 5 |
 | B Relationships | 6 | 1 | 2 |
 | C Trends and fits | 6 | 3 | 1 |
 | D Comparisons | 1 | 4 | 4 |
 | E Ratios and significance | 5 | 2 | 1 |
 | F ML diagnostics | 4 | 2 | 1 |
-| G Uncertainty | 3 | 3 | 3 |
+| G Uncertainty | 5 | 2 | 2 |
 | H Small multiples and layout | 2 | 2 | 4 |
 | I Annotations | 6 | 1 | 3 |
 | J Tables | 4 | 1 | 2 |
-| **Total (89)** | **43** | **20** | **26** |
+| **Total (89)** | **46** | **18** | **25** |
 
 Nearly half of the ◐ entries are partial only because of a bug in
 [bugs.md](bugs.md), not because an option is missing. Fixing B01–B13 moves
@@ -61,7 +61,7 @@ about 12 of them to ✅.
 | A3 | Filled / stacked histogram (stacked MC) | composition of a total | F03, F23 | ✅ | `line --datafile Spectrum -x Mass -y Counts --hue Sample --remove_value data --stacked [--plot_type step\|fill]` (B10a; fixed in T18). | — |
 | A4 | Normalised / density histogram | shapes at different statistics | — | ✅ | `hist --datafile Ev -x Xv --hue Group --bins 40 --density --logy` (P13). | — |
 | A5 | Weighted histogram | event weights | — | ✅ | `hist ... --weight Yv` (Q4). Errors not drawn: see G2. | — |
-| A6 | Histogram with Poisson errors | counts with statistical uncertainty | F01, F03 | ◐ | Pre-binned: `line ... --plot_type errorbar --errory` with a stored `CountsError` column (P03). There are no computed or asymmetric Poisson intervals, and `hist` draws no errors. | `hist --errors poisson\|sumw2`; G2. |
+| A6 | Histogram with Poisson errors | counts with statistical uncertainty | F01, F03 | ✅ | `hist ... --errory_type poisson` (Garwood from the bin counts, √Σw² with `--weight`); `line ... --errory_type poisson` on pre-binned counts (T19). | — |
 | A7 | KDE | smooth density of a sample | — | ✗ | — | `hist --hist_type kde` (scipy `gaussian_kde`, Scott bandwidth, `--bw`). |
 | A8 | ECDF / cumulative | quantiles, comparing tails | — | ✗ | — | `hist --hist_type ecdf` (and `--cumulative` for histograms). |
 | A9 | Box plot per category | distribution summaries side by side | — | ✅ | `line --binned --plot_type box --hue Sample` (P14): hues dodged per bin or per category of a non-numeric x, `--box_tick_labels ranges`, `--whis` (B16, fixed in T10). | — |
@@ -144,8 +144,8 @@ All curves are precomputed by the analysis (plotipus does not fit or score).
 | id | chart | use | famous | status | command today / what is missing | smallest change |
 |---|---|---|---|---|---|---|
 | G1 | Symmetric / asymmetric error bars | measurements | F07, F09 | ✅ | `--errory` with `{y}Error`, or `{y}Error+`/`{y}Error-` columns. | — |
-| G2 | Computed Poisson (Garwood) intervals | low counts | F03, F16 | ✗ | Only stored errors are drawn. | `--errory_type poisson` (Garwood from counts, sumw2 when weighted), default for `-y Counts`. |
-| G3 | Efficiency intervals in plots | bounded efficiencies | — | ◐ | `table --clopper_pearson` exists; plots need precomputed `Error+/-`. | `line --errory_type clopper_pearson --count_column N` (reuse the table code). |
+| G2 | Computed Poisson (Garwood) intervals | low counts | F03, F16 | ✅ | `--errory_type poisson` in `line` and `hist` (Garwood, `intervals.garwood`); the default for `--overlay` data without an error column (T19). | — |
+| G3 | Efficiency intervals in plots | bounded efficiencies | — | ✅ | `line --errory_type clopper_pearson --count_column N [--efficiency_scale 100]`: bars or bands inside [0, 1] (T19, shared with `table --clopper_pearson`). | — |
 | G4 | Single band around a curve | systematic band | F14 | ✅ | `line --errory --errory_type bands` (B11, fixed in T07); series colour at `plot_settings.band_alpha` (default 0.2). | — |
 | G5 | Nested ±1σ/±2σ bands (Brazil plot) | expected limits | F02, F04, F05 | ✗ | One band per series only. | `--errory_column LimitErr1 LimitErr2` (one band per column, darker inside), with `--band_colors brazil`. |
 | G6 | Hatched systematic band on a stack total | MC uncertainty | F03 | ✅ | `--stack_total_error` (stacked errors in quadrature) or `--stack_total_error_column COL` (precomputed, e.g. with systematics); hatch from `plot_settings.stack_error` (T18). | — |

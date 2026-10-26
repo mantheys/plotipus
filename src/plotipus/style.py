@@ -185,7 +185,7 @@ def _publish():
     global linelabelfontsize, nbins, default_linewidth, band_alpha, figure_base_width
     global figure_panel_width, figure_height, figure_panel_font_scale
     global figure_margins_inches, figure_two_panel_hspace, legend_style, figure_pad_inches, figure_fixed_margins
-    global note_style, base_font_size, mappings, auto_title, contours, stack_error, sci_in_label
+    global note_style, base_font_size, mappings, auto_title, contours, stack_error, sci_in_label, error_label
     global capitalize_exceptions, redundant_legend_titles, title_short_forms
     global widths, figure_aspect, figure_width, figure_row_height, draw_titles
 
@@ -220,6 +220,7 @@ def _publish():
     # Opacity of --errory_type bands (series colour, no edge).
     band_alpha = float(settings.get("band_alpha", 0.2))
     # Band of the stacked simulation's total error (--data_hue --stacked --errory).
+    error_label = bool(settings.get("error_label", False))
     stack_error = {"label": "Sim. unc.", "hatch": "////", "color": "role:muted", **settings.get("stack_error", {})}
     # Title from the datafile name when --title is not given.
     auto_title = bool(settings.get("auto_title", True))

@@ -18,7 +18,8 @@ from rich import print as rprint
 
 from .. import registry, style
 from ..args import add_common_args
-from ..format import clopper_pearson, format_value, format_with_band, format_with_error, format_with_interval
+from ..format import format_value, format_with_band, format_with_error, format_with_interval
+from ..intervals import clopper_pearson
 from ..io import import_data, make_name_from_args, save_table_to_paths
 from ..project import load_project
 from ..selection import filter_dataframe
