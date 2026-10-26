@@ -861,8 +861,9 @@ def errory_type(args, plot_type):
     """--errory_type, or its default for the plot type: bands for lines and
     steps, bars for points."""
     selected = getattr(args, "errory_type", None)
-    if selected is not None:
+    if selected in ("bars", "bands"):
         return selected
+    # None, or an interval (poisson, clopper_pearson): the errors are drawn the default way.
     return "bars" if plot_type in ("errorbar", "scatter") else "bands"
 
 

@@ -6,6 +6,7 @@ import numpy as np
 import pandas as pd
 
 from . import registry, style
+from .intervals import clopper_pearson  # noqa: F401 (moved to intervals; kept for importers)
 from .io import normalize_datafiles
 
 
@@ -349,19 +350,6 @@ def format_with_band(row, args=None, threshold=1e-3):
     if siunitx:
         return f"\\num{{{value}}} (\\numrange{{{lo}}}{{{hi}}})"
     return f"{value} ({lo}--{hi})"
-
-
-def clopper_pearson(passed, total, confidence=0.6827):
-    """Central Clopper-Pearson interval (low, high) of the fraction
-    passed/total at the given confidence level. Exact for binomial counts and
-    always inside [0, 1]: at 0 or 100% efficiency the interval is one-sided
-    instead of a symmetric error crossing the bound (100.0 ± 0.9)."""
-    from scipy.stats import beta
-
-    alpha = 1 - confidence
-    low = beta.ppf(alpha / 2, passed, total - passed + 1) if passed > 0 else 0.0
-    high = beta.ppf(1 - alpha / 2, passed + 1, total - passed) if passed < total else 1.0
-    return float(low), float(high)
 
 
 def format_with_interval(value, low, high, args=None, threshold=1e-3):

@@ -714,10 +714,29 @@ COMMON_ARG_SPECS = {
         "kwargs": {
             "type": str,
             "default": None,
-            "choices": ["bars", "bands"],
+            "choices": ["bars", "bands", "poisson", "clopper_pearson"],
             "help": "Style of y-axis error display: 'bars' (errorbar) or 'bands' "
             "(shaded fill_between) (default: bands for --plot_type line/step, "
-            "bars for points)",
+            "bars for points); or the errors themselves, drawn the default way: "
+            "'poisson' (Garwood intervals of y as counts) or 'clopper_pearson' "
+            "(y an efficiency of --count_column trials)",
+        },
+    },
+    "confidence_level": {
+        "flags": ["--confidence_level"],
+        "kwargs": {
+            "type": float,
+            "default": 0.6827,
+            "help": "Coverage of the poisson/clopper_pearson intervals (default 0.6827, one sigma)",
+        },
+    },
+    "error_label": {
+        "flags": ["--error_label"],
+        "kwargs": {
+            "action": argparse.BooleanOptionalAction,
+            "default": None,
+            "help": "Name the poisson/clopper_pearson interval in the y label, e.g. '68%% CL (Poisson)' "
+            "(default: the style's plot_settings.error_label: off, on in slides)",
         },
     },
 }

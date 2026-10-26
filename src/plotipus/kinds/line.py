@@ -22,7 +22,7 @@ import numpy as np
 import pandas as pd
 from rich import print as rprint
 
-from .. import style
+from .. import intervals, style
 from ..args import (
     add_common_args,
     add_panel_args,
@@ -106,6 +106,7 @@ def build_parser():
             "ytick_label", "ytick_height", "ytick_side", "ytick_edge", "square", "square_label",
             "square_style", "square_color", "line", "line_label", "line_style", "line_color",
             "point", "point_label", "note", "multiply", "debug", "errory", "errory_type",
+            "confidence_level", "error_label",
         ],
         overrides={
             "datafile": {"required": True},
@@ -143,6 +144,11 @@ def build_parser():
     add("--errory_bounds", type=str, nargs=2, default=None, metavar=("LOW", "HIGH"),
         help="Columns holding the lower and upper edges of an asymmetric y interval.")
     add("--errory_x", action="store_true", default=False, help="Also draw x error bars (half bin widths).")
+    add("--count_column", type=str, default=None, metavar="N",
+        help="With --errory_type clopper_pearson: array column with the number of trials of each point "
+        "(k = y / --efficiency_scale * N).")
+    add("--efficiency_scale", type=float, default=1.0,
+        help="Value of y at 100%% efficiency, with --errory_type clopper_pearson (default 1; 100 for percent).")
     add("--extrapolate", action="store_true", default=False,
         help="Draw points flagged in '{y}Extrapolated' as a dashed continuation (dropped otherwise).")
     add("--merge_iterables", nargs="+", default=None, metavar="VALUES=LABEL",
@@ -417,6 +423,7 @@ class Series:
         self.label = None
         self.is_sum = False
         self.is_data = False
+        self.interval = None  # poisson / clopper_pearson errors
 
 
 def extract(subset, args, x_column=None, y_column=None):
@@ -522,6 +529,37 @@ def _to_density(s, args):
     s.y = np.asarray(s.y, dtype=float) / area
     if s.error is not None:
         s.error = np.asarray(s.error, dtype=float) / area
+
+
+def _interval_errors(s, args):
+    """Replace the errors of ``s`` by an interval: --errory_type poisson
+    (Garwood, y as counts; also the default for --overlay data without an
+    error column) or clopper_pearson (y an efficiency of --count_column
+    trials). Stored as 2xN (below, above) distances, never crossing 0 (or
+    100% for efficiencies)."""
+    kind = args.errory_type if args.errory_type in ("poisson", "clopper_pearson") else None
+    if kind is None and s.is_data and s.error is None and not s.categorical:
+        kind = "poisson"
+    if kind is None:
+        return
+    y = np.asarray(s.y, dtype=float)
+    if kind == "poisson":
+        low, high = intervals.garwood(y, args.confidence_level)
+    else:
+        if not args.count_column or s.rows is None or args.count_column not in s.rows.columns:
+            rprint("[yellow]Warning:[/yellow] --errory_type clopper_pearson needs --count_column (the trials); "
+                   "the stored errors are kept.")
+            return
+        counts = extract(s.rows, args, y_column=args.count_column)
+        if counts is None or len(counts.y) != len(y):
+            rprint(f"[yellow]Warning:[/yellow] {args.count_column} does not align with {args.y}; no interval drawn.")
+            return
+        total = np.asarray(counts.y, dtype=float)
+        passed = np.round(y / args.efficiency_scale * total)
+        low, high = intervals.clopper_pearson(passed, total, args.confidence_level)
+        low, high = low * args.efficiency_scale, high * args.efficiency_scale
+    s.error = np.vstack([np.clip(y - low, 0, None), np.clip(high - y, 0, None)])
+    s.interval = kind
 
 
 def _is_data(hue, args):
@@ -800,6 +838,7 @@ def draw_figure(rows, args, kdx=None):
                 s.hue = hue
                 s.is_data = _is_data(hue, args) or comparable_value in data_styles
                 s.data_by_style = comparable_value in data_styles
+                _interval_errors(s, args)
                 if args.density:
                     _to_density(s, args)
                 s.comparable = comparable_value
@@ -1255,6 +1294,10 @@ def _finish_upper(fig, upper, lower, drawn, rows, args, variables, last_x, hue_v
                 ax.set_xlabel(xlabel)
             ylabel = resolve_axis_label(args.labely if args.labely is not None or not args.density else "Density",
                                         args.y, panel_rows)
+            kinds = {getattr(s, "interval", None) for s in drawn.get(idx, [])} - {None}
+            show = args.error_label if args.error_label is not None else style.error_label
+            if show and len(kinds) == 1 and ylabel:
+                ylabel = f"{ylabel}, {intervals.label(kinds.pop(), args.confidence_level)}"
         if rotated:
             ax.tick_params(axis="x", labelrotation=45)
 
@@ -1642,6 +1685,8 @@ def run_by_config(df, args):
 
 def run(args):
     _check_args(args, build_parser())
+    if args.errory_type in ("poisson", "clopper_pearson"):
+        args.errory = True  # an interval is an error to draw
     df = load(args)
     if df.empty:
         rprint("[yellow]Warning:[/yellow] No datafiles found. Exiting...")
