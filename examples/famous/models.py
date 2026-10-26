@@ -9,6 +9,8 @@ Every function takes x first and then the parameters, as stored in
 ``Params``.
 """
 
+from pathlib import Path
+
 import numpy as np
 from scipy.special import comb, i0e, i1e, k0e, k1e
 
@@ -181,6 +183,17 @@ def z_lineshape_isr(sqrt_s, m_z, gamma_z, gamma_ee, gamma_had):
         born = z_lineshape(energy * np.sqrt(z), m_z, gamma_z, gamma_ee, gamma_had)
         out[i] = (1 + 0.75 * b) * 0.75**b * born.mean()
     return out
+
+
+def lep_curve(sqrt_s, n_nu):
+    """The N_nu = 2, 3 or 4 curve of the LEP figure (Phys. Rept. 427, Fig.
+    1.13) as extracted from it (data/extracted/lep_nnu_fig1_13.csv),
+    interpolated at sqrt_s: the comparison curve for --lower pull."""
+    import pandas as pd
+
+    table = pd.read_csv(Path(__file__).parent / "data" / "extracted" / "lep_nnu_fig1_13.csv")
+    curve = table[table.kind == f"{int(round(n_nu))}nu"].sort_values("energy")
+    return np.interp(np.asarray(sqrt_s, dtype=float), curve["energy"], curve["sigma_had"])
 
 
 # --- F19: Rutherford scattering ----------------------------------------------------------

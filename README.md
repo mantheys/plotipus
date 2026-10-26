@@ -84,8 +84,9 @@ make -C examples mascot      # re-render the mascot and the tutorial figures
 
 Famous figures from particle physics, cosmology, astronomy and climate
 science, redrawn by plotipus from datasets built to match the
-originals: public data where it exists (Gaia, NOAA, SPARC, Hubble's table)
-and synthetic data otherwise. Each
+originals: public data where it exists (Gaia, NOAA, SPARC, LIGO, Hubble's
+table), values read back from the published figures' vector graphics for the
+Higgs, KamLAND and LEP plots, and synthetic data only for the 1912-1913 tables. Each
 one was compared with the published figure. The data generators, the
 commands and what is still missing are in
 [examples/famous](examples/famous/README.md); `make -C examples famous`
