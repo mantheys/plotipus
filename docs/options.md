@@ -351,6 +351,16 @@ points.
 plotipus cat --datafile Distributions -x Distribution --hue Sample -y Counts --select Distribution -s Resonance --kind bar --labely Events --title 'Yields: summed counts per sample'
 ```
 
+A `-y` column with one scalar per row (here the standard deviation of each
+sample, with its error) is drawn as it is. Seven categories would overlap
+side by side, so their labels are rotated, and the figure grows to fit them:
+
+![Standard deviation of seven distributions, data and simulation side by side, with error bars](images/options/moments.png)
+
+```bash
+plotipus cat --datafile Moments -x Config --hue Sample -y Value --errory --select Variable Config Config Config Config Config Config Config -s Std Gaussian Poisson Binomial Exponential Uniform Log-normal Chi-squared --kind bar --labelx Distribution --labely 'Standard deviation' --title 'One scalar per row: spread of each sample'
+```
+
 ![True against measured values of exponential samples coloured by their residual](images/options/scatter.png)
 
 ```bash

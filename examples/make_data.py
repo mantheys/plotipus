@@ -1,7 +1,7 @@
 """Write the example data of input/plots/example_scripts.txt (and of the
 figures of docs/options.md): Distributions.pkl, and two files derived from
 it, the per-config files of the --configs example and Moments.pkl for the
-table example."""
+table and scalar-cell cat examples."""
 
 from pathlib import Path
 
@@ -129,7 +129,8 @@ for sample in ("Data", "Simulation"):
                    "Name": "landau"}]).to_pickle(out / f"{config}_landau_Histogram.pkl")
 
 # Moments: mean and standard deviation of every 1D sample with their errors,
-# one row per (distribution, sample, moment), for the table example.
+# one row per (distribution, sample, moment), for the table example and the
+# cat example of scalar cells.
 moments = []
 for row in frame[frame.Value.notna()].itertuples():
     value = np.asarray(row.Value, dtype=float)
