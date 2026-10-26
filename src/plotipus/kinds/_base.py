@@ -11,7 +11,7 @@ import matplotlib
 
 from .. import registry
 from .. import style
-from ..args import add_common_args, add_media_args, parse_media_args, with_medium
+from ..args import add_common_args, add_header_args, add_media_args, parse_media_args, with_medium
 from ..encodings import setup_legend_frame
 from ..io import prepare_import
 from ..project import apply_rendering, load_project
@@ -33,6 +33,7 @@ def add_output_args(parser):
     add("--format", type=str, default=None, help="File format when --output_suffix has no extension (default png).")
     add("--show", action="store_true", default=False, help="Keep figures open (interactive use).")
     add_media_args(parser)
+    add_header_args(parser)
     add("--sci_in_label", action="store_true", default=None,
         help="Put a common power of ten in the axis label, e.g. 'Density (x10^-2)' (default: the style's "
         "plot_settings.sci_in_label, true).")
@@ -52,13 +53,14 @@ def main(module, argv=None):
         for medium in project.all_media():
             outputs += main(module, with_medium(argv, medium)) or []
         return outputs
-    if all(getattr(media, k) is None for k in ("medium", "theme", "width", "aspect", "style_preset", "save_style")):
+    if all(getattr(media, k) is None for k in ("medium", "theme", "width", "aspect", "style_preset", "save_style",
+                                       "experiment")):
         return _run(module, argv)
     saved, rendering = style.snapshot(), project.rendering
     try:
         try:
             apply_rendering(media.medium, media.theme, media.width, media.aspect, preset=media.style_preset,
-                            save_style=media.save_style)
+                            save_style=media.save_style, experiment=media.experiment)
         except ValueError as error:
             module.build_parser().error(str(error))
         return _run(module, argv)

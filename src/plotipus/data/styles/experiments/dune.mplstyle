@@ -1,0 +1,5 @@
+# DUNE (dune_plot_style's dune.mplstyle): Helvetica-like sans and cividis.
+font.family: sans-serif
+font.sans-serif: Helvetica, Nimbus Sans, Liberation Sans, Arial, DejaVu Sans
+mathtext.fontset: dejavusans
+image.cmap: cividis

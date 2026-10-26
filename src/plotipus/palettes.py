@@ -28,6 +28,9 @@ PALETTES = {
     # contrast of at least 3.5:1 (style_spec 2.11).
     "petroff10-dark": ["#3f90da", "#ffa90e", "#e12501", "#94a4a2", "#a04bd3",
                        "#a96b59", "#e76300", "#b9ac70", "#7b7f8b", "#92dadd"],
+    # DUNE's plot style: Okabe-Ito with black first (dune_plot_style, SetOkabeItoColors).
+    # https://github.com/DUNE/dune_plot_style
+    "dune": ["#000000", "#D55E00", "#56B4E9", "#E69F00", "#009E73", "#CC79A7", "#0072B2", "#F0E442"],
     # https://github.com/matplotlib/matplotlib/blob/main/lib/matplotlib/mpl-data/stylelib/petroff8.mplstyle
     "petroff8": ["#1845fb", "#ff5e02", "#c91f16", "#c849a9", "#adad7d", "#86c8dd", "#578dff", "#656364"],
     # https://github.com/matplotlib/matplotlib/blob/main/lib/matplotlib/mpl-data/stylelib/petroff6.mplstyle

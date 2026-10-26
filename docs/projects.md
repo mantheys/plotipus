@@ -63,6 +63,35 @@ rcParams, to `<figure>.style.json`.
 - **Titles**: no automatic title from the datafile name in any medium; an
   explicit `--title` is dropped in paper (with a note) unless `--keep_title`.
 
+## Header and watermark
+
+A project can carry an experiment header and a status watermark on every
+figure:
+
+```toml
+[header]
+experiment = "dune"            # atlas, cms, lhcb, alice, dune (or style = ["experiment-dune"])
+label_status = "Preliminary"   # after the label ("DUNE", or label = "...")
+label_right = "1.2 MW, 10 years"
+watermark = "wip"              # wip, preliminary, internal, simulation, draft, or text
+watermark_style = "corner"     # corner | diagonal
+```
+
+The same keys go in a style file's `"header"` section (`label`, `status`,
+`right`, `position`, `watermark`, `watermark_style`, and the typography
+`label_weight`, `label_style`, `status_weight`, `status_style`,
+`label_size`, `status_size`, `right_size` as fractions of `font.size`), and
+`--label`, `--label_status`, `--label_right`, `--label_position`,
+`--watermark` (`none` drops the project's) and `--watermark_style` override
+them per command. An experiment preset is a style layer between the medium
+and the dark theme (`src/plotipus/data/styles/experiments/`; each file cites
+its sources and lists what could not be verified under `_unverified`). The
+header follows the medium's text size and the `ink` colour; the watermark
+is `muted` under the header, or large and faint behind the data
+(`diagonal`). The layout makes room for a header above the axes, and an
+inside header gets headroom when data runs under it. A paper figure that
+still has a watermark prints a reminder.
+
 ## Style files
 
 Style files (JSON) are merged over the defaults

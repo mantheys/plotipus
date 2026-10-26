@@ -587,7 +587,7 @@ def _axes_legends(ax):
     return found
 
 
-def axes_occupancy(ax, renderer=None, extra_boxes=()):
+def axes_occupancy(ax, renderer=None, extra_boxes=(), exclude=()):
     """Occupancy of ``ax``: a boolean mask over its pixels (row 0 at the
     bottom), True where a data artist (line, patch, collection, image, text)
     draws anything. Filled bars, bands and filled contours count whole.
@@ -601,7 +601,7 @@ def axes_occupancy(ax, renderer=None, extra_boxes=()):
     artists = [*ax.lines, *ax.patches, *ax.collections, *ax.images, *ax.texts,
                *(a for a in ax.artists if not isinstance(a, Legend))]
     for artist in sorted(artists, key=lambda a: a.get_zorder()):
-        if artist.get_visible():
+        if artist.get_visible() and not any(artist is skip for skip in exclude):
             artist.draw(agg)
     alpha = np.asarray(agg.buffer_rgba())[::-1, :, 3] > 0  # flip: row 0 at the bottom
     box = ax.bbox
@@ -728,6 +728,9 @@ def _place_outside(ax, legend, renderer):
              if t.get_visible() and t.get_text()]
     above += [lg.get_window_extent(renderer) for lg in _axes_legends(ax)
               if lg is not legend and getattr(lg, "_plotipus_placement", {}).get("outside")]
+    # ... and above an experiment header drawn above the axes.
+    above += [a.get_window_extent(renderer) for a in ax.artists
+              if getattr(a, "_plotipus_header", None) == "above" and a.get_visible()]
     rise = max([0.0, *(b.y1 - ax.bbox.y1 for b in above)]) * 72.0 / ax.figure.dpi
     anchor = offset_copy(ax.transAxes, fig=ax.figure, y=rise, units="points")
     rebuilt = legend
@@ -824,8 +827,12 @@ def place_legends(fig):
                and legend.get_visible()]
     if not pending:
         return False
-    # The axes are laid out already, and a legend computes its own box from
-    # its location: no full draw is needed. Larger legends choose first.
+    # A legend computes its own box from its location, so no full draw is
+    # needed; but the view limits may still be stale (autoscaling happens
+    # lazily, and fixed_margins skips the layout's draw). Larger legends
+    # choose first.
+    for ax in {id(ax): ax for ax, _ in pending}.values():
+        ax.get_xlim(), ax.get_ylim()
     renderer = fig.canvas.get_renderer()
     pending.sort(key=lambda item: (-_area(item[1].get_window_extent(renderer)), item[1]._plotipus_placement["order"]))
     for ax, legend in pending:

@@ -1,0 +1,5 @@
+# Times-like serif for LHCb (mplhep's LHCb2 style uses TeX Gyre Termes), with
+# STIX math; DejaVu Serif when none is installed.
+font.family: serif
+font.serif: TeX Gyre Termes, Times New Roman, Nimbus Roman, STIXGeneral, DejaVu Serif
+mathtext.fontset: stix

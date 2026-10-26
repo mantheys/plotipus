@@ -61,6 +61,19 @@ def test_stacked_legend_covers_no_bar(make_project):
     assert [t.get_text() for t in legend.get_texts()] == ["Signal", "Background"]
 
 
+def test_classic_stacked_legend_covers_no_bar(make_project):
+    """With fixed margins nothing draws before the legends are placed: the
+    view limits must still be up to date."""
+    make_project({"Spectra": _resonance()}, 'style = ["classic"]\n')
+    figures = _figures()
+    line.main(["--datafile", "Spectra", "-x", "Bin", "-y", "Counts", "--hue", "Sample", "--select", "Sample",
+               "-s", "Background", "Signal", "--stacked"])
+    ax = figures[0].axes[0]
+    renderer = _drawn(figures[0])
+    legend, = _legends(ax)
+    assert _covered(ax, legend, renderer) == 0
+
+
 def test_bar_legend_covers_no_bar(make_project):
     make_project({"Spectra": _resonance()})
     figures = _figures()

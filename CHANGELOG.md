@@ -12,6 +12,18 @@ old size (8 × 6 in), fonts, tab10 colours, red fit and zero lines, 1-dof
 contours, fixed margins, 100 dpi PNGs, automatic titles and offset text.
 The bug fixes below stay fixed under `classic`.
 
+### Experiment presets and watermarks (T17)
+
+- A header label above the axes: `--label`, `--label_status`,
+  `--label_right` (or `[header]` in `plotipus.toml`, or a style's
+  `"header"`), and experiment presets `--experiment atlas|cms|lhcb|alice|dune`
+  with each experiment's label typography (and its fonts and palette where
+  its guidelines or mplhep set them). Text only; logos stay with figure hooks.
+- A status watermark: `--watermark wip|preliminary|internal|simulation|draft|TEXT`,
+  in the corner or `--watermark_style diagonal` behind the data;
+  `--watermark none` drops a project's watermark for one command.
+- Nothing changes for figures without these options.
+
 ### Styles (T16)
 
 - The default style is `slides`: the plotipus language (ticks in on four

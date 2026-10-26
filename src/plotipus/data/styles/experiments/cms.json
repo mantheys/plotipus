@@ -1,0 +1,11 @@
+{
+  "_source": [
+    "mplhep exp_cms.py: 'CMS' bold, the status italic, above the axes on the left with the luminosity and energy above the right edge; sizes 1.3x / 1x / 1/1.1x of font.size. https://raw.githubusercontent.com/scikit-hep/mplhep/master/src/mplhep/exp_cms.py",
+    "mplhep styles/cms.py: TeX Gyre Heros, colour cycle Petroff-6. https://raw.githubusercontent.com/scikit-hep/mplhep/master/src/mplhep/styles/cms.py"
+  ],
+  "_unverified": ["CMS's colour guideline (https://cms-analysis.docs.cern.ch/guidelines/plotting/colors/) is behind CERN SSO; Petroff-6 is taken from mplhep's CMS style."],
+  "mplstyle": "sans-heros.mplstyle",
+  "palette": "petroff6",
+  "header": {"label": "CMS", "label_weight": "bold", "label_style": "normal", "status_weight": "normal",
+             "status_style": "italic", "label_size": 1.3, "status_size": 1.0, "right_size": 0.91, "position": "above"}
+}
