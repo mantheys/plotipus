@@ -59,8 +59,8 @@ famous:
 	for pair in $(FAMOUS_GALLERY); do cp "famous/paper/output/plots/$${pair%%:*}" "../docs/images/famous/$${pair##*:}" || exit 1; done
 
 # The gallery: its data (the example, famous and gallery themes), every command of
-# gallery/input/{plots,tables}/gallery_scripts.txt in its own folder, and the page.
-# Default medium only until T14 (--medium all) lands.
+# gallery/input/{plots,tables}/gallery_scripts.txt in its own folder, figures once per
+# medium of gallery/plotipus.toml (slides and paper), and the page.
 gallery:
 	cd gallery && $(PYTHON) make_data.py && rm -rf output && $(PYTHON) make_page.py
 

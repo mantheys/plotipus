@@ -1,6 +1,7 @@
 """The gallery (examples/gallery, T23): every uncommented command of its
-lists renders, each into its own folder, and gives one figure (tables: a
-.tex file, and with --html its HTML twin)."""
+lists renders, each into its own folder, and gives one figure for every
+medium of the gallery project (slides and paper; tables: a .tex file, and
+with --html its HTML twin)."""
 
 import importlib.util
 import sys
@@ -38,13 +39,17 @@ def test_lists_parse(page):
 def test_every_command_renders(page, tmp_path):
     entries = page.read_entries()
     rendered = page.render_all(entries, tmp_path)
-    failures = [f"{e.row} (exit {e.returncode}): {e.log[-2000:]}" for e in rendered if e.returncode != 0]
+    failures = [f"{e.row} {medium} (exit {r.returncode}): {r.log[-2000:]}"
+                for e in rendered for medium, r in e.renders.items() if r.returncode != 0]
     assert not failures, "\n\n".join(failures)
+    assert page.MEDIA == ["slides", "paper"]
     for entry in rendered:
-        suffixes = sorted(f.suffix for f in entry.files)
         if entry.kind == "plots":
-            assert suffixes == [".png"], (entry.row, entry.files)
+            assert set(entry.renders) == set(page.MEDIA), entry.row
+            for medium, result in entry.renders.items():
+                assert [f.suffix for f in result.files] == [".png"], (entry.row, medium, result.files)
         else:
-            assert ".tex" in suffixes and len(suffixes) <= 2, (entry.row, entry.files)
+            suffixes = sorted(f.suffix for f in entry.renders[None].files)
+            assert ".tex" in suffixes and len(suffixes) <= 2, (entry.row, suffixes)
     missing = page.write_page(entries, tmp_path / "gallery.md")
     assert not missing
