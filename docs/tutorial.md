@@ -176,5 +176,5 @@ unchanged.
 
 The same options draw any figure made of shapes: detector geometries,
 regions of a parameter space, annotated diagrams. For plots of measured
-data, continue with the example project in the [README](../README.md#quick-start)
+data, continue with the example project in the [README](../README.md#getting-started)
 and the [options](options.md).
