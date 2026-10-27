@@ -148,3 +148,65 @@ def test_data_hue_points_over_bars(make_project):
     assert to_hex(points[0].lines[0].get_color()) == to_hex(style.role("ink"))
     assert points[0].has_yerr  # data shows its errors without --errory
     assert [t.get_text() for t in ax.get_legend().get_texts()] == ["data", "background"]
+
+
+def _yields():
+    rows = []
+    for region, (data, background, signal) in {"low": (105, 100, 1), "peak": (60, 40, 15), "high": (52, 50, 1)}.items():
+        for sample, value in (("Data", data), ("Background", background), ("Signal", signal)):
+            rows.append({"Region": region, "Sample": sample, "Counts": float(value),
+                         "CountsError": float(np.sqrt(value))})
+    return pd.DataFrame(rows)
+
+
+def test_stacked_bars_with_data_and_error_band(make_project):
+    """--stacked: one stack per category, data points on top, a hatched band of the total's error."""
+    from matplotlib.container import BarContainer, ErrorbarContainer
+    from matplotlib.patches import Rectangle
+
+    from plotipus import style
+
+    figures = _capture()
+    make_project({"Yields": _yields()})
+    cat.main(["--datafile", "Yields", "-x", "Region", "-y", "Counts", "--hue", "Sample", "--kind", "bar",
+              "--stacked", "--data_hue", "Data", "--errory"])
+    ax = figures[0].axes[0]
+    background, signal = [c for c in ax.containers if isinstance(c, BarContainer)]
+    assert [p.get_y() for p in signal] == [p.get_height() for p in background]  # signal on the background
+    assert all(p.get_width() == 0.8 for p in signal)
+    totals = [b.get_height() + s.get_height() for b, s in zip(background, signal)]
+    bands = [p for p in ax.patches if isinstance(p, Rectangle) and p.get_hatch()]
+    assert len(bands) == 3
+    expected = [np.hypot(np.sqrt(b), np.sqrt(s)) for b, s in ((100, 1), (40, 15), (50, 1))]
+    assert np.allclose([p.get_height() / 2 for p in bands], expected)
+    assert np.allclose([p.get_y() + p.get_height() / 2 for p in bands], totals)
+    assert len([c for c in ax.containers if isinstance(c, ErrorbarContainer)]) == 1
+    assert [t.get_text() for t in ax.get_legend().get_texts()] == ["Data", "Signal", "Background",
+                                                                    style.stack_error["label"]]
+
+
+def test_bar_errors_are_bands_not_error_bars(make_project):
+    from matplotlib.container import ErrorbarContainer
+    from matplotlib.patches import Rectangle
+
+    figures = _capture()
+    make_project({"Cutflow": _frame()})
+    cat.main(["--datafile", "Cutflow", "-x", "Stage", "-y", "Counts", "--hue", "Component", "--integrate_over",
+              "Energy", "--kind", "bar", "--errory"])
+    ax = figures[0].axes[0]
+    assert not [c for c in ax.containers if isinstance(c, ErrorbarContainer)]
+    assert len([p for p in ax.patches if isinstance(p, Rectangle) and p.get_hatch()]) == 6
+
+
+def test_points_dodge_side_by_side(make_project):
+    """--kind point: data and each hue value get their own slot within a category."""
+    from matplotlib.container import ErrorbarContainer
+
+    figures = _capture()
+    make_project({"Yields": _yields()})
+    cat.main(["--datafile", "Yields", "-x", "Region", "-y", "Counts", "--hue", "Sample", "--kind", "point",
+              "--data_hue", "Data", "--errory"])
+    ax = figures[0].axes[0]
+    first = sorted(c.lines[0].get_xdata()[0] for c in ax.containers if isinstance(c, ErrorbarContainer))
+    assert len(first) == 3 and first[0] < first[1] < first[2] and np.isclose(np.mean(first), 0.0)
+    assert first[2] - first[0] < 0.8  # all within the category

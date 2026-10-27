@@ -34,9 +34,11 @@ The Gaussian rows also store a Gaussian fit (`FitFunctionLabel`, `Params`,
 (`MeanScan`, `SigmaScan`, `Chi2Scan`). The `Resonance` rows hold a peak over
 a falling background as `Data`, `Background` and `Signal` (see
 [Data and simulation](#data-and-simulation)); their `Data` row also stores a
-signal + background fit with its two components (see [Fits](#fits)). Two files are derived from it: `{config}_landau_Histogram.pkl` (the
-Landau histograms, one file per sample, for `--configs`) and `Moments.pkl`
-(mean and standard deviation of every sample, for `table`). The commands
+signal + background fit with its two components (see [Fits](#fits)). Three files are derived from it: `{config}_landau_Histogram.pkl` (the
+Landau histograms, one file per sample, for `--configs`), `Moments.pkl`
+(mean and standard deviation of every sample, for `table` and `cat`) and
+`Yields.pkl` (the `Resonance` counts of each sample summed in the two
+sidebands and the signal region, with errors, for `cat --stacked`). The commands
 are the example list, `examples/input/plots/example_scripts.txt`;
 `make -C examples docs` renders them again into `docs/images/options`.
 
@@ -427,7 +429,14 @@ bins, or with `--integrate_over COL` the integral Σ y·Δx over that column
 value already. Category labels are rotated only when they would overlap
 (`--xtick_rotation DEG` forces an angle). `--data_hue VALUE...` draws
 those hue values as data: ink points with their errors at the category
-centre, first in the legend, over the bars (or lines) of the others.
+centre, first in the legend, over the bars (or lines) of the others. With
+`--errory`, bar errors are a hatched band around the bar top (the style's
+`plot_settings.stack_error`), not error bars. `--kind bar --stacked` stacks
+the hue values in one bar per category (the legend lists the stack from the
+top), with a band of the total's error, the errors added in quadrature.
+`--kind point` sets the series side by side within each category, so
+points with error bars do not hide each other. Use bars for counts, which
+start at zero, and points for any other quantity, such as a width or a mean.
 `scatter` draws one point per
 entry of the array cells, with colour (`--colorby`), size (`--sizeby`) and
 marker (`--markerby`) encodings; only the drawn columns are exploded into
@@ -435,20 +444,26 @@ points. A `--colorby` column of both signs takes the style's diverging map
 (`plot_settings.diverging_cmap`), centred at 0; others the sequential
 `image.cmap` (viridis; cividis with `--experiment dune`).
 
-![Summed counts of six distributions: data as points over the simulation bars](images/options/yields.png)
+The yields of a search are counts, so they are bars: the simulated
+background and signal stacked in each mass region, with the band of their
+total error, and the data as points on top.
+
+![Yields of the background and signal simulation stacked per mass region, with the data as points](images/options/yields.png)
 
 ```bash
-plotipus cat --datafile Distributions -x Distribution --hue Sample -y Counts --errory --select Distribution -s Gaussian Poisson Binomial Exponential Landau Breit-Wigner --kind bar --data_hue Data --labely Events --title 'Yields: summed counts per sample'
+plotipus cat --datafile Yields -x Region --hue Sample -y Counts --errory --kind bar --stacked --data_hue Data --labely Events --title 'Yields per mass region'
 ```
 
 A `-y` column with one scalar per row (here the standard deviation of each
-sample, with its error) is drawn as it is. Seven categories would overlap
-side by side, so their labels are rotated, and the layout makes room for them:
+sample, with its error) is drawn as it is. A width is not a count, so it is
+drawn as points, data and simulation side by side. Seven categories would
+overlap side by side, so their labels are rotated, and the layout makes room
+for them:
 
-![Standard deviation of seven distributions, data points with error bars over the simulation bars](images/options/moments.png)
+![Standard deviation of seven distributions, data and simulation as points with error bars side by side](images/options/moments.png)
 
 ```bash
-plotipus cat --datafile Moments -x Config --hue Sample -y Value --errory --select Variable Config Config Config Config Config Config Config -s Std Gaussian Poisson Binomial Exponential Uniform Log-normal Chi-squared --kind bar --data_hue Data --labelx Distribution --labely 'Standard deviation' --title 'One scalar per row: spread of each sample'
+plotipus cat --datafile Moments -x Config --hue Sample -y Value --errory --select Variable Config Config Config Config Config Config Config -s Std Gaussian Poisson Binomial Exponential Uniform Log-normal Chi-squared --kind point --data_hue Data --labelx Distribution --labely 'Standard deviation' --title 'One scalar per row: spread of each sample'
 ```
 
 ![True against measured values of exponential samples coloured by their residual](images/options/scatter.png)
