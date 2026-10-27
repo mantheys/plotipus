@@ -40,12 +40,23 @@ def make_title_from_args(args):
     return get_simple_title_from_script(args)
 
 
+def _is_number(word):
+    try:
+        float(word)
+    except ValueError:
+        return False
+    return True
+
+
 def _title_case_words(text):
     """Capitalise the first letter of each plain word ("X only" -> "X Only");
-    words starting with a symbol or math are left alone."""
+    words starting with a symbol or math are left alone, and so is a unit
+    after a number ("12 kpc", not "12 Kpc")."""
     if not isinstance(text, str):
         return text
-    return " ".join(w[:1].upper() + w[1:] if w[:1].isalpha() else w for w in text.split(" "))
+    words = text.split(" ")
+    return " ".join(w[:1].upper() + w[1:] if w[:1].isalpha() and not (i and _is_number(words[i - 1])) else w
+                    for i, w in enumerate(words))
 
 
 def _panel_label(key, value):

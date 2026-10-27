@@ -61,7 +61,6 @@ map --datafile OmegaContours --configs SN CMB --names Riess1998 Riess1998 -x Ome
 
 # F11 Rubin, Ford & Thonnard 1980: 21 flat rotation curves (SPARC, real data) and a Keplerian fall-off
 line --datafile RotationCurves -x Radius -y Velocity --hue Galaxy --style Type --plot_type line --hue_cmap viridis --iterable_color_mapping rubin_colors --no_legend --rangex 0 125 --rangey 0 350 --labelx 'R (kpc)' --labely 'V (km/s)' --text 0.97 0.06 'Keplerian, $V \propto R^{-1/2}$' --text_ha right --text_size large
-# gap: --panel_title for line --variables panels (line ignores it; panel titles are title-cased, 'kpc' -> 'Kpc', hence the all-math labels) -> follow-up
 line --datafile RotationCurves -x Radius -y Velocity --hue Galaxy --variables '$R_{max} < 12\,\mathrm{kpc}$' '$12 - 35\,\mathrm{kpc}$' '$R_{max} > 35\,\mathrm{kpc}$' --plot_type line --hue_cmap viridis --iterable_color_mapping rubin_colors --no_legend --labelx 'R (kpc)' --labely 'V (km/s)' --output_suffix panels.png
 
 # F12 van Albada et al. 1985: NGC 3198 rotation curve (SPARC, real data) with disk, gas and fitted halo
