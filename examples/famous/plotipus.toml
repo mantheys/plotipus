@@ -1,6 +1,6 @@
 # Famous-plot reproductions: run `python make_data.py` once, then
 # `plotipus run famous`. models.py registers the fit models of the stored
-# fits; annotations.py adds --text (labels drawn by a figure hook).
+# fits; --text labels are plotipus's own (T22.8).
 [project]
 data_root = "input/data"
 plots = "input/plots"
@@ -8,4 +8,4 @@ output = "output"
 style = ["style.json"]
 media = ["slides", "paper"]     # make famous: --medium all; the README gallery is the paper render
 python_path = ["."]
-plugins = ["models", "annotations", "colorscale"]
+plugins = ["models", "colorscale"]

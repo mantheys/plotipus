@@ -42,9 +42,9 @@ command lists.
 | F ML diagnostics | 4 | 3 | 0 |
 | G Uncertainty | 8 | 1 | 0 |
 | H Small multiples and layout | 2 | 2 | 4 |
-| I Annotations | 6 | 1 | 3 |
+| I Annotations | 10 | 0 | 0 |
 | J Tables | 4 | 1 | 2 |
-| **Total (89)** | **55** | **13** | **21** |
+| **Total (89)** | **59** | **12** | **18** |
 
 Nearly half of the ◐ entries are partial only because of a bug in
 [bugs.md](bugs.md), not because an option is missing. Fixing B01–B13 moves
@@ -174,11 +174,11 @@ All curves are precomputed by the analysis (plotipus does not fit or score).
 | I2 | Highlighted points and regions | best fit, signal window | F08, F10 | ✅ | `--point`, `--square`. | — |
 | I3 | Free text box | selection, dataset | — | ✅ | `--note`. | — |
 | I4 | Experiment / status label ("plotipus Preliminary", lumi, √s) | publication | F01–F05 | ✅ | Built in (T17): `--label 'TEXT' --label_status Preliminary --label_right 'TEXT'`, `--experiment atlas|cms|lhcb|alice|dune`, `--watermark wip`; logos through a figure hook. | — |
-| I5 | Text at data coordinates, arrows | region labels | F10, F18 | ✗ | — | `--text X Y 'TEXT' [--arrow X2 Y2]` (repeatable). |
-| I6 | Direct labels at line ends (no legend) | few series | F17 | ✗ | — | `--direct_labels`: label each series at its last point, de-overlapped. |
+| I5 | Text at data coordinates, arrows | region labels | F10, F18 | ✅ | `--text X Y 'TEXT' --text_coords data --arrow X2 Y2` (repeatable, every kind; T22.8). | — |
+| I6 | Direct labels at line ends (no legend) | few series | F17 | ✅ | `line --direct_labels` (T22.8): each line series named at its last point in view, in its colour, moved apart. | — |
 | I7 | Inverted axis | magnitudes | F21, F22 | ✅ | Reversed range: `--rangey 1 0` (Q1). | — |
-| I8 | Shaded excluded region (polygon) | "No Big Bang" region | F10 | ✗ | — | `--region 'x1,y1 x2,y2 …' --region_hatch`. |
-| I9 | Inline contour labels | iso-lines | F10 | ◐ | Legend only (B03). | `--contour_labels` (`clabel`). |
+| I8 | Shaded excluded region (polygon) | "No Big Bang" region | F10 | ✅ | `--region 'x1,y1 x2,y2 …' [--region_hatch // --region_label TEXT]` (every kind; T22.8): under the data, never widening the axes. | — |
+| I9 | Inline contour labels | iso-lines | F10 | ✅ | `map --contour --contour_labels` (T22.8): each level's label on its line; the legend keeps one entry per map. | — |
 | I10 | Legend outside / above the axes | crowded plots | — | ✅ | `--legend_loc outside`, and automatically past 6 entries or when no position inside is free; the layout reserves the room (B06, fixed in T15). | — |
 
 ## J. Tables

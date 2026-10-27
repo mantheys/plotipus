@@ -438,3 +438,21 @@ def test_diagonal_spans_the_matched_axes(make_project):
     panels = [ax for ax in figures[0].axes if not hasattr(ax, "_colorbar") and ax.collections]
     for ax in panels:
         assert [l for l in ax.get_lines() if isinstance(l, AxLine)]
+
+
+# --- T22.8: inline contour labels -------------------------------------------------------
+
+
+def test_contour_labels_on_the_lines(make_project):
+    ax = _contour(make_project, "--contour_labels")
+    texts = {t.get_text() for t in ax.texts}
+    assert texts & {"68.3% CL", "95.4% CL", "99.7% CL"}
+    legend = ax.get_legend()
+    assert legend is None or "68.3% CL" not in [t.get_text() for t in legend.get_texts()]
+
+
+def test_contour_labels_keep_one_entry_per_map(make_project):
+    frames = {"one_s_Maps": _maps()[:1], "two_s_Maps": _maps()[1:]}
+    ax = _contour(make_project, "--configs", "one", "two", "--names", "s", "--contour_labels", frames=frames)
+    texts, _ = _legend(ax)
+    assert len(texts) == 2 and "68.3% CL" not in texts

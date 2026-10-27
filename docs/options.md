@@ -220,6 +220,23 @@ in the style's muted colour (`--vertical_band_color`), with an optional
 plotipus line --datafile Distributions -x Bin -y Counts --hue Sample --select Distribution -s Breit-Wigner --data_hue Data --errory --vertical_band 89.94 92.44 --horizontal 128 --horizontal_label 'FWHM = 2.50 GeV' --labelx 'Mass (GeV)' --title 'A shaded region and a line label'
 ```
 
+Free annotations work in every kind and are drawn after the axis ranges are
+set:
+
+* `--text X Y 'TEXT'` (repeatable) writes a text at axes fractions, or in
+  data coordinates with `--text_coords data`; `--text_axes`, `--text_color`,
+  `--text_size` (default x-large, scaled by the medium), `--text_rotation`,
+  `--text_weight`, `--text_style` and `--text_ha` take one value per text
+  (the last repeats). `--arrow X2 Y2` (repeatable, matched to the texts in
+  order, `nan nan` to skip one) draws an arrow from the text to (X2, Y2).
+* `--region 'x,y x,y ...'` (repeatable) shades a polygon in data
+  coordinates under the data without widening the axes, in `--region_color`
+  (muted) at `--region_alpha` (0.3), with an optional `--region_hatch` and a
+  `--region_label` written inside its visible part.
+* `line --direct_labels` names each line series at its last point, in its
+  colour, instead of a legend; `map --contour --contour_labels` writes each
+  level's label on its contour line.
+
 ## Histograms
 
 `hist` bins per-event arrays, every hue over the same edges. `--weight COL`

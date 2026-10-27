@@ -143,6 +143,8 @@ def build_parser():
     add("--contour_linestyles", nargs="+", type=str, default=None,
         help="Line style per sigma level (default: style contours.linestyles, solid, dashed, dotted).")
     add("--contour_linewidth", type=float, default=2.0)
+    add("--contour_labels", action="store_true", default=False,
+        help="Write each level's label (68.3% CL, 1 sigma, ...) on its contour line instead of in the legend.")
     add("--contour_alpha", type=float, default=0.95)
     add("--contour_smoothing_sigma", type=float, default=0.0, help="Gaussian smoothing of the maps before contouring (in bins; without -z, default 1).")
     add("--background_smoothing_sigma", type=float, default=0.0, help="Gaussian smoothing of the background image.")
@@ -750,10 +752,18 @@ def draw_filled(ax, x, y, image, levels, color, args, zorder, offset=0):
     return bands
 
 
-def draw_outlines(ax, x, y, image, levels, hues, linestyles, width, alpha, args, zorder):
+def draw_outlines(ax, x, y, image, levels, hues, linestyles, width, alpha, args, zorder, labels=None):
+    """Contour lines of one set; with --contour_labels each level's label is
+    written on its line (``labels``, one per level)."""
     lines = ax.contour(x, y, image, levels=levels, colors=hues, linestyles=linestyles,
                        linewidths=width, alpha=alpha, zorder=zorder)
     _filter_vertices(lines, args.contour_min_vertices)
+    if args.contour_labels and labels:
+        texts = ax.clabel(lines, lines.levels, inline=True, fontsize=style.linelabelfontsize,
+                          fmt=dict(zip(lines.levels, labels)))
+        for text in texts:
+            text.set_zorder(zorder + 0.1)
+    return lines
 
 
 def _profile_interval(values, delta):
@@ -1051,6 +1061,7 @@ def draw_contour_panel(ax, fig, panel_idx, subset, projected, args, configs, nam
 
     # Each contour set: filled bands (best fit outwards), outlines per level, a '+' at the minimum.
     sets, best = [], []
+    labels = sigma_labels(levels, args.contour_sigmas, args.contour_level_mode, args.contour_dof, args.contour_label)
     smooth = lambda z: _smooth(_smooth(z, args.background_smoothing_sigma), args.contour_smoothing_sigma)  # noqa: E731
 
     def draw_set(x, y, image, color, label, linestyle, width, alpha, zorder, offset=0, palette_colors=False):
@@ -1060,7 +1071,7 @@ def draw_contour_panel(ax, fig, panel_idx, subset, projected, args, configs, nam
         if args.fill_contours:
             fills = draw_filled(ax, x, y, image, levels, color, args, zorder, offset)
             width, alpha = args.fill_outline_linewidth if args.fill_outline_linewidth is not None else width, 1.0
-        draw_outlines(ax, x, y, image, levels, hues, styles, width, alpha, args, zorder + 0.5)
+        draw_outlines(ax, x, y, image, levels, hues, styles, width, alpha, args, zorder + 0.5, labels)
         if not args.no_best_fit:
             # On a Delta-chi2 map the best fit is a point with its 1-sigma intervals: in ink for one
             # contour set, in the set's colour when several share the panel.
@@ -1083,8 +1094,12 @@ def draw_contour_panel(ax, fig, panel_idx, subset, projected, args, configs, nam
         draw_set(bx, by, smooth(combined), args.combined_color, args.combined_label, args.combined_linestyle,
                  _combined_width(args), args.combined_alpha, zorder=6, offset=offset, palette_colors=bool(colors))
 
-    labels = sigma_labels(levels, args.contour_sigmas, args.contour_level_mode, args.contour_dof, args.contour_label)
-    handles = contour_legend(sets, labels)
+    if args.contour_labels:
+        # The levels are written on the lines: the legend only tells several sets apart.
+        handles = [level_handle(s["label"], s["hues"][0], s["styles"][0], s["width"], (s["fills"] or [None])[0])
+                   for s in sets] if len(sets) > 1 else []
+    else:
+        handles = contour_legend(sets, labels)
     marks = [b for b in best if b is not None]
     if len(marks) == 1:
         handles = handles + marks  # "Best fit": a point with error bars

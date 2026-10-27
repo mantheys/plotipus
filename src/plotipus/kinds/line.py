@@ -15,6 +15,7 @@ stored column or a residual; see :mod:`plotipus.lower`.
 import json
 
 import matplotlib
+import matplotlib.font_manager
 import matplotlib.lines as mlines
 import matplotlib.ticker
 import matplotlib.transforms
@@ -272,6 +273,8 @@ def build_parser():
     add("--vertical_column_map", type=str, default=None,
         help="JSON {panel value: column}: vertical line per hue value at that column's value, in its colour.")
     add("--vertical_column_style", type=str, default="--")
+    add("--direct_labels", action="store_true", default=False,
+        help="Name each line series at its last point, in its colour, instead of a legend.")
     add("--mean_band", action="store_true", default=False,
         help="Horizontal line at the mean of all y values with a +-1 std band.")
     add("--sigma_lines", nargs="+", type=float, default=None, metavar="N",
@@ -1744,6 +1747,9 @@ def _finish_upper(fig, upper, lower, drawn, rows, args, variables, last_x, hue_v
         show_legend = len([v for v in hue_values]) > 1 or args.single_legend or (
             base_selection == "comparable" and secondary_style_map
         ) or bool(lower[idx])
+        if args.direct_labels:
+            _direct_labels(ax, drawn.get(idx, []), args)
+            show_legend = False
         if show_legend and (all_panels or idx in (legend_panel, comparable_panel)) and base_selection != "none":
             selection = base_selection if all_panels else _panel_selection(base_selection, idx, legend_panel,
                                                                           comparable_panel)
@@ -1785,6 +1791,39 @@ def _finish_upper(fig, upper, lower, drawn, rows, args, variables, last_x, hue_v
     add_title_and_note(fig, args, tight_rows=nrows)
     if args.compact and ncols > 1:
         fig.tight_layout()
+
+
+def _direct_labels(ax, series, args):
+    """--direct_labels: each labelled line series named at its last point in
+    view, in its colour, moved apart vertically so the names do not overlap
+    (instead of a legend; --data_hue points are left unlabelled)."""
+    xlim = sorted(ax.get_xlim())
+    ends = []
+    for s in series:
+        if not s.label or s.is_data or s.categorical:
+            continue
+        x, y = np.asarray(s.x, dtype=float), np.asarray(s.y, dtype=float)
+        visible = np.isfinite(x) & np.isfinite(y) & (x >= xlim[0]) & (x <= xlim[1])
+        if not visible.any():
+            continue
+        last = np.flatnonzero(visible)[-1]
+        ends.append((x[last], y[last], s.label, s.color))
+    if not ends:
+        return
+    fontsize = style.linelabelfontsize
+    points = matplotlib.font_manager.FontProperties(size=fontsize).get_size_in_points()
+    gap = 1.3 * points  # in points
+    to_points = 72.0 / ax.figure.dpi
+    heights = [ax.transData.transform((x, y))[1] * to_points for x, y, _, _ in ends]
+    order = np.argsort(heights)
+    placed = {}
+    previous = -np.inf
+    for i in order:
+        placed[i] = max(heights[i], previous + gap)
+        previous = placed[i]
+    for i, (x, y, label, color) in enumerate(ends):
+        ax.annotate(label, (x, y), xytext=(4, placed[i] - heights[i]), textcoords="offset points", ha="left",
+                    va="center", color=color, fontsize=fontsize, annotation_clip=False, zorder=10)
 
 
 def _draw_reference_lines(ax, args):

@@ -33,17 +33,11 @@ and `anscombe.py`. A generator's docstring:
 - says what is synthetic;
 - keeps the "(unverified)" marks of research.md.
 
-Three project plugins and a style file, all listed in `plotipus.toml`, show how
+Two project plugins and a style file, all listed in `plotipus.toml`, show how
 a project adapts plotipus without changing it:
 
 - `models.py`: physics formulas and fit models, registered so that stored
   fits can name them (`FitFunction`);
-- `annotations.py`: `--text X Y TEXT` (repeatable, with `--text_coords`,
-  `--text_axes`, `--text_color`, `--text_size`, `--text_rotation`,
-  `--text_weight`, `--text_style`, `--text_ha`), drawn by a figure hook. The
-  figures use it for experiment labels, energies and luminosities, panel
-  letters and region labels; the sizes follow the medium
-  (`style.text_scale`);
 - `colorscale.py`: `--zpower GAMMA` (a power-law colour scale, 0.5 for the
   square root of the Gaia diagrams), `--zcmap NAME` (the colour map, 2D
   histograms included), `--zmin VALUE` and `--zunder COLOUR` (the colour of
@@ -125,14 +119,14 @@ Patterns the commands use:
 | F06 COBE FIRAS | Fixsen et al. 1996, Figs. 4-5 | **real** (NASA LAMBDA) | ✅ | (errors ×400 with `--error_scale 400`) a top axis in GHz (TODO.md, postponed) |
 | F08 Hubble 1929 | PNAS 15, 168, Fig. 1 | **real** (Table 1) | ✅ | (discs, open circles and a cross: `--series_marker ... Groups=o_open ...`; no legend, Hubble's grid lines: `--horizontal`/`--vertical`) a bold title (paper font, follow-up) |
 | F09 SN Ia Hubble diagram | Riess et al. 1998, Fig. 4 | **real** (Union2.1) | ◐ | (plain log tick labels: T12 follow-up) the cosmologies' residual curves in the lower panel, lost in the example-feedback-3 merge (follow-up) |
-| F10 Ω_M–Ω_Λ | Riess et al. 1998, Fig. 6 | **real** (Union2.1), synthetic CMB | ◐ | (no best-fit marker, as in the original: `--no_best_fit`; black contours: `config_color`) the shaded "No Big Bang" region and labels on the contours (T22.8) |
+| F10 Ω_M–Ω_Λ | Riess et al. 1998, Fig. 6 | **real** (Union2.1), synthetic CMB | ◐ | (no best-fit marker, as in the original: `--no_best_fit`; black contours: `config_color`; the shaded "No Big Bang" region: `--region`) labels beside the contours (too small for `--contour_labels` inline) |
 | F11 rotation curves | Rubin, Ford & Thonnard 1980 | **real** (SPARC) | ◐ | an ordered colour map for 21 hues (T22.5); `--panel_title` on `line` panels (follow-up; the size classes are all-math labels so the title case leaves `kpc` alone) |
 | F12 NGC 3198 | van Albada et al. 1985 | **real** (SPARC); fitted halo | ✅ | (figure styles unverified) |
 | F13 Keeling curve | NOAA GML plot | **real** (NOAA GML) | ✅ | the seasonal-cycle inset of other versions (T22.7) |
-| F14 hockey stick | Mann, Bradley & Hughes 1999, Fig. 3(a) | **real** (NOAA paleo) | ✅ | (the legend below the axes: `--legend_loc below`; the uncertainty as a light-grey row of its own) the 1998 cross and arrow (T22.8) |
+| F14 hockey stick | Mann, Bradley & Hughes 1999, Fig. 3(a) | **real** (NOAA paleo) | ✅ | (the legend below the axes: `--legend_loc below`; the uncertainty as a light-grey row of its own; the 1998 arrow: `--text ... --arrow 1996 0.8`) |
 | F15 GW150914 | PRL 116, 061102, Fig. 1 | **real** (GWOSC); synthetic band widths | ◐ | 4 × 2 grid (T22.6); log frequency axis on the map (T22.3); `--legend_panel all` collapses the H1 panels and `--title` is not drawn (T15 follow-up) |
 | F16 KamLAND L₀/E | PRL 100, 221803, Fig. 3 | **extracted** (figure) | ✅ | (x error bars from each point's bin: `--errorx_column LOverELow LOverEHigh`; one two-line legend entry for both expectations, the curve labelled `_nolegend_`) |
-| F17 LEP Z lineshape | Phys. Rept. 427 (2006) 257, Fig. 1.13 | **extracted** (figure) | ✅ | (errors ×10 with `--error_scale 10`; thin curves) labels on curves are `--text` (T22.8); blue frame, bold sans labels (per-figure style, follow-up) |
+| F17 LEP Z lineshape | Phys. Rept. 427 (2006) 257, Fig. 1.13 | **extracted** (figure) | ✅ | (errors ×10 with `--error_scale 10`; thin curves; labels at the peaks with `--text`) blue frame, bold sans labels (per-figure style, follow-up) |
 | F19 Geiger–Marsden | Phil. Mag. 25, 604 (1913) | synthetic | ✅ | (no original figure) |
 | F20 Moseley's law | Phil. Mag. 26, 1024 (1913) | synthetic | ✅ | (no original figure) |
 | F21 Leavitt | Harvard Circ. 173 (1912) | synthetic | ✅ | (table not transcribed) |
@@ -147,7 +141,6 @@ Patterns the commands use:
 | T22.5 | an ordered colour map for many hues | F11 |
 | T22.6 | panel grids with shared axes (rows × columns) | F01, F15, F25 |
 | T22.7 | insets | F03, F13 |
-| T22.8 | `--text`/`--region`/`--direct_labels`/`--contour_labels` in the core | F10, F17 |
 | T22.11 | `table --agg corr` | F25 |
 
 F02, F07, F18, F23 and F24 have no dataset here. They are not in the T24
