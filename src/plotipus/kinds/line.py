@@ -299,7 +299,9 @@ def build_parser():
         "column:NAME (stored series) or events:PREFIX.")
     add("--lower_across", choices=["hue", "comparable"], default="hue",
         help="Pairwise lower operations compare hue series (default) or, per hue value, style series.")
-    add("--reference", type=int, default=0, help="Index of the reference series of pairwise operations.")
+    add("--reference", type=str, default="0",
+        help="Reference series of pairwise operations: its index (default 0, the first) or its hue value (a "
+        "whole number is an index; --reference_value takes numeric hue values).")
     add("--reference_value", type=str, default=None, help="Reference series by hue value (overrides --reference).")
     add("--lower_line_index", type=int, default=1,
         help="With --lower_across comparable: index of the style value compared with the reference.")
@@ -395,6 +397,18 @@ def _check_args(args, parser):
             parser.error(f"--series_marker {entry}: {error}")
     if args.errorx_column and len(args.errorx_column) > 2:
         parser.error("--errorx_column takes LOW HIGH or one column of half-widths")
+    _resolve_reference(args)
+
+
+def _resolve_reference(args):
+    """--reference as an index, or a hue value moved to --reference_value
+    (which wins when both are given)."""
+    try:
+        args.reference = int(args.reference)
+    except (TypeError, ValueError):
+        if args.reference_value is None:
+            args.reference_value = args.reference
+        args.reference = 0
 
 
 def main(argv=None):

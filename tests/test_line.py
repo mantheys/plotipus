@@ -983,3 +983,22 @@ def test_sigma_lines_dotted_with_labels_outside(make_project, spectra):
     texts = [t for t in ax.texts if t.get_text() in ("1$\\sigma$", "2$\\sigma$")]
     assert len(texts) == 2 and all(t.xy[0] == 1.0 and t.get_ha() == "left" for t in texts)
     assert all(to_hex(t.get_color()) == "#ff0000" for t in texts)
+
+
+# --- T22.15: --reference by hue value ---------------------------------------------------
+
+
+@pytest.mark.parametrize("reference, value, index", [("2", None, 2), ("B", "B", 0), ("B", "C", 0)])
+def test_reference_takes_index_or_hue_value(reference, value, index):
+    argv = ["--datafile", "X", "-y", "Y", "--reference", reference]
+    args = line.parse(argv + (["--reference_value", value] if value else []))
+    assert args.reference == index and args.reference_value == (value or (None if reference == "2" else reference))
+
+
+def test_reference_by_hue_value_in_ratio(make_project, spectra):
+    figures = _capture()
+    run(make_project, spectra, "--hue", "Sample", "--select", "Stage", "-s", "Raw", "--plot_type", "line",
+        "--lower", "ratio", "--reference", "B")
+    lower = figures[0].axes[1]
+    ratios = {line.get_label(): line.get_ydata() for line in lower.get_lines()}
+    assert np.allclose(ratios["A / B"], 0.5) and np.allclose(ratios["C / B"], 0.25)

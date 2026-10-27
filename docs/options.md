@@ -241,7 +241,7 @@ A lower panel is the same kind of panel as the upper one; it plots a column
 derived from (or stored in) the same DataFrame. Each `--lower` adds one:
 
 ```bash
---lower ratio                 # every series / the reference series (--reference, --reference_value):
+--lower ratio                 # every series / the reference series (--reference INDEX|VALUE, --reference_value):
                               # the reference is a line at 1 in its colour, the others points with
                               # both series' errors (with --errory)
 --lower relative_difference   # also subtract, asymmetry, excess, excess_probability, sum, mean, rms

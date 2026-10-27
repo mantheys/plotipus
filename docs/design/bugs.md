@@ -506,6 +506,8 @@ the labels (bugs); `--no_fliers` hides the fliers, which are now drawn.
 - **`--reference` takes an index.** `--reference data` fails argument
   parsing; the hue value goes in `--reference_value`. Accepting either
   would remove a common stumble.
+  **Fixed in T22.15.** `--reference` takes an index or a hue value (a whole
+  number is an index; `--reference_value` takes numeric hue values).
 - **Step outlines drop to the axis at the outer edges on log axes.** This
   is the conventional HEP histogram look, and `--step_open` already
   exists.
