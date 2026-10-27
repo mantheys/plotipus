@@ -9,6 +9,11 @@ pip install -e ".[dev]"
 pytest                                               # run the tests
 ```
 
+`pytest` runs one worker per core (pytest-xdist, `addopts` in
+`pyproject.toml`); `pytest -n 0` runs serially, `pytest -m 'not slow'` skips
+the gallery. `plotipus run` and the gallery fork every command from one
+preloaded server process instead of starting a Python each.
+
 Python ≥ 3.10; plotipus depends on numpy, pandas, matplotlib, scipy, rich
 and jinja2.
 

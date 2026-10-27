@@ -11,7 +11,8 @@ import pytest
 
 GALLERY = Path(__file__).resolve().parents[1] / "examples" / "gallery"
 
-pytestmark = pytest.mark.slow
+# One worker runs these: make_data writes the gallery data into the repository.
+pytestmark = [pytest.mark.slow, pytest.mark.xdist_group("gallery")]
 
 
 def _load(name):
