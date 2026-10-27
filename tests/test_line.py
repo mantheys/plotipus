@@ -1043,3 +1043,23 @@ def test_hue_cmap_keeps_mapped_colours_and_style_legend(make_project, spectra, t
 def test_hue_cmap_rejects_unknown_map():
     with pytest.raises(SystemExit):
         line.parse(["--datafile", "X", "-y", "Y", "--hue_cmap", "notamap"])
+
+
+# --- T22.12: bar lower panels ----------------------------------------------------------------
+
+
+def test_column_lower_panel_as_bars(make_project):
+    from matplotlib.patches import Rectangle
+
+    p = np.linspace(0.05, 0.95, 10)
+    frame = pd.DataFrame([{"Predicted": p, "Observed": p ** 1.2, "Count": np.arange(10.0) + 1, "Model": "clf"}])
+    make_project({"Calib": frame})
+    figures = _capture()
+    line.main(["--datafile", "Calib", "-x", "Predicted", "-y", "Observed", "--hue", "Model", "--plot_type", "line",
+               "--lower", "column:Count", "--lower_plot_type", "bar"])
+    lower = figures[0].axes[1]
+    bars = [r for r in lower.patches if isinstance(r, Rectangle) and r.get_height() > 0]
+    assert len(bars) == 10
+    assert np.allclose([b.get_width() for b in bars], 0.08)  # 80% of the 0.1 spacing
+    assert np.allclose([b.get_height() for b in bars], np.arange(10.0) + 1)
+    assert lower.get_xlim()[0] > -0.1 and lower.get_xlim()[1] < 1.1

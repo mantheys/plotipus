@@ -39,12 +39,12 @@ command lists.
 | C Trends and fits | 8 | 1 | 1 |
 | D Comparisons | 5 | 1 | 3 |
 | E Ratios and significance | 7 | 0 | 1 |
-| F ML diagnostics | 5 | 2 | 0 |
+| F ML diagnostics | 6 | 1 | 0 |
 | G Uncertainty | 8 | 1 | 0 |
 | H Small multiples and layout | 2 | 2 | 4 |
 | I Annotations | 10 | 0 | 0 |
 | J Tables | 4 | 1 | 2 |
-| **Total (89)** | **62** | **9** | **18** |
+| **Total (89)** | **63** | **8** | **18** |
 
 Nearly half of the ◐ entries are partial only because of a bug in
 [bugs.md](bugs.md), not because an option is missing. Fixing B01–B13 moves
@@ -134,7 +134,7 @@ All curves are precomputed by the analysis (plotipus does not fit or score).
 | F1 | ROC curve | classifier comparison | — | ✅ | `line --datafile ROC -x FPR -y TPR --hue Model --plot_type line --line 0 0 1 1` (P08). Log axes: P22 (HEP "background rejection" style via `--logy`). | — |
 | F2 | Precision–recall | imbalanced classes | — | ✅ | Same as F1 with `-x Recall -y Precision`. | — |
 | F3 | Learning curve with band | over/under-fitting | — | ✅ | `line --datafile Learning -x TrainSize -y Score --hue Split --errory --errory_type bands --plot_type line --logx` (P09). | — |
-| F4 | Calibration (reliability) curve + counts | probability calibration | — | ◐ | Curve and diagonal: as F1. The lower histogram of counts needs a stored column (`--lower column:Count`), drawn as a line. | `--lower_plot_type bar` for a column lower panel. |
+| F4 | Calibration (reliability) curve + counts | probability calibration | — | ✅ | `line -x Predicted -y Observed --line 0 0 1 1 --lower column:Count --lower_plot_type bar` (T22.12): numeric bars take 80% of the x spacing. | — |
 | F5 | Confusion matrix | per-class errors | — | ✅ | `map -x Predicted -y True -z Count --norm horizontal --annotate .0% --matrix` (T22.3). | — |
 | F6 | Feature importance | model explanation | — | ◐ | `cat -y Importance --kind bar` on scalar cells (B07, fixed in T08); no horizontal sorted bars. | D5 (`--orient h`, `--sort`). |
 | F7 | Score distributions per class | separation | — | ✅ | `hist -x Score --hue Class --density --logy` (as P13). | — |

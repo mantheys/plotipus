@@ -277,6 +277,7 @@ derived from (or stored in) the same DataFrame. Each `--lower` adds one:
 --lower column:Significance   # a series stored in the pickle (with SignificanceError), over a dashed
                               # line at 0 (1 for a column named like a ratio; --no_lower_reference)
 --lower events:OpHit          # event markers read from OpHit* columns
+--lower column:Count --lower_plot_type bar   # stored counts as bars (80% of the x spacing), e.g. under a calibration curve
 ```
 
 ![Stacked background and signal simulation with the signal significance S/sqrt(B) in a lower panel](images/options/significance.png)

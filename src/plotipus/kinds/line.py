@@ -1007,7 +1007,9 @@ def _draw_series(ax, s, args, plot_type, stack_bottom, dodge_shift, stacking):
     elif plot_type == "scatter":
         plot_data(args, ax, s.x, y=s.y, errory=s.error, plot_type="scatter", fmt="o", **common)
     elif plot_type in ("bar", "barh"):
-        plot_data(args, ax, s.x, y=s.y, plot_type=plot_type, **common)
+        # Numeric x: bars 80% of the point spacing (a fixed 0.8 would overlap on a 0-1 axis).
+        width = {} if s.categorical or plot_type == "barh" else {"width": 0.8 * _bar_width(s.x)}
+        plot_data(args, ax, s.x, y=s.y, plot_type=plot_type, **width, **common)
     else:
         plot_data(args, ax, s.x, y=s.y, plot_type="plot", **{"marker": "o", **markers}, linestyle=linestyle,
                   **common, **lw)
