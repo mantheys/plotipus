@@ -1105,3 +1105,68 @@ def test_dates_on_x_get_concise_ticks(make_project):
     ax = figures[0].axes[0]
     assert isinstance(ax.xaxis.get_major_formatter(), mdates.ConciseDateFormatter)
     assert np.isclose(ax.lines[0].get_xdata()[0], mdates.date2num(np.datetime64("2024-01-01")))
+
+
+# --- T22.6: panel grids, facets and shared axes --------------------------------------------
+
+
+@pytest.fixture
+def quartet():
+    x = np.arange(1.0, 6.0)
+    rows = []
+    for name, scale in (("I", 1.0), ("II", 2.0), ("III", 3.0), ("IV", 4.0)):
+        for weighting in ("Raw", "Weighted"):
+            for detector in ("H1", "L1"):
+                rows.append({"X": x, "Y": scale * x * (2 if weighting == "Weighted" else 1), "Variable": name,
+                             "Weighting": weighting, "Detector": detector, "Ratio": np.ones_like(x)})
+    return pd.DataFrame(rows)
+
+
+def _grid(make_project, frame, *argv):
+    make_project({"Quartet": frame})
+    figures = _capture()
+    line.main(["--datafile", "Quartet", "-x", "X", "-y", "Y", "--plot_type", "line", *argv])
+    return figures[0]
+
+
+def _labels_shown(ax, axis):
+    return any(t.get_visible() and t.get_text() for t in getattr(ax, f"get_{axis}ticklabels")())
+
+
+def test_variables_grid_shares_outer_labels(make_project, quartet):
+    fig = _grid(make_project, quartet, "--select", "Weighting", "Detector", "-s", "Raw", "H1",
+                "--variables", "I", "II", "III", "IV", "--panel_grid", "2", "2")
+    a, b, c, d = fig.axes[:4]
+    fig.canvas.draw()
+    assert a.get_shared_x_axes().joined(a, c) and a.get_shared_y_axes().joined(a, b)
+    assert not _labels_shown(a, "x") and _labels_shown(c, "x")
+    assert not _labels_shown(b, "y") and _labels_shown(a, "y")
+    assert a.get_xlabel() == "" and c.get_xlabel() == "X" and b.get_ylabel() == ""
+
+
+def test_facet_rows_with_lower_panels_and_per_row_settings(make_project, quartet):
+    fig = _grid(make_project, quartet, "--select", "Variable", "Detector", "-s", "I", "H1", "--facet_row",
+                "Weighting", "--lower", "column:Ratio", "--panel_labely", "Events", "Weights", "--panel_rangey",
+                "0", "10", "0", "20", "--panel_lower_labely", "R1", "R2", "--panel_lower_rangey", "0", "2", "0", "3")
+    top, top_lower, bottom, bottom_lower = fig.axes[:4]
+    assert top.get_position().y0 > bottom.get_position().y1  # stacked rows
+    assert top.get_ylim() == (0, 10) and bottom.get_ylim() == (0, 20)
+    assert top_lower.get_ylim() == (0, 2) and bottom_lower.get_ylim() == (0, 3)
+    assert (top.get_ylabel(), bottom.get_ylabel()) == ("Events", "Weights")
+    assert (top_lower.get_ylabel(), bottom_lower.get_ylabel()) == ("R1", "R2")
+    assert top.get_shared_x_axes().joined(top, bottom_lower)
+    assert top_lower.get_xlabel() == "" and bottom_lower.get_xlabel() == "X"
+    assert np.allclose(bottom.get_lines()[0].get_ydata(), 2 * np.arange(1.0, 6.0))  # the Weighted rows
+
+
+def test_facet_col_with_variables_rows(make_project, quartet):
+    fig = _grid(make_project, quartet, "--select", "Weighting", "-s", "Raw", "--variables", "I", "II", "III",
+                "--facet_col", "Detector", "--variable_label_map", '{"H1": "Hanford"}')
+    panels = fig.axes[:6]
+    assert [ax.get_title() for ax in panels[:2]] == ["Hanford", "L1"]
+    assert all(ax.get_title() == "" for ax in panels[2:])
+    row_labels = [t.get_text() for ax in panels for t in ax.texts]
+    assert row_labels == ["I", "II", "III"]  # right of the last column
+    assert np.allclose(panels[3].get_lines()[0].get_ydata(), 2 * np.arange(1.0, 6.0))  # II, L1
+    assert panels[0].get_shared_y_axes().joined(panels[0], panels[1])
+    assert not panels[0].get_shared_y_axes().joined(panels[0], panels[2])

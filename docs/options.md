@@ -53,6 +53,23 @@ are the example list, `examples/input/plots/example_scripts.txt`;
   keeps one plot's size, split in touching panels). They share their y range
   and only the first shows the y label and tick labels (`--no-compact` gives
   each its own axis).
+* **Panel grids** (`line`): more than three `--variables` make a near-square
+  grid (`--panel_grid ROWS COLS` fixes it); `--facet_row COL` and
+  `--facet_col COL` give one row or column of panels per value of a column
+  (with `--variables`, the variables take the other dimension), each with its
+  own `--lower` panels. Compact grids share y along each row and x down each
+  column, with tick labels and axis labels on the outer panels only;
+  `--sharex none|col|all` and `--sharey none|row|all` choose. Column values
+  title the top row and row values are written right of the last column
+  (`--variable_label_map` renames them, `--panel_title` replaces the titles).
+  `--panel_labely`, `--panel_rangey`, `--panel_lower_labely` and
+  `--panel_lower_rangey` take one label or min max pair per row; colours and
+  legend entries follow the hue values, so rows that need their own give
+  them their own values (with `--legend_panel all`).
+
+```bash
+plotipus line --datafile Fit -x Mass -y Events --hue Component --facet_row Weighting --lower column:Residual --panel_labely 'Events' 'Weights'
+```
   Values beyond the last key belong to it, so
   `--select Distribution -s Gaussian Poisson` keeps both distributions.
 * **Encodings**: `--hue` (alias `--iterable`), `--style` (alias
