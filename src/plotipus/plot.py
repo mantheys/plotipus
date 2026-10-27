@@ -694,6 +694,23 @@ def axes_occupancy(ax, renderer=None, extra_boxes=(), exclude=()):
     return mask, (x0, y0)
 
 
+def settle_text_backgrounds(fig):
+    """Keep the translucent background of notes and reference-line labels
+    only where they sit on data; on empty space they are bare text. Run on
+    the finished layout (the data under a text depends on the limits)."""
+    renderer = None
+    for ax in fig.axes:
+        texts = [t for t in ax.texts if getattr(t, "_plotipus_background_over_data", False)
+                 and t.get_visible() and t.get_bbox_patch() is not None]
+        if not texts:
+            continue
+        renderer = renderer or fig.canvas.get_renderer()
+        occupancy = _Occupancy(*axes_occupancy(ax, renderer, exclude=texts))
+        for text in texts:
+            if occupancy.fraction(text.get_window_extent(renderer), pad=0) <= LEGEND_FREE_FRACTION:
+                text.set_bbox(None)
+
+
 class _Occupancy:
     """Fraction of occupied pixels in any display box (summed-area table)."""
 
@@ -1366,7 +1383,7 @@ def add_note_to_axes(ax, note_text, fontsize=None):
         if best is None or score < best[0]:
             best = (score, x, y)
     text_obj = place(best[1], best[2])
-
+    text_obj._plotipus_background_over_data = True
     return text_obj
 
 
@@ -2205,19 +2222,19 @@ def place_vertical_label(ax, x_value, label_text, fontsize=None, pad_fraction=0.
         zorder=100,
         bbox={"facecolor": _style.role("paper"), "alpha": 0.8, "edgecolor": "none"},
     )
-
+    text_obj._plotipus_background_over_data = True
     return text_obj
 
 
 def place_horizontal_label(ax, y_value, label_text, fontsize=None, pad_fraction=0.02, avoid=None):
-    """Place a label next to a horizontal line at `y_value` in the least-populated horizontal gap.
-
-    Similar strategy to `place_vertical_label` but mirrored for x positions.
+    """Place a label next to a horizontal line at `y_value`: just above the
+    line (else below it), at its right end, its left end or along it,
+    wherever it covers the least drawn data.
 
     Args:
         avoid: optional list of (x0, x1, y0, y1) data-space boxes (e.g. other
             labels placed earlier in the same batch) the new label should not
-            overlap; it is nudged left/right until clear of all of them.
+            overlap.
     """
     if label_text is None or not str(label_text).strip():
         return None
@@ -2229,174 +2246,41 @@ def place_horizontal_label(ax, y_value, label_text, fontsize=None, pad_fraction=
     except Exception:
         return add_note_to_axes(ax, text_str, fontsize=fontsize)
 
-    xlim = ax.get_xlim()
-    ylim = ax.get_ylim()
-    y_range = ylim[1] - ylim[0] if ylim[1] != ylim[0] else 1.0
+    fig = ax.figure
+    fig.draw_without_rendering()
+    renderer = fig.canvas.get_renderer()
+    occupancy = _Occupancy(*axes_occupancy(ax, renderer))
+    # x along the axes, y on the line (it follows later limit changes), a few points off it.
+    offset = max(pad_fraction * ax.bbox.height * 72.0 / fig.dpi, 3.0)
 
-    x_occupied = []
+    def place(x, ha, above):
+        return ax.annotate(text_str, (x, y0), xycoords=ax.get_yaxis_transform(),
+                           xytext=(0, offset if above else -offset), textcoords="offset points", fontsize=fontsize,
+                           ha=ha, va="bottom" if above else "top", zorder=100,
+                           bbox={"facecolor": _style.role("paper"), "alpha": 0.8, "edgecolor": "none"})
 
-    # Lines
-    for line in ax.get_lines():
-        try:
-            xd = np.asarray(line.get_xdata())
-            yd = np.asarray(line.get_ydata())
-            if yd.size == 0:
-                continue
-            ymin, ymax = yd.min(), yd.max()
-            if ymin <= y0 <= ymax:
-                x_at = np.interp(y0, yd, xd)
-                if np.isfinite(x_at):
-                    x_occupied.append(float(x_at))
-        except Exception:
-            continue
-
-    # Scatter collections
-    for col in getattr(ax, "collections", []):
-        try:
-            offsets = col.get_offsets()
-            if offsets is None or len(offsets) == 0:
-                continue
-            xs = np.asarray(offsets)[:, 0]
-            ys = np.asarray(offsets)[:, 1]
-            y_tol = y_range * 0.02
-            mask = np.isfinite(ys) & (np.abs(ys - y0) <= y_tol)
-            x_occupied.extend(list(xs[mask]))
-        except Exception:
-            continue
-
-    # Patches: rectangles that cross y0
-    for patch in getattr(ax, "patches", []):
-        try:
-            bbox = patch.get_bbox()
-            if bbox.y0 <= y0 <= bbox.y1:
-                x_occupied.append((bbox.x0 + bbox.x1) / 2.0)
-        except Exception:
-            continue
-
-    clean_points = [float(x) for x in x_occupied if np.isfinite(x) and xlim[0] <= x <= xlim[1]]
-    candidates = [xlim[0]] + sorted(clean_points) + [xlim[1]]
-
-    y_tol = max(y_range * 0.03, 1e-8)
-    x_range_full = xlim[1] - xlim[0]
-    text_width_est = max(0.12 * x_range_full, 0.0)
-
-    best_candidate = None
-    best_score = None
-    for i in range(len(candidates) - 1):
-        x0_gap = candidates[i]
-        x1_gap = candidates[i + 1]
-        gap_size = x1_gap - x0_gap
-        if gap_size <= 0:
-            continue
-        x_center = (x0_gap + x1_gap) / 2.0
-        x_span = min(gap_size * 0.9, text_width_est if text_width_est > 0 else gap_size)
-        xmin = x_center - x_span / 2.0
-        xmax = x_center + x_span / 2.0
-
-        count = 0
-
-        # Count line points in neighborhood
-        for line in ax.get_lines():
-            try:
-                xd = np.asarray(line.get_xdata())
-                yd = np.asarray(line.get_ydata())
-                if yd.size == 0:
-                    continue
-                mask = np.isfinite(xd) & np.isfinite(yd) & (yd >= y0 - y_tol) & (yd <= y0 + y_tol) & (xd >= xmin) & (xd <= xmax)
-                count += int(np.count_nonzero(mask))
-            except Exception:
-                continue
-
-        for col in getattr(ax, "collections", []):
-            try:
-                offsets = col.get_offsets()
-                if offsets is None or len(offsets) == 0:
-                    continue
-                xs = np.asarray(offsets)[:, 0]
-                ys = np.asarray(offsets)[:, 1]
-                mask = np.isfinite(xs) & np.isfinite(ys) & (ys >= y0 - y_tol) & (ys <= y0 + y_tol) & (xs >= xmin) & (xs <= xmax)
-                count += int(np.count_nonzero(mask))
-            except Exception:
-                continue
-
-        for patch in getattr(ax, "patches", []):
-            try:
-                bbox = patch.get_bbox()
-                if (bbox.y1 >= y0 - y_tol) and (bbox.y0 <= y0 + y_tol) and (bbox.x1 >= xmin) and (bbox.x0 <= xmax):
-                    count += 1
-            except Exception:
-                continue
-
-        score = (count, -gap_size)
-        if best_score is None or score < best_score:
-            best_score = score
-            best_candidate = (x_center, gap_size)
-
-    if best_candidate is None:
-        x_text = (xlim[0] + xlim[1]) / 2.0
-    else:
-        x_text = best_candidate[0]
-
-    # Clamp x_text to stay between the outermost visible tick marks, with an
-    # extra margin for the text box width so it does not overlap the frame.
-    margin = text_width_est / 2.0 if text_width_est > 0 else 0.03 * x_range_full
-    xticks = np.asarray(ax.get_xticks())
-    xticks_visible = xticks[(xticks >= xlim[0]) & (xticks <= xlim[1])]
-    inner_min = float(xticks_visible.min()) if len(xticks_visible) > 0 else xlim[0]
-    inner_max = float(xticks_visible.max()) if len(xticks_visible) > 0 else xlim[1]
-    x_text = float(np.clip(x_text, inner_min + margin, inner_max - margin))
-
-    y_mid = (ylim[0] + ylim[1]) / 2.0
-    pad = pad_fraction * y_range
-    if y0 > y_mid:
-        va = "top"
-        y_pos = y0 - pad
-    else:
-        va = "bottom"
-        y_pos = y0 + pad
-
-    if avoid:
-        size = _measure_text_extent_data(ax, text_str, fontsize)
-        if size is not None:
-            width, height = size
-            step = width * 1.2 if width > 0 else 0.1 * x_range_full
-
-            def _bbox_at(x_center):
-                if va == "top":
-                    by0, by1 = y_pos - height, y_pos
-                else:
-                    by0, by1 = y_pos, y_pos + height
-                return (x_center - width / 2.0, x_center + width / 2.0, by0, by1)
-
-            candidate = x_text
-            direction = -1.0
-            magnitude = 1
-            attempts = 0
-            while (
-                any(_rects_overlap(_bbox_at(candidate), box) for box in avoid)
-                and attempts < 8
-            ):
-                candidate = float(
-                    np.clip(x_text + direction * magnitude * step, inner_min + margin, inner_max - margin)
-                )
-                direction *= -1.0
-                if attempts % 2 == 1:
-                    magnitude += 1
-                attempts += 1
-            x_text = candidate
-
-    text_obj = ax.text(
-        x_text,
-        y_pos,
-        text_str,
-        fontsize=fontsize,
-        ha="center",
-        va=va,
-        zorder=100,
-        bbox={"facecolor": _style.role("paper"), "alpha": 0.8, "edgecolor": "none"},
-    )
-
+    # Right end first, then the left end, then along the line; above the line before below it.
+    anchors = [(0.98, "right"), (0.02, "left"), (0.75, "center"), (0.25, "center"), (0.5, "center")]
+    best = None
+    for above in (True, False):
+        for x, ha in anchors:
+            probe = place(x, ha, above)
+            box = probe.get_window_extent(renderer)
+            clash = avoid and any(_rects_overlap(_display_to_data_box(ax, box), other) for other in avoid)
+            inside = ax.bbox.y0 <= box.y0 and box.y1 <= ax.bbox.y1
+            score = occupancy.fraction(box, pad=0) + (1.0 if clash else 0.0) + (0.0 if inside else 2.0)
+            probe.remove()
+            if best is None or score < best[0] - 1e-9:
+                best = (score, x, ha, above)
+    text_obj = place(*best[1:])
+    text_obj._plotipus_background_over_data = True
     return text_obj
+
+
+def _display_to_data_box(ax, box):
+    """(x0, x1, y0, y1) in data coordinates of a display box."""
+    (x0, y0), (x1, y1) = ax.transData.inverted().transform([(box.x0, box.y0), (box.x1, box.y1)])
+    return (min(x0, x1), max(x0, x1), min(y0, y1), max(y0, y1))
 
 
 def place_point_label(ax, point_x, point_y, label_text, fontsize=None):
@@ -2434,6 +2318,6 @@ def place_point_label(ax, point_x, point_y, label_text, fontsize=None):
         zorder=100,
         bbox={"facecolor": _style.role("paper"), "alpha": 0.8, "edgecolor": "none"},
     )
-
+    text_obj._plotipus_background_over_data = True
     return text_obj
 

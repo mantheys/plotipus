@@ -136,7 +136,7 @@ plotipus line --datafile Histogram --configs data simulation --names landau -x B
 ![Data of four distributions, normalised, as points in the okabe-ito palette](images/options/palette.png)
 
 ```bash
-plotipus line --datafile Distributions -x Bin -y Counts --hue Distribution --select Sample Distribution -s Data Exponential Landau Chi-squared Log-normal --plot_type errorbar --errory --density --palette okabe-ito --labelx x --title 'The okabe-ito palette'
+plotipus line --datafile Distributions -x Bin -y Counts --hue Distribution --select Sample Distribution -s Data Exponential Landau Chi-squared Log-normal --errory --density --palette okabe-ito --labelx x --title 'The okabe-ito palette'
 ```
 
 ![Data and simulation of three distributions, one panel each](images/options/facets.png)
@@ -169,10 +169,15 @@ plotipus line --datafile Distributions -x Bin -y Counts --hue Sample --select Di
 plotipus line --datafile Distributions -x Bin -y Counts --hue Sample --select Distribution -s Exponential --data_hue Data --errory --multiply 1e-7 --labelx x --labely 'Rate per bin (Hz)' --title 'A rate: the power of ten in the label'
 ```
 
-![Breit-Wigner peak with vertical lines at the half-maximum points, a horizontal line at half maximum and a note](images/options/overlays.png)
+`--horizontal_label` (`--vertical_label`) writes a label next to its line:
+just above it (else below), at its right end, its left end or along it,
+wherever it covers the least data. Labels and `--note` boxes get a
+translucent background only where they sit on data.
+
+![Breit-Wigner peak with vertical lines at the half-maximum points and a horizontal line at half maximum labelled with the width](images/options/overlays.png)
 
 ```bash
-plotipus line --datafile Distributions -x Bin -y Counts --hue Sample --select Distribution -s Breit-Wigner --data_hue Data --errory --vertical 89.94 92.44 --horizontal 128 --note 'FWHM = 2.50 GeV' --labelx 'Mass (GeV)' --title 'Reference lines and a note'
+plotipus line --datafile Distributions -x Bin -y Counts --hue Sample --select Distribution -s Breit-Wigner --data_hue Data --errory --vertical 89.94 92.44 --horizontal 128 --horizontal_label 'FWHM = 2.50 GeV' --labelx 'Mass (GeV)' --title 'Reference lines and a line label'
 ```
 
 ## Histograms
@@ -209,13 +214,13 @@ derived from (or stored in) the same DataFrame. Each `--lower` adds one:
 ![Stacked background and signal simulation with the signal significance S/sqrt(B) in a lower panel](images/options/significance.png)
 
 ```bash
-plotipus line --datafile Distributions -x Bin -y Counts --hue Sample --select Distribution Sample -s Resonance Background Signal --stacked --lower group --reference_group Signal --other_group Background --group_significance --lower_labely '$S/\sqrt{B}$' --labelx 'Mass (GeV)' --labely 'Events / 2 GeV' --title 'Stacked simulation and the signal significance'
+plotipus line --datafile Distributions -x Bin -y Counts --hue Sample --select Distribution Sample -s Resonance Background Signal --stacked --errory --lower group --reference_group Signal --other_group Background --group_significance --lower_labely '$S/\sqrt{B}$' --labelx 'Mass (GeV)' --labely 'Events / 2 GeV' --title 'Stacked simulation and the signal significance'
 ```
 
 ![Simulated Exponential, Landau and Log-normal shapes, normalised, with their ratio to the Exponential in a lower panel](images/options/ratio.png)
 
 ```bash
-plotipus line --datafile Distributions -x Bin -y Counts --hue Distribution --select Sample Distribution -s Simulation Exponential Landau Log-normal --plot_type step --density --lower ratio --reference_value Exponential --labelx x --lower_labely 'Ratio to Exp.' --title 'Ratio to a reference series'
+plotipus line --datafile Distributions -x Bin -y Counts --hue Distribution --select Sample Distribution -s Simulation Exponential Landau Log-normal --peak --lower ratio --reference_value Exponential --labelx x --lower_labely 'Ratio to Exp.' --title 'Ratio to a reference series'
 ```
 
 ![Gaussian data with its stored fit, parameters and pulls](images/options/fit.png)
@@ -227,7 +232,7 @@ plotipus line --datafile Distributions -x Bin -y Counts --select Distribution Sa
 ![Poisson counts with the stored Pull column in a lower panel](images/options/column.png)
 
 ```bash
-plotipus line --datafile Distributions -x Bin -y Counts --hue Sample --select Distribution Sample -s Poisson Data --data_hue Data --errory --lower column:Pull --labelx k --lower_labely Pull --title 'Lower panel from a stored column'
+plotipus line --datafile Distributions -x Bin -y Counts --hue Sample --select Distribution -s Poisson --data_hue Data --errory --lower column:Pull --labelx k --lower_labely Pull --title 'Lower panel from a stored column'
 ```
 
 The lower panel is styled with the upper-panel options prefixed by `lower_`:
@@ -396,15 +401,16 @@ open steps with error bands:
   `--rangex` or else the range of all the hues' x values.
 * **Box plots** (`--plot_type box`): one box per bin (per category for a
   non-numeric x), the hues side by side within the bin, in their colours
-  with one legend entry each. The ticks are the bin centres;
-  `--box_tick_labels ranges` labels the bins "[a, b)". `--whis` sets the
+  with one legend entry each. Numeric bins keep a plain numeric axis
+  over the bin edges; `--box_tick_labels centres` puts a tick at each bin
+  centre and `--box_tick_labels ranges` labels the bins "[a, b)". `--whis` sets the
   whisker reach (default 1.5 IQR, or two percentiles such as `5 95`) and
   `--no_fliers` hides the points past the whiskers.
 
 ![Resolution (standard deviation of measured - true) against the true value, data and simulation](images/options/binned.png)
 
 ```bash
-plotipus line --datafile Distributions -x Value -y Residual --binned --estimator std --hue Sample --select Distribution -s Exponential --bins 11 --rangex 0 10 --labelx True --labely 'Measured - True' --title 'Binned estimator: resolution'
+plotipus line --datafile Distributions -x Value -y Residual --binned --estimator std --hue Sample --data_hue Data --select Distribution -s Exponential --bins 11 --rangex 0 10 --labelx True --labely 'Measured - True' --title 'Binned estimator: resolution'
 ```
 
 ![Box plots of measured - true per bin of the true value, data and simulation side by side](images/options/box.png)
@@ -419,25 +425,30 @@ plotipus line --datafile Distributions -x Value -y Residual --binned --plot_type
 bins, or with `--integrate_over COL` the integral Σ y·Δx over that column
 (for densities), by `-x` category and `--hue`; a scalar `-y` cell is one
 value already. Category labels are rotated only when they would overlap
-(`--xtick_rotation DEG` forces an angle). `scatter` draws one point per
+(`--xtick_rotation DEG` forces an angle). `--data_hue VALUE...` draws
+those hue values as data: ink points with their errors at the category
+centre, first in the legend, over the bars (or lines) of the others.
+`scatter` draws one point per
 entry of the array cells, with colour (`--colorby`), size (`--sizeby`) and
 marker (`--markerby`) encodings; only the drawn columns are exploded into
-points.
+points. A `--colorby` column of both signs takes the style's diverging map
+(`plot_settings.diverging_cmap`), centred at 0; others the sequential
+`image.cmap` (viridis; cividis with `--experiment dune`).
 
-![Summed counts of the resonance data, background and signal as bars](images/options/yields.png)
+![Summed counts of six distributions: data as points over the simulation bars](images/options/yields.png)
 
 ```bash
-plotipus cat --datafile Distributions -x Distribution --hue Sample -y Counts --select Distribution -s Resonance --kind bar --labely Events --title 'Yields: summed counts per sample'
+plotipus cat --datafile Distributions -x Distribution --hue Sample -y Counts --errory --select Distribution -s Gaussian Poisson Binomial Exponential Landau Breit-Wigner --kind bar --data_hue Data --labely Events --title 'Yields: summed counts per sample'
 ```
 
 A `-y` column with one scalar per row (here the standard deviation of each
 sample, with its error) is drawn as it is. Seven categories would overlap
 side by side, so their labels are rotated, and the layout makes room for them:
 
-![Standard deviation of seven distributions, data and simulation side by side, with error bars](images/options/moments.png)
+![Standard deviation of seven distributions, data points with error bars over the simulation bars](images/options/moments.png)
 
 ```bash
-plotipus cat --datafile Moments -x Config --hue Sample -y Value --errory --select Variable Config Config Config Config Config Config Config -s Std Gaussian Poisson Binomial Exponential Uniform Log-normal Chi-squared --kind bar --labelx Distribution --labely 'Standard deviation' --title 'One scalar per row: spread of each sample'
+plotipus cat --datafile Moments -x Config --hue Sample -y Value --errory --select Variable Config Config Config Config Config Config Config -s Std Gaussian Poisson Binomial Exponential Uniform Log-normal Chi-squared --kind bar --data_hue Data --labelx Distribution --labely 'Standard deviation' --title 'One scalar per row: spread of each sample'
 ```
 
 ![True against measured values of exponential samples coloured by their residual](images/options/scatter.png)

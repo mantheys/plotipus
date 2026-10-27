@@ -73,6 +73,9 @@ def build_parser():
     add("--x_order", nargs="+", type=str, default=None, help="Order of the categories (default: first seen).")
     add("--xtick_rotation", type=float, default=None, metavar="DEG",
         help="Rotate the category labels by DEG (default: 30 only when they would overlap; 20 is the old look).")
+    add("--data_hue", "--overlay", nargs="+", default=None, metavar="VALUE",
+        help="Hue values drawn as data: points with error bars (when the {y}Error column is there) in the "
+        "ink colour at the category centre, first in the legend; the other hue values stay bars or lines.")
     add("--overlay_names", action="store_true", default=False,
         help="All --configs/--names in one figure instead of one figure per pair.")
     _base.add_output_args(parser)
@@ -83,14 +86,16 @@ def main(argv=None):
     return _base.main(__import__(__name__, fromlist=["run"]), argv)
 
 
-def integrate_row(row, args):
+def integrate_row(row, args, with_errors=None):
     """(value, error) of one row: -y reduced over --integrate_over, or a
-    scalar -y (and {y}Error) taken as already integrated."""
+    scalar -y (and {y}Error) taken as already integrated. Errors are read
+    with --errory (or ``with_errors``)."""
     error_column = f"{args.y}Error"
+    with_errors = args.errory if with_errors is None else with_errors
     if np.ndim(row[args.y]) == 0:
         value = float(row[args.y])
         error = None
-        if args.errory and error_column in row.index and np.ndim(row[error_column]) == 0 and row[error_column] is not None:
+        if with_errors and error_column in row.index and np.ndim(row[error_column]) == 0 and row[error_column] is not None:
             error = float(row[error_column])
         if args.multiply is not None:
             value *= args.multiply
@@ -98,7 +103,7 @@ def integrate_row(row, args):
         return value, error
     y = np.asarray(row[args.y], dtype=float)
     yerr = None
-    if args.errory and error_column in row.index and row[error_column] is not None:
+    if with_errors and error_column in row.index and row[error_column] is not None:
         yerr = np.asarray(row[error_column], dtype=float)
     grid = row[args.integrate_over] if args.integrate_over and args.integrate_over in row.index else None
     grid = np.arange(len(y), dtype=float) if grid is None or np.ndim(grid) == 0 else np.asarray(grid, dtype=float)
@@ -123,6 +128,22 @@ def _ordered_unique(values, explicit=None):
     return seen
 
 
+def _category_totals(subset, categories, positions, args, with_errors=None):
+    """(positions, totals, errors) of the categories present in ``subset``:
+    rows of a category summed, errors in quadrature (NaN without errors)."""
+    xs, ys, es = [], [], []
+    for position, category in zip(positions, categories):
+        category_rows = subset[subset[args.x] == category]
+        if category_rows.empty:
+            continue
+        totals = [integrate_row(row, args, with_errors) for _, row in category_rows.iterrows()]
+        errors = [e for _, e in totals if e is not None]
+        xs.append(position)
+        ys.append(sum(v for v, _ in totals))
+        es.append(float(np.sqrt(np.sum(np.square(errors)))) if errors else np.nan)
+    return np.asarray(xs), np.asarray(ys), np.asarray(es)
+
+
 def draw_figure(rows, args, kdx, comparable):
     categories = _ordered_unique(rows[args.x].tolist(), args.x_order)
     hues = _ordered_unique(rows[args.iterable].tolist())
@@ -132,10 +153,23 @@ def draw_figure(rows, args, kdx, comparable):
     fig, axes, _, _ = create_panels(1)
     ax = axes[0]
 
+    data_values = {str(v) for v in (args.data_hue or [])}
+    data_hues = [hue for hue in hues if str(hue) in data_values]
+    models = [hue for hue in hues if str(hue) not in data_values]
     colors = ColorAllocator()
-    colors.reserve(hues, lambda hue: map_iterable_color(hue, args.iterable_color_mapping, args.iterable))
-    hue_handles, style_handles = [], []
-    for idx, hue in enumerate(hues):
+    colors.reserve(models, lambda hue: map_iterable_color(hue, args.iterable_color_mapping, args.iterable))
+    hue_handles, style_handles, data_handles = [], [], []
+    for hue in data_hues:
+        # Data: ink points with their errors at the category centre, first in the legend.
+        subset = rows[rows[args.iterable] == hue]
+        xs, ys, es = _category_totals(subset, categories, positions, args, with_errors=True)
+        if not len(xs):
+            continue
+        ax.errorbar(xs, ys, yerr=np.nan_to_num(es) if np.isfinite(es).any() else None, fmt="o",
+                    color=style.role("ink"), zorder=3)
+        data_handles.append(mlines.Line2D([], [], color=style.role("ink"), linestyle="none", marker="o",
+                                          label=map_iterable_label(hue, args.iterable, args.iterable_mapping)))
+    for idx, hue in enumerate(models):
         # Hue values past the palette repeat a colour but keep their own marker.
         color = colors.color_for(hue)
         marker = MARKERS[idx % len(MARKERS)]
@@ -153,25 +187,15 @@ def draw_figure(rows, args, kdx, comparable):
             if subset.empty:
                 continue
             linestyle = linestyles[cdx % len(linestyles)]
-            xs, ys, es = [], [], []
-            for position, category in zip(positions, categories):
-                category_rows = subset[subset[args.x] == category]
-                if category_rows.empty:
-                    continue
-                totals = [integrate_row(row, args) for _, row in category_rows.iterrows()]
-                errors = [e for _, e in totals if e is not None]
-                xs.append(position)
-                ys.append(sum(v for v, _ in totals))
-                es.append(float(np.sqrt(np.sum(np.square(errors)))) if errors else np.nan)
-            if not xs:
+            xs, ys, es = _category_totals(subset, categories, positions, args)
+            if not len(xs):
                 continue
-            xs, ys, es = np.asarray(xs), np.asarray(ys), np.asarray(es)
             rprint(f"\tValues for {args.iterable}={hue}" + (f", {comparable}={value}" if value is not None else "") + ": "
                    + ", ".join(f"{categories[int(i)]}={v:.3g}" for i, v in zip(xs, ys)))
             if args.kind == "bar":
-                width = 0.8 / max(1, len(hues))
+                width = 0.8 / max(1, len(models))
                 errors = np.nan_to_num(es) if args.errory and np.isfinite(es).any() else None
-                ax.bar(xs + (idx - (len(hues) - 1) / 2) * width, ys, width=width, color=color,
+                ax.bar(xs + (idx - (len(models) - 1) / 2) * width, ys, width=width, color=color,
                        alpha=0.9 if cdx == 0 else 0.5, yerr=errors, ecolor=style.role("ink"), capsize=3)
             else:
                 plot_type = "line" if args.kind == "line" else "scatter"
@@ -210,7 +234,7 @@ def draw_figure(rows, args, kdx, comparable):
     draw_horizontal_overlay(ax, args)
     _rotate_tick_labels(fig, ax, args.xtick_rotation)  # the measured layout makes room for them
 
-    handles = list(hue_handles)
+    handles = data_handles + hue_handles
     if style_handles:
         title = args.comparable_title if args.comparable_title is not None else comparable
         handles.append(mlines.Line2D([], [], color="none", label=f"$\\bf{{{title}}}$" if title else ""))
@@ -229,6 +253,9 @@ def _rotate_tick_labels(fig, ax, rotation=None, pad_px=4):
     """Rotate the x tick labels by *rotation*, or, when any two would overlap,
     by 30 degrees (90 if they would still collide)."""
     labels = [label for label in ax.get_xticklabels() if label.get_text()]
+    if labels:
+        # At least half an em between labels: the layout may still narrow the axes a little.
+        pad_px = max(pad_px, 0.5 * labels[0].get_fontsize() * fig.dpi / 72.0)
     if rotation is None:
         fig.canvas.draw()
         boxes = sorted((label.get_window_extent() for label in labels), key=lambda box: box.x0)

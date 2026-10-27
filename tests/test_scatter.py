@@ -120,3 +120,21 @@ def test_size_legend_shows_round_plain_numbers():
     _, labels = scatter._size_levels(0.013, 0.087, 4)
     assert labels == ["0.02", "0.04", "0.06", "0.08"]
     assert all("e" not in label for label in labels)
+
+
+def test_colorby_signed_values_use_the_diverging_map(make_project):
+    """A --colorby column of both signs takes the style's diverging map, centred at 0."""
+    from plotipus import registry, style
+
+    rng = np.random.default_rng(3)
+    x = rng.normal(size=200)
+    make_project({"Signed": pd.DataFrame([{"X": x, "Y": 2 * x, "R": rng.normal(0.2, 1, 200),
+                                           "P": rng.uniform(1, 2, 200)}])})
+    figures = []
+    registry.add_figure_hook(lambda fig, args: figures.append(fig))
+    scatter.main(["--datafile", "Signed", "-x", "X", "-y", "Y", "--colorby", "R"])
+    scatter.main(["--datafile", "Signed", "-x", "X", "-y", "Y", "--colorby", "P"])
+    signed, positive = (fig.axes[0].collections[0] for fig in figures)
+    assert signed.get_cmap().name == style.diverging_cmap
+    assert signed.norm.vmin == -signed.norm.vmax
+    assert positive.get_cmap().name != style.diverging_cmap

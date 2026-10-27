@@ -247,7 +247,13 @@ def test_box_colours_and_legend(make_project):
 
 
 def test_box_tick_labels(make_project):
-    ax = _box_figure(make_project)
+    ax = _box_figure(make_project)  # a numeric axis over the bin edges, boxes at the bin centres
+    edges_lo, edges_hi = ax.get_xlim()
+    assert edges_lo == pytest.approx(0) and edges_hi == pytest.approx(12)
+    ticks = [t for t in ax.get_xticks() if edges_lo <= t <= edges_hi]
+    assert all(float(t).is_integer() for t in ticks)
+    plt.close("all")
+    ax = _box_figure(make_project, "--box_tick_labels", "centres")
     labels = [t.get_text() for t in ax.get_xticklabels()]
     assert labels == [f"{c + 0.5:.1f}" for c in range(12)]
     plt.close("all")
@@ -297,3 +303,23 @@ def test_binned_estimator_data_hue(make_project):
     steps = [p for p in ax.patches if isinstance(p, StepPatch)]
     assert len(points) == 1 and points[0].lines[0].get_color() == style.role("ink")
     assert len(steps) == 1 and steps[0].get_data().baseline is None
+
+
+def test_box_dodge_counts_selected_hues_only(make_project):
+    """Hue values removed by --select take no box slot: two hues sit symmetrically about the bin centre."""
+    rng = np.random.default_rng(2)
+    frame = pd.DataFrame([{"X": rng.uniform(0, 4, 400), "Y": rng.normal(0, 1, 400), "Run": r, "Kind": k}
+                          for r, k in (("A", "keep"), ("B", "keep"), ("C", "drop"), ("D", "drop"))])
+    make_project({"Boxes": frame})
+    figures = []
+    from plotipus import registry
+
+    registry.add_figure_hook(lambda fig, args: figures.append(fig))
+    line.main(["--datafile", "Boxes", "-x", "X", "-y", "Y", "--binned", "--plot_type", "box", "--hue", "Run",
+               "--select", "Kind", "-s", "keep", "--bins", "5", "--rangex", "0", "4"])
+    ax = figures[0].axes[0]
+    boxes = [p for p in ax.patches if type(p).__name__ == "PathPatch"]
+    centres = sorted({round((p.get_path().vertices[:, 0].min() + p.get_path().vertices[:, 0].max()) / 2, 6)
+                      for p in boxes})
+    first_bin = [c for c in centres if c < 1]
+    assert len(first_bin) == 2 and np.mean(first_bin) == pytest.approx(0.5)

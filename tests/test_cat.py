@@ -125,3 +125,26 @@ def test_tick_labels_rotate_only_when_they_overlap(make_project):
     # Long labels: 30 degrees, or 90 when the font is too large for 30 to clear the tick spacing.
     assert rotations[0] == {0.0} and rotations[1] in ({30.0}, {90.0}) and rotations[2] == {20.0}
     assert not any(gl.get_visible() for gl in figures[0].axes[0].get_ygridlines())  # no kind-specific grid
+
+
+def test_data_hue_points_over_bars(make_project):
+    """--data_hue: data as ink points with errors (first in the legend), the rest as bars."""
+    from matplotlib.colors import to_hex
+    from matplotlib.container import BarContainer, ErrorbarContainer
+
+    from plotipus import registry, style
+
+    frame = _frame().replace({"Component": {"signal": "data"}})
+    make_project({"Cutflow": frame})
+    figures = []
+    registry.add_figure_hook(lambda fig, args: figures.append(fig))
+    cat.main(["--datafile", "Cutflow", "-x", "Stage", "-y", "Counts", "--hue", "Component", "--integrate_over",
+              "Energy", "--kind", "bar", "--data_hue", "data"])
+    ax = figures[0].axes[0]
+    bars = [c for c in ax.containers if isinstance(c, BarContainer)]
+    points = [c for c in ax.containers if isinstance(c, ErrorbarContainer)]
+    assert len(bars) == 1 and len(points) == 1
+    assert [p.get_x() + p.get_width() / 2 for p in bars[0]] == [0.0, 1.0, 2.0]  # one model: bars centred
+    assert to_hex(points[0].lines[0].get_color()) == to_hex(style.role("ink"))
+    assert points[0].has_yerr  # data shows its errors without --errory
+    assert [t.get_text() for t in ax.get_legend().get_texts()] == ["data", "background"]
