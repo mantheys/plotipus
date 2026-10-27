@@ -35,6 +35,7 @@ from ..args import (
 )
 from ..encodings import (
     DATA_STYLE,
+    HueColormap,
     add_encoding_args,
     comparable_legend_title,
     comparable_maps,
@@ -400,6 +401,8 @@ def _check_args(args, parser):
             parser.error(f"--series_marker {entry}: {error}")
     if args.errorx_column and len(args.errorx_column) > 2:
         parser.error("--errorx_column takes LOW HIGH or one column of half-widths")
+    if args.hue_cmap and args.hue_cmap not in matplotlib.colormaps:
+        parser.error(f"--hue_cmap: unknown colour map '{args.hue_cmap}' (e.g. viridis, plasma, cividis)")
     _resolve_reference(args)
 
 
@@ -1250,6 +1253,13 @@ def draw_figure(rows, args, kdx=None):
 
     _finish_upper(fig, upper, lower, drawn, rows, args, variables, last_x, hue_values, comparable,
                   style_map, alpha_map, iterable_style_map, extrapolated_axes, nrows, ncols)
+    if colors.hue_cmap is not None and not args.no_hue_colorbar:
+        hc = colors.hue_cmap
+        column = comparable if invert else args.iterable
+        mapping = args.comparable_mapping if invert else args.iterable_mapping
+        title = (comparable_legend_title(args) if invert else iterable_legend_title(args)) or column
+        hc.colorbar(fig, upper[:len(variables)], label=args.labelz or title,
+                    tick_labels=[str(map_iterable_label(v, column, mapping)) for v in hc.values])
 
     suffix = "stacked_line.png" if args.stacked else "line.png"
     return save(fig, args, kdx, suffix=suffix)
@@ -1305,7 +1315,12 @@ def _allocate_colors(hue_values, comparable_values, args, invert):
         values, reverse = list(comparable_values), args.comparable_reverse
     else:
         values, reverse = [v for v in hue_values if not isinstance(v, _SumSlot)], args.iterable_reverse
-    colors.reserve(values, lambda value: map_iterable_color(value, args.iterable_color_mapping))
+    # Values with a mapped colour keep it and stay off the colour map.
+    unmapped = [v for v in values if map_iterable_color(v, args.iterable_color_mapping) is None]
+    colors.hue_cmap = HueColormap(unmapped[::-1] if reverse else unmapped, args.hue_cmap,
+                                  args.hue_cmap_range) if args.hue_cmap and unmapped else None
+    colors.reserve(values, lambda value: map_iterable_color(value, args.iterable_color_mapping)
+                   or (colors.hue_cmap.color(value) if colors.hue_cmap else None))
     for value in values[::-1] if reverse else values:
         colors.color_for(value)
     if args.sum_iterables and not (invert and comparable_values):

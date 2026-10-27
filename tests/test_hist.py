@@ -168,3 +168,21 @@ def test_histogram_errors_scale_with_density():
     counts, _, _, errors = hist.histogram_with_errors(np.array([0.5, 0.5, 1.5, 1.5]), np.array([0.0, 1.0, 2.0]),
                                                       density=True)
     assert np.allclose(counts, [0.5, 0.5]) and np.allclose(errors, np.sqrt(2) / 4)
+
+
+def test_hist_hue_cmap_colorbar(make_project):
+    import matplotlib
+    from matplotlib.colors import to_hex
+
+    rng = np.random.default_rng(3)
+    frame = pd.DataFrame({"Run": [1, 2, 4], "X": [rng.normal(m, 1, 200) for m in (0, 1, 2)]})
+    make_project({"Runs": frame})
+    figures = _capture()
+    hist.main(["--datafile", "Runs", "-x", "X", "--hue", "Run", "--hue_cmap", "viridis"])
+    fig = figures[0]
+    ax = fig.axes[0]
+    colors = [to_hex(p.get_edgecolor()) for p in _stairs(ax)]
+    cmap = matplotlib.colormaps["viridis"]
+    assert colors == [to_hex(cmap(v)) for v in (0.0, 1 / 3, 1.0)]  # numeric runs on a 1-4 scale
+    assert ax.get_legend() is None
+    assert any(hasattr(a, "_colorbar") for a in fig.axes)

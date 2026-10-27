@@ -1002,3 +1002,44 @@ def test_reference_by_hue_value_in_ratio(make_project, spectra):
     lower = figures[0].axes[1]
     ratios = {line.get_label(): line.get_ydata() for line in lower.get_lines()}
     assert np.allclose(ratios["A / B"], 0.5) and np.allclose(ratios["C / B"], 0.25)
+
+
+# --- T22.5: --hue_cmap -------------------------------------------------------------------
+
+
+def test_hue_cmap_ordered_values_and_colorbar(make_project, spectra):
+    import matplotlib
+
+    figures = _capture()
+    run(make_project, spectra, "--hue", "Sample", "--select", "Stage", "-s", "Raw", "--plot_type", "line",
+        "--hue_cmap", "plasma")
+    fig = figures[0]
+    ax = fig.axes[0]
+    cmap = matplotlib.colormaps["plasma"]
+    colors = {l.get_label(): to_hex(l.get_color()) for l in ax.get_lines() if not l.get_label().startswith("_")}
+    assert len(set(colors.values())) == 3
+    assert colors["A"] == to_hex(cmap(0.0)) and colors["C"] == to_hex(cmap(1.0))  # the ends of the map, in order
+    assert ax.get_legend() is None
+    (cbar,) = [a for a in fig.axes if hasattr(a, "_colorbar")]
+    assert [t.get_text() for t in cbar.get_yticklabels()] == ["A", "B", "C"]
+
+
+def test_hue_cmap_keeps_mapped_colours_and_style_legend(make_project, spectra, tmp_path):
+    (tmp_path / "style.json").write_text('{"mappings": {"sample_colors": {"C": "black"}}}')
+    figures = _capture()
+    make_project({"Spectra": spectra}, 'style = ["style.json"]\n')
+    line.main(["--datafile", "Spectra", "-x", "Energy", "-y", "Counts", "--hue", "Sample", "--style", "Stage",
+               "--plot_type", "line", "--hue_cmap", "viridis", "--iterable_color_mapping", "sample_colors"])
+    fig = figures[0]
+    ax = fig.axes[0]
+    colors = {to_hex(l.get_color()) for l in ax.get_lines() if l.get_label() == "C"}
+    assert colors == {"#000000"}
+    (cbar,) = [a for a in fig.axes if hasattr(a, "_colorbar")]
+    assert [t.get_text() for t in cbar.get_yticklabels()] == ["A", "B"]
+    legends = [a for a in ax.get_children() if isinstance(a, Legend)]
+    assert legends and all("A" not in [t.get_text() for t in leg.get_texts()] for leg in legends)
+
+
+def test_hue_cmap_rejects_unknown_map():
+    with pytest.raises(SystemExit):
+        line.parse(["--datafile", "X", "-y", "Y", "--hue_cmap", "notamap"])

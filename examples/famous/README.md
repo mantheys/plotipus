@@ -120,7 +120,7 @@ Patterns the commands use:
 | F08 Hubble 1929 | PNAS 15, 168, Fig. 1 | **real** (Table 1) | ✅ | (discs, open circles and a cross: `--series_marker ... Groups=o_open ...`; no legend, Hubble's grid lines: `--horizontal`/`--vertical`) a bold title (paper font, follow-up) |
 | F09 SN Ia Hubble diagram | Riess et al. 1998, Fig. 4 | **real** (Union2.1) | ◐ | (plain log tick labels: T12 follow-up) the cosmologies' residual curves in the lower panel, lost in the example-feedback-3 merge (follow-up) |
 | F10 Ω_M–Ω_Λ | Riess et al. 1998, Fig. 6 | **real** (Union2.1), synthetic CMB | ◐ | (no best-fit marker, as in the original: `--no_best_fit`; black contours: `config_color`; the shaded "No Big Bang" region: `--region`) labels beside the contours (too small for `--contour_labels` inline) |
-| F11 rotation curves | Rubin, Ford & Thonnard 1980 | **real** (SPARC) | ◐ | an ordered colour map for 21 hues (T22.5); `--panel_title` on `line` panels (follow-up; the size classes are all-math labels so the title case leaves `kpc` alone) |
+| F11 rotation curves | Rubin, Ford & Thonnard 1980 | **real** (SPARC) | ◐ | (galaxies ordered by size on one colour map, with a colorbar: `--hue_cmap viridis`) `--panel_title` on `line` panels (follow-up; the size classes are all-math labels so the title case leaves `kpc` alone) |
 | F12 NGC 3198 | van Albada et al. 1985 | **real** (SPARC); fitted halo | ✅ | (figure styles unverified) |
 | F13 Keeling curve | NOAA GML plot | **real** (NOAA GML) | ✅ | the seasonal-cycle inset of other versions (T22.7) |
 | F14 hockey stick | Mann, Bradley & Hughes 1999, Fig. 3(a) | **real** (NOAA paleo) | ✅ | (the legend below the axes: `--legend_loc below`; the uncertainty as a light-grey row of its own; the 1998 arrow: `--text ... --arrow 1996 0.8`) |
@@ -138,7 +138,6 @@ Patterns the commands use:
 | task | missing feature | figures |
 |---|---|---|
 | T22.3 | a power (square-root) colour scale, a colour below the scale, `--cmap` for 2D histograms, `--colorbar none`; log y axis for `-z` images | F22, F15 |
-| T22.5 | an ordered colour map for many hues | F11 |
 | T22.6 | panel grids with shared axes (rows × columns) | F01, F15, F25 |
 | T22.7 | insets | F03, F13 |
 | T22.11 | `table --agg corr` | F25 |

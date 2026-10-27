@@ -36,7 +36,7 @@ command lists.
 |---|---|---|---|
 | A Distributions | 7 | 0 | 5 |
 | B Relationships | 6 | 1 | 2 |
-| C Trends and fits | 7 | 2 | 1 |
+| C Trends and fits | 8 | 1 | 1 |
 | D Comparisons | 4 | 2 | 3 |
 | E Ratios and significance | 7 | 0 | 1 |
 | F ML diagnostics | 4 | 3 | 0 |
@@ -44,7 +44,7 @@ command lists.
 | H Small multiples and layout | 2 | 2 | 4 |
 | I Annotations | 10 | 0 | 0 |
 | J Tables | 4 | 1 | 2 |
-| **Total (89)** | **59** | **12** | **18** |
+| **Total (89)** | **60** | **11** | **18** |
 
 Nearly half of the ◐ entries are partial only because of a bug in
 [bugs.md](bugs.md), not because an option is missing. Fixing B01–B13 moves
@@ -96,7 +96,7 @@ about 12 of them to ✅.
 | C7 | Stacked area | composition over x | F23 | ✅ | `--stacked --plot_type line` (`fill_between` from the running total; B10 fixed in T18). | — |
 | C8 | Time series with dates | monitoring, Keeling curve | F13 | ◐ | Works on numeric x (decimal year); no date axis formatting. | Convert datetime64 x and use `ConciseDateFormatter`. |
 | C9 | Smoothed / rolling line | trend under noise | F13, F14 | ✗ | — | `line --smooth N [--smooth_kind rolling\|savgol]` drawn over the raw series. |
-| C10 | Many series with a sequential colour | ordered hue (runs, energies) | F11 | ◐ | Only the categorical palette (past its end colours repeat with a warning, T01). | `line --hue_cmap viridis` for numeric/ordered hues, with a colorbar instead of a legend. |
+| C10 | Many series with a sequential colour | ordered hue (runs, energies) | F11 | ✅ | `line --hue Run --hue_cmap viridis` (also `hist`; T22.5): numeric hues by value, others in draw order, a colorbar instead of the colour legend. | — |
 
 ## D. Comparisons across categories
 

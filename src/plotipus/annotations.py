@@ -65,7 +65,7 @@ def _pick(values, index, default):
 
 
 def _panels(fig):
-    return [ax for ax in fig.axes if ax.get_label() != "<colorbar>"]
+    return [ax for ax in fig.axes if ax.get_label() != "<colorbar>" and not hasattr(ax, "_colorbar")]
 
 
 def _fontsize(size):

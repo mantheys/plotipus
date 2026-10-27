@@ -12,6 +12,10 @@ Two columns encode the series of a plot:
 ``--invert_style`` swaps the two roles. :func:`draw_legends` places the
 primary (colour) legend and the secondary (style) legend where they cover the
 least data.
+
+``--hue_cmap CMAP`` colours numeric or ordered hue values from a colour map
+instead of the palette (:class:`HueColormap`), explained by a colorbar instead
+of the colour legend.
 """
 
 import copy
@@ -78,6 +82,7 @@ def add_encoding_args(parser, comparable_default=None, comparable_flags=("--comp
         help="Reverse the draw and legend order of the hue values.")
     add("--invert_style", action="store_true", default=False,
         help="Swap roles: colours for the comparable values, line styles for the hue values.")
+    add_hue_cmap_args(parser)
     add("--fill", action="store_true", default=False,
         help="Fill step outlines with a translucent colour.")
     add("--fill_alpha", nargs="+", type=float, default=None,
@@ -86,6 +91,66 @@ def add_encoding_args(parser, comparable_default=None, comparable_flags=("--comp
     add("--fill_hatch_color", action="store_true", default=False,
         help="Draw fill hatches at full opacity in the line colour.")
     add_legend_args(parser)
+
+
+def add_hue_cmap_args(parser):
+    add = parser.add_argument
+    add("--hue_cmap", type=str, default=None, metavar="CMAP",
+        help="Colour the hue values from this matplotlib colour map (viridis, plasma, ...) instead of the "
+        "palette: numeric values by value, others in their draw order; a colorbar replaces the colour legend.")
+    add("--hue_cmap_range", nargs=2, type=float, default=None, metavar=("MIN", "MAX"),
+        help="Values at the ends of the --hue_cmap colour map (default: the smallest and largest numeric hue).")
+    add("--no_hue_colorbar", action="store_true", default=False,
+        help="With --hue_cmap: no colorbar (and no colour legend).")
+
+
+class HueColormap:
+    """--hue_cmap colours of the hue ``values``: by value when every value
+    is a number, else by position in ``values`` (an ordered category, one
+    colorbar tick per value)."""
+
+    def __init__(self, values, cmap, value_range=None):
+        from matplotlib.colors import BoundaryNorm, Normalize
+
+        self.values = list(values)
+        self.cmap = matplotlib.colormaps[cmap]
+        try:
+            numbers = [float(v) for v in self.values]
+        except (TypeError, ValueError):
+            numbers = None
+        self.numeric = numbers is not None and len(numbers) > 0
+        if self.numeric:
+            low, high = value_range or (min(numbers), max(numbers))
+            self.norm = Normalize(vmin=low, vmax=high if high > low else low + 1)
+            self.positions = numbers
+            self.ticks = None
+        else:
+            n = max(len(self.values), 1)
+            self.norm = BoundaryNorm(np.arange(n + 1) - 0.5, self.cmap.N)
+            self.positions = list(range(len(self.values)))
+            self.ticks = self.positions
+
+    def color(self, value):
+        """Hex colour of hue ``value`` (None when it is not one of the values)."""
+        if value not in self.values:
+            return None
+        return matplotlib.colors.to_hex(self.cmap(self.norm(self.positions[self.values.index(value)])))
+
+    def colorbar(self, fig, axes, label=None, tick_labels=None):
+        """The colorbar right of ``axes``; ordered categories get one labelled
+        tick per value (at most about 12 labels, then every k-th)."""
+        from matplotlib.cm import ScalarMappable
+
+        from .panels import add_colorbar
+
+        mappable = ScalarMappable(norm=self.norm, cmap=self.cmap)
+        cbar = add_colorbar(fig, mappable, axes, label)
+        if self.ticks is not None:
+            step = max(1, int(np.ceil(len(self.ticks) / 12)))
+            names = tick_labels or [str(v) for v in self.values]
+            cbar.set_ticks(self.ticks[::step], labels=names[::step])
+            cbar.ax.minorticks_off()
+        return cbar
 
 
 def add_legend_args(parser):
@@ -126,7 +191,11 @@ def setup_legend_frame(args):
 def legend_selection(args):
     if getattr(args, "no_legend", False):
         return "none"
-    return getattr(args, "draw_legend", "both") or "both"
+    selection = getattr(args, "draw_legend", "both") or "both"
+    if getattr(args, "hue_cmap", None):
+        # The colorbar explains the colours.
+        return {"both": "comparable", "iterable": "none"}.get(selection, selection)
+    return selection
 
 
 def _reverse_index(index, n_total, reverse):

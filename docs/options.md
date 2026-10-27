@@ -87,6 +87,14 @@ are the example list, `examples/input/plots/example_scripts.txt`;
   `--sum_color`, `--reference_sum_color`, default: a free colour) never
   share one. With more values than colours, colours repeat and a warning
   is printed.
+* **Ordered hues** (runs, energies, galaxies by size): `--hue_cmap viridis`
+  (`line`, `hist`) takes the colours from a matplotlib colour map instead:
+  numeric hue values by value (`--hue_cmap_range MIN MAX` fixes the ends),
+  others in their draw order (set by `--iterable_mapping`). A colorbar
+  labelled with the hue column (`--labelz`) replaces the colour legend
+  (`--no_hue_colorbar` drops it); values with an `--iterable_color_mapping`
+  colour keep it and stay off the colour map, and the `--style` legend is
+  still drawn.
 * **Errors**: `--errory` draws the `{y}Error` (or `{y}Error+/-`) column as
   a band for `--plot_type line|step` and as bars on points;
   `--errory_type bars|bands` picks either for any plot type. The band takes
