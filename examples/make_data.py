@@ -123,6 +123,12 @@ for sample, n in (("Data", 2000), ("Simulation", 20000)):
     xy = rng.multivariate_normal([0, 0], cov, n)
     rows.append({"Distribution": "Bivariate Gaussian", "Sample": sample, "X": xy[:, 0], "Y": xy[:, 1],
                  "Weight": np.full(n, 2000 / n)})
+# Response = Measured / True of every event sample (NaN where True is 0), for scatter plots that spread
+# the resolution over the y axis instead of along the diagonal.
+for row in rows:
+    if "Value" in row:
+        value = np.asarray(row["Value"], dtype=float)
+        row["Response"] = np.divide(row["Smeared"], value, out=np.full(value.shape, np.nan), where=value != 0)
 frame = pd.DataFrame(rows)
 frame.to_pickle(out / "Distributions.pkl")
 

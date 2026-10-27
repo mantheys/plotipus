@@ -39,6 +39,7 @@ import matplotlib
 import matplotlib.colors as mcolors
 import matplotlib.pyplot as plt
 
+from . import colormaps  # noqa: F401  (registers the plotipus colour maps)
 from . import palettes
 
 _DEFAULTS_PATH = Path(__file__).with_name("data") / "style.json"

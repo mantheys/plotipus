@@ -328,7 +328,18 @@ colorbar right of the row (`--colorbar shared`, the default unless `--norm`
 normalises each panel); `--colorbar each` draws one per panel. Every bar is
 labelled: `--labelz`, else the `--norm` label, else "Counts"/"Density", else
 the `-z` column. Empty bins are blank, and with `--logz` the scale starts at
-the smallest non-empty bin.
+the smallest non-empty bin. Panels side by side are compact by default: they
+share one y range and only the first shows the y label and tick labels
+(`--no-compact` gives each its own axis, `--matchy` only matches the ranges).
+
+The default sequential map is plotipus's own `plotipus` (`image.cmap`; its
+reverse is `plotipus_r`): a pale cream through teal to the palette's blue and
+a dark ink blue, lightness falling linearly (CIELAB L* 96 to 16), so it reads
+in greyscale and under colour-vision deficiencies, and its lightest colour is
+a tint, so blank (empty) bins stand apart. The dark theme uses
+`plotipus_dark`, rising from a dark blue to the cream; `--experiment dune`
+keeps DUNE's cividis, and `classic` matplotlib's viridis. `--cmap NAME` picks
+any other.
 
 ![True against measured value for data and simulation, sharing one log colour scale](images/options/colorbar.png)
 
@@ -348,8 +359,11 @@ significance maps with `--contour_level_mode z_values`):
   "99.7% CL"; `sigma` labels them "1σ" (or "1σ (2 dof)").
 * `--fill_contours` fills one hue per map, darkest at the best fit and lighter
   outwards (`--fill_alpha`, `--fill_outer_alpha`). Outlines are solid, dashed
-  and dotted (`--contour_linestyles`), and a `+` marks the minimum
-  (`--no_best_fit` hides it).
+  and dotted (`--contour_linestyles`). The best fit of a Δχ² map is a point
+  with its 1σ intervals (the Δχ² ≤ 1 region projected on each parameter, the
+  profile), in ink for one map and in its colour for several, listed as
+  "Best fit"; a significance map (`z_values`) marks its minimum with a `+`
+  (`--no_best_fit` hides either).
 * `--background none` (default); with `all`/`combined`/`first`, a Δχ²
   background is blank beyond the outermost level and its colorbar reads Δχ².
 * `--horizontal`, `--vertical`, `--line`, `--square` and `--point` are drawn
@@ -433,7 +447,7 @@ entry of the array cells, with colour (`--colorby`), size (`--sizeby`) and
 marker (`--markerby`) encodings; only the drawn columns are exploded into
 points. A `--colorby` column of both signs takes the style's diverging map
 (`plot_settings.diverging_cmap`), centred at 0; others the sequential
-`image.cmap` (viridis; cividis with `--experiment dune`).
+`image.cmap` (`plotipus`; cividis with `--experiment dune`).
 
 ![Summed counts of six distributions: data as points over the simulation bars](images/options/yields.png)
 
