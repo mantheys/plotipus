@@ -239,16 +239,22 @@ def annotate_cells(ax, mappable, x, y, values, fmt, skip_masked=None):
     """--annotate: each finite cell value (``values[j, i]`` at x[i], y[j]) in
     its cell, formatted with ``fmt``, dark on light cells and light on dark."""
     fontsize = style.linelabelfontsize
+
+    def luminance(color):
+        red, green, blue = to_rgb(color)
+        return 0.299 * red + 0.587 * green + 0.114 * blue
+
+    # The style's ink or paper colour, whichever stands out more from the cell.
+    ink, paper = style.role("ink"), style.role("paper")
     for j, yj in enumerate(y):
         for i, xi in enumerate(x):
             value = values[j, i]
             if not np.isfinite(value) or (skip_masked is not None and skip_masked[j, i]):
                 continue
-            red, green, blue, _ = mappable.cmap(mappable.norm(value))
-            light = 0.299 * red + 0.587 * green + 0.114 * blue > 0.5
+            cell = luminance(mappable.cmap(mappable.norm(value))[:3])
+            color = ink if abs(luminance(ink) - cell) >= abs(luminance(paper) - cell) else paper
             text = format(value, fmt) if "{" not in fmt else fmt.format(value)
-            ax.text(xi, yj, text, ha="center", va="center", fontsize=fontsize, color="black" if light else "white",
-                    zorder=OVERLAY_ZORDER)
+            ax.text(xi, yj, text, ha="center", va="center", fontsize=fontsize, color=color, zorder=OVERLAY_ZORDER)
 
 
 def _colour_scale(mappable, args):

@@ -486,7 +486,9 @@ def test_confusion_matrix_names_norm_annotate(make_project):
     assert np.allclose(rows.sum(axis=1), 1)  # each row sums to 1
     light, dark = [t for t in ax.texts if t.get_text() in ("5%", "91%")]
     colours = {t.get_text(): t.get_color() for t in (light, dark)}
-    assert colours["91%"] == "white" and colours["5%"] == "black"
+    from plotipus import style
+
+    assert colours["91%"] == style.role("paper") and colours["5%"] == style.role("ink")
 
 
 def test_numeric_grid_annotated_without_categories(make_project):
