@@ -31,7 +31,7 @@ depends on are merged.
 | 3 | ~~T09 map colorbars (after T02)~~ · ~~T10 box plots (after T03, T07)~~ · ~~T11 style infrastructure~~ | T09 shares `map.py` with T02; T11 edits colours in every kind |
 | 4 | ~~T12 ticks and output~~ → ~~T13 measured layout~~ | both edit `plot.py`/`panels.py`; in sequence |
 | 5 | ~~T14 media, widths and themes~~ → ~~T15 legends~~ | both build on T13's layout |
-| 6 | T16 ship the styles → T17 experiments and watermarks | the new defaults land here |
+| 6 | ~~T16 ship the styles~~ → ~~T17 experiments and watermarks~~ | the new defaults land here |
 | 7 | ~~T18 stacking/overlay~~ → ~~T19 Poisson/CP errors~~ · T21 series type → T20 bands and σ lines | the HEP essentials; T18–T21 all edit `line.py`/`plot.py`, so overlap them only with care |
 | 8 | T22 backlog items (each item can be its own session) · T23 examples gallery (grows from wave 2 on) | breadth |
 
@@ -40,7 +40,7 @@ T̶0̶1̶ ─┬─ T̶0̶2̶ ── T̶0̶9̶
      ├─ T̶0̶3̶ ─┐
      ├─ T̶0̶7̶ ─┴─ T̶1̶0̶
      ├─ T̶0̶4̶, T̶0̶5̶, T̶0̶6̶, T̶0̶8̶
-     └─ T̶1̶1̶ ── T̶1̶2̶ ── T̶1̶3̶ ── T̶1̶4̶ ── T̶1̶5̶ ── T16 ── T17
+     └─ T̶1̶1̶ ── T̶1̶2̶ ── T̶1̶3̶ ── T̶1̶4̶ ── T̶1̶5̶ ── T̶1̶6̶ ── T̶1̶7̶
                                          └── T̶1̶8̶ ── T̶1̶9̶, T21 ── T20 ── T22 …
 T24 (independent; open until the famous plots match)   T23 (incremental, after wave 2)
 ```
@@ -116,8 +116,8 @@ Struck through: done and merged into `main`.
 | ~~[T13](T13-measured-layout.md)~~ | ~~Measured layout~~ | 4 | L | med |
 | ~~[T14](T14-media-widths-themes.md)~~ | ~~Media (slides/paper/web), widths, themes~~ (famous-plot follow-up: `style.text_scale`, `--single_panel_size`; the famous paper gallery is `--medium paper`) | 5 | L | med |
 | ~~[T15](T15-legends.md)~~ | ~~Legends that never cover data~~ (famous-plot follow-up: a legend per panel, below/right of the axes, one `--legend_loc` for both legends) | 5 | M | med |
-| [T16](T16-ship-styles.md) | Ship the styles; `classic` for compatibility | 6 | M | high |
-| [T17](T17-experiments-watermarks.md) | Experiment presets and watermarks (famous-plot follow-up: several `--label_right` lines; F01, F03–F05 use the headers) | 6 | M | low |
+| ~~[T16](T16-ship-styles.md)~~ | ~~Ship the styles; `classic` for compatibility~~ | 6 | M | high |
+| ~~[T17](T17-experiments-watermarks.md)~~ | ~~Experiment presets and watermarks~~ (famous-plot follow-up: several `--label_right` lines; F01, F03–F05 use the headers) | 6 | M | low |
 | ~~[T18](T18-stacking-overlay.md)~~ | ~~Stacked simulation with overlaid data~~ | 7 | M | med |
 | ~~[T19](T19-poisson-cp-errors.md)~~ | ~~Poisson and Clopper–Pearson intervals in plots~~ | 7 | M | low |
 | [T20](T20-bands-sigma-lines.md) | Nested bands, Brazil plots, σ lines | 7 | M | low |
