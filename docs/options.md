@@ -103,6 +103,12 @@ are the example list, `examples/input/plots/example_scripts.txt`;
   drawn as bars or bands by the plot type's default; `--error_label` names
   the interval in the y label ("Counts, 68% CL (Poisson)"; on by default in
   the slides style, `plot_settings.error_label`).
+* **Line styles** (`--plot_style`, `--comparable_linestyles`,
+  `--line_style`, `--horizontal_style`, ...): the names `solid`, `dashed`,
+  `dotted`, `dashdot` or the codes `-`, `--`, `:`, `-.`; a lone `--` or
+  `-.` after a style option is read as a value (dashed, dashdot), not as
+  the end of the options. With `--hue X --style X`, `--comparable_linestyles`
+  and `--comparable_linewidths` follow the hue order.
 * **Axes and overlays**: `--labelx/--labely/--labelz`, `--rangex/--rangey`,
   `--logx/--logy`, `--horizontal`, `--vertical`, `--point`, `--square`,
   `--line`, `--xtick`, `--note`, `--title`.
@@ -298,6 +304,19 @@ on top, in their palette colour, or in `ink` when the value is also in
 `--overlay`. A style file can set the types once, as a mapping addressed
 with `--series_type_mapping NAME` (e.g. `"mappings": {"series_types":
 {"data": "errorbar"}}`); `--series_type` entries win over it.
+`--series_marker VALUE=MARKER [...]` (or a style mapping addressed with
+`--series_marker_mapping NAME`) gives single hue values their marker: a
+matplotlib code (`o`, `s`, `^`, `v`, `D`, `x`, `+`, `*`, ...), `_open` for a
+hollow one filled with the paper colour (`o_open`), `:SIZE` for its size in
+points (`x:14`). Points, error-bar points and lines take it (a line gets a
+marker at each point: `--series_marker observed=o:5` for an observed curve
+drawn through its points), and the legend shows the same marker. Hubble's
+1929 diagram: `--series_marker 'Individual nebulae=o' Groups=o_open
+'Mean of 22 nebulae=+:14'`.
+`--errorx_column LOW HIGH` draws x error bars on points from the data: two
+array columns with each point's bin edges (bins of unequal width, points
+not at the bin centres), or one column of half-widths. `--errory_x`
+instead takes half the width of bins centred between the points.
 `--error_scale K` multiplies the drawn errors, not the values, by K, for
 errors too small to see (FIRAS ×400, the LEP lineshape ×10), and appends
 "(errors ×K)" to the legend label of each series whose errors are drawn;

@@ -766,3 +766,94 @@ def test_column_lower_panel_has_a_reference_line(make_project):
     flat = [[l for l in fig.axes[1].get_lines() if l.get_linestyle() == "--" and np.allclose(l.get_ydata(), 0)]
             for fig in figures]
     assert len(flat[0]) == 1 and not flat[1]
+
+
+# --- per-series markers, x errors from bin edges (T21b) -------------------------------
+
+
+def _legend_handles(ax):
+    legend = ax.get_legend()
+    return {t.get_text(): h for t, h in zip(legend.get_texts(), legend.legend_handles)}
+
+
+def test_series_marker_shapes_and_legend(make_project, models):
+    from plotipus import style
+
+    figures = _capture()
+    make_project({"Hubble": models})
+    line.main(["--datafile", "Hubble", "-x", "Z", "-y", "Mu", "--hue", "Model", "--plot_type", "line",
+               "--series_type", "data=errorbar", "--series_marker", "data=o_open", "LCDM=s", "EdS=x:14"])
+    ax = figures[0].axes[0]
+    (data,), lines = _series_artists(ax)
+    point = data.lines[0]
+    assert point.get_marker() == "o" and to_hex(point.get_markerfacecolor()) == to_hex(style.role("paper"))
+    assert to_hex(point.get_markeredgecolor()) == to_hex(point.get_color())
+    by_label = {l.get_label(): l for l in lines}
+    assert by_label["LCDM"].get_marker() == "s" and by_label["LCDM"].get_linestyle() == "-"  # a line with markers
+    assert by_label["EdS"].get_marker() == "x" and by_label["EdS"].get_markersize() == 14
+    assert by_label["Empty"].get_marker() in ("None", "", None)
+    handles = _legend_handles(ax)
+    assert handles["LCDM"].get_marker() == "s" and handles["EdS"].get_marker() == "x"
+    from matplotlib.lines import Line2D
+
+    hollow = [l for l in ax.get_legend().findobj(Line2D) if l.get_marker() == "o"]  # the error-bar entry
+    assert len(hollow) == 1 and to_hex(hollow[0].get_markerfacecolor()) == to_hex(style.role("paper"))
+
+
+def test_series_marker_from_style_mapping_on_overlay_points(make_project, models, tmp_path):
+    (tmp_path / "style.json").write_text('{"mappings": {"markers": {"data": "D"}}}')
+    figures = _capture()
+    make_project({"Hubble": models}, 'style = ["style.json"]\n')
+    line.main(["--datafile", "Hubble", "-x", "Z", "-y", "Mu", "--hue", "Model", "--plot_type", "line",
+               "--overlay", "data", "--series_marker_mapping", "markers"])
+    (data,), _ = _series_artists(figures[0].axes[0])
+    assert data.lines[0].get_marker() == "D"
+
+
+@pytest.mark.parametrize("spec", ["data=dots", "data=o_open:big", "data"])
+def test_series_marker_rejects_bad_specs(spec):
+    with pytest.raises(SystemExit):
+        line.parse(["--datafile", "X", "-y", "Y", "--series_marker", spec])
+
+
+def test_x_errors_from_bin_edge_columns(make_project):
+    x = np.array([1.0, 3.0, 7.0])
+    low, high = np.array([0.0, 2.0, 4.0]), np.array([2.0, 4.0, 12.0])  # unequal bins, x not centred
+    frame = pd.DataFrame([{"X": x, "Y": np.array([1.0, 2.0, 3.0]), "YError": np.full(3, 0.1), "Low": low,
+                           "High": high, "S": "data"},
+                          {"X": x, "Y": np.array([1.1, 2.1, 2.9]), "S": "model"}])
+    make_project({"E": frame})
+    figures = _capture()
+    line.main(["--datafile", "E", "-x", "X", "-y", "Y", "--hue", "S", "--overlay", "data", "--plot_type", "line",
+               "--errorx_column", "Low", "High"])
+    (data,), _ = _series_artists(figures[0].axes[0])
+    assert data.has_xerr
+    segments = [s for c in data.lines[2] for s in c.get_segments() if np.isclose(s[0][1], s[1][1])]
+    spans = sorted((s[0][0], s[1][0]) for s in segments)
+    assert np.allclose(spans, list(zip(low, high)))
+
+    figures.clear()
+    frame["Half"] = [np.array([1.0, 1.0, 4.0]), None]
+    make_project({"E": frame})
+    line.main(["--datafile", "E", "-x", "X", "-y", "Y", "--hue", "S", "--overlay", "data", "--plot_type", "line",
+               "--errorx_column", "Half"])
+    (data,), _ = _series_artists(figures[0].axes[0])
+    segments = [s for c in data.lines[2] for s in c.get_segments() if np.isclose(s[0][1], s[1][1])]
+    assert np.allclose(sorted(s[1][0] - s[0][0] for s in segments), [2.0, 2.0, 8.0])
+
+
+def test_comparable_linewidths_follow_the_hue_when_hue_is_style(make_project, models):
+    figures = _capture()
+    make_project({"Hubble": models})
+    line.main(["--datafile", "Hubble", "-x", "Z", "-y", "Mu", "--hue", "Model", "--style", "Model",
+               "--plot_type", "line", "--comparable_linewidths", "1", "2", "3", "4"])
+    widths = {l.get_label(): l.get_linewidth() for l in figures[0].axes[0].get_lines()
+              if not l.get_label().startswith("_")}
+    assert widths == {"data": 1, "LCDM": 2, "Empty": 3, "EdS": 4}
+
+
+def test_short_line_styles_parse_as_values():
+    args = line.parse(["--datafile", "X", "-y", "Y", "--comparable_linestyles", "solid", "--", "-.", ":",
+                       "--plot_style", "--", "--logy"])
+    assert args.comparable_linestyles == ["solid", "dashed", "dashdot", ":"]
+    assert args.plot_style == "dashed" and args.logy

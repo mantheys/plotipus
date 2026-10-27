@@ -146,7 +146,11 @@ def build_parser():
         help="Column holding the symmetric y error (default {y}Error).")
     add("--errory_bounds", type=str, nargs=2, default=None, metavar=("LOW", "HIGH"),
         help="Columns holding the lower and upper edges of an asymmetric y interval.")
-    add("--errory_x", action="store_true", default=False, help="Also draw x error bars (half bin widths).")
+    add("--errory_x", action="store_true", default=False,
+        help="Also draw x error bars (half bin widths, from edges halfway between the points).")
+    add("--errorx_column", nargs="+", default=None, metavar="COL",
+        help="x error bars of points from the data: LOW HIGH (array columns with each point's bin edges, for "
+        "unequal bins) or one column of half-widths. Series without the columns get none.")
     add("--count_column", type=str, default=None, metavar="N",
         help="With --errory_type clopper_pearson: array column with the number of trials of each point "
         "(k = y / --efficiency_scale * N).")
@@ -221,6 +225,12 @@ def build_parser():
     add("--series_type_mapping", type=str, default=None, metavar="NAME",
         help="Mapping (style mappings) giving the plot type of each hue value, e.g. \"series_types\": "
         "{\"data\": \"errorbar\"}; --series_type entries win over it.")
+    add("--series_marker", nargs="+", default=None, metavar="VALUE=MARKER",
+        help="Marker per hue value: a matplotlib marker code (o, s, ^, v, D, x, +, *, ...), '_open' for a hollow "
+        "one (o_open), ':SIZE' for its size in points (x:14). Used by points, error bars and lines (a line gets a "
+        "marker at each point); the legend shows the same marker.")
+    add("--series_marker_mapping", type=str, default=None, metavar="NAME",
+        help="Mapping (style mappings) giving the marker of each hue value; --series_marker entries win over it.")
     add("--error_scale", type=float, default=None, metavar="K",
         help="Multiply the drawn errors (not the values) by K, e.g. to show tiny errors; the legend labels of "
         "those series get \"(errors ×K)\".")
@@ -346,6 +356,16 @@ def _check_args(args, parser):
             parser.error(f"--series_type: expected VALUE=TYPE, got '{entry}'")
         if kind not in PLOT_TYPES:
             parser.error(f"--series_type {entry}: TYPE must be one of {', '.join(PLOT_TYPES)}")
+    for entry in args.series_marker or []:
+        value, sep, spec = entry.rpartition("=")
+        if not sep or not value:
+            parser.error(f"--series_marker: expected VALUE=MARKER, got '{entry}'")
+        try:
+            parse_marker(spec)
+        except ValueError as error:
+            parser.error(f"--series_marker {entry}: {error}")
+    if args.errorx_column and len(args.errorx_column) > 2:
+        parser.error("--errorx_column takes LOW HIGH or one column of half-widths")
 
 
 def main(argv=None):
@@ -449,6 +469,7 @@ class Series:
         self.edgecolor = None
         self.linestyle = None
         self.linewidth = None
+        self.marker = None  # (marker, hollow, size) from --series_marker
         self.fill_alpha = None
         self.fill_hatch = None
         self.label = None
@@ -634,21 +655,98 @@ def _counts(y):
     return y.size > 0 and bool(np.all(y >= 0)) and bool(np.all(y == np.round(y)))
 
 
+def _per_series(hue, entries, mapping):
+    """Value of hue value ``hue`` from VALUE=X command-line ``entries`` (they
+    win) or the style ``mapping``; None when it is not listed."""
+    if hue is None or isinstance(hue, _SumSlot):
+        return None
+    for entry in entries or []:
+        value, _, setting = entry.rpartition("=")
+        if value == str(hue):
+            return setting
+    return map_iterable_value(hue, mapping)
+
+
 def _series_type(hue, args):
     """Plot type of hue value ``hue`` from --series_type (or the
     --series_type_mapping), None when it is not listed."""
-    if hue is None or isinstance(hue, _SumSlot):
-        return None
-    for entry in args.series_type or []:
-        value, _, kind = entry.rpartition("=")
-        if value == str(hue):
-            return kind
-    kind = map_iterable_value(hue, args.series_type_mapping)
+    kind = _per_series(hue, args.series_type, args.series_type_mapping)
     if kind is not None and kind not in PLOT_TYPES:
         rprint(f"[yellow]Warning:[/yellow] {args.series_type_mapping}: unknown plot type '{kind}' for {hue}; "
                "using --plot_type.")
         return None
     return kind
+
+
+MARKER_SIZE_DEFAULT = None  # matplotlib's lines.markersize
+
+
+def parse_marker(spec):
+    """(marker, hollow, size) of a --series_marker spec: a matplotlib marker
+    code, '_open' for a hollow marker, ':SIZE' for its size in points."""
+    from matplotlib.markers import MarkerStyle
+
+    spec, _, size = str(spec).partition(":")
+    hollow = spec.endswith("_open")
+    marker = spec[: -len("_open")] if hollow else spec
+    if marker not in MarkerStyle.markers or marker in ("", " ", "None", "none"):
+        raise ValueError(f"unknown marker '{marker}' (matplotlib codes such as o s ^ v D x + *)")
+    try:
+        size = float(size) if size else MARKER_SIZE_DEFAULT
+    except ValueError:
+        raise ValueError(f"marker size '{size}' is not a number") from None
+    return marker, hollow, size
+
+
+def _series_marker(hue, args):
+    """(marker, hollow, size) of hue value ``hue`` (--series_marker or its
+    mapping), None when it is not listed."""
+    spec = _per_series(hue, args.series_marker, args.series_marker_mapping)
+    if spec is None:
+        return None
+    try:
+        return parse_marker(spec)
+    except ValueError as error:
+        rprint(f"[yellow]Warning:[/yellow] {args.series_marker_mapping}: {error} for {hue}; using the default marker.")
+        return None
+
+
+def _marker_kwargs(s):
+    """Line2D marker settings of series ``s`` (--series_marker): a hollow
+    marker is filled with the paper colour, so error bars stop at its edge."""
+    if getattr(s, "marker", None) is None:
+        return {}
+    marker, hollow, size = s.marker
+    kwargs = {"marker": marker}
+    if size is not None:
+        kwargs["markersize"] = size
+    if hollow:
+        kwargs.update(markerfacecolor=style.role("paper"), markeredgecolor=s.color,
+                      markeredgewidth=style.default_linewidth * 0.75)
+    return kwargs
+
+
+def _x_errors(s, args):
+    """x error bars of the points of ``s``: --errorx_column (each point's bin
+    edges, or half-widths), else with --errory_x half the widths of bins
+    centred between the points; None without either."""
+    if args.errorx_column:
+        if s.rows is None or not all(c in s.rows.columns for c in args.errorx_column):
+            return None
+        arrays = []
+        for column in args.errorx_column:
+            values = extract(s.rows, args, y_column=column)
+            if values is None or len(values.y) != len(s.y):
+                rprint(f"[yellow]Warning:[/yellow] {column} does not align with {args.x}; no x error bars.")
+                return None
+            arrays.append(np.asarray(values.y, dtype=float))
+        if len(arrays) == 1:
+            return np.abs(arrays[0])
+        x = np.asarray(s.x, dtype=float)
+        return np.vstack([np.clip(x - arrays[0], 0, None), np.clip(arrays[1] - x, 0, None)])
+    if args.errory_x and s.x_edges is not None:
+        return np.diff(s.x_edges) / 2
+    return None
 
 
 def _scale_errors(s, args, plot_type):
@@ -701,10 +799,11 @@ def draw_series(ax, s, args, plot_type=None, stack_bottom=None, dodge_shift=0.0)
         ax.plot(s.x, np.full(len(s.x), 0.9), marker="^", linestyle="None", color=s.color, transform=top,
                 zorder=3)
         return
+    markers = _marker_kwargs(s)
     if plot_type == "data":
-        xerr = np.diff(s.x_edges) / 2 if args.errory_x and s.x_edges is not None else None
         x = np.asarray(s.x, dtype=float) + dodge_shift if dodge_shift and not s.categorical else s.x
-        plot_data(args, ax, x, y=s.y, plot_type="errorbar", yerr=s.error, xerr=xerr, fmt="o", zorder=3, **common)
+        plot_data(args, ax, x, y=s.y, plot_type="errorbar", yerr=s.error, xerr=_x_errors(s, args),
+                  fmt=markers.pop("marker", "o"), zorder=3, **markers, **common)
         return
     lw = {} if s.linewidth is None else {"linewidth": s.linewidth}
     fill = {}
@@ -748,14 +847,15 @@ def draw_series(ax, s, args, plot_type=None, stack_bottom=None, dodge_shift=0.0)
                 plot_data(args, ax, s.x, y=s.y, plot_type="line", linestyle=linestyle, **common,
                           **_error_kwargs(s, args), **lw)
             else:
-                plot_data(args, ax, s.x, y=s.y, plot_type="errorbar", errory=s.error, fmt="o", linestyle=linestyle,
-                          **common)
+                plot_data(args, ax, s.x, y=s.y, plot_type="errorbar", errory=s.error, fmt=markers.pop("marker", "o"),
+                          linestyle=linestyle, **markers, **common)
         elif args.connect:
             plot_data(args, ax, s.x, x_edges=s.x_edges, y=s.y, plot_type="step", linestyle=linestyle, **common, **fill, **lw)
         elif s.comparable is not None:
             plot_data(args, ax, s.x, y=s.y, plot_type="line", linestyle=linestyle, **common)
         else:
-            plot_data(args, ax, s.x, y=s.y, plot_type="plot", marker="o", linestyle="None", **common)
+            plot_data(args, ax, s.x, y=s.y, plot_type="plot", **{"marker": "o", **markers}, linestyle="None",
+                      **common)
         return
 
     if plot_type == "line":
@@ -764,7 +864,8 @@ def draw_series(ax, s, args, plot_type=None, stack_bottom=None, dodge_shift=0.0)
             plot_data(args, ax, x_norm, y=y_norm, plot_type="line", linestyle=linestyle, **common, **lw)
             plot_data(args, ax, x_ext, y=y_ext, plot_type="line", linestyle=EXTRAPOLATED_LINESTYLE, color=s.color, **lw)
         else:
-            plot_data(args, ax, s.x, y=s.y, plot_type="line", linestyle=linestyle, **common, **_error_kwargs(s, args), **lw)
+            plot_data(args, ax, s.x, y=s.y, plot_type="line", linestyle=linestyle, **common, **_error_kwargs(s, args),
+                      **lw, **markers)
     elif plot_type == "step":
         plot_data(args, ax, s.x, x_edges=s.x_edges, y=s.y, plot_type="step", linestyle=linestyle, **common, **fill,
                   **_error_kwargs(s, args), **lw)
@@ -775,17 +876,15 @@ def draw_series(ax, s, args, plot_type=None, stack_bottom=None, dodge_shift=0.0)
         x = s.x
         if dodge_shift:
             x = np.asarray(s.x, dtype=float) + dodge_shift if not s.categorical else s.x
-        xerr = None
-        if args.errory_x and s.x_edges is not None:
-            xerr = np.diff(s.x_edges) / 2
-        plot_data(args, ax, x, y=s.y, errorx=xerr, plot_type="errorbar", fmt="o", linestyle=linestyle, **common,
-                  **_error_kwargs(s, args))
+        plot_data(args, ax, x, y=s.y, errorx=_x_errors(s, args), plot_type="errorbar", fmt=markers.pop("marker", "o"),
+                  linestyle=linestyle, **markers, **common, **_error_kwargs(s, args))
     elif plot_type == "scatter":
         plot_data(args, ax, s.x, y=s.y, errory=s.error, plot_type="scatter", fmt="o", **common)
     elif plot_type in ("bar", "barh"):
         plot_data(args, ax, s.x, y=s.y, plot_type=plot_type, **common)
     else:
-        plot_data(args, ax, s.x, y=s.y, plot_type="plot", marker="o", linestyle=linestyle, **common, **lw)
+        plot_data(args, ax, s.x, y=s.y, plot_type="plot", **{"marker": "o", **markers}, linestyle=linestyle,
+                  **common, **lw)
 
 
 def _shape_color(value):
@@ -975,6 +1074,7 @@ def draw_figure(rows, args, kdx=None):
 
                 plot_type = _row_value(s, args.plot_type_column) or _resolved_plot_type(args)
                 series_type = _series_type(hue, args)
+                s.marker = _series_marker(hue, args)
                 if series_type == "errorbar":
                     plot_type = "data"  # points with their error bars, on top
                 elif series_type is not None:
@@ -1061,6 +1161,8 @@ def _draw_stack_error(ax, series, args):
         return
     total = np.sum([np.asarray(s.y, dtype=float) for s in stacked], axis=0)
     error = _stack_total_error(stacked, args)
+    if error is None and not (args.stack_total_error or args.stack_total_error_column):
+        return  # implied by --overlay with --errory (or Poisson data): only when the stack has errors
     if error is None:
         rprint("[yellow]Warning:[/yellow] The stack total error needs an error for every stacked series; "
                "no band drawn.")
@@ -1119,9 +1221,11 @@ def _encode(s, args, hue_values, colors, style_index, n_style, comparable, compa
             else:
                 s.linestyle = resolve_linestyle(sdx, args, n_total=n_comparable)
         elif same_column:
-            # Line style by position: with 10 colours and 4 styles, distinct pairs for up to 20 values.
+            # Line style (and --comparable_linewidths) by position: with 10 colours and 4 styles, distinct pairs
+            # for up to 20 values.
             index = len(style_index) if s.is_sum else style_index.get(s.hue, 0)
             s.linestyle = resolve_linestyle(index, args, n_total=n_style)
+            s.linewidth = resolve_linewidth(index, args, n_total=n_style)
         else:
             s.linestyle = None
 
