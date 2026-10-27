@@ -101,7 +101,18 @@ def lower_model_series(spec, series, args, label):
         model = function(np.asarray(s.x, dtype=float), *s.rows["Params"].iloc[0])
         error = s.error if s.error is not None and np.ndim(s.error) == 1 else None
         values = model_series(s.y, model, error, spec.name)
-        out.append(_lower_series(s.x, values, None, s.color, s.linestyle, label if not out else None, s.linewidth))
+        errors = None
+        if s.is_data:
+            # Data stay points: a pull carries +-1, a residual its error over the model.
+            if spec.name == "pull":
+                errors = np.where(np.isfinite(values), 1.0, np.nan)
+            elif error is not None:
+                with np.errstate(divide="ignore", invalid="ignore"):
+                    errors = np.where(np.isfinite(values), np.asarray(error, dtype=float) / model, np.nan)
+        lower_s = _lower_series(s.x, values, errors, s.color, s.linestyle, label if not out else None, s.linewidth)
+        if s.is_data:
+            lower_s.forced_type = "data"
+        out.append(lower_s)
     return out
 
 
