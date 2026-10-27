@@ -34,17 +34,17 @@ command lists.
 
 | Group | ✅ | ◐ | ✗ |
 |---|---|---|---|
-| A Distributions | 7 | 0 | 5 |
+| A Distributions | 7 | 1 | 4 |
 | B Relationships | 6 | 1 | 2 |
 | C Trends and fits | 10 | 0 | 0 |
 | D Comparisons | 5 | 1 | 3 |
 | E Ratios and significance | 8 | 0 | 0 |
 | F ML diagnostics | 6 | 1 | 0 |
 | G Uncertainty | 8 | 1 | 0 |
-| H Small multiples and layout | 5 | 1 | 2 |
+| H Small multiples and layout | 6 | 0 | 2 |
 | I Annotations | 10 | 0 | 0 |
 | J Tables | 6 | 1 | 0 |
-| **Total (89)** | **71** | **6** | **12** |
+| **Total (89)** | **72** | **6** | **11** |
 
 Nearly half of the ◐ entries are partial only because of a bug in
 [bugs.md](bugs.md), not because an option is missing. Fixing B01–B13 moves
@@ -65,7 +65,7 @@ about 12 of them to ✅.
 | A7 | KDE | smooth density of a sample | — | ✗ | — | `hist --hist_type kde` (scipy `gaussian_kde`, Scott bandwidth, `--bw`). |
 | A8 | ECDF / cumulative | quantiles, comparing tails | — | ✗ | — | `hist --hist_type ecdf` (and `--cumulative` for histograms). |
 | A9 | Box plot per category | distribution summaries side by side | — | ✅ | `line --binned --plot_type box --hue Sample` (P14): hues dodged per bin or per category of a non-numeric x, `--box_tick_labels ranges`, `--whis` (B16, fixed in T10). | — |
-| A10 | Violin / strip / box per category | distributions per category | F25 | ✗ | `cat` reduces each row to one number. | `cat --kind box\|violin\|strip`: array cells kept as distributions instead of being integrated. |
+| A10 | Violin / strip / box per category | distributions per category | F25 | ◐ | Per bin of a numeric x: `line --binned --plot_type violin` (or `box`; example-feedback round 4). `cat` still reduces each row to one number. | `cat --kind box\|violin\|strip`: array cells kept as distributions instead of being integrated. |
 | A11 | Ridgeline (joy plot) | many distributions, ordered | — | ✗ | — | `hist --ridge [OVERLAP]`: offset each hue vertically, label on the left. |
 | A12 | Rug | raw positions under a hist or KDE | — | ✗ | — | `hist --rug` (ticks along the x axis, alpha by density). |
 
@@ -164,7 +164,7 @@ All curves are precomputed by the analysis (plotipus does not fit or score).
 | H5 | Inset axes | zoom, second view | F02, F13, F18 | ✅ | `line --inset X0 X1 [Y0 Y1]` (a zoom with connectors) or `--inset_args 'OPTIONS'` (another selection or x/y, `--binned` too), placed by `--inset_pos x y w h` (T22.7). | — |
 | H6 | Secondary axis (unit conversion) | GHz vs cm⁻¹, energy vs wavelength | F06 | ✗ | — | `--secondary_x 'FORWARD;INVERSE'`, from a named mapping in style.json. |
 | H7 | Broken or hybrid log/linear axis | wide dynamic range | F05, F07 | ✗ | — | `--xscale symlog` / `--xscale 'log<30<linear'` (custom matplotlib scale). Low priority. |
-| H8 | Figure sized for a journal column | publication | all | ◐ | Sizes are style settings (`figure_layout` in style.json); there is no `--width single\|double` and no per-figure aspect. | `--width single\|double\|slide\|<in>`, `--aspect`; see style_spec.md. |
+| H8 | Figure sized for a journal column | publication | all | ✅ | `--medium paper --width single\|onehalf\|double\|nature\|INCHES`, `--aspect H/W` (T14). | — |
 
 ## I. Annotations
 

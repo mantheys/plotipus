@@ -17,6 +17,11 @@ seeded).
   preselection and after the final selection (for a before/after chart).
 - ``Summary``: efficiency, purity and rate of two detector layouts, with
   errors (for the result tables).
+- ``Monitoring``: the daily gain of two calorimeter channels over 2025 (a
+  datetime x): a seasonal drift with the hall temperature, noise, and a
+  step on the day of a high-voltage intervention in channel B.
+- ``EnergyScale``: the profile-likelihood scan (Delta NLL x 2) of the
+  electron energy scale, slightly asymmetric.
 """
 
 import numpy as np
@@ -103,4 +108,22 @@ def summary(rng):
     return {"Summary": pd.DataFrame(rows)}
 
 
-GENERATORS = {"showers": showers, "trigger_efficiency": trigger_efficiency, "yields": yields, "summary": summary}
+def monitoring(rng):
+    days = pd.date_range("2025-01-01", "2025-12-31", freq="D").to_numpy()
+    phase = 2 * np.pi * np.arange(days.size) / days.size
+    rows = []
+    for channel, offset, step in (("Channel A", 1.000, 0.0), ("Channel B", 0.985, 0.012)):
+        gain = offset - 0.008 * np.cos(phase) + step * (np.arange(days.size) >= 200)
+        rows.append({"Channel": channel, "Day": days, "Gain": gain + rng.normal(0, 0.004, days.size),
+                     "GainError": np.full(days.size, 0.004)})
+    return {"Monitoring": pd.DataFrame(rows)}
+
+
+def energy_scale(rng):
+    scale = np.linspace(0.985, 1.015, 61)
+    shifted = (scale - 1.0021) / 0.0035
+    return {"EnergyScale": pd.DataFrame([{"Scale": scale, "DeltaNLL": shifted ** 2 * (1 + 0.15 * shifted / 3)}])}
+
+
+GENERATORS = {"showers": showers, "trigger_efficiency": trigger_efficiency, "yields": yields, "summary": summary,
+              "monitoring": monitoring, "energy_scale": energy_scale}
