@@ -194,6 +194,27 @@ def test_plugin_colour_cycle_survives_project_style_files(make_project, spectra,
     sys.modules.pop("cycle_plugin", None)
 
 
+def test_plugin_rcparams_survive_project_style_files(make_project, spectra, tmp_path, monkeypatch):
+    """Issue #2: every rcParam a plugin sets keeps its say over the named
+    style when project style files come after it; those files still win."""
+    (tmp_path / "rc_plugin.py").write_text(
+        "import matplotlib.pyplot as plt\n"
+        "def setup(registry):\n"
+        "    plt.rcParams['lines.linewidth'] = 2.0\n"
+        "    plt.rcParams['font.sans-serif'] = ['Helvetica', 'DejaVu Sans']\n"
+        "    plt.rcParams['xtick.major.size'] = 10.0\n")
+    (tmp_path / "style.json").write_text('{"rcparams": {"font.size": 11, "xtick.major.size": 7}}')
+    monkeypatch.syspath_prepend(str(tmp_path))
+    make_project({"Spectra": spectra}, 'plugins = ["rc_plugin"]\nstyle = ["style.json"]\n')
+    project.load_project()
+    for name in (None, "paper", "open-dark"):
+        project.apply_rendering(preset=name)
+        assert plt.rcParams["lines.linewidth"] == 2.0
+        assert plt.rcParams["font.sans-serif"][0] == "Helvetica"
+        assert plt.rcParams["font.size"] == 11 and plt.rcParams["xtick.major.size"] == 7
+    sys.modules.pop("rc_plugin", None)
+
+
 def test_save_style_writes_the_resolved_style(make_project, spectra):
     out = make_project({"Spectra": spectra})
     line.main(["--datafile", "Spectra", "-x", "Energy", "-y", "Counts", "--style_preset", "paper-dark",
