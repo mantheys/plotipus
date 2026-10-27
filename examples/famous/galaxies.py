@@ -14,7 +14,7 @@ import models
 from _common import DATA
 
 SPARC = DATA / "sparc"
-SIZE_CLASSES = ((12.0, "$R_{max}$ < 12 kpc"), (35.0, "12-35 kpc"), (np.inf, "$R_{max}$ > 35 kpc"))
+SIZE_CLASSES = ((12.0, r"$R_{max} < 12\,\mathrm{kpc}$"), (35.0, r"$12 - 35\,\mathrm{kpc}$"), (np.inf, r"$R_{max} > 35\,\mathrm{kpc}$"))
 # SPARC's disk mass-to-light ratio at 3.6 microns (Lelli, McGaugh & Schombert 2016).
 DISK_ML = 0.5
 
