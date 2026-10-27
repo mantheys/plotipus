@@ -303,8 +303,9 @@ def build_parser():
     add("--smooth_kind", choices=["rolling", "savgol"], default="rolling",
         help="--smooth filter: a centred rolling mean (default) or a quadratic Savitzky-Golay filter.")
     add("--smooth_only", action="store_true", default=False, help="With --smooth: leave the raw series out.")
-    add("--direct_labels", action="store_true", default=False,
-        help="Name each line series at its last point, in its colour, instead of a legend.")
+    add("--direct_labels", nargs="?", const="end", default=None, metavar="WHERE",
+        help="Name each line series in its colour instead of a legend: at its last point in view (end, the "
+        "default), just above its maximum (max), or above its value at x = WHERE (a number).")
     add("--mean_band", action="store_true", default=False,
         help="Horizontal line at the mean of all y values with a +-1 std band.")
     add("--sigma_lines", nargs="+", type=float, default=None, metavar="N",
@@ -315,7 +316,7 @@ def build_parser():
         "whole number with --cl_dof 1 (1 4 gives 1 and 2 sigma).")
     add("--cl_lines", nargs="+", type=float, default=None, metavar="CL",
         help="Horizontal lines at the Delta chi2 of confidence levels CL in percent (68 95), for --cl_dof "
-        "degrees of freedom, labelled 'CL% CL'.")
+        "degrees of freedom, labelled 'CL%% CL'.")
     add("--cl_dof", type=int, default=1,
         help="Degrees of freedom of --cl_lines and --delta_chi2_lines (default 1).")
     add("--sigma_line_color", type=str, default=None,
@@ -2004,9 +2005,11 @@ def _finish_upper(fig, upper, lower, drawn, rows, args, variables, last_x, hue_v
 
 
 def _direct_labels(ax, series, args):
-    """--direct_labels: each labelled line series named at its last point in
-    view, in its colour, moved apart vertically so the names do not overlap
-    (instead of a legend; --data_hue points are left unlabelled)."""
+    """--direct_labels: each labelled line series named in its colour (instead
+    of a legend; --data_hue points are left unlabelled): at its last point in
+    view, moved apart vertically so the names do not overlap (end), or
+    centred just above its maximum (max) or its value at a given x."""
+    where = args.direct_labels
     xlim = sorted(ax.get_xlim())
     ends = []
     for s in series:
@@ -2016,8 +2019,23 @@ def _direct_labels(ax, series, args):
         visible = np.isfinite(x) & np.isfinite(y) & (x >= xlim[0]) & (x <= xlim[1])
         if not visible.any():
             continue
-        last = np.flatnonzero(visible)[-1]
-        ends.append((x[last], y[last], s.label, s.color))
+        if where == "end":
+            last = np.flatnonzero(visible)[-1]
+            ends.append((x[last], y[last], s.label, s.color))
+            continue
+        if where == "max":
+            peak = np.flatnonzero(visible)[np.argmax(y[visible])]
+            point = (x[peak], y[peak])
+        else:
+            try:
+                at = float(where)
+            except ValueError:
+                rprint(f"[yellow]Warning:[/yellow] --direct_labels takes end, max or an x value, not '{where}'.")
+                return
+            order = np.argsort(x[visible])
+            point = (at, float(np.interp(at, x[visible][order], y[visible][order])))
+        ax.annotate(s.label, point, xytext=(0, 3), textcoords="offset points", ha="center", va="bottom",
+                    color=s.color, fontsize=style.linelabelfontsize, annotation_clip=False, zorder=10)
     if not ends:
         return
     fontsize = style.linelabelfontsize

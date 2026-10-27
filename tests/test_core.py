@@ -478,3 +478,13 @@ def test_vertical_and_horizontal_bands(make_project):
     vertical = min(spans, key=lambda p: p.get_width() if p.get_height() == 1 else 1e9)
     assert vertical.get_x() == pytest.approx(2) and vertical.get_width() == pytest.approx(2)
     assert "Window" in [t.get_text() for t in ax.texts]
+
+
+def test_every_kind_help_renders(capsys):
+    """argparse formats help texts with %: a bare % in one breaks --help."""
+    from plotipus.kinds import cat, hist, line, map as map_kind, scatter, table
+
+    for kind in (cat, hist, line, map_kind, scatter, table):
+        with pytest.raises(SystemExit):
+            kind.build_parser().parse_args(["--help"])
+        assert "usage:" in capsys.readouterr().out

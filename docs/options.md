@@ -279,8 +279,12 @@ set:
   (muted) at `--region_alpha` (0.3), with an optional `--region_hatch` and a
   `--region_label` written inside its visible part.
 * `line --direct_labels` names each line series at its last point, in its
-  colour, instead of a legend; `map --contour --contour_labels` writes each
-  level's label on its contour line.
+  colour, instead of a legend (`--direct_labels max` centres the names just
+  above each curve's maximum, `--direct_labels X` above its value at x = X);
+  `map --contour --contour_labels` writes each level's label on its contour
+  line, and `--contour_label_pos X1 Y1 X2 Y2 ...` places them at those points
+  instead (innermost level first; `--contour_label_leader` draws a thin line
+  to each contour), for contours too small to carry their labels.
 
 ## Histograms
 

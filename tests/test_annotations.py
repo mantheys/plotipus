@@ -74,3 +74,16 @@ def test_direct_labels_at_line_ends_apart(make_project, curves):
     gap = abs(low.xyann[1] - mid.xyann[1] + (ax.transData.transform(low.xy)[1] - ax.transData.transform(mid.xy)[1])
               * 72 / ax.figure.dpi)
     assert gap >= 1.2 * low.get_fontsize()
+
+
+def test_direct_labels_at_maximum_and_at_x(make_project):
+    x = np.linspace(0, 10, 101)
+    frame = pd.DataFrame([{"X": x, "Y": peak * np.exp(-((x - 5) ** 2)), "Model": name}
+                          for name, peak in (("two", 35.0), ("three", 30.0))])
+    ax = _draw(make_project, frame, "--direct_labels", "max")
+    labels = {t.get_text().lower(): t for t in ax.texts if isinstance(t, Annotation)}
+    assert np.isclose(labels["two"].xy[0], 5) and np.isclose(labels["two"].xy[1], 35)
+    assert labels["two"].get_ha() == "center" and labels["two"].get_va() == "bottom"
+    ax = _draw(make_project, frame, "--direct_labels", "4")
+    labels = {t.get_text().lower(): t for t in ax.texts if isinstance(t, Annotation)}
+    assert np.isclose(labels["three"].xy[1], 30 * np.exp(-1), rtol=1e-3)

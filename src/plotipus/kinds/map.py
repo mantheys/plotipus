@@ -155,7 +155,12 @@ def build_parser():
         help="Line style per sigma level (default: style contours.linestyles, solid, dashed, dotted).")
     add("--contour_linewidth", type=float, default=2.0)
     add("--contour_labels", action="store_true", default=False,
-        help="Write each level's label (68.3% CL, 1 sigma, ...) on its contour line instead of in the legend.")
+        help="Write each level's label (68.3%% CL, 1 sigma, ...) on its contour line instead of in the legend.")
+    add("--contour_label_pos", nargs="+", type=float, default=None, metavar="X Y",
+        help="Place the level labels at these points instead (data coordinates, one X Y pair per level, innermost "
+        "first); implies --contour_labels.")
+    add("--contour_label_leader", action="store_true", default=False,
+        help="With --contour_label_pos: a thin line from each label to its contour.")
     add("--contour_alpha", type=float, default=0.95)
     add("--contour_smoothing_sigma", type=float, default=0.0, help="Gaussian smoothing of the maps before contouring (in bins; without -z, default 1).")
     add("--background_smoothing_sigma", type=float, default=0.0, help="Gaussian smoothing of the background image.")
@@ -888,12 +893,36 @@ def draw_outlines(ax, x, y, image, levels, hues, linestyles, width, alpha, args,
     lines = ax.contour(x, y, image, levels=levels, colors=hues, linestyles=linestyles,
                        linewidths=width, alpha=alpha, zorder=zorder)
     _filter_vertices(lines, args.contour_min_vertices)
-    if args.contour_labels and labels:
+    if args.contour_labels and labels and args.contour_label_pos:
+        _placed_contour_labels(ax, lines, labels, hues, args, zorder)
+    elif args.contour_labels and labels:
         texts = ax.clabel(lines, lines.levels, inline=True, fontsize=style.linelabelfontsize,
                           fmt=dict(zip(lines.levels, labels)))
         for text in texts:
             text.set_zorder(zorder + 0.1)
     return lines
+
+
+def _placed_contour_labels(ax, lines, labels, hues, args, zorder):
+    """--contour_label_pos: level i's label at the i-th X Y (data
+    coordinates), in its colour; with --contour_label_leader a thin line to
+    the nearest point of its contour."""
+    positions = args.contour_label_pos
+    paths = lines.get_paths()
+    for i, label in enumerate(labels):
+        if 2 * i + 1 >= len(positions):
+            break
+        x, y = positions[2 * i], positions[2 * i + 1]
+        color = hues[min(i, len(hues) - 1)]
+        text = ax.text(x, y, label, color=color, fontsize=style.linelabelfontsize, ha="center", va="center",
+                       zorder=zorder + 0.2)
+        text._plotipus_background_over_data = True
+        if args.contour_label_leader and i < len(paths) and len(paths[i].vertices):
+            vertices = paths[i].vertices
+            nearest = vertices[np.argmin(np.hypot(vertices[:, 0] - x, vertices[:, 1] - y))]
+            ax.annotate("", xy=tuple(nearest), xytext=(x, y),
+                        arrowprops=dict(arrowstyle="-", color=color, linewidth=0.6, shrinkA=6, shrinkB=0),
+                        zorder=zorder + 0.1)
 
 
 def _profile_interval(values, delta):
@@ -1391,6 +1420,8 @@ def draw_contour_figure(df, args):
 
 
 def run(args):
+    if args.contour_label_pos:
+        args.contour_labels = True
     if args.cmap == "diverging":
         args.cmap = style.diverging_cmap
     df = import_data(args)
