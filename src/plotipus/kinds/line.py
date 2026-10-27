@@ -49,6 +49,7 @@ from ..encodings import (
     resolve_linewidth,
 )
 from ..format import _title_case_words, make_config_color_and_style_from_args, make_config_label_from_args, make_subtitle_from_args
+from ..inset import add_inset_args, draw_inset
 from ..io import import_data, prepare_import
 from ..lower import (
     DEFAULT_LABELS,
@@ -61,6 +62,7 @@ from ..lower import (
 )
 from ..palettes import ColorAllocator
 from ..panels import (
+    share_grid,
     add_title_and_note,
     apply_axis_options,
     create_panels,
@@ -273,6 +275,26 @@ def build_parser():
         "labels (default with several panels; --no-compact gives each panel its own y axis).")
     add("--no-compact", dest="compact", action="store_false")
     add("--vertical_per_variable", type=str, default=None, help="JSON {panel value: [x positions]}.")
+    add("--facet_row", type=str, default=None, metavar="COL",
+        help="One row of panels per value of COL (with --variables, the variables are the columns).")
+    add("--facet_col", type=str, default=None, metavar="COL",
+        help="One column of panels per value of COL (with --variables, the variables are the rows).")
+    add("--panel_grid", nargs=2, type=int, default=None, metavar=("ROWS", "COLS"),
+        help="Shape of the --variables panels (default: one row up to three, else near square).")
+    add("--sharex", choices=["none", "col", "all"], default=None,
+        help="Share x down each column of panels (col) or across all: tick labels and the x label on the bottom "
+        "row only (default: col for compact grids of several rows, else none).")
+    add("--sharey", choices=["none", "row", "all"], default=None,
+        help="Share y along each row of panels (row) or across all: tick labels and the y label on the first "
+        "column only (default: row for compact panels side by side, else none).")
+    add("--panel_labely", nargs="+", default=None, metavar="LABEL",
+        help="y label of each row of panels (with --facet_row; the last repeats).")
+    add("--panel_rangey", nargs="+", type=float, default=None, metavar="MIN MAX",
+        help="y range of each row of panels, as flattened min max pairs.")
+    add("--panel_lower_labely", nargs="+", default=None, metavar="LABEL",
+        help="y label of the lower panels of each row (the last repeats).")
+    add("--panel_lower_rangey", nargs="+", type=float, default=None, metavar="MIN MAX",
+        help="y range of the lower panels of each row, as flattened min max pairs.")
     add("--vertical_column_map", type=str, default=None,
         help="JSON {panel value: column}: vertical line per hue value at that column's value, in its colour.")
     add("--vertical_column_style", type=str, default="--")
@@ -281,8 +303,9 @@ def build_parser():
     add("--smooth_kind", choices=["rolling", "savgol"], default="rolling",
         help="--smooth filter: a centred rolling mean (default) or a quadratic Savitzky-Golay filter.")
     add("--smooth_only", action="store_true", default=False, help="With --smooth: leave the raw series out.")
-    add("--direct_labels", action="store_true", default=False,
-        help="Name each line series at its last point, in its colour, instead of a legend.")
+    add("--direct_labels", nargs="?", const="end", default=None, metavar="WHERE",
+        help="Name each line series in its colour instead of a legend: at its last point in view (end, the "
+        "default), just above its maximum (max), or above its value at x = WHERE (a number).")
     add("--mean_band", action="store_true", default=False,
         help="Horizontal line at the mean of all y values with a +-1 std band.")
     add("--sigma_lines", nargs="+", type=float, default=None, metavar="N",
@@ -293,7 +316,7 @@ def build_parser():
         "whole number with --cl_dof 1 (1 4 gives 1 and 2 sigma).")
     add("--cl_lines", nargs="+", type=float, default=None, metavar="CL",
         help="Horizontal lines at the Delta chi2 of confidence levels CL in percent (68 95), for --cl_dof "
-        "degrees of freedom, labelled 'CL% CL'.")
+        "degrees of freedom, labelled 'CL%% CL'.")
     add("--cl_dof", type=int, default=1,
         help="Degrees of freedom of --cl_lines and --delta_chi2_lines (default 1).")
     add("--sigma_line_color", type=str, default=None,
@@ -362,6 +385,7 @@ def build_parser():
     add_estimator_args(parser)
     add_events_args(parser)
     _add_shape_args(parser)
+    add_inset_args(parser)
     _base.add_output_args(parser)
     return parser
 
@@ -1111,7 +1135,68 @@ def _dodge_categorical(ax, s, shift):
 # --- Figure (hue/style series) ------------------------------------------------------
 
 
+class Facet:
+    """One panel of a --facet_row/--facet_col grid: the rows whose columns
+    hold the values of ``filters``; ``row_value``/``col_value`` name its row
+    and column (None along an axis without facets)."""
+
+    def __init__(self, filters, row_value=None, col_value=None):
+        self.filters = tuple(filters.items())
+        self.row_value, self.col_value = row_value, col_value
+
+    def __eq__(self, other):
+        return isinstance(other, Facet) and self.filters == other.filters
+
+    def __hash__(self):
+        return hash(self.filters)
+
+    def __str__(self):
+        return " - ".join(str(v) for v in (self.row_value, self.col_value) if v is not None)
+
+
+def _facet_values(rows, column, args):
+    """The values of ``column`` in the selected rows, in order of appearance
+    (--variables give the order of the Variable column)."""
+    if column == "Variable" and args.variables is not None:
+        return list(args.variables)
+    if column not in rows.columns:
+        rprint(f"[yellow]Warning:[/yellow] facet column '{column}' not found; one panel.")
+        return [None]
+    return list(dict.fromkeys(filter_dataframe(rows, args)[column].dropna()))
+
+
+def _panel_layout(rows, args):
+    """(panels, shape): the panel keys (--variables values, or Facets of
+    --facet_row/--facet_col, row by row) and the grid shape (None: the
+    default)."""
+    row_column, col_column = args.facet_row, args.facet_col
+    if row_column is None and col_column is None:
+        variables = args.variables if args.variables is not None else [None]
+        return variables, tuple(args.panel_grid) if args.panel_grid else None
+    if args.variables is not None:
+        # The variables take the free dimension.
+        row_column = row_column or "Variable"
+        col_column = col_column or "Variable"
+    row_values = _facet_values(rows, row_column, args) if row_column else [None]
+    col_values = _facet_values(rows, col_column, args) if col_column else [None]
+    panels = []
+    for row_value in row_values:
+        for col_value in col_values:
+            filters = {}
+            if row_column and row_value is not None:
+                filters[row_column] = row_value
+            if col_column and col_value is not None:
+                filters[col_column] = col_value
+            panels.append(Facet(filters, row_value if row_column else None, col_value if col_column else None))
+    return panels, (len(row_values), len(col_values))
+
+
 def _panel_rows(rows, variable):
+    if isinstance(variable, Facet):
+        for column, value in variable.filters:
+            if column in rows.columns:
+                rows = rows[rows[column].astype(str) == str(value)]
+        return rows
     if variable is None or "Variable" not in rows.columns:
         return rows
     return rows[rows["Variable"] == variable]
@@ -1152,9 +1237,9 @@ class _SumSlot(str):
 
 def draw_figure(rows, args, kdx=None):
     """Draw (and save) one figure of hue/style series with optional lower panels."""
-    variables = args.variables if args.variables is not None else [None]
+    variables, shape = _panel_layout(rows, args)
     specs = _lower_specs(args)
-    fig, upper, lower, (nrows, ncols) = create_panels(len(variables), n_lower=len(specs))
+    fig, upper, lower, (nrows, ncols) = create_panels(len(variables), n_lower=len(specs), shape=shape)
     n_panels = len(variables)
 
     rows = rows[rows[args.iterable].notna()] if args.iterable is not None and args.iterable in rows.columns else rows
@@ -1318,6 +1403,7 @@ def draw_figure(rows, args, kdx=None):
     for idx, specs_axes in enumerate(lower):
         for spec, lower_ax in zip(specs, specs_axes):
             _draw_lower(lower_ax, spec, drawn[idx], args, comparable, comparable_values, colors)
+            _per_row(lower_ax, idx // ncols, args.panel_lower_labely, args.panel_lower_rangey)
 
     _finish_upper(fig, upper, lower, drawn, rows, args, variables, last_x, hue_values, comparable,
                   style_map, alpha_map, iterable_style_map, extrapolated_axes, nrows, ncols)
@@ -1329,8 +1415,20 @@ def draw_figure(rows, args, kdx=None):
         hc.colorbar(fig, upper[:len(variables)], label=args.labelz or title,
                     tick_labels=[str(map_iterable_label(v, column, mapping)) for v in hc.values])
 
+    parser = build_parser() if args.inset or args.inset_args else None
+    draw_inset(fig, upper[:n_panels], args, parser, lambda ns: _inset_pass(rows, ns, parser))
     suffix = "stacked_line.png" if args.stacked else "line.png"
     return save(fig, args, kdx, suffix=suffix)
+
+
+def _inset_pass(rows, ns, parser):
+    """Draw the inset arguments ``ns`` (see plotipus.inset) with the line kind's figure code."""
+    _check_args(ns, parser)
+    if ns.binned:
+        from ._estimator import run_estimator
+
+        return run_estimator(rows, ns)
+    return draw_figure(rows, ns)
 
 
 _SUM_KEY = ("sum",)
@@ -1723,6 +1821,15 @@ def _data_lower(x, aligned, operation, label, args=None):
     return out
 
 
+def _per_row(ax, row, labels, ranges):
+    """--panel_(lower_)labely and --panel_(lower_)rangey of grid row ``row``."""
+    if labels:
+        ax.set_ylabel(labels[min(row, len(labels) - 1)], fontsize=style.ysublabelfontsize)
+    if ranges and len(ranges) >= 2:
+        pair = min(row, len(ranges) // 2 - 1)
+        ax.set_ylim(ranges[2 * pair], ranges[2 * pair + 1])
+
+
 def _finish_lower(ax, spec, args, label, has_content):
     ax.set_ylabel(str(args.lower_labely if args.lower_labely is not None else label), fontsize=style.ysublabelfontsize)
     apply_axis_options(ax, args, prefix="lower_", x=False)
@@ -1765,12 +1872,12 @@ def _finish_upper(fig, upper, lower, drawn, rows, args, variables, last_x, hue_v
 
     categorical = any(s.categorical for panel in drawn.values() for s in panel[-1:])
     rotated = categorical and args.plot_type != "barh"
-    compact = (args.compact if args.compact is not None else ncols > 1) or style.figure_layout_mode == "panels"
-    if compact and ncols > 1:
-        # One y range per row, so the inner panels can drop their tick labels.
-        for idx in range(min(n_panels, len(upper))):
-            if idx % ncols:
-                upper[idx].sharey(upper[idx - idx % ncols])
+    compact = (args.compact if args.compact is not None else ncols > 1 or nrows > 1) or style.figure_layout_mode == "panels"
+    # Compact grids share y along each row and x down each column; inner panels drop their tick labels.
+    sharey = args.sharey or ("row" if compact and ncols > 1 else "none")
+    sharex = args.sharex or ("col" if compact and nrows > 1 else "none")
+    share_grid(upper[:n_panels], lower[:n_panels], (nrows, ncols), sharex=sharex, sharey=sharey)
+    if sharey != "none" and ncols > 1:
         # Without inner y labels the panels move close (the layout widens the gap if x labels need it).
         upper[0].get_gridspec().update(wspace=style.compact_gap())
     categorical_y = categorical and args.plot_type == "barh"
@@ -1783,7 +1890,23 @@ def _finish_upper(fig, upper, lower, drawn, rows, args, variables, last_x, hue_v
         ax = upper[idx]
         panel_rows = _panel_rows(rows, variable)
         has_lower = bool(lower[idx])
-        if n_panels > 1:
+        row, col = divmod(idx, ncols)
+        if args.panel_title is not None and idx < len(args.panel_title):
+            ax.set_title(args.panel_title[idx], fontsize=style.subtitlefontsize)
+        elif isinstance(variable, Facet):
+            # Column values over the top row, row values right of the last column.
+            def name(value):
+                if label_map is not None and str(value) in label_map:
+                    return label_map[str(value)]
+                return _title_case_words(value) if isinstance(value, str) else str(value)
+
+            if variable.col_value is not None and row == 0:
+                ax.set_title(name(variable.col_value), fontsize=style.subtitlefontsize)
+            if variable.row_value is not None and (col == ncols - 1 or idx == n_panels - 1):
+                ax.annotate(name(variable.row_value), (1, 0.5), xycoords="axes fraction", xytext=(6, 0),
+                            textcoords="offset points", rotation=-90, ha="left", va="center",
+                            fontsize=style.subtitlefontsize, annotation_clip=False)
+        elif n_panels > 1:
             subtitle = _title_case_words(variable) if variable is not None else ""
             if label_map is not None and variable in label_map:
                 subtitle = label_map[variable]
@@ -1795,10 +1918,8 @@ def _finish_upper(fig, upper, lower, drawn, rows, args, variables, last_x, hue_v
             ylabel = resolve_axis_label(labelx, args.x, panel_rows)
         else:
             xlabel = resolve_axis_label(labelx, args.x, panel_rows)
-            if has_lower:
-                lower[idx][-1].set_xlabel(xlabel)
-            else:
-                ax.set_xlabel(xlabel)
+            bottom = lower[idx][-1] if has_lower else ax
+            bottom.set_xlabel("" if getattr(bottom, "_plotipus_inner_x", False) else xlabel)
             default_ylabel = "Normalised to 1" if args.peak else "Density" if args.density else None
             ylabel = resolve_axis_label(args.labely if args.labely is not None or default_ylabel is None
                                         else default_ylabel, args.y, panel_rows)
@@ -1809,16 +1930,20 @@ def _finish_upper(fig, upper, lower, drawn, rows, args, variables, last_x, hue_v
         if rotated:
             ax.tick_params(axis="x", labelrotation=45)
 
-        if not compact or idx % ncols == 0:
-            ax.set_ylabel(ylabel, **({"fontsize": style.ysublabelfontsize} if has_lower else {}))
-        else:
+        if args.panel_labely:
+            ylabel = args.panel_labely[min(row, len(args.panel_labely) - 1)]
+        if getattr(ax, "_plotipus_inner_y", False):
             ax.set_ylabel("")
-            ax.tick_params(labelleft=False)
+            for lower_ax in lower[idx]:
+                lower_ax.set_ylabel("")
+        else:
+            ax.set_ylabel(ylabel, **({"fontsize": style.ysublabelfontsize} if has_lower else {}))
 
         if args.y == "Efficiency" or args.labely == "Efficiency (%)":
             ax.set_ylim(0, 105)
             ax.axhline(100, color=style.role("muted"), linestyle="--", linewidth=1)
         apply_axis_options(ax, args)
+        _per_row(ax, row, None, args.panel_rangey)
         if any(getattr(s, "dates", False) for s in drawn.get(idx, [])):
             for date_ax in (ax, *lower[idx]):
                 _date_axis(date_ax)
@@ -1880,9 +2005,11 @@ def _finish_upper(fig, upper, lower, drawn, rows, args, variables, last_x, hue_v
 
 
 def _direct_labels(ax, series, args):
-    """--direct_labels: each labelled line series named at its last point in
-    view, in its colour, moved apart vertically so the names do not overlap
-    (instead of a legend; --data_hue points are left unlabelled)."""
+    """--direct_labels: each labelled line series named in its colour (instead
+    of a legend; --data_hue points are left unlabelled): at its last point in
+    view, moved apart vertically so the names do not overlap (end), or
+    centred just above its maximum (max) or its value at a given x."""
+    where = args.direct_labels
     xlim = sorted(ax.get_xlim())
     ends = []
     for s in series:
@@ -1892,8 +2019,23 @@ def _direct_labels(ax, series, args):
         visible = np.isfinite(x) & np.isfinite(y) & (x >= xlim[0]) & (x <= xlim[1])
         if not visible.any():
             continue
-        last = np.flatnonzero(visible)[-1]
-        ends.append((x[last], y[last], s.label, s.color))
+        if where == "end":
+            last = np.flatnonzero(visible)[-1]
+            ends.append((x[last], y[last], s.label, s.color))
+            continue
+        if where == "max":
+            peak = np.flatnonzero(visible)[np.argmax(y[visible])]
+            point = (x[peak], y[peak])
+        else:
+            try:
+                at = float(where)
+            except ValueError:
+                rprint(f"[yellow]Warning:[/yellow] --direct_labels takes end, max or an x value, not '{where}'.")
+                return
+            order = np.argsort(x[visible])
+            point = (at, float(np.interp(at, x[visible][order], y[visible][order])))
+        ax.annotate(s.label, point, xytext=(0, 3), textcoords="offset points", ha="center", va="bottom",
+                    color=s.color, fontsize=style.linelabelfontsize, annotation_clip=False, zorder=10)
     if not ends:
         return
     fontsize = style.linelabelfontsize

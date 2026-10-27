@@ -44,16 +44,26 @@ def grid_shape(n_panels):
     return math.ceil(n_panels / ncols), ncols
 
 
-def create_panels(n_panels=1, n_lower=0, grid=True, height_ratios=None):
+def create_panels(n_panels=1, n_lower=0, grid=True, height_ratios=None, shape=None):
     """Figure with ``n_panels`` upper panels and ``n_lower`` lower panels
     below each of them (sharing x).
 
     Returns ``(fig, upper, lower, (nrows, ncols))`` where ``upper`` is a flat
-    list of axes and ``lower[i]`` the list of lower axes under ``upper[i]``.
-    Lower panels need a single row of upper panels.
+    list of axes (row by row) and ``lower[i]`` the list of lower axes under
+    ``upper[i]``. ``shape`` (nrows, ncols) fixes the grid; with lower panels
+    and several rows each row of the grid is an upper panel and its lower
+    panels, with a narrow gap before the next row.
     """
+    from .inset import target
+
+    inset = target()
+    if inset is not None:
+        # An inset pass (plotipus.inset): every panel is the inset axes, without lower panels.
+        return inset.figure, [inset] * max(1, n_panels), [[] for _ in range(max(1, n_panels))], (1, 1)
+    if shape is not None and n_lower > 0 and shape[0] > 1:
+        return _grid_with_lower(n_panels, n_lower, shape, height_ratios)
     if n_lower <= 0:
-        nrows, ncols = grid_shape(n_panels) if grid else (1, n_panels)
+        nrows, ncols = shape if shape is not None else grid_shape(n_panels) if grid else (1, n_panels)
         fig, ax = create_common_subplots(nrows=nrows, ncols=ncols)
         upper = list(np.asarray(ax).flatten())
         for extra in upper[n_panels:]:
@@ -74,6 +84,81 @@ def create_panels(n_panels=1, n_lower=0, grid=True, height_ratios=None):
         upper.append(top)
         lower.append(bottoms)
     return fig, upper, lower, (1, n_panels)
+
+
+# Gap between the rows of a grid with lower panels, as a share of an upper panel's height.
+GRID_ROW_GAP = 0.15
+
+
+def _grid_with_lower(n_panels, n_lower, shape, height_ratios=None):
+    """``create_panels`` for several rows of upper panels with lower panels:
+    one gridspec whose rows are, per grid row, the upper panel, its lower
+    panels and (between rows) a spacer."""
+    from .plot import apply_common_figure_margins, apply_panel_font_scale, get_common_figsize
+
+    nrows, ncols = shape
+    ratios = list(height_ratios or lower_height_ratios(n_lower))
+    full = list(ratios)
+    for _ in range(nrows - 1):
+        full += [GRID_ROW_GAP * ratios[0]] + ratios
+    apply_panel_font_scale(ncols)
+    width, height = get_common_figsize(ncols=ncols, nrows=nrows, height_ratios=ratios)
+    height *= sum(full) / (nrows * sum(ratios))
+    fig = plt.figure(figsize=(width, height))
+    hspace = style.figure_two_panel_hspace
+    gs = fig.add_gridspec(nrows=len(full), ncols=ncols, height_ratios=full, hspace=hspace)
+    apply_common_figure_margins(fig, hspace=hspace)
+    upper, lower = [], []
+    for index in range(n_panels):
+        row, col = divmod(index, ncols)
+        base = row * (len(ratios) + 1)
+        top = fig.add_subplot(gs[base, col])
+        bottoms = [fig.add_subplot(gs[base + k, col], sharex=top) for k in range(1, n_lower + 1)]
+        top.tick_params(labelbottom=False)
+        for ax in bottoms[:-1]:
+            ax.tick_params(labelbottom=False)
+        upper.append(top)
+        lower.append(bottoms)
+    return fig, upper, lower, (nrows, ncols)
+
+
+def share_grid(upper, lower, shape, sharex="none", sharey="none"):
+    """Share axes across a grid of panels (``upper`` row by row, ``lower[i]``
+    under ``upper[i]``): ``sharex`` col (down each column) or all, ``sharey``
+    row (along each row) or all; lower panels share y with the lower panels
+    of the same row. Shared axes keep tick labels on the outer panels only:
+    x on the bottom row of each column, y on the first column."""
+    nrows, ncols = shape
+    n = len(upper)
+
+    def cell(i):
+        return divmod(i, ncols)
+
+    for i in range(n):
+        row, col = cell(i)
+        if sharex in ("col", "all"):
+            leader = col if sharex == "col" else 0
+            if i != leader:
+                upper[i].sharex(upper[leader])
+        if sharey in ("row", "all"):
+            leader = row * ncols if sharey == "row" else 0
+            if i != leader:
+                upper[i].sharey(upper[leader])
+                for ax, lead in zip(lower[i], lower[leader]):
+                    ax.sharey(lead)
+    if sharex in ("col", "all"):
+        for i in range(n):
+            row, col = cell(i)
+            if i + ncols < n:  # a panel below: no x tick labels or x label here
+                for ax in (upper[i], *lower[i]):
+                    ax.tick_params(which="both", labelbottom=False)
+                    ax._plotipus_inner_x = True
+    if sharey in ("row", "all"):
+        for i in range(n):
+            if cell(i)[1] > 0:
+                for ax in (upper[i], *lower[i]):
+                    ax.tick_params(which="both", labelleft=False)
+                    ax._plotipus_inner_y = True
 
 
 def _stacked_figure(ncols, height_ratios):
@@ -287,6 +372,10 @@ def rotate_categorical_labels(fig):
 
 def add_title_and_note(fig, args, tight_rows=1):
     """Figure title (--title or the datafile name) and --note."""
+    from .inset import target
+
+    if target() is not None:
+        return
     title = make_title_from_args(args)
     if tight_rows > 1 and not measured_layout_enabled():
         try:
@@ -314,6 +403,10 @@ def apply_figure_hooks(fig, args):
 def save(fig, args, idx=None, suffix="plot.png", prefix=None):
     """Save under the name built from the arguments (see
     :func:`plotipus.io.make_name_from_args`) into every --output directory."""
+    from .inset import target
+
+    if target() is not None:
+        return None  # an inset pass draws into the main figure
     suffix = getattr(args, "output_suffix", None) or suffix
     if "." not in suffix:
         suffix = f"{suffix}.{getattr(args, 'format', None) or 'png'}"

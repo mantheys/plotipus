@@ -96,3 +96,46 @@ def test_clopper_pearson(tmp_project):
     text = files[0].read_text()
     assert "$100.00^{+0.00}_{-0.01}$" in text
     assert "$85.1^{+0.3}_{-0.4}$" in text and "±" not in text
+
+
+# --- T22.11: statistics and fit-parameter tables ------------------------------------------
+
+
+def _anscombe():
+    x = np.array([10.0, 8, 13, 9, 11, 14, 6, 4, 12, 7, 5])
+    y1 = np.array([8.04, 6.95, 7.58, 8.81, 8.33, 9.96, 7.24, 4.26, 10.84, 4.82, 5.68])
+    y2 = np.array([9.14, 8.14, 8.74, 8.77, 9.26, 8.10, 6.13, 3.10, 9.13, 7.26, 4.74])
+    return pd.DataFrame([
+        {"X": x, "Y": y1, "Dataset": "I", "Params": [0.5, 3.0], "ParamsError": [0.118, 1.12],
+         "ParamsLabel": ["slope", "intercept"], "ParamsFormat": [".3f", ".2f"]},
+        {"X": x, "Y": y2, "Dataset": "II", "Params": [0.5, 3.0], "ParamsError": [0.118, 1.13],
+         "ParamsLabel": ["slope", "intercept"], "ParamsFormat": [".3f", ".2f"]},
+    ])
+
+
+def test_stats_table_of_arrays(tmp_project, capsys):
+    write(tmp_project, "Anscombe", _anscombe())
+    name = table.main(["--datafile", "Anscombe", "-x", "X", "-y", "Y", "--row_name", "Dataset",
+                       "--stats", "mean", "var", "corr", "line", "n", "--table_env", "none"])
+    out = capsys.readouterr().out
+    assert "Mean X" in out and "Var Y" in out and "Corr" in out
+    text = next(tmp_project.rglob("*stats*tabular.tex")).read_text()
+    assert "I & 9.00 & 7.50 & 11.00 & 4.13 & 0.82 & $Y = 0.50\\,X + 3.00$ & 11" in text
+    assert "II & 9.00 & 7.50 & 11.00 & 4.13 & 0.82" in text
+
+
+def test_fit_params_table(tmp_project):
+    write(tmp_project, "Anscombe", _anscombe())
+    table.main(["--datafile", "Anscombe", "-y", "Y", "--row_name", "Dataset", "--fit_params", "--table_env", "none"])
+    text = next(tmp_project.rglob("*fit_params*tabular.tex")).read_text()
+    assert "slope & intercept" in text
+    assert "I & $0.500 \\pm 0.118$ & $3.00 \\pm 1.12$" in text
+
+
+def test_agg_median(tmp_project):
+    rows = [{"Config": "a", "Name": "n", "Variable": "V", "Value": v, "ValueError": 0.1} for v in (1.0, 2.0, 10.0)]
+    write(tmp_project, "Agg", pd.DataFrame(rows))
+    table.main(["--datafile", "Agg", "-y", "Value", "--variables", "V", "--agg", "median", "--no_error",
+                "--table_env", "none"])
+    text = next(tmp_project.rglob("*median*tabular.tex")).read_text()
+    assert "2.00" in text

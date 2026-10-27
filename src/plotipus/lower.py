@@ -22,7 +22,6 @@ with ``lower_`` (``--lower_plot_type``, ``--lower_labely``, ...).
 from dataclasses import dataclass
 
 import numpy as np
-from scipy.special import erf
 
 PAIRWISE_OPERATIONS = (
     "relative_difference",
@@ -112,6 +111,8 @@ def pairwise(reference, other, operation):
         elif operation == "excess_probability":
             # The same significance as two-sided Gaussian coverage: bounded in
             # [0, 1) and saturating instead of diverging when other -> 0.
+            from scipy.special import erf  # imported here: scipy.special takes 0.2 s to import
+
             z = np.maximum(0.0, reference - other) / np.sqrt(other)
             result = erf(z / np.sqrt(2.0))
         else:

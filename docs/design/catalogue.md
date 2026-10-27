@@ -41,10 +41,10 @@ command lists.
 | E Ratios and significance | 8 | 0 | 0 |
 | F ML diagnostics | 6 | 1 | 0 |
 | G Uncertainty | 8 | 1 | 0 |
-| H Small multiples and layout | 2 | 2 | 4 |
+| H Small multiples and layout | 5 | 1 | 2 |
 | I Annotations | 10 | 0 | 0 |
-| J Tables | 4 | 1 | 2 |
-| **Total (89)** | **66** | **7** | **16** |
+| J Tables | 6 | 1 | 0 |
+| **Total (89)** | **71** | **6** | **12** |
 
 Nearly half of the ◐ entries are partial only because of a bug in
 [bugs.md](bugs.md), not because an option is missing. Fixing B01–B13 moves
@@ -158,10 +158,10 @@ All curves are precomputed by the analysis (plotipus does not fit or score).
 | id | chart | use | famous | status | command today / what is missing | smallest change |
 |---|---|---|---|---|---|---|
 | H1 | Facets by a column (wrapped grid) | same plot per group | F25, F11 | ✅ | `line ... --variables panel0 panel1 panel2 panel3` (P18; any column via `--variable_column`). | — |
-| H2 | Shared axes and colour scales across facets | honest comparison | F25 | ◐ | `--compact` hides inner labels; `--matchx/--matchy` exist in `map` only; `map` panels share one colour scale and colorbar (T09). | `--sharex/--sharey` for every kind. |
-| H3 | Facet grid (rows × columns by two columns) | two-factor comparison | F15 | ✗ | Panels come from one column only. | `--facet_row COL --facet_col COL`. |
+| H2 | Shared axes and colour scales across facets | honest comparison | F25 | ✅ | `line --sharex col\|all --sharey row\|all` (T22.6; compact grids share x by column and y by row, outer tick labels only); `map` panels share one colour scale and colorbar (T09) and y with `--compact`. | `hist`/`scatter` keep one row. |
+| H3 | Facet grid (rows × columns by two columns) | two-factor comparison | F15 | ✅ | `line --facet_row COL --facet_col COL` (or one of them with `--variables`; T22.6), each cell with its own `--lower` panels and per-row `--panel_labely`/`--panel_rangey`. | — |
 | H4 | Upper + lower panels | ratios, residuals | F01, F07 | ✅ | `--lower` (repeatable). | — |
-| H5 | Inset axes | zoom, second view | F02, F13, F18 | ✗ | — | `--inset X0 X1 [Y0 Y1] --inset_pos x y w h`: redraws the same series in a zoom box. |
+| H5 | Inset axes | zoom, second view | F02, F13, F18 | ✅ | `line --inset X0 X1 [Y0 Y1]` (a zoom with connectors) or `--inset_args 'OPTIONS'` (another selection or x/y, `--binned` too), placed by `--inset_pos x y w h` (T22.7). | — |
 | H6 | Secondary axis (unit conversion) | GHz vs cm⁻¹, energy vs wavelength | F06 | ✗ | — | `--secondary_x 'FORWARD;INVERSE'`, from a named mapping in style.json. |
 | H7 | Broken or hybrid log/linear axis | wide dynamic range | F05, F07 | ✗ | — | `--xscale symlog` / `--xscale 'log<30<linear'` (custom matplotlib scale). Low priority. |
 | H8 | Figure sized for a journal column | publication | all | ◐ | Sizes are style settings (`figure_layout` in style.json); there is no `--width single\|double` and no per-figure aspect. | `--width single\|double\|slide\|<in>`, `--aspect`; see style_spec.md. |
@@ -190,8 +190,8 @@ All curves are precomputed by the analysis (plotipus does not fit or score).
 | J3 | siunitx / booktabs output with caption and label | paper-ready | ✅ | `--siunitx --caption ... --label ...`. |
 | J4 | HTML twin of a table | reports | ✅ | `--html`. |
 | J5 | Cut flow (yields by selection stage, several samples) | event selection | ◐ | Works with `--integrate_over`-style sums done upstream; there is no cumulative/relative efficiency column. Add `--cutflow` (absolute, relative to previous, cumulative). |
-| J6 | Summary statistics table (mean, std, correlation) | "same stats" (F25) | ✗ | `--agg` has `mean`/`sum` only. Add `--agg std\|median\|corr`. |
-| J7 | Fit-parameter table from stored fits | publication | ✗ | Stored `Params/ParamsError/ParamsLabel` are only drawn in a box. Add `table --fit_params`. |
+| J6 | Summary statistics table (mean, std, correlation) | "same stats" (F25) | ✅ | `table -x X -y Y --row_name Dataset --stats mean var corr line` (T22.11); `--agg std\|median` for cells. |
+| J7 | Fit-parameter table from stored fits | publication | ✅ | `table --fit_params --row_name Dataset` (T22.11): one column per `ParamsLabel`, value ± error in `ParamsFormat`. |
 
 ---
 

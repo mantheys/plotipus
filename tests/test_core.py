@@ -478,3 +478,25 @@ def test_vertical_and_horizontal_bands(make_project):
     vertical = min(spans, key=lambda p: p.get_width() if p.get_height() == 1 else 1e9)
     assert vertical.get_x() == pytest.approx(2) and vertical.get_width() == pytest.approx(2)
     assert "Window" in [t.get_text() for t in ax.texts]
+
+
+def test_every_kind_help_renders(capsys):
+    """argparse formats help texts with %: a bare % in one breaks --help."""
+    from plotipus.kinds import cat, hist, line, map as map_kind, scatter, table
+
+    for kind in (cat, hist, line, map_kind, scatter, table):
+        with pytest.raises(SystemExit):
+            kind.build_parser().parse_args(["--help"])
+        assert "usage:" in capsys.readouterr().out
+
+
+def test_line_kind_does_not_import_scipy_stats():
+    """scipy.stats and scipy.special take over a second to import: only the
+    options that need them (σ/Δχ² lines, intervals) load them."""
+    import subprocess
+    import sys
+
+    code = ("import sys; from plotipus.kinds import line; "
+            "print(int('scipy.stats' in sys.modules), int('scipy.special' in sys.modules))")
+    out = subprocess.run([sys.executable, "-c", code], capture_output=True, text=True, check=True).stdout.split()
+    assert out == ["0", "0"]

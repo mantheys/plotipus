@@ -86,7 +86,16 @@ def build_parser():
 
     group = parser.add_argument_group("values")
     add = group.add_argument
-    add("--agg", choices=["mean", "sum"], default="mean", help="Aggregation of --y within each cell")
+    add("--agg", choices=["mean", "sum", "std", "median"], default="mean",
+        help="Aggregation of --y within each cell (std and median keep the quadrature-mean error; --no_error drops it)")
+    add("--stats", nargs="+", default=None, choices=["mean", "var", "std", "median", "corr", "line", "n"],
+        metavar="STAT",
+        help="Statistics table instead: one row per data row (labelled by --row_name, else --hue), columns the "
+        "statistics of its -x/-y arrays: mean, var, std, median (of x and y), corr (Pearson r), line (least-squares "
+        "y = a + b x), n (points).")
+    add("--fit_params", action="store_true",
+        help="Table of stored fits instead: one row per fit row (Params/ParamsError/ParamsLabel), one column per "
+        "parameter.")
     add("--error_mode", choices=["quadrature", "linear", "std", "sem", "max"], default="quadrature",
         help="How per-row errors combine: quadrature (independent), linear (correlated), max, or std/sem "
         "of the raw --y values")
@@ -512,6 +521,77 @@ def build_table(df, args):
     return table
 
 
+def _number(value, args):
+    """A statistic as text: --sig_figs significant figures, else --decimals (2)."""
+    if value is None or not np.isfinite(value):
+        return args.missing or "---"
+    if args.sig_figs:
+        return f"{value:.{args.sig_figs}g}"
+    return f"{value:.{2 if args.decimals is None else args.decimals}f}"
+
+
+def _row_key(args):
+    return args.row_name or args.iterable
+
+
+def build_stats_table(df, args):
+    """--stats: one row per data row, the statistics of its -x/-y arrays as
+    columns ("Mean x", "Var y", "Corr", "Line", ...; sample variance)."""
+    rows = filter_dataframe(df, args)
+    key = _row_key(args)
+    x_name, y_name = args.x or "x", args.y or "y"
+    records = []
+    for _, row in rows.iterrows():
+        y = np.asarray(row[args.y], dtype=float).ravel()
+        x = np.asarray(row[args.x], dtype=float).ravel() if args.x else None
+        finite = np.isfinite(y) & (np.isfinite(x) if x is not None else True)
+        y, x = y[finite], (x[finite] if x is not None else None)
+        record = {key or "Row": row[key] if key and key in row else len(records) + 1}
+        for stat in args.stats:
+            arrays = [(x_name, x), (y_name, y)] if x is not None else [(y_name, y)]
+            if stat in ("mean", "var", "std", "median"):
+                for name, values in arrays:
+                    value = {"mean": np.mean, "median": np.median,
+                             "var": lambda v: np.var(v, ddof=1), "std": lambda v: np.std(v, ddof=1)}[stat](values)
+                    record[f"{stat.capitalize()} {name}"] = _number(value, args)
+            elif stat == "n":
+                record["N"] = str(len(y))
+            elif x is None:
+                rprint(f"[yellow]Warning:[/yellow] --stats {stat} needs -x; column skipped.")
+            elif stat == "corr":
+                record["Corr"] = _number(np.corrcoef(x, y)[0, 1], args)
+            elif stat == "line":
+                slope, intercept = np.polyfit(x, y, 1)
+                sign = "-" if intercept < 0 else "+"
+                record["Line"] = f"${y_name} = {_number(slope, args)}\\,{x_name} {sign} {_number(abs(intercept), args)}$"
+        records.append(record)
+    return pd.DataFrame(records)
+
+
+def build_fit_params_table(df, args):
+    """--fit_params: one row per stored fit, ``label`` columns holding
+    value $\\pm$ error in each parameter's ParamsFormat (else --decimals)."""
+    rows = filter_dataframe(df, args)
+    if "Params" in rows.columns:
+        rows = rows[rows["Params"].apply(lambda p: isinstance(p, (list, tuple, np.ndarray)))]
+    key = _row_key(args)
+    records = []
+    for _, row in rows.iterrows():
+        params = list(row["Params"])
+        errors = list(row["ParamsError"]) if "ParamsError" in row and isinstance(row["ParamsError"], (list, tuple, np.ndarray)) else [None] * len(params)
+        labels = list(row["ParamsLabel"]) if "ParamsLabel" in row and isinstance(row["ParamsLabel"], (list, tuple, np.ndarray)) else [f"p{i}" for i in range(len(params))]
+        formats = list(row["ParamsFormat"]) if "ParamsFormat" in row and isinstance(row["ParamsFormat"], (list, tuple, np.ndarray)) else [None] * len(params)
+        record = {key or "Fit": row[key] if key and key in row else len(records) + 1}
+        for label, value, error, fmt in zip(labels, params, errors, formats):
+            fmt = fmt or f".{2 if args.decimals is None else args.decimals}f"
+            text = format(value, fmt)
+            if error is not None and not args.no_error:
+                text = f"${text} \\pm {format(error, fmt)}$"
+            record[label] = text
+        records.append(record)
+    return pd.DataFrame(records)
+
+
 def blocked_tabular(table, args, label_mapping, n_group):
     """Booktabs tabular with one block of rows per configuration; the first
     ``n_group`` columns form the block label (shown on its first row)."""
@@ -593,7 +673,7 @@ def run(args):
     if args.bare:
         args.table_env = "none"
     # The formatters read the aggregation as ``operation``.
-    args.operation = args.agg
+    args.operation = "stats" if args.stats else "fit_params" if args.fit_params else args.agg
     if args.variable_name is None:
         args.variable_name = "Particle" if args.name_columns else "Variable"
 
@@ -625,7 +705,10 @@ def run(args):
                 df[column] = _scale(df[column], factors)
     df = derive_columns(df, args.derive_column)
 
-    table = build_table(df, args)
+    if args.stats or args.fit_params:
+        table = build_stats_table(df, args) if args.stats else build_fit_params_table(df, args)
+    else:
+        table = build_table(df, args)
     print(table.to_string(index=False))
 
     label_mapping = _mapping(args.label_mapping)

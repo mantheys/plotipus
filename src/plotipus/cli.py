@@ -2,7 +2,7 @@
 
     plotipus <kind> [options]          draw one plot/table (kinds: line, scatter,
                                        hist, map, cat, table)
-    plotipus run <list> [--tables]     run a command list (--dry_run, --check, --jobs N,
+    plotipus run <list> [--tables]     run a command list (--dry_run, --check, --jobs N, --isolate,
                                        --medium slides|paper|web|all, --theme light|dark)
     plotipus translate <command...>    show the plotipus form of a legacy command
     plotipus init [directory]          create a project skeleton
@@ -74,11 +74,15 @@ def main(argv=None):
                             help="Render every plot command for this medium ('all': [project] media); "
                             "default: [project] media, else [project] medium")
         parser.add_argument("--theme", default=None, choices=["light", "dark"], help="Theme of every plot command")
+        parser.add_argument("--isolate", default=None, choices=["fork", "subprocess"],
+                            help="Run each command in a fork of the preloaded runner (fork, the default where "
+                            "available: no imports per command) or in a new Python (subprocess)")
         options = parser.parse_args(rest)
         from .runner import run_list
 
         failures = run_list(options.list, options.tables, options.show, options.debug, options.jobs,
-                            options.dry_run, options.match, options.check, options.medium, options.theme)
+                            options.dry_run, options.match, options.check, options.medium, options.theme,
+                            options.isolate)
         return 1 if failures else 0
     if command == "translate":
         tokens = shlex.split(" ".join(rest)) if len(rest) == 1 else rest

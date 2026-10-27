@@ -1105,3 +1105,128 @@ def test_dates_on_x_get_concise_ticks(make_project):
     ax = figures[0].axes[0]
     assert isinstance(ax.xaxis.get_major_formatter(), mdates.ConciseDateFormatter)
     assert np.isclose(ax.lines[0].get_xdata()[0], mdates.date2num(np.datetime64("2024-01-01")))
+
+
+# --- T22.6: panel grids, facets and shared axes --------------------------------------------
+
+
+@pytest.fixture
+def quartet():
+    x = np.arange(1.0, 6.0)
+    rows = []
+    for name, scale in (("I", 1.0), ("II", 2.0), ("III", 3.0), ("IV", 4.0)):
+        for weighting in ("Raw", "Weighted"):
+            for detector in ("H1", "L1"):
+                rows.append({"X": x, "Y": scale * x * (2 if weighting == "Weighted" else 1), "Variable": name,
+                             "Weighting": weighting, "Detector": detector, "Ratio": np.ones_like(x)})
+    return pd.DataFrame(rows)
+
+
+def _grid(make_project, frame, *argv):
+    make_project({"Quartet": frame})
+    figures = _capture()
+    line.main(["--datafile", "Quartet", "-x", "X", "-y", "Y", "--plot_type", "line", *argv])
+    return figures[0]
+
+
+def _labels_shown(ax, axis):
+    return any(t.get_visible() and t.get_text() for t in getattr(ax, f"get_{axis}ticklabels")())
+
+
+def test_variables_grid_shares_outer_labels(make_project, quartet):
+    fig = _grid(make_project, quartet, "--select", "Weighting", "Detector", "-s", "Raw", "H1",
+                "--variables", "I", "II", "III", "IV", "--panel_grid", "2", "2")
+    a, b, c, d = fig.axes[:4]
+    fig.canvas.draw()
+    assert a.get_shared_x_axes().joined(a, c) and a.get_shared_y_axes().joined(a, b)
+    assert not _labels_shown(a, "x") and _labels_shown(c, "x")
+    assert not _labels_shown(b, "y") and _labels_shown(a, "y")
+    assert a.get_xlabel() == "" and c.get_xlabel() == "X" and b.get_ylabel() == ""
+
+
+def test_facet_rows_with_lower_panels_and_per_row_settings(make_project, quartet):
+    fig = _grid(make_project, quartet, "--select", "Variable", "Detector", "-s", "I", "H1", "--facet_row",
+                "Weighting", "--lower", "column:Ratio", "--panel_labely", "Events", "Weights", "--panel_rangey",
+                "0", "10", "0", "20", "--panel_lower_labely", "R1", "R2", "--panel_lower_rangey", "0", "2", "0", "3")
+    top, top_lower, bottom, bottom_lower = fig.axes[:4]
+    assert top.get_position().y0 > bottom.get_position().y1  # stacked rows
+    assert top.get_ylim() == (0, 10) and bottom.get_ylim() == (0, 20)
+    assert top_lower.get_ylim() == (0, 2) and bottom_lower.get_ylim() == (0, 3)
+    assert (top.get_ylabel(), bottom.get_ylabel()) == ("Events", "Weights")
+    assert (top_lower.get_ylabel(), bottom_lower.get_ylabel()) == ("R1", "R2")
+    assert top.get_shared_x_axes().joined(top, bottom_lower)
+    assert top_lower.get_xlabel() == "" and bottom_lower.get_xlabel() == "X"
+    assert np.allclose(bottom.get_lines()[0].get_ydata(), 2 * np.arange(1.0, 6.0))  # the Weighted rows
+
+
+def test_facet_col_with_variables_rows(make_project, quartet):
+    fig = _grid(make_project, quartet, "--select", "Weighting", "-s", "Raw", "--variables", "I", "II", "III",
+                "--facet_col", "Detector", "--variable_label_map", '{"H1": "Hanford"}')
+    panels = fig.axes[:6]
+    assert [ax.get_title() for ax in panels[:2]] == ["Hanford", "L1"]
+    assert all(ax.get_title() == "" for ax in panels[2:])
+    row_labels = [t.get_text() for ax in panels for t in ax.texts]
+    assert row_labels == ["I", "II", "III"]  # right of the last column
+    assert np.allclose(panels[3].get_lines()[0].get_ydata(), 2 * np.arange(1.0, 6.0))  # II, L1
+    assert panels[0].get_shared_y_axes().joined(panels[0], panels[1])
+    assert not panels[0].get_shared_y_axes().joined(panels[0], panels[2])
+
+
+# --- T22.7: insets -----------------------------------------------------------------------
+
+
+@pytest.fixture
+def selections():
+    x = np.arange(0.5, 20, 1.0)
+    rows = []
+    for selection, scale in (("All", 1.0), ("Tight", 0.25)):
+        for sample, shape in (("Data", 1.0), ("Bkg", 0.9)):
+            rows.append({"X": x, "Y": scale * shape * (10 + x), "Sample": sample, "Selection": selection,
+                         "Month": np.arange(20) % 12 + 1})
+    return pd.DataFrame(rows)
+
+
+def _main_and_inset(fig):
+    main = fig.axes[0]
+    insets = [a for a in main.child_axes if getattr(a, "_plotipus_inset", False)]
+    return main, insets
+
+
+def test_zoom_inset_redraws_the_panel(make_project, selections):
+    make_project({"Sel": selections})
+    figures = _capture()
+    line.main(["--datafile", "Sel", "-x", "X", "-y", "Y", "--hue", "Sample", "--select", "Selection", "-s", "All",
+               "--plot_type", "line", "--labelx", "Mass", "--inset", "5", "10", "0", "25"])
+    main, (inset,) = _main_and_inset(figures[0])
+    assert inset.get_xlim() == (5, 10) and inset.get_ylim() == (0, 25)
+    assert len(inset.get_lines()) == len(main.get_lines()) == 2
+    assert inset.get_legend() is None and inset.get_xlabel() == "Mass"
+    assert any("Inset" in type(a).__name__ or (type(a).__name__ == "Rectangle" and a in main.patches)
+               for a in main.get_children())  # the zoom frame
+
+
+def test_inset_args_draw_another_selection(make_project, selections):
+    make_project({"Sel": selections})
+    figures = _capture()
+    line.main(["--datafile", "Sel", "-x", "X", "-y", "Y", "--hue", "Sample", "--select", "Selection", "-s", "All",
+               "--plot_type", "line", "--rangey", "0", "40", "--lower", "ratio",
+               "--inset_args", "--select Selection -s Tight", "--inset_pos", "0.1", "0.5", "0.3", "0.3"])
+    fig = figures[0]
+    main, (inset,) = _main_and_inset(fig)
+    ys = sorted(line.get_ydata()[0] for line in inset.get_lines())
+    assert np.allclose(ys, [0.25 * 0.9 * 10.5, 0.25 * 10.5])  # the Tight rows only
+    assert inset.get_ylim() != (0, 40)  # the main range does not carry over
+    assert len(fig.axes) == 2  # main + its ratio panel; the inset has none
+    x0, y0, w, h = inset.get_position().bounds
+    m = main.get_position()
+    assert np.isclose(x0, m.x0 + 0.1 * m.width) and np.isclose(w, 0.3 * m.width)
+
+
+def test_inset_of_a_binned_estimator(make_project, selections):
+    make_project({"Sel": selections})
+    figures = _capture()
+    line.main(["--datafile", "Sel", "-x", "X", "-y", "Y", "--hue", "Sample", "--select", "Selection", "-s", "All",
+               "--plot_type", "line", "--inset_args", "-x Month --select Sample Selection -s Data All --binned "
+               "--estimator mean --bins 13"])
+    _, (inset,) = _main_and_inset(figures[0])
+    assert inset.get_lines() and inset.get_xlim()[1] <= 13.5

@@ -528,3 +528,13 @@ def test_hist2d_cmap_and_log_axes(make_project):
     ax = figures[0].axes[0]
     assert ax.collections[0].get_cmap().name.startswith("cividis")
     assert ax.get_xscale() == "log" and ax.get_yscale() == "log"
+
+
+def test_contour_labels_at_given_positions_with_leaders(make_project):
+    ax = _contour(make_project, "--contour_label_pos", "0.1", "0.2", "0.3", "0.4", "0.5", "0.6",
+                  "--contour_label_leader")
+    texts = {t.get_text(): t.get_position() for t in ax.texts}
+    assert texts["68.3% CL"] == (0.1, 0.2) and texts["99.7% CL"] == (0.5, 0.6)
+    leaders = [t for t in ax.texts if type(t).__name__ == "Annotation" and t.arrow_patch is not None]
+    assert len(leaders) == 3 and ax.get_legend() is None or "68.3% CL" not in [
+        t.get_text() for t in ax.get_legend().get_texts()]

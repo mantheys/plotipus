@@ -167,12 +167,12 @@ Kinds follow the data relationship (as in seaborn/plotly), not the use case.
 
 | Kind | Draws | Typical options |
 |---|---|---|
-| `line` | y against an ordered x, one series per `--hue` value | `--plot_type`, `--data_hue`, `--lower`, `--stacked`, `--fit`, `--binned` ([options](docs/options.md#data-and-simulation)) |
+| `line` | y against an ordered x, one series per `--hue` value | `--plot_type`, `--data_hue`, `--lower`, `--stacked`, `--fit`, `--binned`, `--facet_row`/`--facet_col`, `--inset` ([options](docs/options.md#data-and-simulation)) |
 | `scatter` | observations with colour/size/marker encodings, or pairs of metrics | `--colorby`, `--sizeby`, `--markerby` ([options](docs/options.md#categories-and-scatter)) |
 | `hist` | 1D histograms of per-event arrays | `--bins`, `--weight`, `--density` ([options](docs/options.md#histograms)) |
 | `map` | 2D histograms, images of a grid, contours | `--norm`, `--logz`, `--contour` ([options](docs/options.md#contours)) |
 | `cat` | one value per category | `--integrate_over`, `--kind point\|line\|bar` ([options](docs/options.md#categories-and-scatter)) |
-| `table` | aggregated values as LaTeX (and HTML) tables | `--variables`, `--agg`, `--siunitx` |
+| `table` | aggregated values as LaTeX (and HTML) tables | `--variables`, `--agg`, `--stats`, `--fit_params`, `--siunitx` |
 
 Every kind also takes `--text X Y 'TEXT'` (with `--arrow X2 Y2`) and `--region 'x,y x,y ...'` annotations
 (see [Shared options](docs/options.md#shared-options)).

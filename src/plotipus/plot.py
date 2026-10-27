@@ -1232,9 +1232,11 @@ def delta_chi2_lines(values=None, levels=None, dof=1):
     """(Δχ² values, labels) of --delta_chi2_lines (labelled nσ for whole
     √Δχ² with 1 dof, else Δχ² = v) and of --cl_lines (confidence levels in
     percent, at the χ² quantile for ``dof``, labelled "68% CL")."""
+    out, labels = [], []
+    if not values and not levels:
+        return out, labels  # scipy.stats takes a second to import: only when needed
     from scipy.stats import chi2
 
-    out, labels = [], []
     for value in values or []:
         root = math.sqrt(value) if value >= 0 else float("nan")
         out.append(float(value))

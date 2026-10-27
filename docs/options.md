@@ -53,6 +53,37 @@ are the example list, `examples/input/plots/example_scripts.txt`;
   keeps one plot's size, split in touching panels). They share their y range
   and only the first shows the y label and tick labels (`--no-compact` gives
   each its own axis).
+* **Panel grids** (`line`): more than three `--variables` make a near-square
+  grid (`--panel_grid ROWS COLS` fixes it); `--facet_row COL` and
+  `--facet_col COL` give one row or column of panels per value of a column
+  (with `--variables`, the variables take the other dimension), each with its
+  own `--lower` panels. Compact grids share y along each row and x down each
+  column, with tick labels and axis labels on the outer panels only;
+  `--sharex none|col|all` and `--sharey none|row|all` choose. Column values
+  title the top row and row values are written right of the last column
+  (`--variable_label_map` renames them, `--panel_title` replaces the titles).
+  `--panel_labely`, `--panel_rangey`, `--panel_lower_labely` and
+  `--panel_lower_rangey` take one label or min max pair per row; colours and
+  legend entries follow the hue values, so rows that need their own give
+  them their own values (with `--legend_panel all`).
+
+```bash
+plotipus line --datafile Fit -x Mass -y Events --hue Component --facet_row Weighting --lower column:Residual --panel_labely 'Events' 'Weights'
+```
+
+* **Insets** (`line`): `--inset X0 X1 [Y0 Y1]` redraws the panel zoomed into
+  that range in a box, with a frame and connectors on the zoomed region;
+  `--inset_args 'OPTIONS'` draws a variation of the command instead, these
+  options on top of it: another selection (`--select Selection -s 'KD > 0.5'`,
+  replacing the main one), other `-x`/`-y`, even `--binned --estimator mean`
+  (a seasonal cycle). Lower panels, ranges, axis labels, reference lines,
+  the title and the legend do not carry into an inset (a zoom keeps the axis
+  labels). `--inset_pos X Y W H` places it in fractions of the panel
+  (default the upper right), `--inset_panel` picks the panel.
+
+```bash
+plotipus line --datafile Keeling -x DecimalDate -y CO2 --hue Series --plot_type line --inset_args "-x MonthOfYear -y Detrended --binned --estimator mean --bins 13" --inset_pos 0.15 0.45 0.35 0.3
+```
   Values beyond the last key belong to it, so
   `--select Distribution -s Gaussian Poisson` keeps both distributions.
 * **Encodings**: `--hue` (alias `--iterable`), `--style` (alias
@@ -248,8 +279,12 @@ set:
   (muted) at `--region_alpha` (0.3), with an optional `--region_hatch` and a
   `--region_label` written inside its visible part.
 * `line --direct_labels` names each line series at its last point, in its
-  colour, instead of a legend; `map --contour --contour_labels` writes each
-  level's label on its contour line.
+  colour, instead of a legend (`--direct_labels max` centres the names just
+  above each curve's maximum, `--direct_labels X` above its value at x = X);
+  `map --contour --contour_labels` writes each level's label on its contour
+  line, and `--contour_label_pos X1 Y1 X2 Y2 ...` places them at those points
+  instead (innermost level first; `--contour_label_leader` draws a thin line
+  to each contour), for contours too small to carry their labels.
 
 ## Histograms
 
@@ -634,3 +669,23 @@ three distributions picked with `--select` (values of one key are OR-ed):
 ```bash
 plotipus scatter --datafile Distributions -x Value -y Response --hue Distribution --select Sample Distribution Distribution Distribution -s Data Gaussian Exponential Log-normal --marker_size 4 --rangey 0.5 1.5 --legend_loc 'lower right' --labelx True --labely 'Measured / True' --title 'Points coloured by group (--hue)'
 ```
+
+## Tables
+
+`table` aggregates `-y` into LaTeX (and `--html`) tables: rows are configs
+(or `--row_name` values), columns the `--variables`, each cell the `--agg`
+(`mean`, `sum`, `std`, `median`) of its values with an error. Two other
+layouts read whole rows:
+
+* `--stats mean var std median corr line n`: one row per data row (labelled
+  by `--row_name`, else `--hue`), its columns the statistics of the row's
+  `-x`/`-y` arrays: means, sample variances and standard deviations, medians,
+  the Pearson correlation, the least-squares line and the number of points
+  (`--decimals`/`--sig_figs` format them). Anscombe's quartet:
+
+```bash
+plotipus table --datafile Anscombe -x X -y Y --select Type -s Data --row_name Dataset --stats mean var corr line
+```
+
+* `--fit_params`: one row per stored fit (`Params`, `ParamsError`,
+  `ParamsLabel`, `ParamsFormat`), one column per parameter as value ± error.
