@@ -10,6 +10,7 @@ chosen (roadmap § Decisions), and the work is split into the briefs in
 | [research.md](research.md) | Phase 1: other engines' defaults, common complaints, famous plots (F01–F25), with citations |
 | [catalogue.md](catalogue.md) | Phases 2–3: chart taxonomy (89 entries) and a support matrix, verified by running each command |
 | [bugs.md](bugs.md) | 17 reproduced bugs with root causes (file:line) and proposed fixes |
+| [../styleguide.md](../styleguide.md) | the enforceable conventions, with their status in the code (supersedes style_spec where they differ) |
 | [style_spec.md](style_spec.md) | Phase 4: the plotipus style language and three prototyped candidates |
 | [styles/](styles/) | candidate style files, renders, and the side-by-side sheets in `styles/compare/` |
 | [roadmap.md](roadmap.md) | ordered implementation work with effort and risk, and the maintainer's decisions |
