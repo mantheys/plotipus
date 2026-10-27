@@ -19,6 +19,10 @@ terms with the acknowledgements they ask for.
 
 ## Gaia DR2 star counts (F22)
 
+The counts and the figures drawn from them (`docs/images/famous/hr-diagram.png`)
+are adaptations of Gaia data and are shared under the same licence, CC BY-SA
+3.0 IGO.
+
 `gaia_dr2_hrd_all.csv.gz` and `gaia_dr2_hrd_200pc.csv.gz` count the Gaia DR2
 stars in bins of 0.02 mag in G_BP - G_RP (`ix`) and 0.05 mag in absolute G
 magnitude (`iy`): a bin covers `[ix, ix + 1) × 0.02` and `[iy, iy + 1) × 0.05`.

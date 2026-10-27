@@ -6,6 +6,17 @@ climate science and statistics with plotipus (research
 decision D6). The command list shows how close plotipus gets to each figure
 today.
 
+> These figures are recreations made to demonstrate plotipus. They are not
+> the original figures, nor official results of the ATLAS, CMS, LEP,
+> KamLAND, LIGO/Virgo or Gaia collaborations or of the original authors,
+> who do not endorse this project; the experiment headers say
+> "recreation". Values come from public data releases or were read from
+> the published figures, so small differences from the originals are
+> expected: cite and use the original publications, linked from each
+> image. Data sources, licences and credits are listed in
+> [examples/famous/data](data/README.md); the HR diagram, made from Gaia
+> data, is shared under CC BY-SA 3.0 IGO.
+
 ```bash
 cd examples/famous
 python make_data.py            # 22 pickles in input/data (about 3 s, 2.3 MB)
@@ -107,7 +118,7 @@ Patterns the commands use:
 
 | figure | source | data | status | missing (task) |
 |---|---|---|---|---|
-| F01 H→γγ m_γγ | ATLAS, PLB 716 (2012) 1, Fig. 4 | **extracted** (figure) | ◐ | (ATLAS header inside: `--experiment atlas --label_position inside`) 4 panels in one figure (T22.6); residual vs a fit component (T22.14); the Sig+Bkg − Bkg curve in the lower panel, drawn by T21 and lost in the example-feedback-3 merge (follow-up; the gallery image predates it) |
+| F01 H→γγ m_γγ | ATLAS, PLB 716 (2012) 1, Fig. 4 | **extracted** (figure) | ◐ | (ATLAS header inside: `--experiment atlas --label_position inside`) 4 panels in one figure (T22.6); residual vs a fit component (T22.14); the Sig+Bkg − Bkg curve in the lower panel, drawn by T21 and lost in the example-feedback-3 merge (follow-up); the ATLAS header inside, which an explicit `--legend_loc` overlaps (T15/T17 follow-up; drawn above here) |
 | F03 H→ZZ*→4ℓ | CMS, PLB 716 (2012) 30, Fig. 4 | **extracted** (figure) | ◐ | (CMS header above: `--experiment cms`; Garwood bars from the counts: `--errory_type poisson`; the signal as an open outline on the filled stack: `--series_type Signal=step --plot_type fill`) inset (T22.7) |
 | F04 local p₀ | ATLAS, Fig. 9 | **extracted** (figure) | ◐ | (ATLAS header with two right lines; small markers on the observed curve: `--series_marker Observed=o:2.5`; σ labels outside the frame: `--text` at x = 150.6) band legend swatch (T20) |
 | F05 Brazil band | ATLAS, Fig. 7(a) | **extracted** (figure) | ◐ | (ATLAS header; solid green and yellow bands: `plot_settings.band_alpha` 1 in style.json; dotted expected and μ = 1 lines) band swatches in a two-column legend (T20) |

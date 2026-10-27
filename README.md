@@ -222,6 +222,17 @@ width, one figure size for all.
   <br><sub><a href="https://gml.noaa.gov/ccgg/trends/">Keeling curve, NOAA (real data)</a> · <a href="https://doi.org/10.1029/1999GL900070">hockey stick, Mann et al. 1999 (real data)</a> · <a href="https://ui.adsabs.harvard.edu/abs/1985ApJ...295..305V">dark halo of NGC 3198, van Albada et al. 1985 (SPARC data)</a></sub><br><br>
 </p>
 
+> These figures are recreations made to demonstrate plotipus. They are not
+> the original figures, nor official results of the ATLAS, CMS, LEP,
+> KamLAND, LIGO/Virgo or Gaia collaborations or of the original authors,
+> who do not endorse this project; the experiment headers say
+> "recreation". Values come from public data releases or were read from
+> the published figures, so small differences from the originals are
+> expected: cite and use the original publications, linked from each
+> image. Data sources, licences and credits are listed in
+> [examples/famous/data](examples/famous/data/README.md); the HR diagram, made from Gaia
+> data, is shared under CC BY-SA 3.0 IGO.
+
 ## Gallery
 
 `examples/gallery` has one example for every working row of the
