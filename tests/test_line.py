@@ -1063,3 +1063,45 @@ def test_column_lower_panel_as_bars(make_project):
     assert np.allclose([b.get_width() for b in bars], 0.08)  # 80% of the 0.1 spacing
     assert np.allclose([b.get_height() for b in bars], np.arange(10.0) + 1)
     assert lower.get_xlim()[0] > -0.1 and lower.get_xlim()[1] < 1.1
+
+
+# --- T22.10: smoothing and dates ---------------------------------------------------------------
+
+
+def test_smooth_draws_raw_faint_and_smoothed_line(make_project):
+    from plotipus.transforms import smooth
+
+    x = np.arange(50.0)
+    y = np.sin(x / 8) + np.where(x % 2, 0.5, -0.5)
+    make_project({"Noisy": pd.DataFrame([{"X": x, "Y": y, "Run": "r1"}])})
+    figures = _capture()
+    line.main(["--datafile", "Noisy", "-x", "X", "-y", "Y", "--hue", "Run", "--plot_type", "line", "--smooth", "4",
+               "--single_legend"])
+    ax = figures[0].axes[0]
+    raw = [l for l in ax.lines if l.get_alpha() is not None and l.get_alpha() < 1]
+    smoothed = [l for l in ax.lines if l.get_label() == "r1"]
+    assert len(raw) == 1 and np.allclose(raw[0].get_ydata(), y)
+    assert len(smoothed) == 1 and np.allclose(smoothed[0].get_ydata(), smooth(y, 4))
+    assert [t.get_text() for t in ax.get_legend().get_texts()] == ["r1"]
+
+
+def test_smooth_kinds():
+    from plotipus.transforms import smooth
+
+    y = np.array([0.0, 2, 0, 2, 0, 2, 0])
+    assert np.allclose(smooth(y, 3)[1:-1], [2 / 3, 4 / 3, 2 / 3, 4 / 3, 2 / 3])
+    quadratic = np.arange(9.0) ** 2
+    assert np.allclose(smooth(quadratic, 5, "savgol"), quadratic)  # a quadratic filter keeps a parabola
+    assert np.isnan(smooth(np.array([1.0, np.nan, 3.0]), 2)[1])
+
+
+def test_dates_on_x_get_concise_ticks(make_project):
+    import matplotlib.dates as mdates
+
+    days = pd.date_range("2024-01-01", periods=60, freq="D").to_numpy()
+    make_project({"Daily": pd.DataFrame([{"Day": days, "Load": np.arange(60.0)}])})
+    figures = _capture()
+    line.main(["--datafile", "Daily", "-x", "Day", "-y", "Load", "--plot_type", "line"])
+    ax = figures[0].axes[0]
+    assert isinstance(ax.xaxis.get_major_formatter(), mdates.ConciseDateFormatter)
+    assert np.isclose(ax.lines[0].get_xdata()[0], mdates.date2num(np.datetime64("2024-01-01")))

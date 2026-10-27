@@ -12,6 +12,7 @@ Lower panels (``--lower``) show operations between the drawn series, a
 stored column or a residual; see :mod:`plotipus.lower`.
 """
 
+import copy
 import json
 
 import matplotlib
@@ -85,6 +86,7 @@ from ..transforms import (
     project,
     rebin_rows,
     scale_cells,
+    smooth,
     union_grid,
     y_error_of,
 )
@@ -274,6 +276,11 @@ def build_parser():
     add("--vertical_column_map", type=str, default=None,
         help="JSON {panel value: column}: vertical line per hue value at that column's value, in its colour.")
     add("--vertical_column_style", type=str, default="--")
+    add("--smooth", type=int, default=None, metavar="N",
+        help="Draw each line smoothed over N points over its raw series (thin and translucent).")
+    add("--smooth_kind", choices=["rolling", "savgol"], default="rolling",
+        help="--smooth filter: a centred rolling mean (default) or a quadratic Savitzky-Golay filter.")
+    add("--smooth_only", action="store_true", default=False, help="With --smooth: leave the raw series out.")
     add("--direct_labels", action="store_true", default=False,
         help="Name each line series at its last point, in its colour, instead of a legend.")
     add("--mean_band", action="store_true", default=False,
@@ -547,6 +554,7 @@ class Series:
         self.is_sum = False
         self.is_data = False
         self.interval = None  # poisson / clopper_pearson errors
+        self.dates = False  # x holds matplotlib date numbers
         self.bands = []  # errors of the nested bands after the first (--errory_column C1 C2 ...)
 
 
@@ -574,8 +582,9 @@ def extract(subset, args, x_column=None, y_column=None):
         y = points[y_column].astype(float).to_numpy()
     except (ValueError, TypeError):
         return None
+    dates = _as_dates(points[x_column])
     try:
-        x = points[x_column].astype(float).to_numpy()
+        x = dates if dates is not None else points[x_column].astype(float).to_numpy()
     except (ValueError, TypeError):
         x = points[x_column].astype(str).to_numpy()
         return Series(x, y, error=y_error_of(points), categorical=True, rows=subset)
@@ -603,7 +612,35 @@ def extract(subset, args, x_column=None, y_column=None):
         return None
     s = Series(x, y, error=error, x_edges=edges_from_centers(x), extrapolated=extrapolated, rows=subset)
     s.bands = bands
+    s.dates = dates is not None
     return s
+
+
+def _as_dates(values):
+    """Matplotlib date numbers of a datetime column (datetime64, Timestamps or
+    datetime objects), else None."""
+    import datetime
+
+    import matplotlib.dates as mdates
+
+    if pd.api.types.is_datetime64_any_dtype(values):
+        return mdates.date2num(pd.to_datetime(values).to_numpy())
+    first = next((v for v in values if v is not None and v == v), None)
+    if isinstance(first, (datetime.date, np.datetime64)):
+        try:
+            return mdates.date2num(pd.to_datetime(values).to_numpy())
+        except (ValueError, TypeError):
+            return None
+    return None
+
+
+def _date_axis(ax):
+    """Concise date ticks on the x axis (--x holding dates)."""
+    import matplotlib.dates as mdates
+
+    locator = mdates.AutoDateLocator()
+    ax.xaxis.set_major_locator(locator)
+    ax.xaxis.set_major_formatter(mdates.ConciseDateFormatter(locator))
 
 
 def _sum_series(series_list):
@@ -887,6 +924,10 @@ def draw_series(ax, s, args, plot_type=None, stack_bottom=None, dodge_shift=0.0)
     Error bars on points are joined only with --connect. Plot type "data"
     draws points with their error bars whatever --errory_type says."""
     stacking = args.stacked and stack_bottom is not None and s.x_edges is not None and not s.categorical
+    if (args.smooth and not stacking and not s.categorical and not s.is_data
+            and plot_type not in ("bar", "barh", "fill", "band", "empty", "beyond", "scatter")):
+        _draw_smoothed(ax, s, args, plot_type, dodge_shift)
+        return
     if _nested_bands(s, args, plot_type, stacking):
         _draw_nested_bands(ax, s, args, plot_type)
         error, label, s.error = s.error, s.label, None
@@ -898,6 +939,31 @@ def draw_series(ax, s, args, plot_type=None, stack_bottom=None, dodge_shift=0.0)
             s.error, s.label = error, label
         return
     _draw_series(ax, s, args, plot_type, stack_bottom, dodge_shift, stacking)
+
+
+RAW_ALPHA = 0.35
+
+
+def _draw_smoothed(ax, s, args, plot_type, dodge_shift):
+    """--smooth: the raw series thin and translucent (with its errors, no
+    legend entry; left out with --smooth_only), then a smoothed copy as a line
+    with the label. The series itself stays raw (lower panels compare it)."""
+    if not args.smooth_only:
+        before = set(ax.get_children())
+        label, s.label = s.label, None
+        try:
+            _draw_series(ax, s, args, plot_type, None, dodge_shift, False)
+        finally:
+            s.label = label
+        for artist in set(ax.get_children()) - before:
+            artist.set_alpha(RAW_ALPHA if artist.get_alpha() is None else artist.get_alpha() * RAW_ALPHA)
+            if isinstance(artist, mlines.Line2D):
+                artist.set_linewidth(0.6 * artist.get_linewidth())
+    smoothed = copy.copy(s)
+    smoothed.y, smoothed.error, smoothed.bands = smooth(s.y, args.smooth, args.smooth_kind), None, []
+    smoothed.marker = None
+    _draw_series(ax, smoothed, args, "line" if plot_type in (None, "plot", "errorbar") else plot_type, None,
+                 dodge_shift, False)
 
 
 def _draw_series(ax, s, args, plot_type, stack_bottom, dodge_shift, stacking):
@@ -1753,6 +1819,9 @@ def _finish_upper(fig, upper, lower, drawn, rows, args, variables, last_x, hue_v
             ax.set_ylim(0, 105)
             ax.axhline(100, color=style.role("muted"), linestyle="--", linewidth=1)
         apply_axis_options(ax, args)
+        if any(getattr(s, "dates", False) for s in drawn.get(idx, [])):
+            for date_ax in (ax, *lower[idx]):
+                _date_axis(date_ax)
         if args.axis and "equal" in args.axis:
             ax.set_aspect("equal", adjustable="box")
         if args.axis and "off" in args.axis:

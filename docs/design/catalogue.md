@@ -36,7 +36,7 @@ command lists.
 |---|---|---|---|
 | A Distributions | 7 | 0 | 5 |
 | B Relationships | 6 | 1 | 2 |
-| C Trends and fits | 8 | 1 | 1 |
+| C Trends and fits | 10 | 0 | 0 |
 | D Comparisons | 5 | 1 | 3 |
 | E Ratios and significance | 8 | 0 | 0 |
 | F ML diagnostics | 6 | 1 | 0 |
@@ -44,7 +44,7 @@ command lists.
 | H Small multiples and layout | 2 | 2 | 4 |
 | I Annotations | 10 | 0 | 0 |
 | J Tables | 4 | 1 | 2 |
-| **Total (89)** | **64** | **8** | **17** |
+| **Total (89)** | **66** | **7** | **16** |
 
 Nearly half of the ◐ entries are partial only because of a bug in
 [bugs.md](bugs.md), not because an option is missing. Fixing B01–B13 moves
@@ -94,8 +94,8 @@ about 12 of them to ✅.
 | C5 | Fit with pull panel | fit quality in σ | F01, F17 | ✅ | `... --fit --lower pull` (P05): (data−fit)/σ with ±1σ/±2σ bands; `--lower residual --lower pull` stacks both (B13, fixed in T06). | — |
 | C6 | Several model curves over data | model comparison | F09, F12, F17 | ✅ | `line --hue Model --plot_type line --series_type data=errorbar` (F09, F12, F17): points with error bars for data, on top, lines for the models; `--series_type_mapping` sets the types in a style file (T21). | — |
 | C7 | Stacked area | composition over x | F23 | ✅ | `--stacked --plot_type line` (`fill_between` from the running total; B10 fixed in T18). | — |
-| C8 | Time series with dates | monitoring, Keeling curve | F13 | ◐ | Works on numeric x (decimal year); no date axis formatting. | Convert datetime64 x and use `ConciseDateFormatter`. |
-| C9 | Smoothed / rolling line | trend under noise | F13, F14 | ✗ | — | `line --smooth N [--smooth_kind rolling\|savgol]` drawn over the raw series. |
+| C8 | Time series with dates | monitoring, Keeling curve | F13 | ✅ | `line -x Day` with a datetime column (T22.10): date numbers on a `ConciseDateFormatter` axis; decimal years still work as numbers. | — |
+| C9 | Smoothed / rolling line | trend under noise | F13, F14 | ✅ | `line --smooth 15 [--smooth_kind savgol] [--smooth_only]` (T22.10): the smoothed line over the faint raw series. | — |
 | C10 | Many series with a sequential colour | ordered hue (runs, energies) | F11 | ✅ | `line --hue Run --hue_cmap viridis` (also `hist`; T22.5): numeric hues by value, others in draw order, a colorbar instead of the colour legend. | — |
 
 ## D. Comparisons across categories

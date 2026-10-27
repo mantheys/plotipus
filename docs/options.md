@@ -87,6 +87,12 @@ are the example list, `examples/input/plots/example_scripts.txt`;
   `--sum_color`, `--reference_sum_color`, default: a free colour) never
   share one. With more values than colours, colours repeat and a warning
   is printed.
+* **Time series**: an x column of dates (datetime64, Timestamps) is drawn on a
+  date axis with concise tick labels (2023, Mar, May, ...). `--smooth N`
+  draws each line smoothed over N points (`--smooth_kind rolling`, a centred
+  mean, or `savgol`, a quadratic Savitzky-Golay filter) over its raw series,
+  which turns thin and translucent and keeps its errors (`--smooth_only`
+  leaves it out); lower panels still compare the raw values.
 * **Ordered hues** (runs, energies, galaxies by size): `--hue_cmap viridis`
   (`line`, `hist`) takes the colours from a matplotlib colour map instead:
   numeric hue values by value (`--hue_cmap_range MIN MAX` fixes the ends),
