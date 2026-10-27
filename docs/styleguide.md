@@ -84,8 +84,9 @@ enforceable version. Where the two differ, this guide is the target.
   - Their colours match the upper panel's.
   - Pull panels show ±1σ and ±2σ bands.
 - **L5. Facets of one quantity share their axes and colour scale** when
-  they are compared. ◐ `map` shares one colour scale and colorbar; `line`
-  has `--compact` but no shared y yet (catalogue H2).
+  they are compared. ✅ `map` shares one colour scale and colorbar; `line`
+  grids share y along each row and x down each column (`--sharex`,
+  `--sharey`, `--panel_grid`, `--facet_row`/`--facet_col`).
 - **L6. Titles.** ✅
   - Slides carry a title, given with `--title`.
   - Paper drops titles and fit subtitles, because the caption is the title;
@@ -187,7 +188,7 @@ enforceable version. Where the two differ, this guide is the target.
     theme.
   - Past 10 categories, colours repeat with a warning.
   - Ordered categories (runs, energies) should take a colour map with a
-    colorbar instead. ✗ `--hue_cmap` is planned (catalogue C10, T22.5).
+    colorbar instead: `--hue_cmap` (`line`, `hist`).
 - **C3. Data are ink.** ✅ Data points are black (white on dark), so they
   never compete with the simulation's colours.
 - **C4. Colour maps.** ✅
@@ -270,6 +271,53 @@ conventions.
   `Source` column. Files of one analysis are told apart by prefixes:
   `--configs A --names B --datafile Spectrum` loads `A_B_Spectrum.pkl`.
 
+## Before and after: famous figures
+
+The famous figures of [examples/famous](../examples/famous/README.md) are
+drawn twice. On the left, the command that reproduces the published look
+(the README gallery); on the right, the same data with plotipus's defaults,
+giving only columns, selections, ranges and labels
+([restyled_scripts.txt](../examples/famous/restyled/plots/restyled_scripts.txt)).
+Each change cites the rule it applies. The originals were good figures for
+their time and medium; these pairs show what the rules change, not what
+the authors got wrong. Both sides are recreations, not official results.
+`make -C examples famous` redraws them.
+
+**Hubble 1929, Fig. 1**
+
+| before (faithful) | after (plotipus defaults) |
+|---|---|
+| ![Hubble 1929, Fig. 1 as published](images/styleguide/hubble-1929-before.png) | ![Hubble 1929, Fig. 1 with plotipus defaults](images/styleguide/hubble-1929-after.png) |
+| Grid lines through the data, every series black with no legend, a bold title above the frame. | No grid (A1); the data in ink with a legend that names each series (C3, G1); the two fits in palette colours (C2); the title left to the caption (L6); the unit as Mpc (N1). |
+
+**Mann, Bradley & Hughes 1999, Fig. 3(a)**
+
+| before (faithful) | after (plotipus defaults) |
+|---|---|
+| ![Mann, Bradley & Hughes 1999, Fig. 3(a) as published](images/styleguide/hockey-stick-before.png) | ![Mann, Bradley & Hughes 1999, Fig. 3(a) with plotipus defaults](images/styleguide/hockey-stick-after.png) |
+| Upper-case axis labels, the legend under the axes, a grey band that belongs to no line. | Sentence-case labels with units (N1); the band in its line's colour, behind it (U7); palette colours (C2); the legend in the empty space of the axes (G1). |
+
+**LEP Z lineshape, Phys. Rept. 427, Fig. 1.13**
+
+| before (faithful) | after (plotipus defaults) |
+|---|---|
+| ![LEP Z lineshape, Phys. Rept. 427, Fig. 1.13 as published](images/styleguide/z-lineshape-before.png) | ![LEP Z lineshape, Phys. Rept. 427, Fig. 1.13 with plotipus defaults](images/styleguide/z-lineshape-after.png) |
+| Red data on red curves, labels in bold blue, the ×10 error bars explained in free text. | The data in ink (C3); the curves in palette colours with a legend (C2, G1); the magnified errors said in the legend label (U8); units in parentheses (N1). |
+
+**Gaia DR2 HR diagram, A&A 616, A10, Fig. 1**
+
+| before (faithful) | after (plotipus defaults) |
+|---|---|
+| ![Gaia DR2 HR diagram, A&A 616, A10, Fig. 1 as published](images/styleguide/hr-diagram-before.png) | ![Gaia DR2 HR diagram, A&A 616, A10, Fig. 1 with plotipus defaults](images/styleguide/hr-diagram-after.png) |
+| A red-to-yellow square-root scale with black for the sparsest bins and no colorbar: the counts cannot be read. | plotipus's lightness-monotonic map on a log scale, for counts that span four decades, with a labelled colorbar (C4); magnitudes with their unit (N1). |
+
+**ATLAS 2012, Fig. 7(a)**
+
+| before (faithful) | after (plotipus defaults) |
+|---|---|
+| ![ATLAS 2012, Fig. 7(a) as published](images/styleguide/brazil-band-before.png) | ![ATLAS 2012, Fig. 7(a) with plotipus defaults](images/styleguide/brazil-band-after.png) |
+| Green and yellow bands, which red-green colour-vision deficiencies cannot tell apart, a blue dotted reference line and a free-text label. | Graded bands, lighter for 2σ (C4); the reference line dashed in the muted colour; the status in the experiment header (G5). |
+
 ## For contributors: keeping plotipus inside the guide
 
 - A new option defaults to the guide's behaviour; departing from it is the
@@ -293,6 +341,4 @@ conventions.
 | U4 | Stored errors crossing 0 or 1 are drawn as given | Warn once per series, naming the bound |
 | L2 | Paper adds 30% height for a lower panel | `lower_panels: share` in `paper.json` too |
 | L3 | Facets narrow (main) or widen by 0.6 (round 4) | Facet width 1.0 × a single plot, wrapping at 2 columns on paper and slides |
-| L5 | No shared y across `line` facets | `--sharey` (T22.6) |
-| C2 | No colour map for ordered hues | `--hue_cmap` (T22.5) |
 | C1 | Colours follow value order unless a mapping pins them | A project-level colour registry that stores each new category's colour on first use |

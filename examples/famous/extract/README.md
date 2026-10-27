@@ -21,7 +21,8 @@ steps, about 2 events in ATLAS Fig. 4(a), 0.5 events in 4(b), 0.01 in CMS
 Fig. 4. Cross-checks that pass: ATLAS 4(a) minus the background curve equals
 4(b) (rms 1.5 events); the CMS data errors are exact Garwood intervals and its
 signal histogram holds 7.42 events in 110-160 GeV (CMS Table 3: 7.54); the LEP
-curves peak at 35.05, 30.76 and 27.22 nb. CMS's x axis is shifted by
+curves peak at 35.05, 30.76 and 27.22 nb. The CMS inset (K_D > 0.5) holds
+the 13 events of its 10 points. CMS's x axis is shifted by
 0.16 GeV onto its 3 GeV bin edges from 70.5 GeV.
 
 These are values read from published figures, not the collaborations' data;
