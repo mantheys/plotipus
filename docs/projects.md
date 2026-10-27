@@ -108,7 +108,9 @@ Style files (JSON) are merged over the defaults
 (figure layout, legend and note style, `band_alpha` for error bands, `stack_error` for the
 hatched band of stacked simulation; `"auto_title": false` drops the
 title taken from the datafile name; `"sci_in_label": false` keeps the
-power-of-ten offset text at the axis end instead of in the label; `fit_color`
+power-of-ten offset text at the axis end instead of in the label; `log_labels`
+(`auto`, `sci` or `plain`, or per axis `{"x": "plain", "z": "sci"}`) is the
+default of `--log_labels`; `fit_color`
 and `zero_line_color`, colours or roles; `diverging_cmap` for `--cmap diverging`; the sequential map is
 `rcparams` `image.cmap`, `plotipus` by default, `plotipus_dark` in the dark theme), `labels` (capitalisation exceptions,
 legend titles to drop, title short forms) and `mappings` (named

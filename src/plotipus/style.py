@@ -211,7 +211,7 @@ def _publish():
     global linelabelfontsize, nbins, default_linewidth, band_alpha, figure_base_width
     global figure_panel_width, figure_height, figure_panel_font_scale
     global figure_margins_inches, figure_two_panel_hspace, legend_style, figure_pad_inches, figure_fixed_margins
-    global note_style, base_font_size, mappings, auto_title, contours, stack_error, sci_in_label, error_label
+    global note_style, base_font_size, mappings, auto_title, contours, stack_error, sci_in_label, error_label, log_labels
     global capitalize_exceptions, redundant_legend_titles, title_short_forms
     global widths, figure_aspect, figure_width, figure_row_height, draw_titles
     global fit_color, zero_line_color, diverging_cmap, header, figure_single_panel, text_scale
@@ -254,6 +254,8 @@ def _publish():
     auto_title = bool(settings.get("auto_title", True))
     # A common power of ten in the axis label instead of offset text.
     sci_in_label = bool(settings.get("sci_in_label", True))
+    # Log-axis tick labels: auto, sci (10^n) or plain (200, 0.01), or per axis {"x": ..., "z": ...}.
+    log_labels = settings.get("log_labels", "auto")
     # An explicit --title is drawn (false in paper: the caption is the title).
     draw_titles = bool(settings.get("titles", True))
     # Fit lines (default: ink, or the palette's first colour over data), the
