@@ -45,11 +45,13 @@ def test_every_command_renders(page, tmp_path):
     assert page.MEDIA == ["slides", "paper"]
     for entry in rendered:
         if entry.kind == "plots":
-            assert set(entry.renders) == set(page.MEDIA), entry.row
+            assert set(entry.renders) == set(entry.media()), entry.row
             for medium, result in entry.renders.items():
                 assert [f.suffix for f in result.files] == [".png"], (entry.row, medium, result.files)
         else:
             suffixes = sorted(f.suffix for f in entry.renders[None].files)
             assert ".tex" in suffixes and len(suffixes) <= 2, (entry.row, suffixes)
+    pinned = next(e for e in rendered if e.row == "H8")
+    assert pinned.media() == ["paper"] and set(pinned.renders) == {"paper"}
     missing = page.write_page(entries, tmp_path / "gallery.md")
     assert not missing

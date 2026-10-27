@@ -6,7 +6,9 @@
 # Format, read by make_page.py:
 #   # == <letter> <section>          a section of the catalogue
 #   # <id> <title>                   the catalogue row(s) of the next command
-#   <command>                        rendered and tested (tests/test_gallery.py)
+#                                    (I4b: a second example of row I4)
+#   <command>                        rendered and tested (tests/test_gallery.py),
+#                                    in every medium unless it sets --medium
 #   # needs Txx: <command>           waits for task Txx (a progress tracker;
 #                                    uncomment it when the task lands)
 #
@@ -22,7 +24,7 @@ hist --datafile Showers -x Response --hue Particle --select Particle -s electron
 line --datafile Yields -x Energy -y Counts --hue Particle --select Stage -s Preselection --plot_type step --logy --labelx 'Reconstructed energy (GeV)' --labely 'Events / 5 GeV' --title 'Pre-binned spectra after the preselection' --output_suffix A2
 
 # A3 Filled / stacked histogram (stacked MC)
-# needs T18: line --datafile Distributions -x Bin -y Counts --hue Sample --select Distribution Sample -s Resonance Background Signal --stacked --plot_type step --labelx 'Mass (GeV)' --title 'Stacked simulation as filled steps' --output_suffix A3
+line --datafile Distributions -x Bin -y Counts --hue Sample --select Distribution Sample -s Resonance Background Signal --stacked --plot_type fill --labelx 'Mass (GeV)' --labely 'Events / 2 GeV' --title 'Stacked simulation as filled steps' --output_suffix A3
 
 # A4 Normalised / density histogram
 hist --datafile Showers -x Hits --hue Particle --bins 50 --density --logy --labelx 'Hits' --title 'Hit multiplicity, normalised to unit area' --output_suffix A4
@@ -30,8 +32,8 @@ hist --datafile Showers -x Hits --hue Particle --bins 50 --density --logy --labe
 # A5 Weighted histogram
 hist --datafile Showers -x TrueEnergy --hue Particle --select Particle -s electron pion --weight Weight --bins 38 --rangex 5 100 --labelx 'Beam energy (GeV)' --labely 'Events (prescale-weighted)' --title 'Beam energy, weighted by the trigger prescale' --output_suffix A5
 
-# A6 Histogram with Poisson errors
-# needs T19: hist --datafile Showers -x RecoEnergy --select Particle -s muon --bins 40 --rangex 0 6 --errory_type poisson --labelx 'Deposited energy (GeV)' --title 'Muon deposits with Poisson intervals' --output_suffix A6
+# A6 G2 Histogram with Poisson (Garwood) errors
+hist --datafile Showers -x RecoEnergy --select Particle -s muon --bins 40 --rangex 0 6 --errory_type poisson --labelx 'Deposited energy (GeV)' --title 'Muon deposits with Poisson intervals' --output_suffix A6
 
 # A7 KDE
 # needs T22.4: hist --datafile Scores -x Score --hue Class --select Model -s BDT --hist_type kde --labelx 'BDT score' --title 'Score densities' --output_suffix A7
@@ -82,8 +84,11 @@ line --datafile HiggsDiphoton -x Mass -y Events --select Component -s Data --sel
 # C5 Fit with pull panel
 line --datafile Distributions -x Bin -y Counts --select Distribution Sample -s Resonance Data --fit --data_hue Data --lower pull --chi2 --max_fit_params 3 --labelx 'Mass (GeV)' --labely 'Events / 2 GeV' --title 'A resonance fit with pulls' --output_suffix C5
 
-# C6 Several model curves over data
-# needs T21: line --datafile ZLineshape -x Energy -y CrossSection --hue Model --series_type Data=errorbar --plot_type line --errory --error_scale 10 --labelx '$E_{cm}$ [GeV]' --labely '$\sigma_{had}$ [nb]' --title 'Z line shape and the number of neutrinos' --output_suffix C6
+# C6 G9 Several model curves over data, the tiny errors magnified
+line --datafile ZLineshape -x Energy -y CrossSection --hue Model --series_type Data=errorbar --plot_type line --errory --error_scale 10 --labelx '$E_{cm}$ [GeV]' --labely '$\sigma_{had}$ [nb]' --title 'Z line shape and the number of neutrinos' --output_suffix C6
+
+# C7 Stacked area
+line --datafile Distributions -x Bin -y Counts --hue Sample --select Distribution Sample -s Resonance Background Signal --stacked --plot_type line --labelx 'Mass (GeV)' --labely 'Events / 2 GeV' --title 'Signal on background as a stacked area' --output_suffix C7
 
 # C10 Many series with a sequential colour
 # needs T22.5: line --datafile RotationCurves -x Radius -y Velocity --hue Galaxy --hue_cmap viridis --plot_type line --labelx 'R (kpc)' --labely 'V (km/s)' --title 'Rotation curves on a colour map' --output_suffix C10
@@ -91,7 +96,13 @@ line --datafile Distributions -x Bin -y Counts --select Distribution Sample -s R
 # == D Comparisons
 
 # D1 Bar chart (integrated arrays)
-# needs T08: cat --datafile Yields -x Stage -y Counts --hue Particle --kind bar --labely Events --title 'Yields per selection stage' --output_suffix D1
+cat --datafile Yields -x Stage -y Counts --hue Particle --kind bar --labely Events --title 'Yields per selection stage' --output_suffix D1
+
+# D2 Bar chart of scalar cells
+cat --datafile Importance -x Feature -y Importance --select Model -s BDT --hue Model --kind bar --labely 'Importance' --title 'BDT feature importance' --output_suffix D2
+
+# D3 Grouped bars
+cat --datafile Importance -x Feature -y Importance --hue Model --kind bar --labely 'Importance' --title 'Feature importance of two models' --output_suffix D3
 
 # D9 Before/after (slope) chart
 cat --datafile Yields -x Stage -y Counts --hue Particle --kind line --labely Events --title 'Yields before and after the selection' --output_suffix D9
@@ -104,8 +115,8 @@ line --datafile Distributions -x Bin -y Counts --hue Distribution --select Sampl
 # E2 Data / (sum of MC) ratio
 line --datafile Distributions -x Bin -y Counts --hue Sample --select Distribution -s Resonance --data_hue Data --stacked --errory --lower ratio --labelx 'Mass (GeV)' --labely 'Events / 2 GeV' --lower_labely 'Data / Sim.' --title 'Data against the stacked simulation' --output_suffix E2
 
-# E3 Data points over stacked MC with ratio panel
-# needs T18: line --datafile FourLepton -x Mass -y Events --hue Sample --stacked --plot_type step --overlay Data --stack_total_error --lower ratio --labelx '$m_{4\ell}$ (GeV)' --labely 'Events / 3 GeV' --title 'Data over the stacked backgrounds' --output_suffix E3
+# E3 G6 Data points over stacked MC with ratio panel and the hatched total error
+line --datafile Distributions -x Bin -y Counts --hue Sample --select Distribution Sample -s Resonance Data Background Signal --stacked --plot_type fill --overlay Data --stack_total_error --lower ratio --labelx 'Mass (GeV)' --labely 'Events / 2 GeV' --lower_labely 'Data / Sim.' --title 'Data over the stacked simulation' --output_suffix E3
 
 # E4 Several lower panels
 line --datafile Distributions -x Bin -y Counts --hue Sample --select Distribution -s Landau --data_hue Data --errory --lower ratio --lower subtract --labelx x --title 'Ratio and difference to the simulation' --output_suffix E4
@@ -142,7 +153,7 @@ hist --datafile Scores -x Score --hue Class --select Model -s DNN --bins 50 --ra
 line --datafile TriggerEfficiency -x Energy -y Efficiency --hue Particle --select Config -s L1 --plot_type errorbar --errory --logx --horizontal 100 --labelx 'Energy (GeV)' --labely 'Efficiency (%)' --title 'L1 turn-on with Clopper-Pearson intervals' --output_suffix G1
 
 # G3 Efficiency intervals in plots
-# needs T19: line --datafile TriggerEfficiency -x Energy -y Efficiency --hue Particle --select Config -s L1 --plot_type errorbar --errory_type clopper_pearson --count_column Total --logx --labelx 'Energy (GeV)' --labely 'Efficiency (%)' --title 'Intervals computed from the counts' --output_suffix G3
+line --datafile TriggerEfficiency -x Energy -y Efficiency --hue Particle --select Config -s L1 --plot_type errorbar --errory_type clopper_pearson --count_column Total --efficiency_scale 100 --logx --labelx 'Energy (GeV)' --labely 'Efficiency (%)' --title 'Intervals computed from the counts' --output_suffix G3
 
 # G4 Single band around a curve
 line --datafile TriggerEfficiency -x Energy -y Efficiency --hue Particle --select Config -s HLT --plot_type line --errory --logx --horizontal 100 --labelx 'Energy (GeV)' --labely 'Efficiency (%)' --title 'HLT turn-on with its uncertainty band' --output_suffix G4
@@ -165,7 +176,7 @@ line --datafile SupernovaHubble -x Redshift -y DistanceModulus --hue Series --st
 # needs T22.7: line --datafile Keeling -x DecimalDate -y CO2 --hue Series --plot_type line --inset 2015 2020 --inset_pos 0.55 0.1 0.4 0.35 --title 'Keeling curve with a zoom' --output_suffix H5
 
 # H8 Figure sized for a journal column
-# needs T14: line --datafile ROC -x FPR -y TPR --hue Model --plot_type line --medium paper --width single --output_suffix H8
+line --datafile ROC -x FPR -y TPR --hue Model --plot_type line --medium paper --width single --rangex 0 1 --rangey 0 1 --labelx 'False-positive rate' --labely 'True-positive rate' --title 'ROC curves at a single journal column' --output_suffix H8
 
 # == I Annotations
 
@@ -178,12 +189,17 @@ line --datafile Distributions -x Bin -y Counts --hue Sample --select Distributio
 # I3 Free text box
 line --datafile Distributions -x Bin -y Counts --hue Sample --select Distribution -s Breit-Wigner --data_hue Data --errory --vertical 89.94 92.44 --note 'FWHM = 2.50 GeV' --labelx 'Mass (GeV)' --title 'A Breit-Wigner peak with a note' --output_suffix I3
 
-# I4 Experiment / status label
-line --datafile FourLepton -x Mass -y Events --hue Sample --data_hue Data --iterable_color_mapping zz_colors --iterable_mapping zz_labels --stacked --rangex 70 181 --rangey 0 17.5 --labelx '$m_{4\ell}$ (GeV)' --labely 'Events / 3 GeV' --text 0.0 1.03 'CMS' --text 1.0 1.03 '$\sqrt{s}$ = 7 and 8 TeV, 10.4 fb$^{-1}$' --text_ha left right --text_size large --title None --output_suffix I4
-# needs T17: line --datafile FourLepton -x Mass -y Events --hue Sample --data_hue Data --stacked --experiment cms --label_status Preliminary --label_right '$\sqrt{s}$ = 8 TeV' --output_suffix I4b
+# I4 Experiment / status label (built-in header)
+line --datafile FourLepton -x Mass -y Events --hue Sample --data_hue Data --iterable_color_mapping zz_colors --iterable_mapping zz_labels --stacked --rangex 70 181 --rangey 0 17.5 --labelx '$m_{4\ell}$ (GeV)' --labely 'Events / 3 GeV' --label plotipus --label_status Internal --label_right '$\sqrt{s}$ = 7 and 8 TeV, 10.4 fb$^{-1}$' --title None --output_suffix I4
+
+# I4b Experiment preset and a status watermark
+line --datafile FourLepton -x Mass -y Events --hue Sample --data_hue Data --iterable_color_mapping zz_colors --iterable_mapping zz_labels --stacked --rangex 70 181 --labelx '$m_{4\ell}$ (GeV)' --labely 'Events / 3 GeV' --experiment cms --label_status Preliminary --label_right '$\sqrt{s}$ = 7 TeV, L = 5.1 fb$^{-1}$' '$\sqrt{s}$ = 8 TeV, L = 5.3 fb$^{-1}$' --watermark simulation --watermark_style diagonal --output_suffix I4b
 
 # I7 Inverted axis
 line --datafile Leavitt -x LogPeriod -y Magnitude --hue Brightness --data_hue Maximum Minimum --iterable_color_mapping leavitt_colors --plot_type line --rangex 0 2.2 --rangey 17 10.5 --labelx 'log P (days)' --labely 'Apparent magnitude' --title "Leavitt's period-luminosity relation, magnitudes inverted" --output_suffix I7
 
 # I10 Legend outside / above the axes
 line --datafile ROC -x FPR -y TPR --hue Model --plot_type line --legend_loc outside --labelx 'False-positive rate' --labely 'True-positive rate' --title 'ROC curves, the legend above the axes' --output_suffix I10
+
+# I10b Legend kept inside the axes
+line --datafile ROC -x FPR -y TPR --hue Model --plot_type line --legend_inside --labelx 'False-positive rate' --labely 'True-positive rate' --title 'ROC curves, the legend kept inside' --output_suffix I10b

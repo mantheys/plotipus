@@ -9,6 +9,8 @@
   all computed from ``Scores``.
 - ``LearningCurve``: training and validation accuracy against the training
   set size, with the spread over five folds as the error.
+- ``Importance``: the feature importance of the BDT and the DNN, one scalar
+  cell per feature and model (normalised to sum to one per model).
 """
 
 import numpy as np
@@ -51,9 +53,23 @@ def learning_curve(rng):
     return pd.DataFrame(rows)
 
 
+FEATURES = ("Shower depth", "Track isolation", "E/p", "Hits", "Cluster width", "Timing")
+
+
+def importance(rng):
+    base = np.array([0.30, 0.22, 0.18, 0.13, 0.10, 0.07])
+    rows = []
+    for model in ("BDT", "DNN"):
+        weights = base * rng.uniform(0.7, 1.3, base.size)
+        weights /= weights.sum()
+        rows += [{"Model": model, "Feature": feature, "Importance": weight}
+                 for feature, weight in zip(FEATURES, weights)]
+    return pd.DataFrame(rows)
+
+
 def _classifier(rng):
     frame = scores(rng)
-    return {"Scores": frame, "ROC": roc(frame), "LearningCurve": learning_curve(rng)}
+    return {"Scores": frame, "ROC": roc(frame), "LearningCurve": learning_curve(rng), "Importance": importance(rng)}
 
 
 GENERATORS = {"classifier": _classifier}
