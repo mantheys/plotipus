@@ -552,7 +552,8 @@ def draw_points(rows, args, kdx):
                 draw_group(marker_group, color, value, marker, hollow)
         if not args.no_legend:
             apply_legend_style(axes[0], title=args.labelz if args.labelz is not None else args.iterable,
-                               handles=handles, labels=labels, capitalize_labels=args.capitalize_legend, loc="upper left")
+                               handles=handles, labels=labels, capitalize_labels=args.capitalize_legend,
+                               loc=getattr(args, "legend_loc", None) or "upper left")
     else:
         for value, group, marker, hollow in _marker_groups(rows, args.markerby, markers):
             draw_group(group, "C0", value, marker, hollow)

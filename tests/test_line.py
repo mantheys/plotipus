@@ -179,7 +179,7 @@ def test_same_colour_in_upper_and_lower_panels(make_project, spectra):
         "--lower", "column:Significance")
     upper, lower = figures[0].axes[:2]
     upper_colors = [to_hex(l.get_color()) for l in upper.get_lines() if not l.get_label().startswith("_")]
-    lower_colors = [to_hex(l.get_color()) for l in lower.get_lines()]
+    lower_colors = [to_hex(l.get_color()) for l in lower.get_lines() if l.get_linestyle() != "--"]
     assert len(set(upper_colors)) == 3
     assert lower_colors == upper_colors
 
@@ -557,7 +557,7 @@ def test_peak_normalises_each_series_to_one(make_project, spectra):
     run(make_project, spectra, "--hue", "Sample", "--select", "Stage", "-s", "Raw", "--peak", "--plot_type", "line")
     ax = figures[0].axes[0]
     assert all(np.nanmax(l.get_ydata()) == pytest.approx(1.0) for l in ax.get_lines() if not l.get_label().startswith("_"))
-    assert ax.get_ylabel() == "Relative to peak"
+    assert ax.get_ylabel() == "Normalised to 1"
 
 
 def test_ratio_to_a_reference_is_a_line_with_points(make_project, spectra):
@@ -610,7 +610,9 @@ def test_several_panels_are_compact_by_default(make_project):
     assert first.get_ylim() != second.get_ylim() and second.get_ylabel() != ""
 
 
-def test_significance_is_drawn_as_points(make_project):
+def test_significance_is_a_step_with_its_spread(make_project):
+    """S/sqrt(B) is an expectation: a step, with the band a measured
+    significance would spread over (sqrt(1 + S/B), at least 1)."""
     x = np.arange(0.5, 10, 1.0)
     frame = pd.DataFrame([{"X": x, "Y": y, "YError": np.sqrt(y), "Sample": s}
                           for s, y in (("Background", 100 * np.ones_like(x)), ("Signal", 10 * np.exp(-(x - 5) ** 2)))])
@@ -619,8 +621,9 @@ def test_significance_is_drawn_as_points(make_project):
     line.main(["--datafile", "G", "-x", "X", "-y", "Y", "--hue", "Sample", "--stacked", "--errory", "--lower", "group",
                "--reference_group", "Signal", "--other_group", "Background", "--group_significance"])
     lower = figures[0].axes[1]
-    containers = _errorbars(lower)
-    assert len(containers) == 1 and containers[0].has_yerr
+    assert not _errorbars(lower) and lower.patches  # a step outline
+    band = _bands(lower)[0].get_paths()[0].vertices[:, 1]
+    assert np.ptp(band) >= 2.0  # at least +-1 around zero far from the signal
 
 
 def test_column_lower_panel_shows_the_data_column_only(make_project):
@@ -718,3 +721,47 @@ def test_error_scale_skips_series_without_errors(make_project, models):
                "--overlay", "data", "--error_scale", "10"])
     labels = [t.get_text() for t in figures[0].axes[0].get_legend().get_texts()]
     assert labels[0] == "data (errors ×10)" and not any("×" in t for t in labels[1:])
+
+
+def test_shift_peak_aligns_the_maxima_on_the_reference(make_project):
+    x = np.arange(0.5, 10, 1.0)
+    frame = pd.DataFrame([{"X": x, "Y": np.exp(-0.5 * (x - c) ** 2) + 0.01, "YError": 0.01 * np.ones_like(x),
+                           "Sample": s} for s, c in (("Ref", 4.5), ("Other", 6.5))])
+    make_project({"S": frame})
+    figures = _capture()
+    base = ["--datafile", "S", "-x", "X", "-y", "Y", "--hue", "Sample", "--errory", "--shift", "peak",
+            "--reference_value", "Ref"]
+    line.main([*base, "--plot_type", "line"])
+    line.main([*base, "--lower", "ratio"])
+    peaks = {l.get_label(): l.get_xdata()[np.nanargmax(l.get_ydata())] for l in figures[0].axes[0].get_lines()
+             if not l.get_label().startswith("_")}
+    assert peaks == {"Ref": 4.5, "Other": 4.5}
+    (points,) = _errorbars(figures[1].axes[1])
+    assert points.has_yerr  # the ratio carries both series' errors
+
+
+def test_empty_bins_agree_in_a_data_ratio(make_project):
+    x = np.arange(0.5, 6, 1.0)
+    frame = pd.DataFrame([{"X": x, "Y": np.array(y, dtype=float), "YError": np.sqrt(y), "Sample": s}
+                          for s, y in (("Data", [0, 0, 4, 5, 3, 2]), ("Simulation", [0, 0, 4, 5, 2, 2]))])
+    make_project({"E": frame})
+    figures = _capture()
+    line.main(["--datafile", "E", "-x", "X", "-y", "Y", "--hue", "Sample", "--data_hue", "Data", "--errory",
+               "--lower", "ratio"])
+    lower = figures[0].axes[1]
+    (empty,) = [l for l in lower.get_lines() if l.get_marker() == "o" and l.get_markerfacecolor() == "none"]
+    assert list(empty.get_xdata()) == [0.5, 1.5] and list(empty.get_ydata()) == [1, 1]
+
+
+def test_column_lower_panel_has_a_reference_line(make_project):
+    x = np.arange(0.5, 6, 1.0)
+    frame = pd.DataFrame([{"X": x, "Y": np.full_like(x, 5.0), "YError": np.ones_like(x), "Pull": np.full_like(x, 1.0),
+                           "Sample": "Data"}])
+    make_project({"C": frame})
+    figures = _capture()
+    base = ["--datafile", "C", "-x", "X", "-y", "Y", "--hue", "Sample", "--data_hue", "Data", "--lower", "column:Pull"]
+    line.main(base)
+    line.main([*base, "--no_lower_reference"])
+    flat = [[l for l in fig.axes[1].get_lines() if l.get_linestyle() == "--" and np.allclose(l.get_ydata(), 0)]
+            for fig in figures]
+    assert len(flat[0]) == 1 and not flat[1]

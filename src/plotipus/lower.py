@@ -245,7 +245,9 @@ def group_difference(
     * ``relative``: the difference in percent of the other sum (points where
       that sum is below 1e-6 of its peak are left out).
     * ``significance``: S/sqrt(B) per point, S and B the two sums; points
-      with B <= 0 or below ``significance_min_background`` are left out.
+      with B <= 0 or below ``significance_min_background`` are left out. The
+      error is the spread of a measured significance (n - B)/sqrt(B) with n
+      Poisson around S + B, sqrt(1 + S/B), and the simulation's error.
     """
     ref_label = reference_group_label or " + ".join(str(v) for v in reference_group)
     other_label = other_group_label or " + ".join(str(v) for v in other_group)
@@ -259,7 +261,9 @@ def group_difference(
         b, b_err = weighted_group_sum(labels, arrays_0, errors_0, other_group, other_group_weights)
         with np.errstate(divide="ignore", invalid="ignore"):
             sig = s / np.sqrt(b)
-            sig_err = np.sqrt((s_err / np.sqrt(b)) ** 2 + (s * b_err / (2.0 * b**1.5)) ** 2)
+            # The spread a measured (n - B)/sqrt(B) would show, with n Poisson around S + B (variance
+            # (S + B)/B), and the simulation's statistical error on S/sqrt(B), in quadrature.
+            sig_err = np.sqrt(1.0 + s / b + (s_err / np.sqrt(b)) ** 2 + (s * b_err / (2.0 * b**1.5)) ** 2)
         empty = ~((b > 0) & (b >= significance_min_background))
         sig[empty] = np.nan
         sig_err[empty] = np.nan

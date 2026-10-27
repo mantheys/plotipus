@@ -31,14 +31,14 @@ def test_width_presets_and_inches(make_project, spectra):
     assert _sizes("--medium", "paper", "--width", "single")[0] == pytest.approx((3.4, 0.75 * 3.4))
     assert _sizes("--medium", "paper", "--width", "5")[0] == pytest.approx((5, 3.75))
     assert _sizes("--width", "5", "--aspect", "0.5")[0] == pytest.approx((5, 2.5))
-    # The medium's default width: slides draw at 8 x 4.5 in, paper at a column.
-    assert _sizes("--medium", "slides")[0] == pytest.approx((8, 4.5))
+    # The medium's default width: slides draw at 8 x 5.84 in, paper at a column.
+    assert _sizes("--medium", "slides")[0] == pytest.approx((8, 0.73 * 8))
     assert _sizes("--medium", "paper")[0][0] == pytest.approx(3.4)
 
 
 def test_default_is_slides_and_classic_keeps_the_old_size(make_project, spectra):
     make_project({"Spectra": spectra})
-    assert _sizes()[0] == pytest.approx((8, 4.5))
+    assert _sizes()[0] == pytest.approx((8, 0.73 * 8))
     assert _sizes("--style_preset", "classic")[0] == pytest.approx((8, 6))
 
 
@@ -157,3 +157,17 @@ def test_text_scale_follows_the_medium(make_project, spectra):
     for medium in ("slides", "paper"):
         line.main(["--datafile", "Spectra", "-x", "Energy", "-y", "Counts", "--medium", medium])
     assert scales == [1.0, 0.75]
+
+
+def test_slides_lower_panel_shares_the_height(make_project, spectra):
+    make_project({"Spectra": spectra})
+    plain, with_lower = _sizes()[-1], _sizes("--lower", "ratio")[-1]
+    assert with_lower == pytest.approx(plain)
+
+
+def test_a_row_of_panels_is_shorter(make_project, spectra):
+    """Panels side by side get shorter rows (about square panels, at least 3.2 in)."""
+    make_project({"Spectra": spectra})
+    (_, single), = _sizes("--select", "Variable", "-s", "E")
+    sizes = _sizes("--select", "Variable", "-s", "E", "F", "--variables", "E", "F")
+    assert sizes[-1] == pytest.approx((8, 4.0)) and single == pytest.approx(0.73 * 8)

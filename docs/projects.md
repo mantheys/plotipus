@@ -49,11 +49,15 @@ rcParams, to `<figure>.style.json`.
 - **Medium**: `--medium` on any kind or on `plotipus run`, else `[project]
   medium`, else the named style's. `--medium all` (and `[project] media`
   with `plotipus run`) renders every listed medium.
-- **Size**: each medium has a default `width` (slides and web: `slide`,
-  8 in at aspect 0.5625; paper: `single`, 3.4 in at 0.75). Presets live in
-  the style's `widths`; a preset is inches (height = `aspect` × width) or
-  `{"width": 6.8, "height": 3.0}`. A row of panels shares the width; each
-  lower panel adds 30% of the upper height. Text is never scaled for more
+- **Size**: each medium has a default `width` (slides: `slide`, 8 in at
+  aspect 0.73; web: `slide` at 0.5625; paper: `single`, 3.4 in at 0.75).
+  Presets live in the style's `widths`; a preset is inches (height =
+  `aspect` × width) or `{"width": 6.8, "height": 3.0}`. Lower panels share
+  the figure's height in slides (`"lower_panels": "share"`), so a plot with a
+  ratio panel has the size of one without; elsewhere each adds 30% of the
+  upper height (`"add"`). A row of panels shares the width and gets shorter
+  (`"facet_rows": {"panel_aspect": 1.0, "min_height": 3.2}`): about square
+  panels, at least 3.2 in, never taller than one plot. Text is never scaled for more
   panels (`panel_font_scale` only applies to `classic` and to style files
   that set `"width": null`, the size from `figure_layout`).
   `--single_panel_size` gives every figure the size of one panel.
@@ -105,7 +109,8 @@ Style files (JSON) are merged over the defaults
 hatched band of stacked simulation; `"auto_title": false` drops the
 title taken from the datafile name; `"sci_in_label": false` keeps the
 power-of-ten offset text at the axis end instead of in the label; `fit_color`
-and `zero_line_color`, colours or roles; `diverging_cmap` for `--cmap diverging`), `labels` (capitalisation exceptions,
+and `zero_line_color`, colours or roles; `diverging_cmap` for `--cmap diverging`; the sequential map is
+`rcparams` `image.cmap`, `plotipus` by default, `plotipus_dark` in the dark theme), `labels` (capitalisation exceptions,
 legend titles to drop, title short forms) and `mappings` (named
 label/colour dictionaries used by the `*_mapping` options).
 

@@ -11,6 +11,7 @@
     "half-slide": 4.0
   },
   "aspect": 0.75,
+  "facet_rows": {"panel_aspect": 1.0, "min_height": 3.2},
   "font_sizes": {
     "titlefontsize": "xx-large",
     "subtitlefontsize": "x-large",

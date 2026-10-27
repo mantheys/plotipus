@@ -167,7 +167,7 @@ def build_parser():
         "samples of different sizes compare as shapes; the y label defaults to Density.")
     add("--peak", action="store_true", default=False,
         help="Normalise each series to its maximum (errors alike), so shapes compare at their peaks; the y "
-        "label defaults to 'Relative to peak'. With --density, the areas are normalised first.")
+        "label defaults to 'Normalised to 1'. With --density, the areas are normalised first.")
     add("--rebin_sum", action="store_true", default=False,
         help="With --rebin: sum merged y values (counts) instead of averaging them.")
     add("--mirror", type=str, default=None, help="Config whose series is extended by its reflection.")
@@ -177,7 +177,10 @@ def build_parser():
         help="With --by_config: configs whose series are also drawn rescaled (x*--project_scale+--project_offset).")
     add("--project_offset", type=float, default=0)
     add("--project_scale", type=float, default=1)
-    add("--shift", nargs="+", type=str, default=None, help="Configs/names whose x values are shifted.")
+    add("--shift", nargs="+", type=str, default=None,
+        help="Configs/names whose x values are shifted (--shift_offset); or 'peak': every series moves by whole "
+        "bins so its maximum sits at the reference series' maximum (--reference_value, else the first), and "
+        "lower panels compare the aligned shapes.")
     add("--shift_offset", type=float, default=0, help="Offset added to the x values selected by --shift.")
     add("--combine", type=str, default=None,
         help="With --by_config: merge configs sharing a prefix (value 'prefix': text before the first '_').")
@@ -285,6 +288,9 @@ def build_parser():
     add("--lower_label_mapping", type=str, default=None,
         help="Mapping renaming the default lower label (keyed by operation or column).")
     add("--lower_zero_line", action="store_true", default=False, help="Dashed reference line at y=0 on lower panels.")
+    add("--no_lower_reference", action="store_true", default=False,
+        help="No dashed reference line on --lower column:NAME panels (default: at 1 for a column named like a "
+        "ratio, else at 0, e.g. a stored pull).")
     add("--lower_zero_color", type=str, default=None,
         help="Colour of the y=0 lines of lower panels (default: the style's muted role; 'red' restores the old look).")
     add("--lower_log_format", choices=["scientific", "plain"], default=None)
@@ -686,6 +692,9 @@ def draw_series(ax, s, args, plot_type=None, stack_bottom=None, dodge_shift=0.0)
         ax.stairs(s.y + error, s.x_edges, baseline=s.y - error, fill=True, color=s.color, alpha=style.band_alpha,
                   linewidth=0, label=s.label)
         return
+    if plot_type == "empty":
+        ax.plot(s.x, s.y, marker="o", markerfacecolor="none", linestyle="None", color=s.color, zorder=3)
+        return
     if plot_type == "beyond":
         # Points off the top of a lower panel (data over an empty prediction).
         top = matplotlib.transforms.blended_transform_factory(ax.transData, ax.transAxes)
@@ -918,6 +927,7 @@ def draw_figure(rows, args, kdx=None):
         ordered = drawn_hues[::-1] if args.stacked and args.stack_reverse else drawn_hues
         # Data first: first in the legend, drawn above the rest by its zorder.
         ordered = [v for v in ordered if _is_data(v, args)] + [v for v in ordered if not _is_data(v, args)]
+        peak_bin = _reference_peak_bin(panel_rows, ordered, args) if _shift_peaks(args) else None
         for jdx, hue in enumerate(ordered):
             hue_rows = panel_rows if hue is None else panel_rows[panel_rows[args.iterable] == hue] if not isinstance(hue, _SumSlot) else None
             for sdx, comparable_value in enumerate(comparable_values or [None]):
@@ -948,6 +958,8 @@ def draw_figure(rows, args, kdx=None):
                     _to_density(s, args)
                 if args.peak:
                     _to_peak(s, args)
+                if peak_bin is not None:
+                    _align_peak(s, peak_bin)
                 s.comparable = comparable_value
                 s.comparable_index = sdx
                 _encode(s, args, hue_values, colors, style_index, n_style, comparable, comparable_values, invert,
@@ -1209,8 +1221,13 @@ def _draw_lower(ax, spec, series, args, comparable, comparable_values, colors):
             arrays = [s.y for s in aligned]
             errors = [None if s.error is None or np.ndim(s.error) != 1 else s.error for s in aligned]
             for diff_label, values, errors_out in group_difference(labels, arrays, errors, **group_kwargs):
-                if args.show_stat_error or args.group_significance:
-                    # A significance is a measurement per point: points with error bars.
+                if args.group_significance and not args.show_stat_error:
+                    # An expectation, not a measurement: a step with the band a measurement would spread over.
+                    color = args.reference_sum_color or colors.next_free(("group", value))
+                    lower_s = _lower_series(x, values, errors_out, color, None,
+                                            f"{diff_label} ({aligned[0].comparable_label})" if value is not None else diff_label)
+                    lower_s.forced_type = "step"
+                elif args.show_stat_error:
                     color = args.reference_sum_color or colors.next_free(("group", value))
                     lower_s = _lower_series(x, values, errors_out, color, None,
                                             f"{diff_label} ({aligned[0].comparable_label})" if value is not None else diff_label)
@@ -1221,6 +1238,9 @@ def _draw_lower(ax, spec, series, args, comparable, comparable_values, colors):
                                             diff_label if sdx == 0 else None, aligned[0].linewidth)
                 out.append(lower_s)
     elif spec.kind == "column":
+        if not args.no_lower_reference:
+            ax.axhline(1.0 if "ratio" in spec.name.lower() else 0.0, color=style.role("muted"), linestyle="--",
+                       linewidth=1, zorder=1)
         first = True
         # With data, the stored column is the data's (a pull, a residual): other series' copies are left out.
         with_data = [s for s in regular if s.is_data and s.rows is not None and spec.name in s.rows.columns]
@@ -1296,7 +1316,11 @@ def _draw_lower(ax, spec, series, args, comparable, comparable_values, colors):
                 else:
                     color = series_colors.get(out_label)
                 entry = label if spec.name in ("sum", "mean", "rms") else _pair_label(out_label, reference_label, spec.name)
-                lower_s = _lower_series(x, values, None, color, aligned[0].linestyle, entry, aligned[0].linewidth)
+                error = None
+                if against_reference:
+                    by_label = {str(s.hue_label): s for s in aligned}
+                    error = _pair_error(by_label.get(out_label), by_label.get(reference_label), values, spec.name)
+                lower_s = _lower_series(x, values, error, color, aligned[0].linestyle, entry, aligned[0].linewidth)
                 if against_reference:
                     lower_s.forced_type = "errorbar"
                 out.append(lower_s)
@@ -1308,6 +1332,25 @@ def _draw_lower(ax, spec, series, args, comparable, comparable_values, colors):
     upper_colors = {to_hex(s.color) for s in series if s.color is not None}
     new_colors = any(s.color is None or to_hex(s.color) not in upper_colors for s in out if s.label)
     _finish_lower(ax, spec, args, label, has_content=bool(out) and new_colors)
+
+
+def _pair_error(other, reference, values, operation):
+    """Error of ``other`` compared with ``reference`` (both errors added in
+    quadrature, relative for ratios); None unless both have one error per point."""
+    if other is None or reference is None:
+        return None
+    errors = [s.error for s in (other, reference)]
+    if any(e is None or np.ndim(e) != 1 for e in errors):
+        return None
+    (other_error, reference_error), (other_y, reference_y) = (
+        [np.asarray(e, dtype=float) for e in errors], [np.asarray(s.y, dtype=float) for s in (other, reference)])
+    with np.errstate(divide="ignore", invalid="ignore"):
+        if operation == "subtract":
+            return np.hypot(other_error, reference_error)
+        relative = np.hypot(other_error / other_y, reference_error / reference_y)
+        if operation == "ratio":
+            return np.abs(values) * relative
+        return 100.0 * np.abs(other_y / reference_y) * relative  # relative_difference, in percent
 
 
 def _pair_label(value, reference, operation):
@@ -1352,6 +1395,13 @@ def _data_lower(x, aligned, operation, label, args=None):
                 arrows = _lower_series(np.asarray(x)[beyond], np.ones(int(beyond.sum())), None, s.color, None, None)
                 arrows.forced_type = "beyond"
                 out.append(arrows)
+            both_empty = (np.asarray(total) == 0) & (np.asarray(s.y, dtype=float) == 0)
+            if both_empty.any():
+                # Nothing seen where nothing is expected: agreement, an open point at 1.
+                empty = _lower_series(np.asarray(x)[both_empty], np.ones(int(both_empty.sum())), None, s.color, None,
+                                      None)
+                empty.forced_type = "empty"
+                out.append(empty)
             error = None if error is None else np.asarray(error)
         else:
             error = s.error if s.error is not None and np.ndim(s.error) == 1 else None
@@ -1439,7 +1489,7 @@ def _finish_upper(fig, upper, lower, drawn, rows, args, variables, last_x, hue_v
                 lower[idx][-1].set_xlabel(xlabel)
             else:
                 ax.set_xlabel(xlabel)
-            default_ylabel = "Relative to peak" if args.peak else "Density" if args.density else None
+            default_ylabel = "Normalised to 1" if args.peak else "Density" if args.density else None
             ylabel = resolve_axis_label(args.labely if args.labely is not None or default_ylabel is None
                                         else default_ylabel, args.y, panel_rows)
             kinds = {getattr(s, "interval", None) for s in drawn.get(idx, [])} - {None}
@@ -1624,7 +1674,50 @@ def _print_crossings(args, x, y, label):
 
 
 def _is_shifted(config, name, args):
+    if _shift_peaks(args):
+        return False
     return bool(args.shift) and ((config is not None and config in args.shift) or (name is not None and name in args.shift))
+
+
+def _shift_peaks(args):
+    return [str(v).lower() for v in (args.shift or [])] == ["peak"]
+
+
+def _reference_peak_bin(rows, hues, args):
+    """Bin index of the reference series' maximum (--shift peak): the
+    --reference_value hue, else the first hue that is not data."""
+    reference = args.reference_value
+    if reference is None:
+        reference = next((h for h in hues if h is not None and not _is_data(h, args)), None)
+    if reference is None or args.iterable is None:
+        return None
+    s = extract(filter_dataframe(rows[rows[args.iterable].astype(str) == str(reference)], args), args)
+    if s is None or s.categorical or not np.isfinite(np.asarray(s.y, dtype=float)).any():
+        return None
+    return int(np.nanargmax(np.asarray(s.y, dtype=float)))
+
+
+def _align_peak(s, peak_bin):
+    """Move series ``s`` by whole bins on its own x grid so its maximum is at
+    ``peak_bin``; bins moved in from outside are empty (NaN)."""
+    y = np.asarray(s.y, dtype=float)
+    if s.categorical or not np.isfinite(y).any():
+        return
+    k = peak_bin - int(np.nanargmax(y))
+
+    def moved(values):
+        values = np.asarray(values, dtype=float)
+        out = np.full_like(values, np.nan)
+        n = values.shape[-1]
+        if abs(k) < n:
+            src = slice(max(0, -k), n - max(0, k))
+            dst = slice(max(0, k), n - max(0, -k))
+            out[..., dst] = values[..., src]
+        return out
+
+    s.y = moved(y)
+    if s.error is not None:
+        s.error = moved(s.error)
 
 
 def _config_label(args, config, name):
