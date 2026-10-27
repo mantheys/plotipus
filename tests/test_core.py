@@ -488,3 +488,15 @@ def test_every_kind_help_renders(capsys):
         with pytest.raises(SystemExit):
             kind.build_parser().parse_args(["--help"])
         assert "usage:" in capsys.readouterr().out
+
+
+def test_line_kind_does_not_import_scipy_stats():
+    """scipy.stats and scipy.special take over a second to import: only the
+    options that need them (σ/Δχ² lines, intervals) load them."""
+    import subprocess
+    import sys
+
+    code = ("import sys; from plotipus.kinds import line; "
+            "print(int('scipy.stats' in sys.modules), int('scipy.special' in sys.modules))")
+    out = subprocess.run([sys.executable, "-c", code], capture_output=True, text=True, check=True).stdout.split()
+    assert out == ["0", "0"]
