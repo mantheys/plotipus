@@ -75,21 +75,23 @@ def edges_from_centers(x):
 
 def y_error_of(points):
     """Errors of exploded points: ``ErrorLow``/``ErrorHigh`` stacked (2, N),
-    else ``Error`` (N,), else None (also when not castable to floats)."""
-    if "ErrorLow" in points.columns and "ErrorHigh" in points.columns:
-        try:
-            return np.vstack([
+    else ``Error`` (N,), else None (also when not castable to floats, and
+    when every error is NaN: a row without an error cell in a frame where
+    other rows have one has no error, so the default intervals apply)."""
+    error = None
+    try:
+        if "ErrorLow" in points.columns and "ErrorHigh" in points.columns:
+            error = np.vstack([
                 points["ErrorLow"].astype(float).to_numpy(),
                 points["ErrorHigh"].astype(float).to_numpy(),
             ])
-        except (ValueError, TypeError):
-            return None
-    if "Error" in points.columns:
-        try:
-            return points["Error"].astype(float).to_numpy()
-        except (ValueError, TypeError):
-            return None
-    return None
+        elif "Error" in points.columns:
+            error = points["Error"].astype(float).to_numpy()
+    except (ValueError, TypeError):
+        return None
+    if error is None or error.size == 0 or np.all(np.isnan(error)):
+        return None
+    return error
 
 
 def pick_row(value, row):

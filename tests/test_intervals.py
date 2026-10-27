@@ -121,6 +121,20 @@ def test_line_overlay_without_error_column_defaults_to_poisson(make_project):
     assert np.allclose([s[1][1] for s in segments], high)
 
 
+def test_line_overlay_without_its_own_error_cell_defaults_to_poisson(make_project):
+    # The error column exists for the simulation only: the data row's NaN cell is no error.
+    x = np.arange(4.0)
+    counts = np.array([0.0, 2.0, 5.0, 3.0])
+    frame = pd.DataFrame([{"X": x, "Counts": counts, "S": "data"},
+                          {"X": x, "Counts": np.array([1.0, 2.0, 4.0, 3.0]), "CountsError": np.full(4, 0.5), "S": "mc"}])
+    make_project({"Spec": frame})
+    figures = _capture()
+    line.main(["--datafile", "Spec", "-x", "X", "-y", "Counts", "--hue", "S", "--overlay", "data", "--errory"])
+    (container,) = [c for c in figures[-1].axes[0].containers if isinstance(c, ErrorbarContainer)]
+    segments = container.lines[2][0].get_segments()
+    assert np.allclose([s[1][1] for s in segments], intervals.garwood(counts)[1])
+
+
 def test_line_overlay_of_measurements_gets_no_poisson_default(make_project):
     # Overlay data whose y are not counts (negative or fractional values) keeps no errors.
     x = np.arange(4.0)

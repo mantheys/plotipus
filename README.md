@@ -80,6 +80,53 @@ make -C examples mascot      # re-render the mascot and the tutorial figures
 `plotipus init my_project` creates an empty project (`plotipus.toml`,
 `input/{data,plots,tables}`, `output/`).
 
+## Your own data
+
+plotipus reads pickled pandas DataFrames from `input/data/` (the project's
+data root): `--datafile Spectrum` loads `input/data/Spectrum.pkl`. The
+convention is one row per series, with binned quantities as arrays in the
+cells:
+
+```python
+import numpy as np
+import pandas as pd
+
+x = np.arange(0.25, 10, 0.5)                     # bin centres (GeV)
+expected = 200 * np.exp(-x / 3)                  # the simulation's prediction
+observed = np.random.default_rng(1).poisson(expected)
+
+pd.DataFrame([
+    {"Sample": "Simulation", "Energy": x, "Counts": expected, "CountsError": 0.05 * expected},
+    {"Sample": "Data",       "Energy": x, "Counts": observed},
+]).to_pickle("input/data/Spectrum.pkl")
+```
+
+| Sample | Energy | Counts | CountsError |
+|---|---|---|---|
+| Simulation | [0.25, 0.75, …, 9.75] | [184.0, 155.8, …] | [9.2, 7.8, …] |
+| Data | [0.25, 0.75, …, 9.75] | [184, 149, …] | — |
+
+```bash
+plotipus line --datafile Spectrum -x Energy -y Counts --hue Sample --data_hue Data --errory --lower ratio
+```
+
+- `-x`, `-y` name the columns to draw; `--hue` names the column that splits
+  the rows into series (one colour each); `--data_hue Data` marks the data
+  rows, drawn as points.
+- Errors live next to the value: `{y}Error` (symmetric) or `{y}Error+` and
+  `{y}Error-` (asymmetric). A row without them gets the standard interval
+  where one applies: the data here are counts, so they get Poisson
+  (Garwood) intervals.
+- One value per row (scalars instead of arrays) works too, e.g. for `cat`
+  and `table`; `hist` takes the raw values as arrays.
+- Several files of one analysis are told apart by prefixes:
+  `--configs A --names B --datafile Spectrum` loads `A_B_Spectrum.pkl`.
+
+The pickle may also hold anything `pd.DataFrame` accepts (a list of row
+dicts, a dict of columns, or a dict of DataFrames, which are concatenated
+with a `Source` column). The rules for drawing them are in the
+[style guide](docs/styleguide.md#f-data-conventions).
+
 ## Slides first, paper later
 
 One command list renders for every medium, at the size it is shown at:
