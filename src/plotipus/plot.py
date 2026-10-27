@@ -1141,8 +1141,9 @@ def plot_data(
         fill_hatch_color = hist_kwargs.pop("fill_hatch_color", False)
         hist_align = hist_kwargs.pop("align", getattr(args, "align", "mid"))
         histtype = hist_kwargs.pop("histtype", "step")
+        step_open = hist_kwargs.pop("step_open", False)
         if (
-            getattr(args, "step_open", False)
+            (step_open or getattr(args, "step_open", False))
             and histtype == "step"
             and fill_alpha is None
             and x_edges is not None

@@ -21,8 +21,12 @@ weighted down to the same total), in two forms:
 
 The figures follow one convention: data are points with error bars,
 simulation is a step histogram and a fit is a line; lower panels of data
-(ratios, pulls) are points too. Different distributions compared as shapes
-are normalised to unit area (`--density`) on the same binning.
+(ratios, pulls, significances) are points too. Series compared among
+themselves, without data, are steps: without `--plot_type`, binned series
+(evenly spaced x) are drawn as steps, and points are kept for data and for
+lower panels around a reference line. Different distributions compared as
+shapes are normalised to unit area (`--density`) or to their peaks
+(`--peak`) on the same binning.
 
 `Bivariate Gaussian` rows hold correlated `X`, `Y` samples instead.
 The Gaussian rows also store a Gaussian fit (`FitFunctionLabel`, `Params`,
@@ -42,7 +46,9 @@ are the example list, `examples/input/plots/example_scripts.txt`;
   `--configs`/`--names` are given, else `{datafile}.pkl`), `--path` (relative
   to the data root), `--select COL -s VALUE` / `--remove_value`,
   `--variables` (values of the `Variable` column, one panel each).
-  `--variable_column COL` takes the panels from another column.
+  `--variable_column COL` takes the panels from another column. Panels side
+  by side share their y range and only the first shows the y label and tick
+  labels (`--no-compact` gives each its own axis).
   Values beyond the last key belong to it, so
   `--select Distribution -s Gaussian Poisson` keeps both distributions.
 * **Encodings**: `--hue` (alias `--iterable`), `--style` (alias
@@ -190,9 +196,10 @@ A lower panel is the same kind of panel as the upper one; it plots a column
 derived from (or stored in) the same DataFrame. Each `--lower` adds one:
 
 ```bash
---lower ratio                 # every series / the reference series (--reference, --reference_value)
+--lower ratio                 # every series / the reference series (--reference, --reference_value):
+                              # the reference is a line at 1 in its colour, the others points
 --lower relative_difference   # also subtract, asymmetry, excess, excess_probability, sum, mean, rms
---lower group --reference_group S --other_group B1 B2 --group_significance   # S/sqrt(B)
+--lower group --reference_group S --other_group B1 B2 --group_significance   # S/sqrt(B), points with errors
 --lower residual              # (data - fit) / fit of the stored model (with --fit: masked where fit < 1e-3 of its peak)
 --lower pull                  # (data - fit) / error, at least +-3 with +-1 and +-2 bands (with --fit)
 --lower column:Significance   # a series stored in the pickle (with SignificanceError)
@@ -254,11 +261,17 @@ hue colour and its simulation a solid step, and the style legend shows a
 point for the data. A `--lower column:NAME` panel of a data series is drawn
 as points. `line --density` normalises every series to unit area (y divided
 by the sum of y times the bin width, errors alike), to compare shapes of
-samples of different sizes; the y label becomes "Density". `--lower ratio`
+samples of different sizes; the y label becomes "Density". `--peak`
+divides every series by its maximum instead (y label "Relative to peak"), so
+shapes compare at their peaks. `--lower ratio`
 (also `subtract`, `relative_difference`) then compares the data with the
 total of the simulation: data points with their own errors over a band of
-the simulation's error, around a dashed line at 1 (0). `--reference_value`
-or `--reference_sum` restore the series-by-series comparison.
+the simulation's error, around a dashed line at 1 (0). Bins where both are
+empty (0/0) carry no information and are left out; data over an empty
+prediction is an arrow at the top of the panel; no data over a non-empty
+prediction is 0 with the upper error of observing nothing (1.84 counts,
+Garwood). `--reference_value` or `--reference_sum` restore the
+series-by-series comparison.
 
 The `Resonance` rows of the example data are a Higgs-like search: data and
 two simulated components, a falling background and a narrow signal at
@@ -365,7 +378,8 @@ plotipus map --datafile Distributions -x MeanScan -y SigmaScan -z Chi2Scan --sel
 
 `line --binned` bins raw per-event x/y arrays and draws `--estimator` of y
 per x bin, as error bars on markers (not joined) unless `--plot_type` says
-otherwise:
+otherwise; with `--data_hue`, the data are ink points and the other samples
+open steps with error bands:
 
 * **Errors** (`--estimator_error`): `sem` (default) is the standard error
   of the statistic: mean σ/√n, median 1.2533·σ/√n, std σ/√(2(n−1)), rms by

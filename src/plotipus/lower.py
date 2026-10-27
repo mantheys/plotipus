@@ -115,6 +115,43 @@ def pairwise(reference, other, operation):
     return result
 
 
+def count_ratio(numerator, denominator, error=None, counts=False):
+    """``numerator / denominator`` (data over its prediction) with the edge
+    cases of a ratio of counts. Returns (values, error, beyond):
+
+    * 0 / 0 is undefined (NaN): the bin holds no information;
+    * n > 0 over 0 is beyond any scale: NaN, flagged in ``beyond`` (drawn as an
+      arrow at the top of the panel);
+    * 0 over d > 0 is 0; for ``counts`` without an error of its own it takes
+      the upper error of observing nothing (Garwood, 1.84 / d), so the point
+      still says how far the prediction is from it;
+    * otherwise error / denominator. ``error`` is None, one error per point or
+      (low, high); the result is None or (low, high).
+    """
+    from .intervals import garwood
+
+    numerator = np.asarray(numerator, dtype=float)
+    denominator = np.asarray(denominator, dtype=float)
+    positive = denominator > 0
+    with np.errstate(divide="ignore", invalid="ignore"):
+        values = np.where(positive, numerator / denominator, np.nan)
+    beyond = ~positive & (numerator > 0)
+    if error is None and not counts:
+        return values, None, beyond
+    if error is None:
+        low = high = np.zeros_like(numerator)
+    elif np.ndim(error) == 2:
+        low, high = (np.asarray(e, dtype=float) for e in error)
+    else:
+        low = high = np.asarray(error, dtype=float)
+    if counts:
+        empty = (numerator == 0) & ~(high > 0)
+        high = np.where(empty, garwood(np.zeros_like(numerator))[1], high)
+    with np.errstate(divide="ignore", invalid="ignore"):
+        return values, (np.where(positive, low / denominator, np.nan),
+                        np.where(positive, high / denominator, np.nan)), beyond
+
+
 def operation_series(labels, arrays, operation, reference_index=0, reference_sum=None, reference_sum_label=None):
     """Lower-panel series ``[(label, values)]`` of ``operation`` over the
     upper series ``arrays`` (named ``labels``).

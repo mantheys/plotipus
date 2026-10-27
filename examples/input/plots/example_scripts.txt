@@ -4,7 +4,7 @@
 # Shared options: panels, encodings, palettes, errors, reference lines
 line --datafile Distributions -x Bin -y Counts --hue Sample --variable_column Distribution --variables Gaussian Poisson Exponential --data_hue Data --errory --labelx x --title 'Prebinned counts, one panel per distribution' --output_suffix facets
 line --datafile Distributions -x Bin -y Counts --hue Distribution --style Sample --data_hue Data --select Distribution -s Exponential Landau Chi-squared --errory --density --labelx x --title 'Colour by --hue, data and simulation by --style' --output_suffix encodings
-line --datafile Distributions -x Bin -y Counts --hue Distribution --select Sample Distribution -s Data Exponential Landau Chi-squared Log-normal --plot_type errorbar --errory --density --palette okabe-ito --labelx x --title 'The okabe-ito palette' --output_suffix palette
+line --datafile Distributions -x Bin -y Counts --hue Distribution --select Sample Distribution -s Data Exponential Landau Chi-squared Log-normal --errory --density --palette okabe-ito --labelx x --title 'The okabe-ito palette' --output_suffix palette
 line --datafile Distributions -x Bin -y Counts --hue Sample --select Distribution -s Gaussian --data_hue Data --errory --labelx x --title 'Error bars from the CountsError column' --output_suffix errors
 line --datafile Distributions -x Bin -y Counts --hue Sample --select Distribution -s Exponential --data_hue Data --errory --errory_type bands --logy --labelx x --title 'Error bands on a log scale' --output_suffix bands
 line --datafile Distributions -x Bin -y Counts --hue Sample --select Distribution -s Exponential --data_hue Data --errory --multiply 1e-7 --labelx x --labely 'Rate per bin (Hz)' --title 'A rate: the power of ten in the label' --output_suffix rate
@@ -15,9 +15,9 @@ line --datafile Histogram --configs data simulation --names landau -x Bin -y Cou
 hist --datafile Distributions -x Value --hue Sample --weight Weight --select Distribution -s Breit-Wigner --data_hue Data --bins 40 --rangex 81 101 --flow show --labelx 'Mass (GeV)' --title 'Histogram of samples with under/overflow' --output_suffix flow
 
 # Lower panels
-line --datafile Distributions -x Bin -y Counts --hue Distribution --select Sample Distribution -s Simulation Exponential Landau Log-normal --plot_type step --density --lower ratio --reference_value Exponential --labelx x --lower_labely 'Ratio to Exp.' --title 'Ratio to a reference series' --output_suffix ratio
-line --datafile Distributions -x Bin -y Counts --hue Sample --select Distribution Sample -s Poisson Data --data_hue Data --errory --lower column:Pull --labelx k --lower_labely Pull --title 'Lower panel from a stored column' --output_suffix column
-line --datafile Distributions -x Bin -y Counts --hue Sample --select Distribution Sample -s Resonance Background Signal --stacked --lower group --reference_group Signal --other_group Background --group_significance --lower_labely '$S/\sqrt{B}$' --labelx 'Mass (GeV)' --labely 'Events / 2 GeV' --title 'Stacked simulation and the signal significance' --output_suffix significance
+line --datafile Distributions -x Bin -y Counts --hue Distribution --select Sample Distribution -s Simulation Exponential Landau Log-normal --peak --lower ratio --reference_value Exponential --labelx x --lower_labely 'Ratio to Exp.' --title 'Ratio to a reference series' --output_suffix ratio
+line --datafile Distributions -x Bin -y Counts --hue Sample --select Distribution -s Poisson --data_hue Data --errory --lower column:Pull --labelx k --lower_labely Pull --title 'Lower panel from a stored column' --output_suffix column
+line --datafile Distributions -x Bin -y Counts --hue Sample --select Distribution Sample -s Resonance Background Signal --stacked --errory --lower group --reference_group Signal --other_group Background --group_significance --lower_labely '$S/\sqrt{B}$' --labelx 'Mass (GeV)' --labely 'Events / 2 GeV' --title 'Stacked simulation and the signal significance' --output_suffix significance
 
 # Data and simulation
 line --datafile Distributions -x Bin -y Counts --hue Sample --select Distribution -s Landau --data_hue Data --errory --lower ratio --labelx x --lower_labely 'Data / Sim.' --title 'Data against simulation' --output_suffix datamc
@@ -33,7 +33,7 @@ map --datafile Distributions -x X -y Y --select Distribution -s 'Bivariate Gauss
 map --datafile Distributions -x MeanScan -y SigmaScan -z Chi2Scan --select Distribution -s Gaussian --iterable Sample --contour --fill_contours --labelx '$\mu$' --labely '$\sigma$' --title 'Confidence regions of a $\Delta\chi^2$ scan' --output_suffix contours
 
 # Binned estimators
-line --datafile Distributions -x Value -y Residual --binned --estimator std --hue Sample --select Distribution -s Exponential --bins 11 --rangex 0 10 --labelx True --labely 'Measured - True' --title 'Binned estimator: resolution' --output_suffix binned
+line --datafile Distributions -x Value -y Residual --binned --estimator std --hue Sample --data_hue Data --select Distribution -s Exponential --bins 11 --rangex 0 10 --labelx True --labely 'Measured - True' --title 'Binned estimator: resolution' --output_suffix binned
 line --datafile Distributions -x Value -y Residual --binned --plot_type box --hue Sample --select Distribution -s Exponential --bins 11 --rangex 0 10 --labelx True --labely 'Measured - True' --title 'Box plots per bin' --output_suffix box
 
 # Other kinds: categories and scatter

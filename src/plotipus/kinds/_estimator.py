@@ -36,7 +36,7 @@ from ..plot import (
     plot_data,
 )
 from ..selection import filter_dataframe
-from ..transforms import _ESTIMATORS, bin_estimate, bin_reduce, estimate, reduction_bins
+from ..transforms import _ESTIMATORS, bin_estimate, bin_reduce, edges_from_centers, estimate, reduction_bins
 
 ESTIMATORS = tuple(_ESTIMATORS)
 SUFFIXES = {"scatter_points": "scatter", "scatter": "scatter"}
@@ -201,6 +201,10 @@ def _panel_figure(df, args, kdx, config, name):
     group = _group_rows(df, args, config, name)
     variables = [None] * len(args.panels) if args.panels is not None else (args.variables or [None])
     hues = group[args.iterable].unique() if args.iterable is not None else [None]
+    if getattr(args, "data_hue", None) and args.iterable is not None:
+        # Data first: drawn (and listed in the legend) before the samples it is compared with.
+        data_values = {str(v) for v in args.data_hue}
+        hues = sorted(hues, key=lambda hue: str(hue) not in data_values)
     first_subset = {}
     errors_drawn = propagated = False
     box_colors = ColorAllocator()
@@ -264,6 +268,15 @@ def _panel_figure(df, args, kdx, config, name):
                 label = map_iterable_label(hue, args.iterable, args.iterable_mapping, len(hues))
             else:
                 label = f"{args.y} vs {args.x}"
+            if hue is not None and args.plot_type is None and getattr(args, "data_hue", None):
+                # --data_hue: data as ink points, the other samples as steps with error bands.
+                if str(hue) in {str(v) for v in args.data_hue}:
+                    plot_data(args, ax, centres, y=values, errory=errors, label=label, color=style.role("ink"),
+                              plot_type="errorbar", fmt="o", ls="none", zorder=3)
+                else:
+                    plot_data(args, ax, centres, x_edges=edges_from_centers(centres), y=values, errory=errors,
+                              label=label, color=box_colors.color_for(hue), plot_type="step", step_open=True)
+                continue
             color = map_iterable_color(hue, args.iterable_color_mapping) if args.iterable is not None else None
             plot_data(args, ax, centres, y=values, errory=errors, label=label, color=color,
                       **_marker_kwargs(args, plot_type), **resolve_plot_kwargs(plot_type))

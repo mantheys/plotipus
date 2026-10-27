@@ -298,8 +298,7 @@ def test_errorbar_points_not_joined(make_project, connect):
     assert {c.lines[0].get_linestyle() for c in containers} == ({"-"} if connect else {"None"})
 
 
-@pytest.mark.parametrize("argv, linestyle", [([], "None"), (["--plot_type", "errorbar"], "None"),
-                                             (["--connect"], "-")])
+@pytest.mark.parametrize("argv, linestyle", [(["--plot_type", "errorbar"], "None"), (["--connect"], "-")])
 def test_errorbars_on_points(make_project, spectra, argv, linestyle):
     figures = _capture()
     run(make_project, spectra, "--hue", "Sample", "--select", "Stage", "-s", "Raw", "--errory", *argv)
@@ -307,6 +306,15 @@ def test_errorbars_on_points(make_project, spectra, argv, linestyle):
     assert len(containers) == 3 and not _bands(figures[0].axes[0])
     assert {c.lines[0].get_linestyle() for c in containers} == {linestyle}
     assert all(c.has_yerr for c in containers)
+
+
+def test_compared_binned_series_default_to_steps(make_project, spectra):
+    """Without --plot_type, binned series compared among themselves are
+    steps (with error bands); points are for data."""
+    figures = _capture()
+    run(make_project, spectra, "--hue", "Sample", "--select", "Stage", "-s", "Raw", "--errory")
+    ax = figures[0].axes[0]
+    assert not _errorbars(ax) and len(_bands(ax)) == 3
 
 
 # --- Data against simulation (--data_hue) ---------------------------------------------
@@ -539,3 +547,90 @@ def test_column_panel_of_data_is_points(make_project, spectra):
     assert any(isinstance(c, ErrorbarContainer) for c in lower.containers)
     assert not [line for line in lower.get_lines() if line.get_linestyle() not in ("None", "")
                 and len(line.get_xdata()) > 2]
+
+
+# --- Example feedback: peaks, reference ratios, safe ratios, compact panels ----------------
+
+
+def test_peak_normalises_each_series_to_one(make_project, spectra):
+    figures = _capture()
+    run(make_project, spectra, "--hue", "Sample", "--select", "Stage", "-s", "Raw", "--peak", "--plot_type", "line")
+    ax = figures[0].axes[0]
+    assert all(np.nanmax(l.get_ydata()) == pytest.approx(1.0) for l in ax.get_lines() if not l.get_label().startswith("_"))
+    assert ax.get_ylabel() == "Relative to peak"
+
+
+def test_ratio_to_a_reference_is_a_line_with_points(make_project, spectra):
+    figures = _capture()
+    run(make_project, spectra, "--hue", "Sample", "--select", "Stage", "-s", "Raw", "--lower", "ratio",
+        "--reference_value", "A")
+    upper, lower = figures[0].axes[:2]
+    colors = {p.get_label(): to_hex(p.get_edgecolor()) for p in upper.patches if not p.get_label().startswith("_")}
+    flat = [l for l in lower.get_lines() if len(l.get_ydata()) == 2 and np.allclose(l.get_ydata(), 1.0)]
+    assert [to_hex(l.get_color()) for l in flat] == [colors["A"]]  # the reference: a line at 1 in its colour
+    assert len(_errorbars(lower)) == 2  # B and C as points
+
+
+def test_count_ratio_edge_cases():
+    from plotipus.lower import count_ratio
+
+    values, error, beyond = count_ratio([0, 3, 0, 4], [0, 0, 2, 2], [0, 1.7, 0, 2], counts=True)
+    assert np.isnan(values[0]) and not beyond[0]  # 0/0: no information
+    assert np.isnan(values[1]) and beyond[1]  # data over an empty prediction: an arrow
+    assert values[2] == 0 and error[1][2] == pytest.approx(1.841 / 2, rel=1e-3)  # no data: Garwood upper error
+    assert values[3] == 2 and error[0][3] == error[1][3] == 1
+
+
+def test_data_over_an_empty_prediction_draws_an_arrow(make_project):
+    x = np.arange(0.5, 6, 1.0)
+    frame = pd.DataFrame([{"X": x, "Y": np.array(y, dtype=float), "YError": np.sqrt(y), "Sample": s}
+                          for s, y in (("Data", [0, 3, 4, 5, 0, 2]), ("Simulation", [0, 0, 4, 5, 2, 2]))])
+    make_project({"D": frame})
+    figures = _capture()
+    line.main(["--datafile", "D", "-x", "X", "-y", "Y", "--hue", "Sample", "--data_hue", "Data", "--errory",
+               "--lower", "ratio"])
+    lower = figures[0].axes[1]
+    arrows = [l for l in lower.get_lines() if l.get_marker() == "^"]
+    assert len(arrows) == 1 and list(arrows[0].get_xdata()) == [1.5]
+
+
+def test_several_panels_are_compact_by_default(make_project):
+    x = np.arange(0.5, 10, 1.0)
+    frame = pd.DataFrame([{"X": x, "Y": k * np.exp(-x / 3), "Part": p, "Sample": "S"}
+                          for k, p in ((1, "a"), (5, "b"))])
+    make_project({"P": frame})
+    figures = _capture()
+    base = ["--datafile", "P", "-x", "X", "-y", "Y", "--hue", "Sample", "--variable_column", "Part",
+            "--variables", "a", "b", "--plot_type", "line"]
+    line.main(base)
+    line.main([*base, "--no-compact"])
+    first, second = figures[0].axes[:2]
+    assert first.get_ylim() == second.get_ylim() and second.get_ylabel() == ""
+    first, second = figures[1].axes[:2]
+    assert first.get_ylim() != second.get_ylim() and second.get_ylabel() != ""
+
+
+def test_significance_is_drawn_as_points(make_project):
+    x = np.arange(0.5, 10, 1.0)
+    frame = pd.DataFrame([{"X": x, "Y": y, "YError": np.sqrt(y), "Sample": s}
+                          for s, y in (("Background", 100 * np.ones_like(x)), ("Signal", 10 * np.exp(-(x - 5) ** 2)))])
+    make_project({"G": frame})
+    figures = _capture()
+    line.main(["--datafile", "G", "-x", "X", "-y", "Y", "--hue", "Sample", "--stacked", "--errory", "--lower", "group",
+               "--reference_group", "Signal", "--other_group", "Background", "--group_significance"])
+    lower = figures[0].axes[1]
+    containers = _errorbars(lower)
+    assert len(containers) == 1 and containers[0].has_yerr
+
+
+def test_column_lower_panel_shows_the_data_column_only(make_project):
+    x = np.arange(0.5, 6, 1.0)
+    frame = pd.DataFrame([{"X": x, "Y": np.full_like(x, 5.0), "YError": np.ones_like(x), "Pull": np.full_like(x, p),
+                           "Sample": s} for s, p in (("Data", 1.0), ("Simulation", -1.0))])
+    make_project({"C": frame})
+    figures = _capture()
+    line.main(["--datafile", "C", "-x", "X", "-y", "Y", "--hue", "Sample", "--data_hue", "Data", "--errory",
+               "--lower", "column:Pull"])
+    lower = figures[0].axes[1]
+    ys = np.concatenate([l.get_ydata() for l in lower.get_lines()] or [[]])
+    assert len(_errorbars(lower)) == 1 and not np.any(np.isclose(ys, -1.0))

@@ -275,3 +275,25 @@ def test_box_categorical_x(make_project):
     figures[0].canvas.draw()
     assert [t.get_text() for t in ax.get_xticklabels()] == ["ECAL", "HCAL", "Muon"]
     assert len(_boxes(ax)) == 6
+
+
+def test_binned_estimator_data_hue(make_project):
+    """--data_hue: data as ink points with error bars, the other samples as open steps."""
+    from matplotlib.container import ErrorbarContainer
+    from matplotlib.patches import StepPatch
+
+    from plotipus import registry, style
+
+    figures = []
+    registry.add_figure_hook(lambda fig, args: figures.append(fig))
+    rng = np.random.default_rng(4)
+    frame = pd.DataFrame([{"X": rng.uniform(0, 10, 400), "Y": rng.normal(0, 1, 400), "Sample": s}
+                          for s in ("Data", "Simulation")])
+    make_project({"R": frame})
+    line.main(["--datafile", "R", "-x", "X", "-y", "Y", "--binned", "--estimator", "std", "--hue", "Sample",
+               "--data_hue", "Data", "--bins", "5", "--rangex", "0", "10"])
+    ax = figures[0].axes[0]
+    points = [c for c in ax.containers if isinstance(c, ErrorbarContainer)]
+    steps = [p for p in ax.patches if isinstance(p, StepPatch)]
+    assert len(points) == 1 and points[0].lines[0].get_color() == style.role("ink")
+    assert len(steps) == 1 and steps[0].get_data().baseline is None
