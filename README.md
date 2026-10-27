@@ -264,7 +264,7 @@ Kinds follow the data relationship (as in seaborn/plotly), not the use case.
 | `hist` | 1D histograms of per-event arrays | `--bins`, `--weight`, `--density`, `--overlay_gaussian`, `--hist_combine`, `--flow none\|hint\|show`, `--errory_type poisson` |
 | `map` | 2D: histogram of point arrays, image of a grid (`-z`), contour layer (`--contour`) | `--norm`, `--diagonal`, `--logz`, `--colorbar`, `--contour_sigmas`, `--contour_dof`, `--contour_labels`, `--annotate` and `--matrix` (tables as grids), `--zpower`, `--contour_label`, `--fill_contours`, `--background`, `--no_best_fit` |
 | `cat` | one value per category (integrated arrays, or one scalar per row) | `--integrate_over`, `--kind point\|line\|bar`, `--xtick_rotation` |
-| `table` | aggregated values as LaTeX (and HTML) tables | `--variables`, `--agg`, `--error_band`, `--clopper_pearson`, `--siunitx`, `--caption_file` |
+| `table` | aggregated values as LaTeX (and HTML) tables | `--variables`, `--agg mean\|sum\|std\|median`, `--stats` (statistics of x/y arrays), `--fit_params`, `--error_band`, `--clopper_pearson`, `--siunitx`, `--caption_file` |
 
 Every kind also takes `--text X Y 'TEXT'` (with `--arrow X2 Y2`) and `--region 'x,y x,y ...'` annotations
 (see [Shared options](docs/options.md#shared-options)).

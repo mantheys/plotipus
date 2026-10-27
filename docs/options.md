@@ -665,3 +665,23 @@ three distributions picked with `--select` (values of one key are OR-ed):
 ```bash
 plotipus scatter --datafile Distributions -x Value -y Response --hue Distribution --select Sample Distribution Distribution Distribution -s Data Gaussian Exponential Log-normal --marker_size 4 --rangey 0.5 1.5 --legend_loc 'lower right' --labelx True --labely 'Measured / True' --title 'Points coloured by group (--hue)'
 ```
+
+## Tables
+
+`table` aggregates `-y` into LaTeX (and `--html`) tables: rows are configs
+(or `--row_name` values), columns the `--variables`, each cell the `--agg`
+(`mean`, `sum`, `std`, `median`) of its values with an error. Two other
+layouts read whole rows:
+
+* `--stats mean var std median corr line n`: one row per data row (labelled
+  by `--row_name`, else `--hue`), its columns the statistics of the row's
+  `-x`/`-y` arrays: means, sample variances and standard deviations, medians,
+  the Pearson correlation, the least-squares line and the number of points
+  (`--decimals`/`--sig_figs` format them). Anscombe's quartet:
+
+```bash
+plotipus table --datafile Anscombe -x X -y Y --select Type -s Data --row_name Dataset --stats mean var corr line
+```
+
+* `--fit_params`: one row per stored fit (`Params`, `ParamsError`,
+  `ParamsLabel`, `ParamsFormat`), one column per parameter as value ± error.
