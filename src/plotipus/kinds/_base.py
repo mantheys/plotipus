@@ -17,8 +17,35 @@ from ..io import prepare_import
 from ..project import apply_rendering, load_project
 
 
+# Line styles that read as options: argparse takes a lone "--" for the end of
+# the options and "-." for a flag.
+_DASH_STYLES = {"--": "dashed", "-.": "dashdot"}
+
+
+def style_values(argv):
+    """``argv`` with the matplotlib short line styles "--" and "-." that
+    follow a ``*_style``/``*styles`` option (``--comparable_linestyles solid
+    --``) spelt out (dashed, dashdot), so argparse reads them as values."""
+    out, in_styles = [], False
+    for token in argv:
+        if in_styles and token in _DASH_STYLES:
+            out.append(_DASH_STYLES[token])
+            continue
+        if token.startswith("-") and token not in ("-", ":"):
+            name = token.split("=", 1)[0]
+            in_styles = name.startswith("--") and "=" not in token and name.rstrip("s").endswith("style")
+        out.append(token)
+    return out
+
+
+class Parser(argparse.ArgumentParser):
+    def parse_known_args(self, args=None, namespace=None):
+        args = style_values(list(sys.argv[1:] if args is None else args))
+        return super().parse_known_args(args, namespace)
+
+
 def make_parser(kind, description):
-    parser = argparse.ArgumentParser(prog=f"plotipus {kind}", description=description)
+    parser = Parser(prog=f"plotipus {kind}", description=description)
     parser.set_defaults(kind=kind)
     for flags, kwargs in registry.arguments:
         parser.add_argument(*flags, **kwargs)
@@ -58,7 +85,7 @@ def main(module, argv=None):
     # The project (style) loads first: options such as --legend_loc adjust
     # the loaded style while the arguments are parsed. --medium/--theme/
     # --width/--aspect pick the style, so they are read before that.
-    argv = list(sys.argv[1:] if argv is None else argv)
+    argv = style_values(list(sys.argv[1:] if argv is None else argv))
     media = parse_media_args(argv)
     project = load_project()
     if media.medium == "all":

@@ -202,7 +202,8 @@ def kamland():
 
     Rows: ``Component`` (Data - BG - Geo nu, Expectation (histogram),
     Expectation (curve)). ``LOverEBinEdges`` holds the 21 bin edges of the
-    data row.
+    data row, ``LOverELow``/``LOverEHigh`` each point's own bin (its
+    horizontal bar; the points are not at the bin centres).
     """
     table = _read("kamland_fig3.csv")
     data = table[table.kind == "data"].sort_values("l_over_e")
@@ -213,7 +214,8 @@ def kamland():
     curve_le, curve = _sorted(table[table.kind == "curve"], "l_over_e", "survival")
     rows = [
         {"LOverE": data["l_over_e"].to_numpy(), "SurvivalProbability": probability,
-         "SurvivalProbabilityError": error, "LOverEBinEdges": edges, "Component": "Data - BG - Geo $\\nu_e$"},
+         "SurvivalProbabilityError": error, "LOverEBinEdges": edges, "LOverELow": data["le_low"].to_numpy(),
+         "LOverEHigh": data["le_high"].to_numpy(), "Component": "Data - BG - Geo $\\nu_e$"},
         # The expectation histogram as its outline, in drawing order (a step polyline).
         {"LOverE": histogram["l_over_e"].to_numpy(), "SurvivalProbability": histogram["survival"].to_numpy(),
          "Component": "Expectation (histogram)"},

@@ -95,8 +95,9 @@ def hubble_1929():
          "Type": "Data", **fit(513.0, 60.0, "Groups")},
         {"Distance": line, "Velocity": 465.0 * line, "Sample": "K = 465 (individual)", "Type": "Fit"},
         {"Distance": line, "Velocity": 513.0 * line, "Sample": "K = 513 (groups)", "Type": "Fit"},
-        {"Distance": np.array([1.4]), "Velocity": np.array([745.0]), "Sample": "Mean of 22 nebulae",
-         "Type": "Data"},
+        # No error bars (NaN): a velocity, not a count, so not the Poisson default of --data_hue points.
+        {"Distance": np.array([1.4]), "Velocity": np.array([745.0]), "VelocityError": np.array([np.nan]),
+         "Sample": "Mean of 22 nebulae", "Type": "Data"},
     ]
     return {"Hubble1929": pd.DataFrame(rows)}
 

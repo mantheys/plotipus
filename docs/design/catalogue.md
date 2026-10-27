@@ -74,7 +74,7 @@ about 12 of them to ✅.
 | id | chart | use | famous | status | command today / what is missing | smallest change |
 |---|---|---|---|---|---|---|
 | B1 | Scatter | raw relation | F08, F22, F25 | ✅ | `scatter --datafile Events -x TrueEnergy -y Hits --colorby RecoEnergy` (example); `scatter --datafile Ev -x Xv -y Yv --hue Group` draws every group (P16; B12, fixed in T05). | — |
-| B2 | Scatter with error bars | measurements with uncertainties | F08, F09, F20 | ✅ | `line --plot_type errorbar --errory` (with `--errorx` for x errors; P03, P04). Points are not joined unless `--connect` is given (B17, fixed in T07). | — |
+| B2 | Scatter with error bars | measurements with uncertainties | F08, F09, F20 | ✅ | `line --plot_type errorbar --errory` (with `--errory_x`, or `--errorx_column LOW HIGH` for real bin edges, for x errors; P03, P04). Points are not joined unless `--connect` is given (B17, fixed in T07). | — |
 | B3 | Scatter coloured / sized by a third variable | 3–4 variables at once | F22 | ✅ | `scatter ... --colorby RecoEnergy --sizeby Hits` (example). | — |
 | B4 | 2D histogram | dense scatter | F22 | ◐ | `map --datafile Events -x TrueEnergy -y RecoEnergy --iterable Sample --logz` (example). One shared, labelled colorbar (B08, fixed in T09). Panels are tiny in the 3-wide layout (P15). | Panel size (P15). |
 | B5 | Hexbin | dense scatter, smoother look | F22 | ✗ | — | `map --map_type hexbin` (`ax.hexbin`, same norms). |
