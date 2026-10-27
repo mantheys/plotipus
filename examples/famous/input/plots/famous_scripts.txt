@@ -13,7 +13,7 @@
 # "# gap:" lines name what is still missing and the task it belongs to.
 
 # F01 ATLAS 2012 H->gamma gamma, Fig. 4 (a)-(b): data, S+B fit, background, data - background
-# gap: data drawn as a line in the column: lower panel (--data_hue and --plot_type_column stop at the upper panel) -> T21
+# gap: the Sig+Bkg - Bkg curve in the column: lower panel (drawn by T21, dropped when example-feedback-3 merged) -> follow-up
 # gap: the four panels (raw and weighted) in one figure -> T22.6
 # gap: --lower residual against a FitComponents entry (the third command shows the component, its residual is (data - fit)/fit) -> T22.14
 line --datafile HiggsDiphoton -x Mass -y Events --hue Component --style Component --data_hue Data --iterable_mapping hgg_labels --iterable_color_mapping hgg_colors --comparable_linestyles solid solid dashed --select Weighting -s Unweighted --plot_type line --errory --lower column:DataMinusBackground --lower_labely 'Events - Bkg' --lower_rangey -250 250 --no_lower_legend --rangex 100 160 --rangey 200 7000 --single_panel_size --labelx '$m_{\gamma\gamma}$ [GeV]' --labely 'Events / 2 GeV' --experiment atlas --label_position inside --label_right '$\sqrt{s}$=7 TeV, $\int L dt$=4.8 fb$^{-1}$' '$\sqrt{s}$=8 TeV, $\int L dt$=5.9 fb$^{-1}$' --text 0.62 0.62 'H$\rightarrow\gamma\gamma$' --text 0.04 0.07 '(a)' --text 0.04 0.15 '(b)' --text_size xx-large large --text_axes 0 0 1 --output_suffix atlas.png
@@ -21,10 +21,8 @@ line --datafile HiggsDiphoton -x Mass -y Events --hue Component --style Componen
 line --datafile HiggsDiphoton -x Mass -y Events --select Component -s Data --select Weighting -s Unweighted --fit --data_hue Data --errory --lower residual --no-fit_type_subtitle --max_fit_params 6 --labelx '$m_{\gamma\gamma}$ [GeV]' --labely 'Events / 2 GeV' --experiment atlas --label_position inside
 
 # F03 CMS 2012 H->ZZ*->4l, Fig. 4: data over the stacked Z+X, ZZ and signal
-# gap: Garwood (Poisson) error bars on the data (EventsLow/EventsHigh are stored) -> T19
-# gap: the signal as an open outline on top of the filled backgrounds -> T18
 # gap: the K_D > 0.5 inset -> T22.7
-line --datafile FourLepton -x Mass -y Events --hue Sample --data_hue Data --iterable_color_mapping zz_colors --iterable_mapping zz_labels --stacked --rangex 70 181 --rangey 0 17.5 --legend_loc 'upper left' --labelx '$m_{4\ell}$ (GeV)' --labely 'Events / 3 GeV' --experiment cms --label_right '$\sqrt{s}$ = 7 TeV, L = 5.1 fb$^{-1}$  $\sqrt{s}$ = 8 TeV, L = 5.3 fb$^{-1}$'
+line --datafile FourLepton -x Mass -y Events --hue Sample --data_hue Data --iterable_color_mapping zz_colors --iterable_mapping zz_labels --stacked --rangex 70 181 --rangey 0 17.5 --legend_loc 'upper left' --labelx '$m_{4\ell}$ (GeV)' --labely 'Events / 3 GeV' --experiment cms --label_right '$\sqrt{s}$ = 7 TeV, L = 5.1 fb$^{-1}$  $\sqrt{s}$ = 8 TeV, L = 5.3 fb$^{-1}$' --errory_type poisson --series_type Signal=step --plot_type fill
 
 # F04 ATLAS 2012 local p0, Fig. 9: observed, expected with its +-1 sigma band, sigma lines
 # gap: markers on the observed curve -> T21
@@ -48,17 +46,19 @@ line --datafile FIRAS -x Wavenumber -y Intensity --select Component -s 'FIRAS da
 line --datafile Hubble1929 -x Distance -y Velocity --hue Sample --style Sample --data_hue 'Individual nebulae' Groups 'Mean of 22 nebulae' --iterable_color_mapping hubble_colors --comparable_linestyles solid solid solid solid dashed --plot_type line --rangex 0 2.2 --rangey -300 1200 --legend_loc 'upper left' --labelx 'Distance (10$^6$ parsecs)' --labely 'Velocity (km/s)' --text 0.5 1.05 'Velocity-Distance Relation among Extra-Galactic Nebulae' --text_ha center --text_size large
 
 # F09 Riess 1998, Fig. 4, with the 580 Union2.1 supernovae (real data): three cosmologies, residuals to (0.20, 0)
+# gap: the three cosmologies' residual curves in the column: lower panel (dropped when example-feedback-3 merged) -> follow-up
 line --datafile SupernovaHubble -x Redshift -y DistanceModulus --hue Series --style Series --data_hue 'Union2.1 SNe' --iterable_color_mapping sn_colors --comparable_linestyles solid solid dotted dashed --plot_type line --errory --logx --rangex 0.008 1.6 --rangey 32.5 46.5 --lower column:DeltaMu --lower_labely '$\Delta$(m-M) (mag)' --lower_rangey -0.9 0.9 --no_lower_legend --legend_loc 'lower right' --labelx 'z' --labely 'm-M (mag)' --text 0.06 0.88 'Union2.1' --text_size xx-large
 
 # F10 Riess 1998, Fig. 6: Omega_M-Omega_Lambda confidence regions of the Union2.1 supernovae, with the reference lines
 # gap: the shaded "No Big Bang" region -> T22.8 (--region)
-map --datafile OmegaContours --configs SN --names Riess1998 -x OmegaM -y OmegaLambda -z DeltaChi2 --contour --contour_sigmas 1 2 3 --background none --rangex 0 2.6 --rangey -1 3 --horizontal 0 --horizontal_color black --horizontal_style solid --line 0 1 2 -1 0 0.5 2.6 1.8 0 0 2.6 1.3 0 -0.5 2.6 0.8 --line_label '$\Omega_{tot}$=1' 'q$_0$=-0.5' 'q$_0$=0' 'q$_0$=0.5' --line_style solid dashed dashed dashed --line_color black gray gray gray --labelx '$\Omega_M$' --labely '$\Omega_\Lambda$' --text 0.25 2.55 'No Big Bang' --text 1.45 1.05 'Accelerating' --text 1.45 0.8 'Decelerating' --text 1.55 0.12 'Expands to Infinity' --text 1.55 -0.13 'Recollapses' --text 2.3 -0.13 '$\Omega_\Lambda$=0' --text 1.4 -0.3 'Closed' --text 1.2 -0.52 'Open' --text 0.06 -0.8 'Union2.1' --text_coords data --text_rotation 30 13 13 0 0 0 -25 -25 0 --text_size large --output_suffix riess.png
-map --datafile OmegaContours --configs SN CMB --names Riess1998 Riess1998 -x OmegaM -y OmegaLambda -z DeltaChi2 --contour --contour_sigmas 1 2 3 --fill_contours --background none --rangex 0 2.6 --rangey -1 3 --horizontal 0 --horizontal_color black --horizontal_style solid --line 0 0 2.6 1.3 --line_label 'q$_0$=0' --line_style dashed --line_color black --labelx '$\Omega_M$' --labely '$\Omega_\Lambda$'
+map --datafile OmegaContours --configs SN --names Riess1998 -x OmegaM -y OmegaLambda -z DeltaChi2 --contour --no_best_fit --contour_sigmas 1 2 3 --background none --rangex 0 2.6 --rangey -1 3 --horizontal 0 --horizontal_color black --horizontal_style solid --line 0 1 2 -1 0 0.5 2.6 1.8 0 0 2.6 1.3 0 -0.5 2.6 0.8 --line_label '$\Omega_{tot}$=1' 'q$_0$=-0.5' 'q$_0$=0' 'q$_0$=0.5' --line_style solid dashed dashed dashed --line_color black gray gray gray --labelx '$\Omega_M$' --labely '$\Omega_\Lambda$' --text 0.25 2.55 'No Big Bang' --text 1.45 1.05 'Accelerating' --text 1.45 0.8 'Decelerating' --text 1.55 0.12 'Expands to Infinity' --text 1.55 -0.13 'Recollapses' --text 2.3 -0.13 '$\Omega_\Lambda$=0' --text 1.4 -0.3 'Closed' --text 1.2 -0.52 'Open' --text 0.06 -0.8 'Union2.1' --text_coords data --text_rotation 30 13 13 0 0 0 -25 -25 0 --text_size large --output_suffix riess.png
+map --datafile OmegaContours --configs SN CMB --names Riess1998 Riess1998 -x OmegaM -y OmegaLambda -z DeltaChi2 --contour --no_best_fit --contour_sigmas 1 2 3 --fill_contours --background none --rangex 0 2.6 --rangey -1 3 --horizontal 0 --horizontal_color black --horizontal_style solid --line 0 0 2.6 1.3 --line_label 'q$_0$=0' --line_style dashed --line_color black --labelx '$\Omega_M$' --labely '$\Omega_\Lambda$'
 
 # F11 Rubin, Ford & Thonnard 1980: 21 flat rotation curves (SPARC, real data) and a Keplerian fall-off
 # gap: one ordered colour map for 21 galaxies instead of a cycling palette -> T22.5
 line --datafile RotationCurves -x Radius -y Velocity --hue Galaxy --style Type --plot_type line --no_legend --rangex 0 125 --rangey 0 350 --labelx 'R (kpc)' --labely 'V (km/s)' --text 0.97 0.06 'Keplerian, $V \propto R^{-1/2}$' --text_ha right --text_size large
-line --datafile RotationCurves -x Radius -y Velocity --hue Galaxy --variables '$R_{max}$ < 12 kpc' '12-35 kpc' '$R_{max}$ > 35 kpc' --plot_type line --no_legend --labelx 'R (kpc)' --labely 'V (km/s)' --output_suffix panels.png
+# gap: --panel_title for line --variables panels (line ignores it; panel titles are title-cased, 'kpc' -> 'Kpc', hence the all-math labels) -> follow-up
+line --datafile RotationCurves -x Radius -y Velocity --hue Galaxy --variables '$R_{max} < 12\,\mathrm{kpc}$' '$12 - 35\,\mathrm{kpc}$' '$R_{max} > 35\,\mathrm{kpc}$' --plot_type line --no_legend --labelx 'R (kpc)' --labely 'V (km/s)' --output_suffix panels.png
 
 # F12 van Albada et al. 1985: NGC 3198 rotation curve (SPARC, real data) with disk, gas and fitted halo
 line --datafile NGC3198 -x Radius -y Velocity --hue Component --style Component --data_hue Data --iterable_color_mapping ngc3198_colors --iterable_mapping ngc3198_labels --comparable_linestyles solid dashed dotted dashdot solid --plot_type line --errory --rangex 0 32 --rangey 0 240 --legend_loc 'upper right' --legend_ncol 2 --labelx 'R (kpc)' --labely 'V$_{rot}$ (km/s)' --text 0.05 0.92 'NGC 3198' --text_size xx-large --text_ha left
@@ -74,6 +74,7 @@ line --datafile HockeyStick -x Year -y Anomaly --hue Series --style Series --ite
 # F15 LIGO GW150914, Fig. 1 (the figure's data files): strain, 90% reconstructions and residual per detector; time-frequency maps
 # gap: the 4 x 2 grid (rows per quantity, columns per detector, shared axes) -> T22.6
 # gap: a log frequency axis on the map -> T22.3
+# gap: --legend_panel all collapses the H1 panels to slivers (legends wider than the panels; L1's legends overlap) and --title is not drawn -> T15 follow-up
 line --datafile GW150914 -x Time -y Strain --hue Component --style Component --iterable_color_mapping ligo_h1_colors --comparable_linestyles solid --linewidth_column Width --select Detector -s H1 --variables 'Whitened strain' Reconstructed Residual --legend_panel all --plot_type line --errory --errory_type bands --rangex 0.25 0.46 --labelx 'Time (s)' --labely 'Strain (10$^{-21}$)' --title 'Hanford, Washington (H1)'
 line --datafile GW150914 -x Time -y Strain --hue Component --style Component --iterable_color_mapping ligo_l1_colors --comparable_linestyles solid --linewidth_column Width --select Detector -s L1 --variables 'Whitened strain' Reconstructed Residual --legend_panel all --plot_type line --errory --errory_type bands --rangex 0.25 0.46 --labelx 'Time (s)' --labely 'Strain (10$^{-21}$)' --title 'Livingston, Louisiana (L1)'
 map --datafile GW150914Spectrogram -x Time -y FrequencyGrid -z Amplitude --iterable Name --cmap viridis --rangex 0.25 0.46 --labelx 'Time (s)' --labely 'Frequency (Hz)' --labelz 'Normalized amplitude'

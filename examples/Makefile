@@ -40,7 +40,7 @@ mascot:
 # the README gallery is a selection of the paper renders, renamed.
 FAMOUS_GALLERY = \
 	higgsdiphoton_mass_events_error_component_weighting_unweighted_dataminusbackground_atlas.png:higgs-diphoton.png \
-	fourlepton_mass_events_sample_stacked_line.png:four-lepton.png \
+	fourlepton_mass_events_error_sample_stacked_line.png:four-lepton.png \
 	higgslocalp0_mass_p0_error_hypothesis_logy_line.png:local-p0.png \
 	higgslimit_mass_mulimit_error_limit_logx_logy_line.png:brazil-band.png \
 	zlineshape_energy_crosssection_error_model_line.png:z-lineshape.png \
