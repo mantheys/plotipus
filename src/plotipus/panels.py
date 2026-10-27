@@ -54,6 +54,12 @@ def create_panels(n_panels=1, n_lower=0, grid=True, height_ratios=None, shape=No
     and several rows each row of the grid is an upper panel and its lower
     panels, with a narrow gap before the next row.
     """
+    from .inset import target
+
+    inset = target()
+    if inset is not None:
+        # An inset pass (plotipus.inset): every panel is the inset axes, without lower panels.
+        return inset.figure, [inset] * max(1, n_panels), [[] for _ in range(max(1, n_panels))], (1, 1)
     if shape is not None and n_lower > 0 and shape[0] > 1:
         return _grid_with_lower(n_panels, n_lower, shape, height_ratios)
     if n_lower <= 0:
@@ -366,6 +372,10 @@ def rotate_categorical_labels(fig):
 
 def add_title_and_note(fig, args, tight_rows=1):
     """Figure title (--title or the datafile name) and --note."""
+    from .inset import target
+
+    if target() is not None:
+        return
     title = make_title_from_args(args)
     if tight_rows > 1 and not measured_layout_enabled():
         try:
@@ -393,6 +403,10 @@ def apply_figure_hooks(fig, args):
 def save(fig, args, idx=None, suffix="plot.png", prefix=None):
     """Save under the name built from the arguments (see
     :func:`plotipus.io.make_name_from_args`) into every --output directory."""
+    from .inset import target
+
+    if target() is not None:
+        return None  # an inset pass draws into the main figure
     suffix = getattr(args, "output_suffix", None) or suffix
     if "." not in suffix:
         suffix = f"{suffix}.{getattr(args, 'format', None) or 'png'}"

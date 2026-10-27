@@ -70,6 +70,20 @@ are the example list, `examples/input/plots/example_scripts.txt`;
 ```bash
 plotipus line --datafile Fit -x Mass -y Events --hue Component --facet_row Weighting --lower column:Residual --panel_labely 'Events' 'Weights'
 ```
+
+* **Insets** (`line`): `--inset X0 X1 [Y0 Y1]` redraws the panel zoomed into
+  that range in a box, with a frame and connectors on the zoomed region;
+  `--inset_args 'OPTIONS'` draws a variation of the command instead, these
+  options on top of it: another selection (`--select Selection -s 'KD > 0.5'`,
+  replacing the main one), other `-x`/`-y`, even `--binned --estimator mean`
+  (a seasonal cycle). Lower panels, ranges, axis labels, reference lines,
+  the title and the legend do not carry into an inset (a zoom keeps the axis
+  labels). `--inset_pos X Y W H` places it in fractions of the panel
+  (default the upper right), `--inset_panel` picks the panel.
+
+```bash
+plotipus line --datafile Keeling -x DecimalDate -y CO2 --hue Series --plot_type line --inset_args "-x MonthOfYear -y Detrended --binned --estimator mean --bins 13" --inset_pos 0.15 0.45 0.35 0.3
+```
   Values beyond the last key belong to it, so
   `--select Distribution -s Gaussian Poisson` keeps both distributions.
 * **Encodings**: `--hue` (alias `--iterable`), `--style` (alias

@@ -49,6 +49,7 @@ from ..encodings import (
     resolve_linewidth,
 )
 from ..format import _title_case_words, make_config_color_and_style_from_args, make_config_label_from_args, make_subtitle_from_args
+from ..inset import add_inset_args, draw_inset
 from ..io import import_data, prepare_import
 from ..lower import (
     DEFAULT_LABELS,
@@ -383,6 +384,7 @@ def build_parser():
     add_estimator_args(parser)
     add_events_args(parser)
     _add_shape_args(parser)
+    add_inset_args(parser)
     _base.add_output_args(parser)
     return parser
 
@@ -1412,8 +1414,20 @@ def draw_figure(rows, args, kdx=None):
         hc.colorbar(fig, upper[:len(variables)], label=args.labelz or title,
                     tick_labels=[str(map_iterable_label(v, column, mapping)) for v in hc.values])
 
+    parser = build_parser() if args.inset or args.inset_args else None
+    draw_inset(fig, upper[:n_panels], args, parser, lambda ns: _inset_pass(rows, ns, parser))
     suffix = "stacked_line.png" if args.stacked else "line.png"
     return save(fig, args, kdx, suffix=suffix)
+
+
+def _inset_pass(rows, ns, parser):
+    """Draw the inset arguments ``ns`` (see plotipus.inset) with the line kind's figure code."""
+    _check_args(ns, parser)
+    if ns.binned:
+        from ._estimator import run_estimator
+
+        return run_estimator(rows, ns)
+    return draw_figure(rows, ns)
 
 
 _SUM_KEY = ("sum",)

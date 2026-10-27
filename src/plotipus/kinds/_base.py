@@ -21,14 +21,25 @@ from ..project import apply_rendering, load_project
 # Line styles that read as options: argparse takes a lone "--" for the end of
 # the options and "-." for a flag.
 _DASH_STYLES = {"--": "dashed", "-.": "dashdot"}
+# Options whose one value is itself a list of options.
+_JOINED_OPTIONS = ("--inset_args",)
 
 
 def style_values(argv):
     """``argv`` with the matplotlib short line styles "--" and "-." that
     follow a ``*_style``/``*styles`` option (``--comparable_linestyles solid
     --``) spelt out (dashed, dashdot), so argparse reads them as values."""
-    out, in_styles = [], False
+    out, in_styles, joined = [], False, False
     for token in argv:
+        if joined:
+            # The options of --inset_args are one value, even when it starts with "-".
+            out[-1] = f"{out[-1]}={token}"
+            joined = False
+            continue
+        if token in _JOINED_OPTIONS:
+            joined = True
+            out.append(token)
+            continue
         if in_styles and token in _DASH_STYLES:
             out.append(_DASH_STYLES[token])
             continue

@@ -41,10 +41,10 @@ command lists.
 | E Ratios and significance | 8 | 0 | 0 |
 | F ML diagnostics | 6 | 1 | 0 |
 | G Uncertainty | 8 | 1 | 0 |
-| H Small multiples and layout | 4 | 1 | 3 |
+| H Small multiples and layout | 5 | 1 | 2 |
 | I Annotations | 10 | 0 | 0 |
 | J Tables | 4 | 1 | 2 |
-| **Total (89)** | **68** | **6** | **15** |
+| **Total (89)** | **69** | **6** | **14** |
 
 Nearly half of the ◐ entries are partial only because of a bug in
 [bugs.md](bugs.md), not because an option is missing. Fixing B01–B13 moves
@@ -161,7 +161,7 @@ All curves are precomputed by the analysis (plotipus does not fit or score).
 | H2 | Shared axes and colour scales across facets | honest comparison | F25 | ✅ | `line --sharex col\|all --sharey row\|all` (T22.6; compact grids share x by column and y by row, outer tick labels only); `map` panels share one colour scale and colorbar (T09) and y with `--compact`. | `hist`/`scatter` keep one row. |
 | H3 | Facet grid (rows × columns by two columns) | two-factor comparison | F15 | ✅ | `line --facet_row COL --facet_col COL` (or one of them with `--variables`; T22.6), each cell with its own `--lower` panels and per-row `--panel_labely`/`--panel_rangey`. | — |
 | H4 | Upper + lower panels | ratios, residuals | F01, F07 | ✅ | `--lower` (repeatable). | — |
-| H5 | Inset axes | zoom, second view | F02, F13, F18 | ✗ | — | `--inset X0 X1 [Y0 Y1] --inset_pos x y w h`: redraws the same series in a zoom box. |
+| H5 | Inset axes | zoom, second view | F02, F13, F18 | ✅ | `line --inset X0 X1 [Y0 Y1]` (a zoom with connectors) or `--inset_args 'OPTIONS'` (another selection or x/y, `--binned` too), placed by `--inset_pos x y w h` (T22.7). | — |
 | H6 | Secondary axis (unit conversion) | GHz vs cm⁻¹, energy vs wavelength | F06 | ✗ | — | `--secondary_x 'FORWARD;INVERSE'`, from a named mapping in style.json. |
 | H7 | Broken or hybrid log/linear axis | wide dynamic range | F05, F07 | ✗ | — | `--xscale symlog` / `--xscale 'log<30<linear'` (custom matplotlib scale). Low priority. |
 | H8 | Figure sized for a journal column | publication | all | ◐ | Sizes are style settings (`figure_layout` in style.json); there is no `--width single\|double` and no per-figure aspect. | `--width single\|double\|slide\|<in>`, `--aspect`; see style_spec.md. |

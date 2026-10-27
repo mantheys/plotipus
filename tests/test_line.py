@@ -1170,3 +1170,63 @@ def test_facet_col_with_variables_rows(make_project, quartet):
     assert np.allclose(panels[3].get_lines()[0].get_ydata(), 2 * np.arange(1.0, 6.0))  # II, L1
     assert panels[0].get_shared_y_axes().joined(panels[0], panels[1])
     assert not panels[0].get_shared_y_axes().joined(panels[0], panels[2])
+
+
+# --- T22.7: insets -----------------------------------------------------------------------
+
+
+@pytest.fixture
+def selections():
+    x = np.arange(0.5, 20, 1.0)
+    rows = []
+    for selection, scale in (("All", 1.0), ("Tight", 0.25)):
+        for sample, shape in (("Data", 1.0), ("Bkg", 0.9)):
+            rows.append({"X": x, "Y": scale * shape * (10 + x), "Sample": sample, "Selection": selection,
+                         "Month": np.arange(20) % 12 + 1})
+    return pd.DataFrame(rows)
+
+
+def _main_and_inset(fig):
+    main = fig.axes[0]
+    insets = [a for a in main.child_axes if getattr(a, "_plotipus_inset", False)]
+    return main, insets
+
+
+def test_zoom_inset_redraws_the_panel(make_project, selections):
+    make_project({"Sel": selections})
+    figures = _capture()
+    line.main(["--datafile", "Sel", "-x", "X", "-y", "Y", "--hue", "Sample", "--select", "Selection", "-s", "All",
+               "--plot_type", "line", "--labelx", "Mass", "--inset", "5", "10", "0", "25"])
+    main, (inset,) = _main_and_inset(figures[0])
+    assert inset.get_xlim() == (5, 10) and inset.get_ylim() == (0, 25)
+    assert len(inset.get_lines()) == len(main.get_lines()) == 2
+    assert inset.get_legend() is None and inset.get_xlabel() == "Mass"
+    assert any("Inset" in type(a).__name__ or (type(a).__name__ == "Rectangle" and a in main.patches)
+               for a in main.get_children())  # the zoom frame
+
+
+def test_inset_args_draw_another_selection(make_project, selections):
+    make_project({"Sel": selections})
+    figures = _capture()
+    line.main(["--datafile", "Sel", "-x", "X", "-y", "Y", "--hue", "Sample", "--select", "Selection", "-s", "All",
+               "--plot_type", "line", "--rangey", "0", "40", "--lower", "ratio",
+               "--inset_args", "--select Selection -s Tight", "--inset_pos", "0.1", "0.5", "0.3", "0.3"])
+    fig = figures[0]
+    main, (inset,) = _main_and_inset(fig)
+    ys = sorted(line.get_ydata()[0] for line in inset.get_lines())
+    assert np.allclose(ys, [0.25 * 0.9 * 10.5, 0.25 * 10.5])  # the Tight rows only
+    assert inset.get_ylim() != (0, 40)  # the main range does not carry over
+    assert len(fig.axes) == 2  # main + its ratio panel; the inset has none
+    x0, y0, w, h = inset.get_position().bounds
+    m = main.get_position()
+    assert np.isclose(x0, m.x0 + 0.1 * m.width) and np.isclose(w, 0.3 * m.width)
+
+
+def test_inset_of_a_binned_estimator(make_project, selections):
+    make_project({"Sel": selections})
+    figures = _capture()
+    line.main(["--datafile", "Sel", "-x", "X", "-y", "Y", "--hue", "Sample", "--select", "Selection", "-s", "All",
+               "--plot_type", "line", "--inset_args", "-x Month --select Sample Selection -s Data All --binned "
+               "--estimator mean --bins 13"])
+    _, (inset,) = _main_and_inset(figures[0])
+    assert inset.get_lines() and inset.get_xlim()[1] <= 13.5
