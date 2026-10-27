@@ -83,6 +83,13 @@ reproduced. ◐ close, with the gaps listed under "Missing features" below;
 the intended command for a planned option is in
 `input/plots/famous_scripts.txt`, commented out.
 
+The commands aim at the originals, not at plotipus's own style: the
+originals' colours, line styles, markers, legend layout and annotations,
+so the gallery shows that plotipus can draw what others drew. Fonts
+and other rcParams are still the paper medium's for every figure (a
+per-command style file is a follow-up request). The same figures redrawn
+with plotipus's defaults are the style guide's before-and-after examples.
+
 Patterns the commands use:
 
 - **Data and models in one figure.** `--data_hue` draws the measured series
@@ -102,19 +109,19 @@ Patterns the commands use:
 |---|---|---|---|---|
 | F01 H→γγ m_γγ | ATLAS, PLB 716 (2012) 1, Fig. 4 | **extracted** (figure) | ◐ | (ATLAS header inside: `--experiment atlas --label_position inside`) 4 panels in one figure (T22.6); residual vs a fit component (T22.14); the Sig+Bkg − Bkg curve in the lower panel, drawn by T21 and lost in the example-feedback-3 merge (follow-up; the gallery image predates it) |
 | F03 H→ZZ*→4ℓ | CMS, PLB 716 (2012) 30, Fig. 4 | **extracted** (figure) | ◐ | (CMS header above: `--experiment cms`; Garwood bars from the counts: `--errory_type poisson`; the signal as an open outline on the filled stack: `--series_type Signal=step --plot_type fill`) inset (T22.7) |
-| F04 local p₀ | ATLAS, Fig. 9 | **extracted** (figure) | ◐ | (ATLAS header with two right lines; markers on the observed curve: `--series_marker Observed=o:5`) band legend swatch and σ-line labels (T20) |
-| F05 Brazil band | ATLAS, Fig. 7(a) | **extracted** (figure) | ◐ | (ATLAS header) saturated band colours and swatches (T20) |
+| F04 local p₀ | ATLAS, Fig. 9 | **extracted** (figure) | ◐ | (ATLAS header with two right lines; small markers on the observed curve: `--series_marker Observed=o:2.5`; σ labels outside the frame: `--text` at x = 150.6) band legend swatch (T20) |
+| F05 Brazil band | ATLAS, Fig. 7(a) | **extracted** (figure) | ◐ | (ATLAS header; solid green and yellow bands: `plot_settings.band_alpha` 1 in style.json; dotted expected and μ = 1 lines) band swatches in a two-column legend (T20) |
 | F06 COBE FIRAS | Fixsen et al. 1996, Figs. 4-5 | **real** (NASA LAMBDA) | ✅ | (errors ×400 with `--error_scale 400`) a top axis in GHz (TODO.md, postponed) |
-| F08 Hubble 1929 | PNAS 15, 168, Fig. 1 | **real** (Table 1) | ✅ | (discs, open circles and a cross: `--series_marker ... Groups=o_open ...`) |
+| F08 Hubble 1929 | PNAS 15, 168, Fig. 1 | **real** (Table 1) | ✅ | (discs, open circles and a cross: `--series_marker ... Groups=o_open ...`; no legend, Hubble's grid lines: `--horizontal`/`--vertical`) a bold title (paper font, follow-up) |
 | F09 SN Ia Hubble diagram | Riess et al. 1998, Fig. 4 | **real** (Union2.1) | ◐ | (plain log tick labels: T12 follow-up) the cosmologies' residual curves in the lower panel, lost in the example-feedback-3 merge (follow-up) |
-| F10 Ω_M–Ω_Λ | Riess et al. 1998, Fig. 6 | **real** (Union2.1), synthetic CMB | ◐ | (no best-fit marker, as in the original: `--no_best_fit`) the shaded "No Big Bang" region (T22.8) |
+| F10 Ω_M–Ω_Λ | Riess et al. 1998, Fig. 6 | **real** (Union2.1), synthetic CMB | ◐ | (no best-fit marker, as in the original: `--no_best_fit`; black contours: `config_color`) the shaded "No Big Bang" region and labels on the contours (T22.8) |
 | F11 rotation curves | Rubin, Ford & Thonnard 1980 | **real** (SPARC) | ◐ | an ordered colour map for 21 hues (T22.5); `--panel_title` on `line` panels (follow-up; the size classes are all-math labels so the title case leaves `kpc` alone) |
 | F12 NGC 3198 | van Albada et al. 1985 | **real** (SPARC); fitted halo | ✅ | (figure styles unverified) |
 | F13 Keeling curve | NOAA GML plot | **real** (NOAA GML) | ✅ | the seasonal-cycle inset of other versions (T22.7) |
-| F14 hockey stick | Mann, Bradley & Hughes 1999, Fig. 3(a) | **real** (NOAA paleo) | ✅ | — (the legend below the axes: `--legend_loc below`) |
+| F14 hockey stick | Mann, Bradley & Hughes 1999, Fig. 3(a) | **real** (NOAA paleo) | ✅ | (the legend below the axes: `--legend_loc below`; the uncertainty as a light-grey row of its own) the 1998 cross and arrow (T22.8) |
 | F15 GW150914 | PRL 116, 061102, Fig. 1 | **real** (GWOSC); synthetic band widths | ◐ | 4 × 2 grid (T22.6); log frequency axis on the map (T22.3); `--legend_panel all` collapses the H1 panels and `--title` is not drawn (T15 follow-up) |
-| F16 KamLAND L₀/E | PRL 100, 221803, Fig. 3 | **extracted** (figure) | ✅ | (x error bars from each point's bin: `--errorx_column LOverELow LOverEHigh`) |
-| F17 LEP Z lineshape | Phys. Rept. 427 (2006) 257, Fig. 1.13 | **extracted** (figure) | ✅ | (errors ×10 with `--error_scale 10`) labels on curves are `--text` (T22.8) |
+| F16 KamLAND L₀/E | PRL 100, 221803, Fig. 3 | **extracted** (figure) | ✅ | (x error bars from each point's bin: `--errorx_column LOverELow LOverEHigh`; one two-line legend entry for both expectations, the curve labelled `_nolegend_`) |
+| F17 LEP Z lineshape | Phys. Rept. 427 (2006) 257, Fig. 1.13 | **extracted** (figure) | ✅ | (errors ×10 with `--error_scale 10`; thin curves) labels on curves are `--text` (T22.8); blue frame, bold sans labels (per-figure style, follow-up) |
 | F19 Geiger–Marsden | Phil. Mag. 25, 604 (1913) | synthetic | ✅ | (no original figure) |
 | F20 Moseley's law | Phil. Mag. 26, 1024 (1913) | synthetic | ✅ | (no original figure) |
 | F21 Leavitt | Harvard Circ. 173 (1912) | synthetic | ✅ | (table not transcribed) |
@@ -125,7 +132,7 @@ Patterns the commands use:
 
 | task | missing feature | figures |
 |---|---|---|
-| T20 | band colours independent of the line, saturated fills, band legend swatches; labelled σ lines | F04, F05, F15 |
+| T20 | band colours independent of the line, band legend swatches; labelled σ lines | F04, F05, F15 |
 | T22.3 | a power (square-root) colour scale, a colour below the scale, `--cmap` for 2D histograms, `--colorbar none`; log y axis for `-z` images | F22, F15 |
 | T22.5 | an ordered colour map for many hues | F11 |
 | T22.6 | panel grids with shared axes (rows × columns) | F01, F15, F25 |

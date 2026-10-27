@@ -219,7 +219,7 @@ def kamland():
         # The expectation histogram as its outline, in drawing order (a step polyline).
         {"LOverE": histogram["l_over_e"].to_numpy(), "SurvivalProbability": histogram["survival"].to_numpy(),
          "Component": "Expectation (histogram)"},
-        {"LOverE": curve_le, "SurvivalProbability": curve, "Component": "Expectation (curve)", "Width": 4.0},
+        {"LOverE": curve_le, "SurvivalProbability": curve, "Component": "Expectation (curve)", "Width": 1.5},
     ]
     return {"KamLAND": pd.DataFrame(rows)}
 
@@ -253,7 +253,7 @@ def z_lineshape():
     for kind, n_nu in (("2nu", 2), ("3nu", 3), ("4nu", 4)):
         energy, sigma = _sorted(table[table.kind == kind], "energy", "sigma_had")
         rows.append({"Energy": energy, "CrossSection": sigma, "Model": f"{n_nu}$\\nu$",
-                     "Width": 3.0 if n_nu == 3 else 1.2})
+                     "Width": 1.5 if n_nu == 3 else 1.0})
     return {"ZLineshape": pd.DataFrame(rows)}
 
 

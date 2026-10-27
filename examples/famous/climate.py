@@ -49,9 +49,11 @@ def hockey_stick():
     1998), as in Fig. 3(a) and its caption.
     Ours: the 40-year running mean and the linear trend over 1000-1850.
 
-    Rows: ``Series`` (Reconstruction, 40-year smoothed, Instrumental,
-    Linear trend), x ``Year``, y ``Anomaly`` (deg C). ``AnomalyError`` is
-    two standard errors.
+    Rows: ``Series`` (Uncertainty, Reconstruction, 40-year smoothed,
+    Instrumental, Linear trend), x ``Year``, y ``Anomaly`` (deg C). The
+    Uncertainty row is the reconstruction with ``AnomalyError`` (two standard
+    errors) and ``Width`` 0: the light grey band of the figure, drawn in its
+    own colour without a line.
     """
     table = pd.read_csv(DATA / "mann99-nhem-noaa.txt", sep="\t", comment="#", na_values=[-999])
     reconstructed = table.dropna(subset=["nhem_recon"])
@@ -63,7 +65,8 @@ def hockey_stick():
     slope, intercept = np.polyfit(year[early], reconstruction[early], 1)
     rows = [
         {"Year": year, "Anomaly": reconstruction, "AnomalyError": reconstructed["nhem_2se"].to_numpy(),
-         "Series": "Reconstruction", "Width": 0.8},
+         "Series": "Uncertainty", "Width": 0.0},
+        {"Year": year, "Anomaly": reconstruction, "Series": "Reconstruction", "Width": 0.8},
         {"Year": year, "Anomaly": smoothed, "Series": "40-year smoothed", "Width": 2.5},
         {"Year": instrumental["age_CE"].to_numpy(), "Anomaly": instrumental["nhem_raw"].to_numpy(),
          "Series": "Instrumental", "Width": 0.8},
