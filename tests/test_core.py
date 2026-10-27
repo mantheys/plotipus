@@ -290,6 +290,53 @@ def test_note_avoids_data_and_legend():
     plt.close(fig)
 
 
+def test_note_background_only_over_data():
+    """A note or line label keeps its translucent background only on data."""
+    from plotipus.plot import add_note_to_axes, draw_horizontal_lines, settle_text_backgrounds
+
+    fig, ax = plt.subplots()
+    ax.plot([0, 1], [0, 0.1])
+    ax.set_ylim(0, 1)
+    note = add_note_to_axes(ax, "free")
+    draw_horizontal_lines(ax, [0.6], labels=["level"])
+    label = [t for t in ax.texts if t.get_text() == "level"][0]
+    fig.canvas.draw()
+    settle_text_backgrounds(fig)
+    assert note.get_bbox_patch() is None and label.get_bbox_patch() is None
+    plt.close(fig)
+
+    fig, ax = plt.subplots()
+    ax.imshow(np.ones((4, 4)), extent=(0, 1, 0, 1), aspect="auto")  # data everywhere
+    note = add_note_to_axes(ax, "covered")
+    fig.canvas.draw()
+    settle_text_backgrounds(fig)
+    assert note.get_bbox_patch() is not None
+    plt.close(fig)
+
+
+def test_horizontal_label_sits_on_its_line_where_free():
+    """A horizontal line label goes next to its line (the right end first),
+    clear of the data, and stays on the line when the limits change."""
+    from plotipus.plot import draw_horizontal_lines
+
+    fig, ax = plt.subplots()
+    x = np.linspace(0, 1, 100)
+    ax.plot(x, np.exp(-0.5 * ((x - 0.85) / 0.05) ** 2))  # a peak on the right
+    ax.set_ylim(0, 1.1)
+    draw_horizontal_lines(ax, [0.5], labels=["half maximum"])
+    label = ax.texts[-1]
+    fig.canvas.draw()
+    renderer = fig.canvas.get_renderer()
+    box = label.get_window_extent(renderer)
+    line_y = ax.transData.transform((0, 0.5))[1]
+    assert box.y0 >= line_y and box.y0 - line_y < 20  # just above the line
+    assert ax.transAxes.inverted().transform((box.x0, 0))[0] < 0.5  # the left end: the peak is on the right
+    ax.set_ylim(0, 2)
+    fig.canvas.draw()
+    assert label.get_window_extent(renderer).y0 >= ax.transData.transform((0, 0.5))[1]
+    plt.close(fig)
+
+
 def _density_hist(make_project, tmp_path, *argv, style_json=None):
     from plotipus.kinds import hist
 

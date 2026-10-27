@@ -17,6 +17,7 @@ import json
 import matplotlib
 import matplotlib.lines as mlines
 import matplotlib.ticker
+import matplotlib.transforms
 from matplotlib.colors import to_hex
 import numpy as np
 import pandas as pd
@@ -48,6 +49,7 @@ from ..io import import_data, prepare_import
 from ..lower import (
     DEFAULT_LABELS,
     REFERENCE_LINES,
+    count_ratio,
     group_difference,
     operation_series,
     pairwise,
@@ -162,6 +164,9 @@ def build_parser():
     add("--density", action="store_true", default=False,
         help="Normalise each series to unit area (y / sum of y times the bin width, errors alike), so "
         "samples of different sizes compare as shapes; the y label defaults to Density.")
+    add("--peak", action="store_true", default=False,
+        help="Normalise each series to its maximum (errors alike), so shapes compare at their peaks; the y "
+        "label defaults to 'Relative to peak'. With --density, the areas are normalised first.")
     add("--rebin_sum", action="store_true", default=False,
         help="With --rebin: sum merged y values (counts) instead of averaging them.")
     add("--mirror", type=str, default=None, help="Config whose series is extended by its reflection.")
@@ -222,7 +227,10 @@ def build_parser():
     add("--step_open", action="store_true", default=False,
         help="Draw --plot_type step outlines without the baseline edges.")
     add("--align", type=str, default="mid", help="Alignment of step outlines (mid, left, right).")
-    add("--compact", action="store_true", default=False, help="Hide repeated y labels/ticks on inner panels.")
+    add("--compact", action="store_true", default=None,
+        help="Panels side by side share their y range and only the first of a row shows the y label and tick "
+        "labels (default with several panels; --no-compact gives each panel its own y axis).")
+    add("--no-compact", dest="compact", action="store_false")
     add("--vertical_per_variable", type=str, default=None, help="JSON {panel value: [x positions]}.")
     add("--vertical_column_map", type=str, default=None,
         help="JSON {panel value: column}: vertical line per hue value at that column's value, in its colour.")
@@ -489,6 +497,18 @@ def _sum_series(series_list):
 # --- Drawing -----------------------------------------------------------------------
 
 
+def _binned(s, args):
+    """Whether series ``s`` looks like binned counts: numeric, evenly spaced x
+    (error bands ask for a curve)."""
+    if s.categorical or len(s.x) < 3 or args.connect or (args.errory and errory_type(args, "errorbar") == "bands"):
+        return False
+    try:
+        steps = np.diff(np.asarray(s.x, dtype=float))
+    except (TypeError, ValueError):
+        return False
+    return bool(steps[0] > 0 and np.allclose(steps, steps[0]))
+
+
 def _resolved_plot_type(args, prefix=""):
     return getattr(args, f"{prefix}plot_type", None) or args.plot_type
 
@@ -529,6 +549,24 @@ def _to_density(s, args):
     s.y = np.asarray(s.y, dtype=float) / area
     if s.error is not None:
         s.error = np.asarray(s.error, dtype=float) / area
+
+
+def _to_peak(s, args):
+    """Scale series ``s`` (and its errors) to a maximum of 1 (--peak);
+    stacked series keep their counts, as with --density."""
+    if args.stacked:
+        if "peak" not in _DENSITY_WARNED:
+            _DENSITY_WARNED.add("peak")
+            rprint("[yellow]Warning:[/yellow] --peak is ignored with --stacked.")
+        return
+    if s.categorical:
+        return
+    peak = float(np.nanmax(np.asarray(s.y, dtype=float))) if len(s.y) else 0.0
+    if not np.isfinite(peak) or peak <= 0:
+        return
+    s.y = np.asarray(s.y, dtype=float) / peak
+    if s.error is not None:
+        s.error = np.asarray(s.error, dtype=float) / peak
 
 
 def _interval_errors(s, args):
@@ -599,6 +637,12 @@ def draw_series(ax, s, args, plot_type=None, stack_bottom=None, dodge_shift=0.0)
         error = np.asarray(s.error, dtype=float)
         ax.stairs(s.y + error, s.x_edges, baseline=s.y - error, fill=True, color=s.color, alpha=style.band_alpha,
                   linewidth=0, label=s.label)
+        return
+    if plot_type == "beyond":
+        # Points off the top of a lower panel (data over an empty prediction).
+        top = matplotlib.transforms.blended_transform_factory(ax.transData, ax.transAxes)
+        ax.plot(s.x, np.full(len(s.x), 0.9), marker="^", linestyle="None", color=s.color, transform=top,
+                zorder=3)
         return
     if plot_type == "data":
         xerr = np.diff(s.x_edges) / 2 if args.errory_x and s.x_edges is not None else None
@@ -853,6 +897,8 @@ def draw_figure(rows, args, kdx=None):
                 _interval_errors(s, args)
                 if args.density:
                     _to_density(s, args)
+                if args.peak:
+                    _to_peak(s, args)
                 s.comparable = comparable_value
                 s.comparable_index = sdx
                 _encode(s, args, hue_values, colors, style_index, n_style, comparable, comparable_values, invert,
@@ -869,7 +915,8 @@ def draw_figure(rows, args, kdx=None):
                 plot_type = _row_value(s, args.plot_type_column) or _resolved_plot_type(args)
                 if s.is_data:
                     plot_type = "data"
-                elif plot_type is None and args.data_hue and not args.stacked:
+                elif plot_type is None and not args.stacked and (args.data_hue or _binned(s, args)):
+                    # Series compared among themselves are steps over bins; points are for data.
                     plot_type = "step"
                 bottom = None
                 if args.stacked and not s.is_data:
@@ -1105,7 +1152,8 @@ def _draw_lower(ax, spec, series, args, comparable, comparable_values, colors):
             arrays = [s.y for s in aligned]
             errors = [None if s.error is None or np.ndim(s.error) != 1 else s.error for s in aligned]
             for diff_label, values, errors_out in group_difference(labels, arrays, errors, **group_kwargs):
-                if args.show_stat_error:
+                if args.show_stat_error or args.group_significance:
+                    # A significance is a measurement per point: points with error bars.
                     color = args.reference_sum_color or colors.next_free(("group", value))
                     lower_s = _lower_series(x, values, errors_out, color, None,
                                             f"{diff_label} ({aligned[0].comparable_label})" if value is not None else diff_label)
@@ -1117,7 +1165,9 @@ def _draw_lower(ax, spec, series, args, comparable, comparable_values, colors):
                 out.append(lower_s)
     elif spec.kind == "column":
         first = True
-        for s in regular:
+        # With data, the stored column is the data's (a pull, a residual): other series' copies are left out.
+        with_data = [s for s in regular if s.is_data and s.rows is not None and spec.name in s.rows.columns]
+        for s in with_data or regular:
             if s.rows is None or spec.name not in s.rows.columns:
                 continue
             rows = s.rows[s.rows[spec.name].notna()]
@@ -1176,6 +1226,11 @@ def _draw_lower(ax, spec, series, args, comparable, comparable_values, colors):
             if args.reference_sum:
                 sum_label = str(args.reference_sum_label or " + ".join(map(str, args.reference_sum)))
                 series_colors[sum_label] = args.reference_sum_color or colors.next_free(("reference_sum", sum_label))
+            # Compared with one reference series: the reference is a line in its colour, the others points.
+            against_reference = spec.name in DATA_COMPARISONS and not args.reference_sum and plot_type is None
+            if against_reference:
+                ax.axhline(REFERENCE_LINES[spec.name], color=series_colors.get(reference_label),
+                           linewidth=style.default_linewidth, zorder=1)
             for out_label, values in operation_series(labels, [s.y for s in aligned], spec.name, reference_index,
                                                       args.reference_sum, args.reference_sum_label):
                 # A sum/mean/rms of every series is a new series: it takes a colour of its own.
@@ -1184,7 +1239,10 @@ def _draw_lower(ax, spec, series, args, comparable, comparable_values, colors):
                 else:
                     color = series_colors.get(out_label)
                 entry = label if spec.name in ("sum", "mean", "rms") else _pair_label(out_label, reference_label, spec.name)
-                out.append(_lower_series(x, values, None, color, aligned[0].linestyle, entry, aligned[0].linewidth))
+                lower_s = _lower_series(x, values, None, color, aligned[0].linestyle, entry, aligned[0].linewidth)
+                if against_reference:
+                    lower_s.forced_type = "errorbar"
+                out.append(lower_s)
 
     for s in out:
         draw_series(ax, s, args, getattr(s, "forced_type", None) or plot_type or "line")
@@ -1230,9 +1288,18 @@ def _data_lower(x, aligned, operation, label, args=None):
         band.forced_type = "band"
         out.append(band)
     for s in data:
-        error = s.error if s.error is not None and np.ndim(s.error) == 1 else None
-        points = _lower_series(x, pairwise(total, s.y, operation), None if error is None else scaled(error),
-                               s.color, None, label)
+        if operation == "ratio":
+            values, error, beyond = count_ratio(s.y, total, s.error, counts=_counts(s.y))
+            if beyond.any():
+                # Data over an empty prediction: an arrow at the top of the panel.
+                arrows = _lower_series(np.asarray(x)[beyond], np.ones(int(beyond.sum())), None, s.color, None, None)
+                arrows.forced_type = "beyond"
+                out.append(arrows)
+            error = None if error is None else np.asarray(error)
+        else:
+            error = s.error if s.error is not None and np.ndim(s.error) == 1 else None
+            values, error = pairwise(total, s.y, operation), None if error is None else scaled(error)
+        points = _lower_series(x, values, error, s.color, None, label)
         points.forced_type = "data"
         out.append(points)
         label = None
@@ -1281,6 +1348,14 @@ def _finish_upper(fig, upper, lower, drawn, rows, args, variables, last_x, hue_v
 
     categorical = any(s.categorical for panel in drawn.values() for s in panel[-1:])
     rotated = categorical and args.plot_type != "barh"
+    compact = args.compact if args.compact is not None else ncols > 1
+    if compact and ncols > 1:
+        # One y range per row, so the inner panels can drop their tick labels.
+        for idx in range(min(n_panels, len(upper))):
+            if idx % ncols:
+                upper[idx].sharey(upper[idx - idx % ncols])
+        # Without inner y labels the panels move close (the layout widens the gap if x labels need it).
+        upper[0].get_gridspec().update(wspace=0.08)
     categorical_y = categorical and args.plot_type == "barh"
     all_panels = args.legend_panel == "all"
     legend_panel = None if all_panels else args.legend_panel % n_panels
@@ -1307,8 +1382,9 @@ def _finish_upper(fig, upper, lower, drawn, rows, args, variables, last_x, hue_v
                 lower[idx][-1].set_xlabel(xlabel)
             else:
                 ax.set_xlabel(xlabel)
-            ylabel = resolve_axis_label(args.labely if args.labely is not None or not args.density else "Density",
-                                        args.y, panel_rows)
+            default_ylabel = "Relative to peak" if args.peak else "Density" if args.density else None
+            ylabel = resolve_axis_label(args.labely if args.labely is not None or default_ylabel is None
+                                        else default_ylabel, args.y, panel_rows)
             kinds = {getattr(s, "interval", None) for s in drawn.get(idx, [])} - {None}
             show = args.error_label if args.error_label is not None else style.error_label
             if show and len(kinds) == 1 and ylabel:
@@ -1316,7 +1392,7 @@ def _finish_upper(fig, upper, lower, drawn, rows, args, variables, last_x, hue_v
         if rotated:
             ax.tick_params(axis="x", labelrotation=45)
 
-        if not args.compact or idx % ncols == 0:
+        if not compact or idx % ncols == 0:
             ax.set_ylabel(ylabel, **({"fontsize": style.ysublabelfontsize} if has_lower else {}))
         else:
             ax.set_ylabel("")
