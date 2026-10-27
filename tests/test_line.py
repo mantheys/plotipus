@@ -634,3 +634,87 @@ def test_column_lower_panel_shows_the_data_column_only(make_project):
     lower = figures[0].axes[1]
     ys = np.concatenate([l.get_ydata() for l in lower.get_lines()] or [[]])
     assert len(_errorbars(lower)) == 1 and not np.any(np.isclose(ys, -1.0))
+
+
+# --- per-series plot type (T21) ---------------------------------------------------------
+
+
+@pytest.fixture
+def models():
+    x = np.linspace(0.1, 2.0, 8)
+    rows = [{"Z": x, "Mu": 5 * np.log10(x) + 43, "MuError": 0.2 * np.ones_like(x), "Model": "data"}]
+    for name, offset in (("LCDM", 0.0), ("Empty", -0.3), ("EdS", -0.6)):
+        rows.append({"Z": x, "Mu": 5 * np.log10(x) + 43 + offset, "MuError": 0.05 * np.ones_like(x), "Model": name})
+    return pd.DataFrame(rows)
+
+
+def _series_artists(ax):
+    points = [c for c in ax.containers if isinstance(c, ErrorbarContainer)]
+    in_points = {id(c.lines[0]) for c in points}
+    lines = [l for l in ax.get_lines() if id(l) not in in_points and not l.get_label().startswith("_")]
+    return points, lines
+
+
+def test_series_type_data_points_over_model_lines(make_project, models):
+    figures = _capture()
+    make_project({"Hubble": models})
+    line.main(["--datafile", "Hubble", "-x", "Z", "-y", "Mu", "--hue", "Model", "--plot_type", "line",
+               "--series_type", "data=errorbar"])
+    ax = figures[0].axes[0]
+    points, lines = _series_artists(ax)
+    assert len(points) == 1 and len(lines) == 3
+    (data,) = points
+    assert np.allclose(data.lines[2][0].get_segments()[0][1][1] - data.lines[2][0].get_segments()[0][0][1], 0.4)
+    assert data.lines[0].get_zorder() > max(l.get_zorder() for l in lines)  # on top
+    assert to_hex(data.lines[0].get_color()) not in {to_hex(l.get_color()) for l in lines}  # its own colour
+
+
+def test_series_type_overlay_value_is_ink(make_project, models):
+    from plotipus import style
+
+    figures = _capture()
+    make_project({"Hubble": models})
+    line.main(["--datafile", "Hubble", "-x", "Z", "-y", "Mu", "--hue", "Model", "--plot_type", "line",
+               "--series_type", "data=errorbar", "--overlay", "data"])
+    (data,), lines = _series_artists(figures[0].axes[0])
+    assert to_hex(data.lines[0].get_color()) == to_hex(style.role("ink")) and len(lines) == 3
+
+
+def test_series_type_from_style_mapping(make_project, models, tmp_path):
+    (tmp_path / "style.json").write_text('{"mappings": {"series_types": {"data": "errorbar", "EdS": "step"}}}')
+    figures = _capture()
+    make_project({"Hubble": models}, 'style = ["style.json"]\n')
+    line.main(["--datafile", "Hubble", "-x", "Z", "-y", "Mu", "--hue", "Model", "--plot_type", "line",
+               "--series_type_mapping", "series_types", "--series_type", "EdS=line"])
+    points, lines = _series_artists(figures[0].axes[0])
+    assert len(points) == 1 and len(lines) == 3  # the command line wins: EdS stays a line
+
+
+def test_series_type_rejects_unknown_type():
+    with pytest.raises(SystemExit):
+        line.parse(["--datafile", "X", "-y", "Y", "--series_type", "data=dots"])
+
+
+def test_error_scale_multiplies_drawn_errors_only(make_project, models):
+    figures = _capture()
+    make_project({"Hubble": models})
+    line.main(["--datafile", "Hubble", "-x", "Z", "-y", "Mu", "--hue", "Model", "--plot_type", "line",
+               "--series_type", "data=errorbar", "--error_scale", "10", "--lower", "ratio"])
+    ax = figures[0].axes[0]
+    (data,), _ = _series_artists(ax)
+    segments = data.lines[2][0].get_segments()
+    half = np.array([(s[1][1] - s[0][1]) / 2 for s in segments])
+    assert np.allclose(half, 10 * 0.2)
+    assert np.allclose(data.lines[0].get_ydata(), models["Mu"].iloc[0])  # values unscaled
+    labels = [t.get_text() for t in ax.get_legend().get_texts()]
+    assert any("×10" in t for t in labels) and sum("×10" in t for t in labels) == 1
+
+
+def test_error_scale_skips_series_without_errors(make_project, models):
+    models["MuError"] = [models["MuError"].iloc[0]] + [np.full(8, np.nan)] * 3
+    figures = _capture()
+    make_project({"Hubble": models})
+    line.main(["--datafile", "Hubble", "-x", "Z", "-y", "Mu", "--hue", "Model", "--plot_type", "line", "--errory",
+               "--overlay", "data", "--error_scale", "10"])
+    labels = [t.get_text() for t in figures[0].axes[0].get_legend().get_texts()]
+    assert labels[0] == "data (errors ×10)" and not any("×" in t for t in labels[1:])

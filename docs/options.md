@@ -278,6 +278,19 @@ prediction is 0 with the upper error of observing nothing (1.84 counts,
 Garwood). `--reference_value` or `--reference_sum` restore the
 series-by-series comparison.
 
+`--series_type VALUE=TYPE [VALUE=TYPE ...]` gives single hue values their
+own plot type (any `--plot_type` value); the others keep `--plot_type`.
+With `--plot_type line --series_type data=errorbar`, measurements are
+points with error bars (whatever `--errory` says) over model curves: drawn
+on top, in their palette colour, or in `ink` when the value is also in
+`--overlay`. A style file can set the types once, as a mapping addressed
+with `--series_type_mapping NAME` (e.g. `"mappings": {"series_types":
+{"data": "errorbar"}}`); `--series_type` entries win over it.
+`--error_scale K` multiplies the drawn errors, not the values, by K, for
+errors too small to see (FIRAS ×400, the LEP lineshape ×10), and appends
+"(errors ×K)" to the legend label of each series whose errors are drawn;
+lower panels keep the stored errors.
+
 The `Resonance` rows of the example data are a Higgs-like search: data and
 two simulated components, a falling background and a narrow signal at
 125 GeV.

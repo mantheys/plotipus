@@ -985,6 +985,18 @@ def map_iterable_color(iterable_value, mapping_name, iterable_name=None):
     return style.resolve_mapped_color(_mapping_lookup(mapping_dict, iterable_value))
 
 
+def map_iterable_value(iterable_value, mapping_name):
+    """Raw value of one hue value in the named mapping (e.g. a plot type);
+    None when the mapping or the value is missing."""
+    if mapping_name is None:
+        return None
+    mapping_dict = style.get_mapping_dict(mapping_name)
+    if mapping_dict is None:
+        _missing_mapping(mapping_name)
+        return None
+    return _mapping_lookup(mapping_dict, iterable_value)
+
+
 def _format_unit(unit):
     """Wrap unit in math-mode delimiters if it contains LaTeX commands.
 

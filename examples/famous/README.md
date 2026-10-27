@@ -100,13 +100,13 @@ Patterns the commands use:
 
 | figure | source | data | status | missing (task) |
 |---|---|---|---|---|
-| F01 H→γγ m_γγ | ATLAS, PLB 716 (2012) 1, Fig. 4 | **extracted** (figure) | ◐ | (ATLAS header inside: `--experiment atlas --label_position inside`) data drawn as a line in the `column:` lower panel (T21); 4 panels in one figure (T22.6); residual vs a fit component (T22.14) |
+| F01 H→γγ m_γγ | ATLAS, PLB 716 (2012) 1, Fig. 4 | **extracted** (figure) | ◐ | (ATLAS header inside: `--experiment atlas --label_position inside`) 4 panels in one figure (T22.6); residual vs a fit component (T22.14) |
 | F03 H→ZZ*→4ℓ | CMS, PLB 716 (2012) 30, Fig. 4 | **extracted** (figure) | ◐ | (CMS header above: `--experiment cms`) Garwood bars computed from counts (T19; here the figure's bars); signal as an open outline on the stack (T18); inset (T22.7) |
 | F04 local p₀ | ATLAS, Fig. 9 | **extracted** (figure) | ◐ | (ATLAS header with two right lines) markers on the observed curve (T21); band legend swatch and σ-line labels (T20) |
 | F05 Brazil band | ATLAS, Fig. 7(a) | **extracted** (figure) | ◐ | (ATLAS header) saturated band colours and swatches (T20); log-axis tick labels (T12) |
-| F06 COBE FIRAS | Fixsen et al. 1996, Figs. 4-5 | **real** (NASA LAMBDA) | ◐ | an error scale option (T21); data drawn as a line in the lower panel (T21) |
+| F06 COBE FIRAS | Fixsen et al. 1996, Figs. 4-5 | **real** (NASA LAMBDA) | ✅ | (errors ×400 with `--error_scale 400`) a top axis in GHz (TODO.md, postponed) |
 | F08 Hubble 1929 | PNAS 15, 168, Fig. 1 | **real** (Table 1) | ◐ | per-series markers: discs, circles, cross (T21) |
-| F09 SN Ia Hubble diagram | Riess et al. 1998, Fig. 4 | **real** (Union2.1) | ◐ | data drawn as a line in the lower panel (T21); log tick labels (T12) |
+| F09 SN Ia Hubble diagram | Riess et al. 1998, Fig. 4 | **real** (Union2.1) | ◐ | log tick labels (T12) |
 | F10 Ω_M–Ω_Λ | Riess et al. 1998, Fig. 6 | **real** (Union2.1), synthetic CMB | ◐ | the shaded "No Big Bang" region (T22.8) |
 | F11 rotation curves | Rubin, Ford & Thonnard 1980 | **real** (SPARC) | ◐ | an ordered colour map for 21 hues (T22.5); figure layout unverified |
 | F12 NGC 3198 | van Albada et al. 1985 | **real** (SPARC); fitted halo | ✅ | (figure styles unverified) |
@@ -114,7 +114,7 @@ Patterns the commands use:
 | F14 hockey stick | Mann, Bradley & Hughes 1999, Fig. 3(a) | **real** (NOAA paleo) | ✅ | — (the legend below the axes: `--legend_loc below`) |
 | F15 GW150914 | PRL 116, 061102, Fig. 1 | **real** (GWOSC); synthetic band widths | ◐ | 4 × 2 grid (T22.6); log frequency axis on the map (T22.3) (a legend per panel: `--legend_panel all`) |
 | F16 KamLAND L₀/E | PRL 100, 221803, Fig. 3 | **extracted** (figure) | ◐ | x error bars from the bin widths (T21) |
-| F17 LEP Z lineshape | Phys. Rept. 427 (2006) 257, Fig. 1.13 | **extracted** (figure) | ✅ | an error scale option instead of a stored column (T21); labels on curves are `--text` (T22.8) |
+| F17 LEP Z lineshape | Phys. Rept. 427 (2006) 257, Fig. 1.13 | **extracted** (figure) | ✅ | (errors ×10 with `--error_scale 10`) labels on curves are `--text` (T22.8) |
 | F19 Geiger–Marsden | Phil. Mag. 25, 604 (1913) | synthetic | ✅ | (no original figure) |
 | F20 Moseley's law | Phil. Mag. 26, 1024 (1913) | synthetic | ✅ | (no original figure) |
 | F21 Leavitt | Harvard Circ. 173 (1912) | synthetic | ✅ | (table not transcribed) |
@@ -129,7 +129,7 @@ Patterns the commands use:
 | T18 | the signal as an open outline on top of a filled stack | F03 |
 | T19 | Garwood bars from the counts | F03 |
 | T20 | band colours independent of the line, saturated fills, band legend swatches; labelled σ lines | F04, F05, F15 |
-| T21 | `column:` lower panels following `--data_hue`/`--plot_type_column` (data as points); per-series markers; `--error_scale`; x error bars from bin widths for data points | F01, F04, F06, F08, F09, F16, F17 |
+| T21 | per-series markers; x error bars from bin widths for data points (`--series_type` and `--error_scale` are in; data are points in `column:` lower panels) | F04, F08, F16 |
 | T22.3 | a power (square-root) colour scale, a colour below the scale, `--cmap` for 2D histograms, `--colorbar none`; log y axis for `-z` images | F22, F15 |
 | T22.5 | an ordered colour map for many hues | F11 |
 | T22.6 | panel grids with shared axes (rows × columns) | F01, F15, F25 |
