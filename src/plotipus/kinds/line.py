@@ -374,6 +374,9 @@ def build_parser():
     add("--no_lower_plot", action="store_true", default=False, help="Ignore --lower.")
     add("--no_lower_name", action="store_true", default=False,
         help="Leave the lower operation/column out of the output name.")
+    add("--lower_column_models", action="store_true", default=False,
+        help="With --data_hue, a --lower column:NAME panel also draws the other series' NAME column (model curves "
+        "stored next to the data's residual) as lines; by default only the data's column is drawn.")
     add("--lower_series_donor", nargs=2, metavar=("FROM", "TO"), default=None,
         help="Copy the lower column (column:NAME) from the rows of hue FROM onto those of hue TO.")
     add_panel_args(parser, "lower_")
@@ -1667,9 +1670,11 @@ def _draw_lower(ax, spec, series, args, comparable, comparable_values, colors):
             ax.axhline(1.0 if "ratio" in spec.name.lower() else 0.0, color=style.role("muted"), linestyle="--",
                        linewidth=1, zorder=1)
         first = True
-        # With data, the stored column is the data's (a pull, a residual): other series' copies are left out.
+        # With data, the stored column is the data's (a pull, a residual): other series' copies are left out,
+        # unless --lower_column_models asks for the model rows' own curves (F01's signal, F09's cosmologies).
         with_data = [s for s in regular if s.is_data and s.rows is not None and spec.name in s.rows.columns]
-        for s in with_data or regular:
+        drawn_series = regular if args.lower_column_models or not with_data else with_data
+        for s in drawn_series:
             if s.rows is None or spec.name not in s.rows.columns:
                 continue
             rows = s.rows[s.rows[spec.name].notna()]

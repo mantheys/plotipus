@@ -1286,3 +1286,18 @@ def test_tick_labels_where_upper_and_lower_panels_meet_do_not_overlap(make_proje
     top = max(shown(lower), key=lambda t: t.get_window_extent(renderer).y1)
     assert bottom.get_window_extent(renderer).y0 >= top.get_window_extent(renderer).y1  # no overlap
     assert "2" in top.get_text()  # the ratio panel keeps its labels
+
+
+def test_column_lower_panel_with_model_curves(make_project):
+    """--lower_column_models: the model rows' stored column (F01's signal, F09's cosmologies) joins the data's."""
+    x = np.arange(0.5, 6, 1.0)
+    frame = pd.DataFrame([{"X": x, "Y": np.full_like(x, 5.0), "YError": np.ones_like(x), "Pull": np.full_like(x, p),
+                           "Sample": s} for s, p in (("Data", 1.0), ("Signal", -1.0))])
+    make_project({"C": frame})
+    figures = _capture()
+    line.main(["--datafile", "C", "-x", "X", "-y", "Y", "--hue", "Sample", "--data_hue", "Data", "--errory",
+               "--plot_type", "line", "--lower", "column:Pull", "--lower_column_models"])
+    lower = figures[0].axes[1]
+    assert len(_errorbars(lower)) == 1  # the data, as points
+    curves = [l for l in lower.get_lines() if np.allclose(l.get_ydata(), -1.0) and len(l.get_ydata()) > 1]
+    assert curves, "the Signal row's column is drawn as a line"

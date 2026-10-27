@@ -322,6 +322,7 @@ derived from (or stored in) the same DataFrame. Each `--lower` adds one:
                               # line at 0 (1 for a column named like a ratio; --no_lower_reference)
 --lower events:OpHit          # event markers read from OpHit* columns
 --lower column:Count --lower_plot_type bar   # stored counts as bars (80% of the x spacing), e.g. under a calibration curve
+--lower column:DeltaMu --lower_column_models   # with --data_hue: the data's column as points and the model rows' own column as lines
 ```
 
 ![Stacked background and signal simulation with the signal significance S/sqrt(B) in a lower panel](images/options/significance.png)
