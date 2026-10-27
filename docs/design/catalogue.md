@@ -37,14 +37,14 @@ command lists.
 | A Distributions | 7 | 0 | 5 |
 | B Relationships | 6 | 1 | 2 |
 | C Trends and fits | 8 | 1 | 1 |
-| D Comparisons | 4 | 2 | 3 |
+| D Comparisons | 5 | 1 | 3 |
 | E Ratios and significance | 7 | 0 | 1 |
-| F ML diagnostics | 4 | 3 | 0 |
+| F ML diagnostics | 5 | 2 | 0 |
 | G Uncertainty | 8 | 1 | 0 |
 | H Small multiples and layout | 2 | 2 | 4 |
 | I Annotations | 10 | 0 | 0 |
 | J Tables | 4 | 1 | 2 |
-| **Total (89)** | **60** | **11** | **18** |
+| **Total (89)** | **62** | **9** | **18** |
 
 Nearly half of the ◐ entries are partial only because of a bug in
 [bugs.md](bugs.md), not because an option is missing. Fixing B01–B13 moves
@@ -109,7 +109,7 @@ about 12 of them to ✅.
 | D5 | Horizontal bars (sorted) | long labels, rankings | — | ✗ | `line --plot_type barh` fails on categorical x (exit 1); `cat` has no orientation. | `cat --orient h --sort`. |
 | D6 | Dot plot / Cleveland dot | many categories, precise values | — | ◐ | `cat --kind point` (P11), marker-only legend handles; vertical only. | `--orient h`. |
 | D7 | Lollipop | rankings with less ink | — | ✗ | — | `cat --kind lollipop` (stem + point). |
-| D8 | Heatmap of a category × category table | correlation / yields | F25 | ◐ | `map -z` draws the grid (P17) but without cell values, without categorical tick labels and with the y axis not inverted. | `map --annotate [FORMAT]`; string x/y become ticks. |
+| D8 | Heatmap of a category × category table | correlation / yields | F25 | ✅ | `map -x A -y B -z Value --annotate .2f --matrix` (T22.3): string x/y become one tick per name, cell values written dark on light and light on dark. | — |
 | D9 | Before/after (slope) chart | paired change | — | ✅ | `cat --datafile Spectra -x Stage -y Counts --integrate_over Energy --hue Sample --kind line` (legends avoid the data, B06 fixed in T15). | — |
 
 ## E. Ratios, differences and significance
@@ -135,7 +135,7 @@ All curves are precomputed by the analysis (plotipus does not fit or score).
 | F2 | Precision–recall | imbalanced classes | — | ✅ | Same as F1 with `-x Recall -y Precision`. | — |
 | F3 | Learning curve with band | over/under-fitting | — | ✅ | `line --datafile Learning -x TrainSize -y Score --hue Split --errory --errory_type bands --plot_type line --logx` (P09). | — |
 | F4 | Calibration (reliability) curve + counts | probability calibration | — | ◐ | Curve and diagonal: as F1. The lower histogram of counts needs a stored column (`--lower column:Count`), drawn as a line. | `--lower_plot_type bar` for a column lower panel. |
-| F5 | Confusion matrix | per-class errors | — | ◐ | `map -z Frac` (P17): no cell text, numeric ticks, y not inverted; row normalisation via `--norm horizontal` exists for histograms only. | D8 (`--annotate`, categorical ticks) + `--norm` for `-z` grids. |
+| F5 | Confusion matrix | per-class errors | — | ✅ | `map -x Predicted -y True -z Count --norm horizontal --annotate .0% --matrix` (T22.3). | — |
 | F6 | Feature importance | model explanation | — | ◐ | `cat -y Importance --kind bar` on scalar cells (B07, fixed in T08); no horizontal sorted bars. | D5 (`--orient h`, `--sort`). |
 | F7 | Score distributions per class | separation | — | ✅ | `hist -x Score --hue Class --density --logy` (as P13). | — |
 

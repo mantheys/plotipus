@@ -438,7 +438,23 @@ in greyscale and under colour-vision deficiencies, and its lightest colour is
 a tint, so blank (empty) bins stand apart. The dark theme uses
 `plotipus_dark`, rising from a dark blue to the cream; `--experiment dune`
 keeps DUNE's cividis, and `classic` matplotlib's viridis. `--cmap NAME` picks
-any other.
+any other, for `-z` grids and 2D histograms alike.
+
+* **Colour scales.** `--zpower 0.5` is a power-law (here square-root) scale,
+  its colorbar ticked at the powers of ten; `--zmin VALUE` sets the bottom
+  of the scale and `--zunder COLOUR` the colour of the values below it (the
+  Gaia diagrams draw their sparsest bins black); `--colorbar none` drops the
+  bar. `--logx`/`--logy` give the map log axes (a spectrogram's frequency).
+* **Tables as grids** (confusion matrices, yields): string x or y values
+  become one tick per name; `--norm horizontal|vertical|global|combined`
+  normalises a `-z` grid as it does a 2D histogram (rows of a confusion
+  matrix: `horizontal`); `--annotate [FORMAT]` writes each cell's value in it
+  (`.0%`, `.2f`; default `.3g`), dark on light cells and light on dark ones;
+  `--matrix` puts the first y value at the top.
+
+```bash
+plotipus map --datafile Confusion -x Predicted -y True -z Count --norm horizontal --annotate .0% --matrix --cmap Blues
+```
 
 ![True against measured value for data and simulation, sharing one log colour scale](images/options/colorbar.png)
 

@@ -33,15 +33,11 @@ and `anscombe.py`. A generator's docstring:
 - says what is synthetic;
 - keeps the "(unverified)" marks of research.md.
 
-Two project plugins and a style file, all listed in `plotipus.toml`, show how
+A project plugin and a style file, both listed in `plotipus.toml`, show how
 a project adapts plotipus without changing it:
 
 - `models.py`: physics formulas and fit models, registered so that stored
   fits can name them (`FitFunction`);
-- `colorscale.py`: `--zpower GAMMA` (a power-law colour scale, 0.5 for the
-  square root of the Gaia diagrams), `--zcmap NAME` (the colour map, 2D
-  histograms included), `--zmin VALUE` and `--zunder COLOUR` (the colour of
-  the sparsest bins) for map panels;
 - `style.json`: no automatic titles, a black-first colour cycle (data drawn
   black, as in the originals), one colour and label mapping per figure, and
   the paper gallery size (`widths.single`, 3.5 × 2.7 in).
@@ -124,20 +120,19 @@ Patterns the commands use:
 | F12 NGC 3198 | van Albada et al. 1985 | **real** (SPARC); fitted halo | ✅ | (figure styles unverified) |
 | F13 Keeling curve | NOAA GML plot | **real** (NOAA GML) | ✅ | the seasonal-cycle inset of other versions (T22.7) |
 | F14 hockey stick | Mann, Bradley & Hughes 1999, Fig. 3(a) | **real** (NOAA paleo) | ✅ | (the legend below the axes: `--legend_loc below`; the uncertainty as a light-grey row of its own; the 1998 arrow: `--text ... --arrow 1996 0.8`) |
-| F15 GW150914 | PRL 116, 061102, Fig. 1 | **real** (GWOSC); synthetic band widths | ◐ | 4 × 2 grid (T22.6); log frequency axis on the map (T22.3); `--legend_panel all` collapses the H1 panels and `--title` is not drawn (T15 follow-up) |
+| F15 GW150914 | PRL 116, 061102, Fig. 1 | **real** (GWOSC); synthetic band widths | ◐ | (log frequency axis on the map: `--logy`) 4 × 2 grid (T22.6); `--legend_panel all` collapses the H1 panels and `--title` is not drawn (T15 follow-up) |
 | F16 KamLAND L₀/E | PRL 100, 221803, Fig. 3 | **extracted** (figure) | ✅ | (x error bars from each point's bin: `--errorx_column LOverELow LOverEHigh`; one two-line legend entry for both expectations, the curve labelled `_nolegend_`) |
 | F17 LEP Z lineshape | Phys. Rept. 427 (2006) 257, Fig. 1.13 | **extracted** (figure) | ✅ | (errors ×10 with `--error_scale 10`; thin curves; labels at the peaks with `--text`) blue frame, bold sans labels (per-figure style, follow-up) |
 | F19 Geiger–Marsden | Phil. Mag. 25, 604 (1913) | synthetic | ✅ | (no original figure) |
 | F20 Moseley's law | Phil. Mag. 26, 1024 (1913) | synthetic | ✅ | (no original figure) |
 | F21 Leavitt | Harvard Circ. 173 (1912) | synthetic | ✅ | (table not transcribed) |
-| F22 HR diagram | Gaia DR2 HRD (A&A 616, A10), Fig. 1 | **real** (Gaia archive, the paper's query) | ✅ | square-root colour scale, colour map and no colorbar for maps (`colorscale.py` plugin, T22.3); Fig. 5 needs the STILISM extinction cut (a 200 pc stand-in is drawn) |
+| F22 HR diagram | Gaia DR2 HRD (A&A 616, A10), Fig. 1 | **real** (Gaia archive, the paper's query) | ✅ | (square-root colour scale with black sparsest bins and no colorbar: `--zpower 0.5 --zmin 4 --zunder black --colorbar none`) Fig. 5 needs the STILISM extinction cut (a 200 pc stand-in is drawn) |
 | F25 Anscombe's quartet | Am. Stat. 27, 17 (1973) | **real** | ✅ | shared axes (T22.6); statistics table (T22.11) |
 
 ## Missing features, by task
 
 | task | missing feature | figures |
 |---|---|---|
-| T22.3 | a power (square-root) colour scale, a colour below the scale, `--cmap` for 2D histograms, `--colorbar none`; log y axis for `-z` images | F22, F15 |
 | T22.6 | panel grids with shared axes (rows × columns) | F01, F15, F25 |
 | T22.7 | insets | F03, F13 |
 | T22.11 | `table --agg corr` | F25 |

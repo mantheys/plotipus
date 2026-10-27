@@ -76,11 +76,10 @@ line --datafile HockeyStick -x Year -y Anomaly --hue Series --style Series --ite
 
 # F15 LIGO GW150914, Fig. 1 (the figure's data files): strain, 90% reconstructions and residual per detector; time-frequency maps
 # gap: the 4 x 2 grid (rows per quantity, columns per detector, shared axes) -> T22.6
-# gap: a log frequency axis on the map -> T22.3
 # gap: --legend_panel all collapses the H1 panels to slivers (legends wider than the panels; L1's legends overlap) and --title is not drawn -> T15 follow-up
 line --datafile GW150914 -x Time -y Strain --hue Component --style Component --iterable_color_mapping ligo_h1_colors --comparable_linestyles solid --linewidth_column Width --select Detector -s H1 --variables 'Whitened strain' Reconstructed Residual --legend_panel all --plot_type line --errory --errory_type bands --rangex 0.25 0.46 --labelx 'Time (s)' --labely 'Strain (10$^{-21}$)' --title 'Hanford, Washington (H1)'
 line --datafile GW150914 -x Time -y Strain --hue Component --style Component --iterable_color_mapping ligo_l1_colors --comparable_linestyles solid --linewidth_column Width --select Detector -s L1 --variables 'Whitened strain' Reconstructed Residual --legend_panel all --plot_type line --errory --errory_type bands --rangex 0.25 0.46 --labelx 'Time (s)' --labely 'Strain (10$^{-21}$)' --title 'Livingston, Louisiana (L1)'
-map --datafile GW150914Spectrogram -x Time -y FrequencyGrid -z Amplitude --iterable Name --cmap viridis --rangex 0.25 0.46 --labelx 'Time (s)' --labely 'Frequency (Hz)' --labelz 'Normalized amplitude'
+map --datafile GW150914Spectrogram -x Time -y FrequencyGrid -z Amplitude --iterable Name --cmap viridis --logy --rangex 0.25 0.46 --labelx 'Time (s)' --labely 'Frequency (Hz)' --labelz 'Normalized amplitude'
 
 # F16 KamLAND 2008, Fig. 3: survival probability with the expectation histogram and curve
 line --datafile KamLAND -x LOverE -y SurvivalProbability --hue Component --data_hue 'Data - BG - Geo $\nu_e$' --iterable_color_mapping kamland_colors --iterable_mapping kamland_labels --linewidth_column Width --plot_type line --errory --errorx_column LOverELow LOverEHigh --rangex 15 105 --rangey 0 1.15 --legend_loc 'upper right' --labelx '$L_0/E_{\bar\nu_e}$ (km/MeV)' --labely 'Survival Probability'
@@ -104,11 +103,9 @@ line --datafile Leavitt -x LogPeriod -y Magnitude --hue Brightness --data_hue Ma
 line --datafile Leavitt -x LogPeriod -y Magnitude --hue Brightness --select Type -s Data --fit --rangey 17 10.5 --labelx 'log P (days)' --labely 'Apparent magnitude'
 
 # F22 Gaia DR2 HR diagram (Babusiaux et al. 2018, Fig. 1; real data, the paper's archive query): square-root colour scale, M_G inverted
-# gap: a square-root (power) colour scale, a colour for the sparsest bins, --cmap for 2D histograms (here the colorscale.py plugin) -> T22.3
-# gap: a figure without a colorbar, as in the original (--colorbar none) -> T22.3
-map --datafile HRDiagram -x BPRP -y MG -z Stars --select Name -s all --nan_fill none --zpower 0.5 --zcmap YlOrRd_r --zmin 4 --zunder black --rangex -0.8 6.8 --rangey 16.5 -6.5 --labelx '$G_{BP}-G_{RP}$' --labely '$M_G$' --labelz ' '
+map --datafile HRDiagram -x BPRP -y MG -z Stars --select Name -s all --nan_fill none --zpower 0.5 --cmap YlOrRd_r --zmin 4 --zunder black --colorbar none --rangex -0.8 6.8 --rangey 16.5 -6.5 --labelx '$G_{BP}-G_{RP}$' --labely '$M_G$'
 # the stars within 200 pc (parallax > 5 mas), a stand-in for the low-extinction Fig. 5 (its E(B-V) cut needs the STILISM map)
-map --datafile HRDiagram -x BPRP -y MG -z Stars --select Name -s 200pc --nan_fill none --zpower 0.5 --zcmap YlOrRd_r --zmin 2 --zunder black --rangex -0.7 5 --rangey 16.5 -4 --labelx '$G_{BP}-G_{RP}$' --labely '$M_G$' --labelz 'Stars per bin'
+map --datafile HRDiagram -x BPRP -y MG -z Stars --select Name -s 200pc --nan_fill none --zpower 0.5 --cmap YlOrRd_r --zmin 2 --zunder black --rangex -0.7 5 --rangey 16.5 -4 --labelx '$G_{BP}-G_{RP}$' --labely '$M_G$' --labelz 'Stars per bin'
 
 # F25 Anscombe's quartet (real data): four panels with the shared regression line
 # gap: shared axes across the panels -> T22.6
