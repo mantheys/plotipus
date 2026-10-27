@@ -24,7 +24,7 @@ DATA = Path(__file__).resolve().parent / "data"
 sys.path.insert(0, str(DATA))
 from make_classic_reference import EXAMPLES, describe  # noqa: E402
 
-SIZES = {"slides": (8, 4.5), "slides-dark": (8, 4.5), "paper": (3.4, 2.55), "paper-dark": (3.4, 2.55),
+SIZES = {"slides": (8, 0.73 * 8), "slides-dark": (8, 0.73 * 8), "paper": (3.4, 2.55), "paper-dark": (3.4, 2.55),
          "open": (8, 4.5), "open-dark": (8, 4.5), "classic": (8, 6)}
 
 

@@ -179,7 +179,7 @@ def test_same_colour_in_upper_and_lower_panels(make_project, spectra):
         "--lower", "column:Significance")
     upper, lower = figures[0].axes[:2]
     upper_colors = [to_hex(l.get_color()) for l in upper.get_lines() if not l.get_label().startswith("_")]
-    lower_colors = [to_hex(l.get_color()) for l in lower.get_lines()]
+    lower_colors = [to_hex(l.get_color()) for l in lower.get_lines() if l.get_linestyle() != "--"]
     assert len(set(upper_colors)) == 3
     assert lower_colors == upper_colors
 
