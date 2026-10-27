@@ -1,7 +1,7 @@
 """Write the example data of input/plots/example_scripts.txt (and of the
-figures of docs/options.md): Distributions.pkl, and two files derived from
-it, the per-config files of the --configs example and Moments.pkl for the
-table and scalar-cell cat examples.
+figures of docs/options.md): Distributions.pkl, and the files derived from
+it: the per-config files of the --configs example, Moments.pkl for the table
+and scalar-cell cat examples and Yields.pkl for the stacked cat example.
 
     python make_data.py          # into input/data
     python make_data.py DIR      # into DIR (the gallery's data)
@@ -145,4 +145,15 @@ for row in frame[frame.Value.notna()].itertuples():
         moments.append({"Config": row.Distribution, "Sample": row.Sample, "Variable": name, "Value": v,
                         "ValueError": e})
 pd.DataFrame(moments).to_pickle(out / "Moments.pkl")
+
+# Yields: the Resonance counts summed in three mass regions (the sidebands and
+# the signal region), one scalar per (region, sample), for the stacked cat example.
+regions = {"Low sideband": (100, 120), "Signal region": (120, 130), "High sideband": (130, 160)}
+yields = []
+for row in frame[frame.Distribution == "Resonance"].itertuples():
+    for region, (low, high) in regions.items():
+        inside = (row.Bin > low) & (row.Bin < high)
+        yields.append({"Region": region, "Sample": row.Sample, "Counts": float(np.sum(row.Counts[inside])),
+                       "CountsError": float(np.sqrt(np.sum(row.CountsError[inside] ** 2)))})
+pd.DataFrame(yields).to_pickle(out / "Yields.pkl")
 print(f"Example data written to {out}")
