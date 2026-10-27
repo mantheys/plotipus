@@ -333,8 +333,10 @@ def draw_histogram_figure(rows, args, kdx):
             ax.set_ylim(args.rangey)
         apply_tick_formatter(ax, axis="both")
         draw_overlays(ax, args)
-        if regions.get(pdx):
-            apply_legend_style_clear_of_data(ax, handles=regions[pdx], labels=[h.get_label() for h in regions[pdx]])
+    handle_lists = [regions.get(pdx, []) for pdx in range(len(panels))]
+    for pdx in legend_panels(handle_lists):
+        handles = handle_lists[pdx]
+        apply_legend_style_clear_of_data(axes[pdx], handles=handles, labels=[h.get_label() for h in handles])
 
     add_title_and_note(fig, args)
     return save(fig, args, kdx, suffix="hist2d.png")
@@ -768,6 +770,28 @@ def draw_background(ax, fig, x, y, z, args, rows, levels):
     ax._background_colorbar = (mesh, label)
 
 
+def _handle_signature(handle):
+    """What a legend entry shows: its label, colours and line style."""
+    parts = [handle.get_label()]
+    for getter in ("get_facecolor", "get_edgecolor", "get_color", "get_linestyle", "get_hatch"):
+        value = getattr(handle, getter, None)
+        if value is not None:
+            value = value()
+            parts.append(tuple(np.ravel(value)) if isinstance(value, (np.ndarray, list, tuple)) else value)
+    return tuple(parts)
+
+
+def legend_panels(handle_lists):
+    """Indices of the panels that draw their legend: each panel with
+    entries, or only the last of them when every panel shows the same
+    entries (one legend says it for all)."""
+    filled = [pdx for pdx, handles in enumerate(handle_lists) if handles]
+    signatures = {tuple(_handle_signature(h) for h in handle_lists[pdx]) for pdx in filled}
+    if len(filled) > 1 and len(signatures) == 1:
+        return filled[-1:]
+    return filled
+
+
 def contour_legend(sets, labels):
     """Legend handles. A lone contour set gets one handle per level. Several
     get one handle per set (its colour) and one per level (its line style and
@@ -1107,9 +1131,10 @@ def draw_contour_figure(df, args):
                            linewidths=1.0, s=85, zorder=100)
                 if point_labels is not None:
                     place_point_label(ax, px, py, point_labels[i], fontsize=style.linelabelfontsize)
-            handles = getattr(ax, "_contour_handles", [])
-            if handles:
-                apply_legend_style(ax, handles=handles, capitalize_labels=args.capitalize_legend).set_zorder(10)
+
+    handle_lists = [getattr(ax, "_contour_handles", []) for ax in axes]
+    for pdx in legend_panels(handle_lists):
+        apply_legend_style(axes[pdx], handles=handle_lists[pdx], capitalize_labels=args.capitalize_legend).set_zorder(10)
 
     draw_colorbars(fig, [(ax, *ax._background_colorbar) for ax in axes if hasattr(ax, "_background_colorbar")], args)
     add_title_and_note(fig, args)

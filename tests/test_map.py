@@ -358,3 +358,28 @@ def test_contour_without_z_draws_sample_regions(make_project):
     ax = figures[-1].axes[0]
     assert len([c for c in ax.collections if isinstance(c, ContourSet)]) == 3
     assert [t.get_text() for t in ax.get_legend().get_texts()] == ["68.3%", "95.4%", "99.7%"]
+
+
+def test_identical_contour_legends_drawn_once(make_project):
+    """Panels whose confidence-level legends are the same show it once, in the last panel."""
+    from plotipus import registry
+
+    frame = _maps().assign(Sample=["Data", "Simulation"])
+    make_project({"Scan": frame})
+    figures = []
+    registry.add_figure_hook(lambda fig, args: figures.append(fig))
+    map_kind.main(["--datafile", "Scan", "-x", "XGrid", "-y", "YGrid", "-z", "ZGrid", "--iterable", "Sample",
+                   "--contour", "--fill_contours"])
+    axes = [ax for ax in figures[0].axes if ax.get_title()]
+    assert len(axes) == 2
+    assert [ax.get_legend() is not None for ax in axes] == [False, True]
+
+
+def test_legend_panels_keep_differing_legends():
+    from matplotlib.patches import Patch
+
+    same = [[Patch(color="C0", label="68%")], [Patch(color="C0", label="68%")]]
+    assert map_kind.legend_panels(same) == [1]
+    differ = [[Patch(color="C0", label="68%")], [Patch(color="C1", label="68%")]]
+    assert map_kind.legend_panels(differ) == [0, 1]
+    assert map_kind.legend_panels([[], same[0]]) == [1]

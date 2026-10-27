@@ -41,7 +41,7 @@ from ..transforms import _ESTIMATORS, bin_estimate, bin_reduce, estimate, reduct
 ESTIMATORS = tuple(_ESTIMATORS)
 SUFFIXES = {"scatter_points": "scatter", "scatter": "scatter"}
 ERROR_MODES = ("sem", "std", "none")
-BOX_TICK_LABELS = ("centres", "ranges")
+BOX_TICK_LABELS = ("axis", "centres", "ranges")
 # Most box tick labels on one axis (centres, ranges); past it, every k-th
 # bin is labelled.
 _MAX_BOX_TICKS = {"centres": 12, "ranges": 6}
@@ -66,8 +66,9 @@ def add_estimator_args(parser):
     add("--whis", nargs="+", type=float, default=[1.5],
         help="With --plot_type box: whisker reach in IQRs past the box, or two percentiles, e.g. 5 95 "
              "(default: 1.5).")
-    add("--box_tick_labels", type=str, default="centres", choices=BOX_TICK_LABELS,
-        help="With --plot_type box: label the bins by their centres or as [a, b) ranges (default: centres).")
+    add("--box_tick_labels", type=str, default="axis", choices=BOX_TICK_LABELS,
+        help="With --plot_type box and numeric bins: a plain numeric axis over the bin edges (axis, default), "
+             "a tick at each bin centre (centres) or [a, b) ranges (ranges).")
     add("--no_fliers", action="store_true", default=False,
         help="With --plot_type box: do not draw the points past the whiskers.")
     add("--panels", nargs="+", type=str, default=None, help="x columns, one per panel (replaces -x).")
@@ -200,7 +201,8 @@ def _panel_figure(df, args, kdx, config, name):
     fig, axes, _, _ = create_panels(n_panels, grid=False)
     group = _group_rows(df, args, config, name)
     variables = [None] * len(args.panels) if args.panels is not None else (args.variables or [None])
-    hues = group[args.iterable].unique() if args.iterable is not None else [None]
+    # Hue values left by --select and friends: the boxes dodge over these only.
+    hues = filter_dataframe(group, args)[args.iterable].unique() if args.iterable is not None else [None]
     first_subset = {}
     errors_drawn = propagated = False
     box_colors = ColorAllocator()
@@ -347,7 +349,12 @@ def _tick_number(values, step):
 
 def _set_box_ticks(ax, centres, edges, categories, args):
     """Ticks at the box centres: the category names, else the bin centres
-    (or [a, b) ranges with --box_tick_labels ranges) to the bins' precision."""
+    (or [a, b) ranges with --box_tick_labels ranges) to the bins' precision;
+    with --box_tick_labels axis, a plain numeric axis over the bin edges."""
+    if categories is None and args.box_tick_labels == "axis":
+        if edges is not None and len(edges) > 1 and args.rangex is None:
+            ax.set_xlim(edges[0], edges[-1])
+        return
     if categories is not None:
         labels = list(categories)
     else:
@@ -392,7 +399,8 @@ def _compact_figure(df, args, kdx, config, name):
     fig.subplots_adjust(bottom=fig.subplotpars.bottom + 0.42 / fig.get_figheight())
 
     group = _group_rows(df, args, config, name)
-    hues = group[args.iterable].unique() if args.iterable is not None else [None]
+    # Hue values left by --select and friends: the boxes dodge over these only.
+    hues = filter_dataframe(group, args)[args.iterable].unique() if args.iterable is not None else [None]
     colors = {hue: map_iterable_color(hue, args.iterable_color_mapping) or cycle[j % len(cycle)] for j, hue in enumerate(hues)}
     tick_positions, tick_labels = [], []
     errors_drawn = propagated = False

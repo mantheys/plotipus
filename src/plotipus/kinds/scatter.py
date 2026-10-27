@@ -10,7 +10,8 @@ Two ways to get the points:
   and per hue value (marker shape when several pairs are drawn).
 * **points** (default): array cells are exploded into one point per entry;
   ``-y`` (and ``-z``) are drawn against ``-x`` in side-by-side panels.
-  Colour by ``--hue`` or a continuous ``--colorby`` column, size by
+  Colour by ``--hue`` or a continuous ``--colorby`` column (a signed
+  column on the style's diverging colour map, centred at 0), size by
   ``--sizeby``, marker by ``--markerby`` (two values: hollow vs filled).
 """
 
@@ -19,7 +20,7 @@ import re
 import matplotlib.lines as mlines
 import numpy as np
 import pandas as pd
-from matplotlib.colors import LogNorm
+from matplotlib.colors import LogNorm, Normalize
 from matplotlib.ticker import MaxNLocator
 from rich import print as rprint
 
@@ -512,6 +513,12 @@ def draw_points(rows, args, kdx):
     if args.colorby is not None and args.colorby in rows.columns:
         all_values = rows[args.colorby].astype(float).to_numpy()
         norm = LogNorm(vmin=all_values[all_values > 0].min(), vmax=all_values.max()) if args.logz else None
+        cmap = None  # the style's sequential map (image.cmap)
+        finite = all_values[np.isfinite(all_values)]
+        if not args.logz and finite.size and finite.min() < 0 < finite.max():
+            # Values of both signs: the diverging map, white at 0.
+            reach = float(np.max(np.abs(finite)))
+            norm, cmap = Normalize(vmin=-reach, vmax=reach), style.diverging_cmap
         last = None
         for value, group, marker, hollow in _marker_groups(rows, args.markerby, markers):
             colors = group[args.colorby].astype(float).to_numpy()
@@ -522,7 +529,7 @@ def draw_points(rows, args, kdx):
             drawn = []
             for ax, column in zip(axes, y_columns):
                 last = ax.scatter(group[args.x].to_numpy(), group[column].to_numpy(), c=colors, s=sizes, norm=norm,
-                                  marker=marker, alpha=0.85, linewidths=1.5 if hollow else 0)
+                                  cmap=cmap, marker=marker, alpha=0.85, linewidths=1.5 if hollow else 0)
                 drawn.append(last)
             if hollow:  # keep the colour-mapped edges, drop the fill
                 for collection in drawn:
