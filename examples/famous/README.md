@@ -22,6 +22,7 @@ cd examples/famous
 python make_data.py            # 22 pickles in input/data (about 3 s, 2.3 MB)
 python make_data.py F08 F25    # only some figures
 plotipus run famous            # figures in output/plots
+plotipus run famous --tables   # the Anscombe statistics in output/tables
 ```
 
 Each figure has a seeded generator in a module per field: `hep.py`,
@@ -88,8 +89,12 @@ The commands aim at the originals, not at plotipus's own style: the
 originals' colours, line styles, markers, legend layout and annotations,
 so the gallery shows that plotipus can draw what others drew. Fonts
 and other rcParams are still the paper medium's for every figure (a
-per-command style file is a follow-up request). The same figures redrawn
-with plotipus's defaults are the style guide's before-and-after examples.
+per-command style file is a follow-up request). Five of the figures redrawn
+with plotipus's defaults are the
+[style guide's before-and-after pairs](../../docs/styleguide.md#before-and-after-famous-figures):
+their commands are in `restyled/plots/restyled_scripts.txt`, a project of
+its own (`restyled/plotipus.toml`) that reads this data with the default
+style.
 
 Patterns the commands use:
 
@@ -108,34 +113,42 @@ Patterns the commands use:
 
 | figure | source | data | status | missing (task) |
 |---|---|---|---|---|
-| F01 H→γγ m_γγ | ATLAS, PLB 716 (2012) 1, Fig. 4 | **extracted** (figure) | ◐ | (ATLAS header inside: `--experiment atlas --label_position inside`) (data − background under the S+B fit: `--fit --lower residual:Bkg`) 4 panels in one figure (T22.6); the Sig+Bkg − Bkg curve in the lower panel, drawn by T21 and lost in the example-feedback-3 merge (follow-up); the ATLAS header inside, which an explicit `--legend_loc` overlaps (T15/T17 follow-up; drawn above here) |
-| F03 H→ZZ*→4ℓ | CMS, PLB 716 (2012) 30, Fig. 4 | **extracted** (figure) | ◐ | (CMS header above: `--experiment cms`; Garwood bars from the counts: `--errory_type poisson`; the signal as an open outline on the filled stack: `--series_type Signal=step --plot_type fill`) inset (T22.7) |
+| F01 H→γγ m_γγ | ATLAS, PLB 716 (2012) 1, Fig. 4 | **extracted** (figure) | ◐ | ((a)-(b) for the gallery, and the whole figure with its four panels: `--facet_row Weighting` with a lower panel per row, the weighted rows blue; data − background under the S+B fit: `--fit --lower residual:Bkg`) the Sig+Bkg − Bkg curve in the lower panels, drawn by T21 and lost in the example-feedback-3 merge (follow-up); the ATLAS header inside, which an explicit `--legend_loc` overlaps (T15/T17 follow-up; drawn above here) |
+| F03 H→ZZ*→4ℓ | CMS, PLB 716 (2012) 30, Fig. 4 | **extracted** (figure) | ✅ | (CMS header above: `--experiment cms`; Garwood bars from the counts: `--errory_type poisson`; the signal as an open outline on the filled stack: `--series_type Signal=step --plot_type fill`; the K_D > 0.5 inset: `--inset_args "--select Selection -s 'KD > 0.5'"`) the inset's "K_D > 0.5" label (`--text` is not drawn in insets, T22.7 follow-up) |
 | F04 local p₀ | ATLAS, Fig. 9 | **extracted** (figure) | ✅ | (ATLAS header with two right lines; small markers on the observed curve: `--series_marker Observed=o:2.5`; dotted σ lines labelled outside the frame: `--sigma_lines 0 1 2 3 4 5 6 --sigma_line_style dotted --horizontal_label_pos outside`; the band in its own colour with a legend swatch: `--band_colors '#66ccff'`) |
 | F05 Brazil band | ATLAS, Fig. 7(a) | **extracted** (figure) | ◐ | (ATLAS header; nested green and yellow bands from the expected row: `--errory_column MuLimit1Sigma MuLimit2Sigma --band_colors brazil`; dotted expected and μ = 1 lines) the swatches beside the line entries in two columns (legend follow-up); the broken x axis (TODO.md, postponed) |
 | F06 COBE FIRAS | Fixsen et al. 1996, Figs. 4-5 | **real** (NASA LAMBDA) | ✅ | (errors ×400 with `--error_scale 400`) a top axis in GHz (TODO.md, postponed) |
 | F08 Hubble 1929 | PNAS 15, 168, Fig. 1 | **real** (Table 1) | ✅ | (discs, open circles and a cross: `--series_marker ... Groups=o_open ...`; no legend, Hubble's grid lines: `--horizontal`/`--vertical`) a bold title (paper font, follow-up) |
 | F09 SN Ia Hubble diagram | Riess et al. 1998, Fig. 4 | **real** (Union2.1) | ◐ | (plain log tick labels: T12 follow-up) the cosmologies' residual curves in the lower panel, lost in the example-feedback-3 merge (follow-up) |
-| F10 Ω_M–Ω_Λ | Riess et al. 1998, Fig. 6 | **real** (Union2.1), synthetic CMB | ◐ | (no best-fit marker, as in the original: `--no_best_fit`; black contours: `config_color`; the shaded "No Big Bang" region: `--region`) labels beside the contours (too small for `--contour_labels` inline) |
+| F10 Ω_M–Ω_Λ | Riess et al. 1998, Fig. 6 | **real** (Union2.1), synthetic CMB | ✅ | (no best-fit marker, as in the original: `--no_best_fit`; black contours: `config_color`; the shaded "No Big Bang" region: `--region`; level labels beside the small contours: `--contour_label_pos ... --contour_label_leader`) |
 | F11 rotation curves | Rubin, Ford & Thonnard 1980 | **real** (SPARC) | ◐ | (galaxies ordered by size on one colour map, with a colorbar: `--hue_cmap viridis`) `--panel_title` on `line` panels (follow-up; the size classes are all-math labels so the title case leaves `kpc` alone) |
 | F12 NGC 3198 | van Albada et al. 1985 | **real** (SPARC); fitted halo | ✅ | (figure styles unverified) |
-| F13 Keeling curve | NOAA GML plot | **real** (NOAA GML) | ✅ | the seasonal-cycle inset of other versions (T22.7) |
+| F13 Keeling curve | NOAA GML plot | **real** (NOAA GML) | ✅ | (the seasonal-cycle inset of the Scripps version: `--inset_args "-x MonthOfYear -y Detrended ... --binned --estimator mean"`) |
 | F14 hockey stick | Mann, Bradley & Hughes 1999, Fig. 3(a) | **real** (NOAA paleo) | ✅ | (the legend below the axes: `--legend_loc below`; the uncertainty as a light-grey row of its own; the 1998 arrow: `--text ... --arrow 1996 0.8`) |
-| F15 GW150914 | PRL 116, 061102, Fig. 1 | **real** (GWOSC); synthetic band widths | ◐ | (log frequency axis on the map: `--logy`) 4 × 2 grid (T22.6); `--legend_panel all` collapses the H1 panels and `--title` is not drawn (T15 follow-up) |
+| F15 GW150914 | PRL 116, 061102, Fig. 1 | **real** (GWOSC); synthetic band widths | ◐ | (the 3 × 2 line grid: `--facet_col Detector` with the `--variables` as rows; log frequency axis on the map: `--logy`) the time-frequency row in the same figure (a separate `map`); legends in each panel: `--legend_panel all` squeezes the grid, so the curves are named with `--text` (T15/T22.6 follow-up) |
 | F16 KamLAND L₀/E | PRL 100, 221803, Fig. 3 | **extracted** (figure) | ✅ | (x error bars from each point's bin: `--errorx_column LOverELow LOverEHigh`; one two-line legend entry for both expectations, the curve labelled `_nolegend_`) |
-| F17 LEP Z lineshape | Phys. Rept. 427 (2006) 257, Fig. 1.13 | **extracted** (figure) | ✅ | (errors ×10 with `--error_scale 10`; thin curves; labels at the peaks with `--text`) blue frame, bold sans labels (per-figure style, follow-up) |
+| F17 LEP Z lineshape | Phys. Rept. 427 (2006) 257, Fig. 1.13 | **extracted** (figure) | ✅ | (errors ×10 with `--error_scale 10`; thin curves; labels above the peaks: `--direct_labels max`) blue frame, bold sans labels (per-figure style, follow-up) |
 | F19 Geiger–Marsden | Phil. Mag. 25, 604 (1913) | synthetic | ✅ | (no original figure) |
 | F20 Moseley's law | Phil. Mag. 26, 1024 (1913) | synthetic | ✅ | (no original figure) |
 | F21 Leavitt | Harvard Circ. 173 (1912) | synthetic | ✅ | (table not transcribed) |
 | F22 HR diagram | Gaia DR2 HRD (A&A 616, A10), Fig. 1 | **real** (Gaia archive, the paper's query) | ✅ | (square-root colour scale with black sparsest bins and no colorbar: `--zpower 0.5 --zmin 4 --zunder black --colorbar none`) Fig. 5 needs the STILISM extinction cut (a 200 pc stand-in is drawn) |
-| F25 Anscombe's quartet | Am. Stat. 27, 17 (1973) | **real** | ✅ | shared axes (T22.6); statistics table (T22.11) |
+| F25 Anscombe's quartet | Am. Stat. 27, 17 (1973) | **real** | ✅ | (2 × 2 grid with shared axes: `--panel_grid 2 2`; the same-statistics table: `table --stats mean var corr line`) |
 
 ## Missing features, by task
 
+The T22 items the figures needed are merged. What is still missing are
+follow-ups to closed tasks and the per-figure style:
+
 | task | missing feature | figures |
 |---|---|---|
-| T22.6 | panel grids with shared axes (rows × columns) | F01, F15, F25 |
-| T22.7 | insets | F03, F13 |
-| T22.11 | `table --agg corr` | F25 |
+| follow-up (example feedback 3) | model curves in `column:` lower panels | F01, F09 |
+| follow-up (T15/T17) | an explicit `--legend_loc` avoids an inside experiment header | F01 |
+| follow-up (T15/T22.6) | `--legend_panel all` in grids and side-by-side panels | F15 |
+| follow-up (T22.6) | no "No data" warning for hue values absent from a facet row | F01, F15 |
+| follow-up (T22.7) | `--text` inside `--inset_args` | F03 |
+| follow-up (T20) | band swatches beside the line entries, legends in two columns | F05 |
+| follow-up | a per-command style file (fonts, bold, frame colour) | F08, F17 |
+| follow-up | `--panel_title` on `line` panels | F11 |
 
 F02, F07, F18, F23 and F24 have no dataset here. They are not in the T24
 brief; polar and flow charts are out of scope (`docs/design/TODO.md`).

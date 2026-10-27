@@ -1,0 +1,12 @@
+# Famous figures redrawn with plotipus's defaults, for the before/after pairs
+# of docs/styleguide.md: the same data as ../ (run ../make_data.py first),
+# the default style, and only the label mappings in style.json.
+# `plotipus run restyled --medium paper` from this folder.
+[project]
+data_root = "../input/data"
+plots = "plots"
+output = "output"
+style = ["style.json"]
+media = ["paper"]
+python_path = [".."]
+plugins = ["models"]

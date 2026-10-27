@@ -50,8 +50,8 @@ def gw150914():
     which are not among the published files: 0.08 + 0.15 and 0.12 + 0.3
     times the waveform's envelope. The detector colours are (unverified).
 
-    Datafiles: ``GW150914`` (rows ``Detector`` x ``Component``, panels by
-    ``Variable``: Whitened strain, Reconstructed, Residual; the two 90%
+    Datafiles: ``GW150914`` (rows ``Detector`` x ``Component``, the
+    detector's own curves named after it, panels by ``Variable``: Whitened strain, Reconstructed, Residual; the two 90%
     bands are rows of their own (``StrainError``) so that they can be
     drawn in grey, and the numerical relativity rows also carry them as
     ``StrainTemplate+``/``-`` and ``StrainWavelet+``/``-``) and
@@ -76,10 +76,10 @@ def gw150914():
              "Variable": "Reconstructed", "StrainError": wavelet, "Width": 0.0},
             {"Time": time, "Strain": waveform, "Detector": detector, "Component": "Reconstructed (template)",
              "Variable": "Reconstructed", "StrainError": template, "Width": 0.0},
-            {"Time": time, "Strain": waveform, "Detector": detector, "Component": "Numerical relativity",
+            {"Time": time, "Strain": waveform, "Detector": detector, "Component": f"{detector} numerical relativity",
              "Variable": "Reconstructed", "StrainTemplate+": template, "StrainTemplate-": template,
              "StrainWavelet+": wavelet, "StrainWavelet-": wavelet},
-            {"Time": time, "Strain": residual, "Detector": detector, "Component": "Residual",
+            {"Time": time, "Strain": residual, "Detector": detector, "Component": f"{detector} residual",
              "Variable": "Residual"},
         ]
         frequencies = np.geomspace(32, 512, 48)

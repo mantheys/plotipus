@@ -1,0 +1,4 @@
+# Famous tables: `plotipus run famous --tables`.
+
+# F25 Anscombe's quartet: the same statistics for four different datasets (Anscombe 1973, Table 1 and text)
+table --datafile Anscombe -x X -y Y --select Type -s Data --row_name Dataset --stats mean var corr line

@@ -52,13 +52,15 @@ def higgs_diphoton():
     figure).
 
     Rows: ``Weighting`` (Unweighted, Weighted) x ``Component`` (Data,
-    Sig+Bkg Fit, Bkg (4th order polynomial)). Data rows carry the stored
+    Sig+Bkg Fit, Bkg (4th order polynomial); the weighted rows end in
+    " S/B Weighted", so the two rows of the figure keep their own colours).
+    Data rows carry the stored
     S+B fit (``FitComponents`` names its background); ``DataMinusBackground``
     is panel b or d, and on the model rows the drawn signal curve and zero.
     """
     data, curves = _read("atlas_hgg_fig4_data.csv"), _read("atlas_hgg_fig4_curves.csv")
     rows = []
-    for weighting, (top, bottom) in (("Unweighted", ("a", "b")), ("Weighted", ("c", "d"))):
+    for weighting, (top, bottom), suffix in (("Unweighted", ("a", "b"), ""), ("Weighted", ("c", "d"), " S/B Weighted")):
         points = data[data.panel == top].sort_values("mass")
         mass = points["mass"].to_numpy()
         events, error = _midpoints(points)
@@ -68,7 +70,7 @@ def higgs_diphoton():
         fit = stored_fit(models.diphoton_signal_plus_background, mass, events, error, p0,
                          ["$c_0$", "$c_1$", "$c_2$", "$c_3$", "$c_4$", "$N_S$", "$m_H$", r"$\sigma$"],
                          "Sig+Bkg", units=["", "", "", "", "", "", "GeV", "GeV"], fixed=(6, 7))
-        rows.append({"Mass": mass, "Events": events, "EventsError": error, "Component": "Data",
+        rows.append({"Mass": mass, "Events": events, "EventsError": error, "Component": f"Data{suffix}",
                      "Weighting": weighting, "DataMinusBackground": residual,
                      "DataMinusBackgroundError": residual_error, **fit,
                      "FitComponents": {"Bkg (4th order polynomial)": ["diphoton_background", [0, 1, 2, 3, 4]]}})
@@ -77,38 +79,43 @@ def higgs_diphoton():
         signal_mass, signal = _sorted(curves[(curves.panel == bottom) & (curves.curve == "sig+bkg")], "mass", "value")
         rows.append({"Mass": total_mass, "Events": total,
                      "DataMinusBackground": np.interp(total_mass, signal_mass, signal),
-                     "Component": "Sig+Bkg Fit", "Weighting": weighting})
+                     "Component": f"Sig+Bkg Fit{suffix}", "Weighting": weighting})
         rows.append({"Mass": background_mass, "Events": background, "DataMinusBackground": np.zeros_like(background),
-                     "Component": "Bkg (4th order polynomial)", "Weighting": weighting})
+                     "Component": f"Bkg (4th order polynomial){suffix}", "Weighting": weighting})
     return {"HiggsDiphoton": pd.DataFrame(rows)}
 
 
 def higgs_four_lepton():
     """F03: H->ZZ*->4l four-lepton invariant mass (values from the figure).
 
-    Sources: CMS arXiv:1207.7235 Fig. 4 (main panel); ATLAS arXiv:1207.7214
-    Fig. 2 shows the same channel.
+    Sources: CMS arXiv:1207.7235 Fig. 4 (main panel and inset); ATLAS
+    arXiv:1207.7214 Fig. 2 shows the same channel.
 
     Extracted from the figure (data/extracted/cms_4l_fig4.csv): the 3 GeV
     bins from 70.5 to 181.5 GeV, the Z+X, ZZ and signal (m_H = 125 GeV)
     histograms (stacked in the figure, unstacked here), and the 58 events in
     26 non-empty bins with their error bars, which are exact Garwood (Poisson)
     intervals. The signal holds 7.42 events in 110-160 GeV (CMS Table 3: 7.54).
+    The inset (cms_4l_fig4_kd.csv) is the same for the events with a
+    matrix-element discriminant K_D > 0.5: 13 events in 100.5-178.5 GeV.
     The real events are also public in CMS Open Data records 5500/5501.
 
-    Rows: ``Sample`` (Data, ZZ, Z+X, Signal). The data row has the
-    asymmetric errors as ``EventsError+``/``EventsError-`` and the interval
-    edges ``EventsLow``/``EventsHigh``.
+    Rows: ``Sample`` (Data, ZZ, Z+X, Signal) and ``Selection`` (All,
+    "KD > 0.5"). The data rows have the asymmetric errors as
+    ``EventsError+``/``EventsError-`` and the interval edges
+    ``EventsLow``/``EventsHigh``.
     """
-    table = _read("cms_4l_fig4.csv")
-    data = table[table.kind == "data"].sort_values("mass")
-    events = data["value"].to_numpy()
-    up, down = data["error_up"].to_numpy(), data["error_down"].to_numpy()
-    rows = [{"Mass": data["mass"].to_numpy(), "Events": events, "EventsError+": up, "EventsError-": down,
-             "EventsLow": events - down, "EventsHigh": events + up, "Sample": "Data"}]
-    for kind, sample in (("ZZ", "ZZ"), ("Z+X", "Z+X"), ("signal", "Signal")):
-        mass, values = _sorted(table[table.kind == kind], "mass", "value")
-        rows.append({"Mass": mass, "Events": np.clip(values, 0, None), "Sample": sample})
+    rows = []
+    for name, selection in (("cms_4l_fig4.csv", "All"), ("cms_4l_fig4_kd.csv", "KD > 0.5")):
+        table = _read(name)
+        data = table[table.kind == "data"].sort_values("mass")
+        events = data["value"].to_numpy()
+        up, down = data["error_up"].to_numpy(), data["error_down"].to_numpy()
+        rows.append({"Mass": data["mass"].to_numpy(), "Events": events, "EventsError+": up, "EventsError-": down,
+                     "EventsLow": events - down, "EventsHigh": events + up, "Sample": "Data", "Selection": selection})
+        for kind, sample in (("ZZ", "ZZ"), ("Z+X", "Z+X"), ("signal", "Signal")):
+            mass, values = _sorted(table[table.kind == kind], "mass", "value")
+            rows.append({"Mass": mass, "Events": np.clip(values, 0, None), "Sample": sample, "Selection": selection})
     return {"FourLepton": pd.DataFrame(rows)}
 
 

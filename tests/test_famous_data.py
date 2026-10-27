@@ -133,11 +133,14 @@ def test_extracted_figures(frames):
     residual = data["Events"] - np.interp(data["Mass"], background["Mass"], background["Events"])
     assert np.std(residual - data["DataMinusBackground"]) < 3
     assert len(data["Mass"]) == 30
-    four_lepton = frames["FourLepton"].set_index("Sample")
+    four_lepton = frames["FourLepton"].set_index(["Selection", "Sample"]).loc["All"]
     signal = four_lepton.loc["Signal"]
     assert np.sum(signal["Events"][(signal["Mass"] > 110) & (signal["Mass"] < 160)]) == pytest.approx(7.54, abs=0.2)
     one = four_lepton.loc["Data", "Events"] == 1
     assert np.allclose(four_lepton.loc["Data", "EventsError+"][one], 2.30, atol=0.05)
+    # The K_D > 0.5 inset: 13 events, a subset of the main panel's.
+    inset = frames["FourLepton"].set_index(["Selection", "Sample"]).loc[("KD > 0.5", "Data")]
+    assert np.sum(inset["Events"]) == 13
     assert len(frames["KamLAND"].iloc[0]["LOverEBinEdges"]) == 21
     assert len(frames["ZLineshape"].iloc[0]["Energy"]) == 7
 

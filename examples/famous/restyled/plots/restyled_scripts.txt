@@ -1,0 +1,20 @@
+# Famous figures with plotipus's defaults: the "after" of the before/after
+# pairs in docs/styleguide.md (the "before" is the faithful command in
+# ../input/plots/famous_scripts.txt). Only data choices are given: columns,
+# selections, ranges, labels with units, and --labelz None, which drops the
+# hue column as a legend title (G4; plotipus adds it by default).
+
+# F08 Hubble 1929: data in ink with a legend instead of the grid lines and the bold title
+line --datafile Hubble1929 -x Distance -y Velocity --hue Sample --data_hue 'Individual nebulae' Groups 'Mean of 22 nebulae' --series_marker Groups=o_open 'Mean of 22 nebulae=s' --labelz None --plot_type line --rangex 0 2.25 --labelx 'Distance (Mpc)' --labely 'Velocity (km/s)'
+
+# F14 hockey stick: the band in its series' colour at 20%, palette colours, sentence-case labels
+line --datafile HockeyStick -x Year -y Anomaly --hue Series --exclude_iterable Reconstruction --iterable_mapping hockey_labels --labelz None --plot_type line --errory --errory_type bands --horizontal 0 --rangex 1000 2000 --labelx 'Year' --labely 'Temperature anomaly ($^\circ$C)'
+
+# F17 LEP Z lineshape: data in ink, the magnified errors said in the legend, curves in palette colours
+line --datafile ZLineshape -x Energy -y CrossSection --hue Model --data_hue Data --iterable_mapping lep_labels --labelz None --plot_type line --errory --error_scale 10 --rangex 85 94.5 --labelx '$E_{cm}$ (GeV)' --labely '$\sigma_{had}$ (nb)'
+
+# F22 Gaia HR diagram: a lightness-monotonic colour map on a log scale, with a labelled colorbar
+map --datafile HRDiagram -x BPRP -y MG -z Stars --select Name -s all --nan_fill none --logz --rangex -0.8 6.8 --rangey 16.5 -6.5 --labelx '$G_{BP}-G_{RP}$ (mag)' --labely '$M_G$ (mag)' --labelz 'Stars per bin'
+
+# F05 Brazil band: graded bands of the expected line's colour instead of green and yellow
+line --datafile HiggsLimit -x Mass -y MuLimit --hue Limit --exclude_iterable 'Expected +-1 sigma' 'Expected +-2 sigma' --iterable_mapping limit_labels --labelz None --plot_type line --errory --errory_column MuLimit1Sigma MuLimit2Sigma --band_labels '$\pm1\sigma$' '$\pm2\sigma$' --logy --logx --rangex 110 600 --horizontal 1 --labelx '$m_H$ (GeV)' --labely '95% CL limit on $\mu$' --experiment atlas --label_status recreation

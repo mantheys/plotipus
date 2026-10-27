@@ -4,6 +4,7 @@
 [project]
 data_root = "input/data"
 plots = "input/plots"
+tables = "input/tables"
 output = "output"
 style = ["style.json"]
 media = ["slides", "paper"]     # make famous: --medium all; the README gallery is the paper render

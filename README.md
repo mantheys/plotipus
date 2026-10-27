@@ -130,7 +130,9 @@ Sizes, layers, experiment headers and watermarks: [Projects](docs/projects.md#st
 Famous figures from particle physics, cosmology, astronomy and climate
 science, redrawn by plotipus in the paper style from public data or values
 read from the published figures. Their data, commands and remaining gaps
-are in [examples/famous](examples/famous/README.md).
+are in [examples/famous](examples/famous/README.md); the
+[style guide](docs/styleguide.md#before-and-after-famous-figures) redraws
+five of them with plotipus's defaults, side by side.
 
 <p align="center">
   <a href="https://arxiv.org/abs/1207.7214"><img src="docs/images/famous/higgs-diphoton.png" width="32%" alt="Diphoton mass spectrum with the Higgs boson bump, a signal plus background fit and the data minus background"></a>

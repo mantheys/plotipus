@@ -31,22 +31,18 @@
     "hgg_labels": {
       "Data": "Data",
       "Sig+Bkg Fit": "Sig+Bkg Fit ($m_H$=126.5 GeV)",
-      "Bkg (4th order polynomial)": "Bkg (4th order polynomial)"
-    },
-    "hgg_weighted_labels": {
-      "Data": "Data S/B Weighted",
-      "Sig+Bkg Fit": "Sig+Bkg Fit ($m_H$=126.5 GeV)",
-      "Bkg (4th order polynomial)": "Bkg (4th order polynomial)"
+      "Bkg (4th order polynomial)": "Bkg (4th order polynomial)",
+      "Data S/B Weighted": "Data S/B Weighted",
+      "Sig+Bkg Fit S/B Weighted": "Sig+Bkg Fit ($m_H$=126.5 GeV)",
+      "Bkg (4th order polynomial) S/B Weighted": "Bkg (4th order polynomial)"
     },
     "hgg_colors": {
       "Data": "black",
       "Sig+Bkg Fit": "red",
-      "Bkg (4th order polynomial)": "red"
-    },
-    "hgg_weighted_colors": {
-      "Data": "black",
-      "Sig+Bkg Fit": "blue",
-      "Bkg (4th order polynomial)": "blue"
+      "Bkg (4th order polynomial)": "red",
+      "Data S/B Weighted": "black",
+      "Sig+Bkg Fit S/B Weighted": "blue",
+      "Bkg (4th order polynomial) S/B Weighted": "blue"
     },
     "zz_colors": {
       "Z+X": "#5f9c5f",
@@ -138,20 +134,22 @@
       "40-year smoothed": "reconstruction (40 year smoothed)",
       "Linear trend": "linear trend (AD 1000-1850)"
     },
-    "ligo_h1_colors": {
+    "ligo_colors": {
       "Reconstructed (wavelet)": "#aaaaaa",
       "Reconstructed (template)": "#333333",
       "H1 observed": "#e41a1c",
-      "Numerical relativity": "#e41a1c",
-      "Residual": "#e41a1c"
-    },
-    "ligo_l1_colors": {
-      "Reconstructed (wavelet)": "#aaaaaa",
-      "Reconstructed (template)": "#333333",
+      "H1 numerical relativity": "#e41a1c",
+      "H1 residual": "#e41a1c",
       "H1 observed (shifted, inverted)": "#f4a582",
       "L1 observed": "#2c4ea3",
-      "Numerical relativity": "#2c4ea3",
-      "Residual": "#2c4ea3"
+      "L1 numerical relativity": "#2c4ea3",
+      "L1 residual": "#2c4ea3"
+    },
+    "ligo_labels": {
+      "H1 numerical relativity": "Numerical relativity",
+      "L1 numerical relativity": "Numerical relativity",
+      "H1 residual": "Residual",
+      "L1 residual": "Residual"
     },
     "kamland_colors": {
       "Expectation (curve)": "#a6b4f5",

@@ -3,7 +3,8 @@
 #   make clean    delete generated data and outputs (both gitignored)
 #   make docs     the example figures, copied to docs/images/options for docs/options.md
 #   make mascot   draw the mascot (docs/tutorial.md, and on black for the README) into docs/images/mascot
-#   make famous   the famous-plot reproductions for slides and paper; the README gallery (paper) goes to docs/images/famous
+#   make famous   the famous-plot reproductions for slides and paper; the README gallery (paper) goes to docs/images/famous,
+#                 the style guide's before/after pairs (with famous/restyled) to docs/images/styleguide
 #   make gallery  one example per working catalogue row (examples/gallery), with the page gallery/output/gallery.md
 PYTHON ?= $(if $(wildcard ../.venv/bin/python),$(abspath ../.venv/bin/python),python3)
 PLOTIPUS ?= $(PYTHON) -m plotipus
@@ -40,7 +41,7 @@ mascot:
 # the README gallery is a selection of the paper renders, renamed.
 FAMOUS_GALLERY = \
 	higgsdiphoton_mass_events_error_component_weighting_unweighted_dataminusbackground_atlas.png:higgs-diphoton.png \
-	fourlepton_mass_events_error_sample_stacked_line.png:four-lepton.png \
+	fourlepton_mass_events_error_sample_selection_all_stacked_line.png:four-lepton.png \
 	higgslocalp0_mass_p0_error_hypothesis_logy_line.png:local-p0.png \
 	higgslimit_mass_mulimit_error_limit_logx_logy_line.png:brazil-band.png \
 	zlineshape_energy_crosssection_error_model_line.png:z-lineshape.png \
@@ -51,11 +52,24 @@ FAMOUS_GALLERY = \
 	keeling_decimaldate_co2_series_line.png:keeling.png \
 	hockeystick_year_anomaly_error_series_line.png:hockey-stick.png \
 	ngc3198_radius_velocity_error_component_line.png:ngc3198.png
+# The before/after pairs of docs/styleguide.md: a faithful render (famous) and the same data with
+# plotipus's defaults (famous/restyled), as before:after:name.
+STYLE_PAIRS = \
+	hubble1929_distance_velocity_sample_line.png:hubble1929_distance_velocity_sample_line.png:hubble-1929 \
+	hockeystick_year_anomaly_error_series_line.png:hockeystick_year_anomaly_error_series_line.png:hockey-stick \
+	zlineshape_energy_crosssection_error_model_line.png:zlineshape_energy_crosssection_error_model_line.png:z-lineshape \
+	hrdiagram_bprp_mg_stars_name_all_hist2d.png:hrdiagram_bprp_mg_stars_name_all_logz_hist2d.png:hr-diagram \
+	higgslimit_mass_mulimit_error_limit_logx_logy_line.png:higgslimit_mass_mulimit_error_limit_logx_logy_line.png:brazil-band
 
 famous:
-	cd famous && $(PYTHON) make_data.py && rm -rf output && $(PLOTIPUS) run famous --medium all
+	cd famous && $(PYTHON) make_data.py && rm -rf output && $(PLOTIPUS) run famous --medium all && $(PLOTIPUS) run famous --tables
 	rm -rf ../docs/images/famous && mkdir -p ../docs/images/famous
 	for pair in $(FAMOUS_GALLERY); do cp "famous/output/plots/paper/$${pair%%:*}" "../docs/images/famous/$${pair##*:}" || exit 1; done
+	cd famous/restyled && rm -rf output && $(PLOTIPUS) run restyled --medium paper
+	rm -rf ../docs/images/styleguide && mkdir -p ../docs/images/styleguide
+	for pair in $(STYLE_PAIRS); do before=$${pair%%:*}; rest=$${pair#*:}; after=$${rest%%:*}; name=$${rest#*:}; \
+		cp "famous/output/plots/paper/$$before" "../docs/images/styleguide/$$name-before.png" && \
+		cp "famous/restyled/output/plots/paper/$$after" "../docs/images/styleguide/$$name-after.png" || exit 1; done
 
 # The gallery: its data (the example, famous and gallery themes), every command of
 # gallery/input/{plots,tables}/gallery_scripts.txt in its own folder, figures once per
@@ -64,6 +78,6 @@ gallery:
 	cd gallery && $(PYTHON) make_data.py && rm -rf output && $(PYTHON) make_page.py
 
 clean:
-	rm -rf output mascot/output mascot/dark/output famous/output gallery/output
+	rm -rf output mascot/output mascot/dark/output famous/output famous/restyled/output gallery/output
 	rm -f input/data/*.pkl mascot/input/data/*.pkl famous/input/data/*.pkl gallery/input/data/*.pkl
 	rm -f gallery/input/famous_mappings.json

@@ -1,0 +1,20 @@
+{
+  "mappings": {
+    "hockey_labels": {
+      "Uncertainty": "Reconstruction (AD 1000-1980)",
+      "Instrumental": "Instrumental record (AD 1902-1998)",
+      "40-year smoothed": "Reconstruction, 40-year smoothed",
+      "Linear trend": "Linear trend (AD 1000-1850)"
+    },
+    "lep_labels": {
+      "Data": "ALEPH, DELPHI, L3, OPAL",
+      "2$\\nu$": "$N_\\nu$ = 2",
+      "3$\\nu$": "$N_\\nu$ = 3",
+      "4$\\nu$": "$N_\\nu$ = 4"
+    },
+    "limit_labels": {
+      "Expected": "Expected",
+      "Observed": "Observed"
+    }
+  }
+}

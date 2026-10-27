@@ -7,6 +7,7 @@ dist/
 examples/output/
 examples/input/data/*.pkl
 examples/famous/output/
+examples/famous/restyled/output/
 examples/famous/paper/output/
 examples/famous/input/data/*.pkl
 examples/mascot/output/
