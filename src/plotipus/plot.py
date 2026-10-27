@@ -213,7 +213,23 @@ def _panel_overhangs(fig, panels, renderer):
             extra.setdefault(owner, []).append(cax.get_tightbbox(renderer, for_layout_only=True))
     overhangs = {}
     for ax, _, _ in panels:
-        boxes = [ax.get_tightbbox(renderer, for_layout_only=True), *extra.get(ax, [])]
+        # A legend above the axes takes room above them only: wider than its panel, it may reach over the gap
+        # (counting its width would widen the gaps and shrink every panel to a sliver).
+        above = [lg for lg in _axes_legends(ax) if lg.get_visible() and lg.get_in_layout()
+                 and getattr(lg, "_plotipus_placement", {}).get("above")]
+        # So does the centred panel title.
+        above += [t for t in (ax.title,) if t.get_visible() and t.get_text() and t.get_in_layout()]
+        for lg in above:
+            lg.set_in_layout(False)
+        try:
+            tight = ax.get_tightbbox(renderer, for_layout_only=True)
+        finally:
+            for lg in above:
+                lg.set_in_layout(True)
+        boxes = [tight, *extra.get(ax, [])]
+        for lg in above:
+            box = lg.get_window_extent(renderer)
+            boxes.append(Bbox([[ax.bbox.x0, box.y0], [ax.bbox.x1, box.y1]]))
         box = Bbox.union([b for b in boxes if b is not None and b.width > 0])
         slot = ax.get_position(original=True)
         overhangs[ax] = (
@@ -283,11 +299,11 @@ def _break_label(text):
 
 
 def _wrap_long_labels(panels, renderer):
-    """Break an axis label longer than its axes onto two lines (once).
-    Returns whether any label changed."""
+    """Break an axis label or panel title longer than its axes onto two
+    lines (once). Returns whether any label changed."""
     changed = False
     for ax, _, _ in panels:
-        for label, length in ((ax.yaxis.label, ax.bbox.height), (ax.xaxis.label, ax.bbox.width)):
+        for label, length in ((ax.yaxis.label, ax.bbox.height), (ax.xaxis.label, ax.bbox.width), (ax.title, ax.bbox.width)):
             text = label.get_text()
             if not text or not label.get_visible():
                 continue
@@ -309,10 +325,14 @@ def _measured_layout(fig, iterations):
     minimum = _minimum_margins(fig)
     width, height = fig.get_size_inches()
     params = fig.subplotpars
-    min_wspace = gridspec.wspace if gridspec.wspace is not None else params.wspace
-    min_hspace = gridspec.hspace if gridspec.hspace is not None else params.hspace
+    # The configured spacing is the minimum of every pass: the current one may come from an earlier pass
+    # (a legend not yet placed spilling out of its panel) and would only ever grow.
+    if not hasattr(gridspec, "_plotipus_spacing"):
+        gridspec._plotipus_spacing = (gridspec.wspace if gridspec.wspace is not None else params.wspace,
+                                      gridspec.hspace if gridspec.hspace is not None else params.hspace,
+                                      gridspec.hspace is not None)
+    min_wspace, min_hspace, fixed_hspace = gridspec._plotipus_spacing
     # Upper/lower stacks keep their configured gap; grids of panels are measured.
-    fixed_hspace = gridspec.hspace is not None
     fig.align_ylabels([ax for ax, _, _ in panels])
 
     for _ in range(iterations):
@@ -1014,7 +1034,39 @@ def _place_outside(ax, legend, renderer):
                                                     bbox_transform=anchor, borderaxespad=0.2))
         if rebuilt.get_window_extent(renderer).width <= ax.bbox.width or ncol == 1:
             break
+    rebuilt._plotipus_placement["above"] = True
     return rebuilt
+
+
+def stagger_above_legends(fig):
+    """On the final layout, a legend above its panel that reaches over a
+    neighbouring panel's legend (both wider than their panels) goes above
+    it; the larger legend stays. Returns whether any moved."""
+    from matplotlib.transforms import offset_copy
+
+    above = [(ax, lg) for ax in fig.axes for lg in _axes_legends(ax)
+             if lg.get_visible() and getattr(lg, "_plotipus_placement", {}).get("above")]
+    if len(above) < 2:
+        return False
+    fig.draw_without_rendering()
+    renderer = fig.canvas.get_renderer()
+    above.sort(key=lambda item: -_area(item[1].get_window_extent(renderer)))
+    settled, moved = [], False
+    for ax, legend in above:
+        box = legend.get_window_extent(renderer)
+        clashing = [b for b in settled if b.x0 < box.x1 and box.x0 < b.x1 and b.y0 < box.y1 and box.y0 < b.y1]
+        if clashing:
+            rise = (max(b.y1 for b in clashing) - ax.bbox.y1) * 72.0 / fig.dpi + 2
+            anchor = offset_copy(ax.transAxes, fig=fig, y=rise, units="points")
+            info = legend._plotipus_placement
+            legend = _rebuild_legend(ax, legend, dict(info["style"], loc="lower center", ncol=legend._ncols,
+                                                      bbox_to_anchor=(0.5, 1.0), bbox_transform=anchor,
+                                                      borderaxespad=0.2))
+            legend._plotipus_placement["above"] = True
+            box = legend.get_window_extent(renderer)
+            moved = True
+        settled.append(box)
+    return moved
 
 
 def _place_beside(ax, legend, renderer, side):
