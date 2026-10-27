@@ -893,6 +893,35 @@ def separate_panel_tick_labels(fig, pad_px=1.0):
                 upper.yaxis.set_major_formatter(_HideTickValue(upper.yaxis.get_major_formatter(), low[0]))
 
 
+# cmr10 (the paper style's Computer Modern) is a TeX font in the old OT1
+# encoding: its '<' and '>' slots hold '¡' and '¿'. Outside math they are
+# drawn as math, in the same Computer Modern.
+_CMR10_MATH = {"<": "$<$", ">": "$>$"}
+
+
+def _cmr10_text(text):
+    """``text`` with < and > outside $...$ math written as math."""
+    parts = re.split(r"(?<!\\)\$", text)
+    if len(parts) % 2 == 0:  # an unclosed $: leave the text alone
+        return text
+    for i in range(0, len(parts), 2):
+        parts[i] = "".join(_CMR10_MATH.get(char, char) for char in parts[i])
+    return "$".join(parts)
+
+
+def fix_cmr10_glyphs(fig):
+    """Rewrite < and > of every text drawn in cmr10 (see _CMR10_MATH)."""
+    from matplotlib import font_manager
+    from matplotlib.text import Text
+
+    for artist in fig.findobj(Text):
+        text = artist.get_text()
+        if not text or ("<" not in text and ">" not in text):
+            continue
+        if font_manager.findfont(artist.get_fontproperties()).endswith("cmr10.ttf"):
+            artist.set_text(_cmr10_text(text))
+
+
 def settle_text_backgrounds(fig):
     """Keep the translucent background of notes and reference-line labels
     only where they sit on data; on empty space they are bare text. Run on
