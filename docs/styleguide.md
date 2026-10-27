@@ -263,6 +263,12 @@ conventions.
 - **F5.** Fits are stored as `FitFunction`, `Params`, `ParamsError` and
   `ParamsLabel`, so the fit line and the parameter box come from the same
   numbers as the table.
+- **F6.** One value per row (scalars instead of arrays) works too, e.g.
+  for `cat` and `table`; `hist` takes the raw per-event values as arrays.
+  The pickle may hold anything `pd.DataFrame` accepts: a list of row dicts,
+  a dict of columns, or a dict of DataFrames, which are concatenated with a
+  `Source` column. Files of one analysis are told apart by prefixes:
+  `--configs A --names B --datafile Spectrum` loads `A_B_Spectrum.pkl`.
 
 ## For contributors: keeping plotipus inside the guide
 
