@@ -73,6 +73,9 @@ def build_parser():
     add("--errory_type", type=str, default=None, choices=["poisson"],
         help="Error bars on every histogram: Poisson (Garwood) intervals of the bin counts, or sqrt(sum of "
         "squared weights) with --weight (data points always have them).")
+    add("--overlay_gaussian", nargs="*", type=float, default=None, metavar=("MU", "SIGMA"),
+        help="Draw a Gaussian over the histogram, scaled to the first series' entries: the unit normal (no "
+        "values; for pull distributions) or MU SIGMA.")
     add_legend_args(parser)
     add_hue_cmap_args(parser)
     add_panel_line_args(parser, horizontal=False)
@@ -179,6 +182,25 @@ def _draw_flow_hints(ax, counts, edges, under, over, color):
                     transform=offset_copy(ax.transData, fig=ax.figure, x=dx, units="points"))
 
 
+def _overlay_gaussian(ax, series, edges, density, args):
+    """--overlay_gaussian: N(MU, SIGMA) (default the unit normal) over the
+    panel, scaled to the entries of ``series`` inside the edges (or a density),
+    dashed in ink, labelled with its parameters."""
+    from scipy.stats import norm
+
+    values = list(args.overlay_gaussian) + [0.0, 1.0][len(args.overlay_gaussian):]
+    mu, sigma = values[0], values[1]
+    _, x, weights = series
+    inside = (x >= edges[0]) & (x <= edges[-1])
+    entries = float(np.sum(weights[inside])) if weights is not None else float(np.sum(inside))
+    width = float(np.mean(np.diff(edges)))
+    grid = np.linspace(edges[0], edges[-1], 400)
+    curve = norm.pdf(grid, mu, sigma) * (1.0 if density else entries * width)
+    label = r"$\mathcal{N}(0, 1)$" if (mu, sigma) == (0.0, 1.0) else rf"$\mathcal{{N}}({mu:g}, {sigma:g})$"
+    ax.plot(grid, curve, color=style.role("ink"), linestyle="--", linewidth=style.default_linewidth, label=label,
+            zorder=4)
+
+
 def _series_style(args, value, name):
     """(label, mapped colour or None, line style or None) of one hue value."""
     if args.iterable == "Config":
@@ -261,6 +283,8 @@ def draw_figure(df, args, kdx, config, name):
                     ax.errorbar(centres, counts, yerr=errors, fmt="none", color=color, linewidth=1)
             if args.flow == "hint":
                 _draw_flow_hints(ax, counts, edges, under, over, color)
+        if args.overlay_gaussian is not None:
+            _overlay_gaussian(ax, series[0], edges, density, args)
 
     data_labels = {_series_style(args, v, name)[0] for v in values if is_data(v)}
     is_data_label = lambda label: label in data_labels  # noqa: E731
@@ -292,9 +316,9 @@ def draw_figure(df, args, kdx, config, name):
             ax.semilogy()
         if args.logx:
             ax.semilogx()
-        # A single series without --hue needs no legend.
-        if (idx == n_panels - 1 and args.iterable is not None and not args.no_legend and args.draw_legend != "none"
-                and hue_cmap is None):
+        # A single series without --hue needs no legend (unless a Gaussian is drawn over it).
+        if (idx == n_panels - 1 and (args.iterable is not None or args.overlay_gaussian is not None)
+                and not args.no_legend and args.draw_legend != "none" and hue_cmap is None):
             handles, labels = ax.get_legend_handles_labels()
             # matplotlib lists error bars after the steps: the data entries go first.
             order = sorted(range(len(labels)), key=lambda i: not is_data_label(labels[i]))

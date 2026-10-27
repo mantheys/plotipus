@@ -38,13 +38,13 @@ command lists.
 | B Relationships | 6 | 1 | 2 |
 | C Trends and fits | 8 | 1 | 1 |
 | D Comparisons | 5 | 1 | 3 |
-| E Ratios and significance | 7 | 0 | 1 |
+| E Ratios and significance | 8 | 0 | 0 |
 | F ML diagnostics | 6 | 1 | 0 |
 | G Uncertainty | 8 | 1 | 0 |
 | H Small multiples and layout | 2 | 2 | 4 |
 | I Annotations | 10 | 0 | 0 |
 | J Tables | 4 | 1 | 2 |
-| **Total (89)** | **63** | **8** | **18** |
+| **Total (89)** | **64** | **8** | **17** |
 
 Nearly half of the ◐ entries are partial only because of a bug in
 [bugs.md](bugs.md), not because an option is missing. Fixing B01–B13 moves
@@ -123,7 +123,7 @@ about 12 of them to ✅.
 | E5 | S/√B or significance panel | optimisation | — | ✅ | `--lower group --reference_group signal --other_group ... --group_significance` (example 3). The panel's legend repeats the formula as raw text. | — |
 | E6 | Residual relative to a named model component | bump over background | F01, F09 | ✅ | `line --fit --lower residual:Background` (T22.14): data minus a `FitComponents` entry, with the rest of the fit (the signal) over it; `--lower subtract --reference_value bkg` for stored curves. | — |
 | E7 | Local p0 scan with σ reference lines | discovery significance | F04 | ✅ | `line --logy --hue Kind --sigma_lines 1 2 3 4 5` (T20): dashed lines at the one-sided p-values of nσ, labelled "1σ" ... at the right edge (`--sigma_line_color`); the expected-curve band works (B11, fixed in T07). | — |
-| E8 | Pull distribution | fit validation | — | ✗ | Needs pulls computed upstream, then `hist`. | `hist --overlay_gaussian` (unit normal for comparison). |
+| E8 | Pull distribution | fit validation | — | ✅ | `hist --datafile Pulls -x Pull --overlay_gaussian` (T22.13): the unit normal scaled to the entries (pulls computed upstream). | — |
 
 ## F. Machine-learning diagnostics
 

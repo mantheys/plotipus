@@ -186,3 +186,23 @@ def test_hist_hue_cmap_colorbar(make_project):
     assert colors == [to_hex(cmap(v)) for v in (0.0, 1 / 3, 1.0)]  # numeric runs on a 1-4 scale
     assert ax.get_legend() is None
     assert any(hasattr(a, "_colorbar") for a in fig.axes)
+
+
+def test_overlay_gaussian_scaled_to_entries(make_project):
+    from scipy.stats import norm
+
+    pulls = np.random.default_rng(5).normal(0, 1, 4000)
+    make_project({"Pulls": pd.DataFrame([{"Pull": pulls}])})
+    figures = _capture()
+    hist.main(["--datafile", "Pulls", "-x", "Pull", "--bins", "40", "--overlay_gaussian"])
+    ax = figures[0].axes[0]
+    (curve,) = [l for l in ax.lines if l.get_label().startswith("$\\mathcal{N}")]
+    edges = _stairs(ax)[0].get_data().edges
+    peak = norm.pdf(0) * len(pulls) * np.diff(edges).mean()
+    assert np.isclose(curve.get_ydata().max(), peak, rtol=0.01)
+    assert [t.get_text() for t in ax.get_legend().get_texts()] == ["$\\mathcal{N}(0, 1)$"]
+    figures.clear()
+    hist.main(["--datafile", "Pulls", "-x", "Pull", "--density", "--overlay_gaussian", "0.5", "2"])
+    (curve,) = [l for l in figures[0].axes[0].lines if l.get_label().startswith("$\\mathcal{N}")]
+    assert np.isclose(curve.get_ydata().max(), norm.pdf(0, 0, 2), rtol=0.01)
+    assert curve.get_label() == "$\\mathcal{N}(0.5, 2)$"

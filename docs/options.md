@@ -252,7 +252,10 @@ weights the entries (here the simulation down to the data total), `--density`
 normalises each histogram to unit area, and `--flow` handles the entries
 outside the range: `none` drops them, `hint` marks them beyond the outer
 edge, `show` adds them to the first/last bin. Their number is printed in
-every mode.
+every mode. `--overlay_gaussian` draws the unit normal (or `--overlay_gaussian
+MU SIGMA`) over the histogram, scaled to the first series' entries in range,
+to judge a pull distribution; `--hue_cmap` colours ordered hues from a colour
+map (see [Shared options](#shared-options)).
 
 ![Breit-Wigner samples with the long tails collected in the first and last bins](images/options/flow.png)
 

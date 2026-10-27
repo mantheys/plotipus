@@ -26,7 +26,7 @@ different kinds can run in parallel. Struck through: done.
 | T22.10 | `--smooth N [--smooth_kind rolling\|savgol]`; datetime x with `ConciseDateFormatter` | `kinds/line.py`, `transforms.py` | C8, C9 | S |
 | T22.11 | `table --agg std\|median\|corr`, `--cutflow`, `--fit_params` | `kinds/table.py` | J5–J7 | M |
 | ~~T22.12~~ | ~~`--lower_plot_type bar` for `column:` lower panels (calibration counts)~~ | ~~`kinds/line.py`~~ | ~~F4~~ | ~~S~~ |
-| T22.13 | `hist --overlay_gaussian` (unit normal over a pull distribution) | `kinds/hist.py` | E8 | S |
+| ~~T22.13~~ | ~~`hist --overlay_gaussian` (unit normal over a pull distribution)~~ | ~~`kinds/hist.py`~~ | ~~E8~~ | ~~S~~ |
 | ~~T22.14~~ | ~~`--lower residual:COMPONENT` (residual against one component of a stored fit)~~ | ~~`kinds/_fit.py`, `lower.py`~~ | ~~E6~~ | ~~S~~ |
 | ~~T22.15~~ | ~~`--reference` accepts a hue value as well as an index (the most common stumble)~~ | ~~`kinds/line.py`~~ | — | ~~S~~ |
 
