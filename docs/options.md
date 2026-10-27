@@ -225,7 +225,7 @@ plotipus line --datafile Distributions -x Bin -y Counts --hue Sample --select Di
 ![Simulated Exponential, Landau and Log-normal shapes, normalised, with their ratio to the Exponential in a lower panel](images/options/ratio.png)
 
 ```bash
-plotipus line --datafile Distributions -x Bin -y Counts --hue Distribution --select Sample Distribution -s Simulation Exponential Landau Log-normal --peak --lower ratio --reference_value Exponential --labelx x --lower_labely 'Ratio to Exp.' --title 'Ratio to a reference series'
+plotipus line --datafile Distributions -x Bin -y Counts --hue Distribution --select Sample Distribution -s Simulation Exponential Landau Log-normal --errory --peak --shift peak --lower ratio --reference_value Landau --labelx x --lower_labely 'Ratio to Landau' --title 'Peak-aligned shapes and their ratio'
 ```
 
 ![Gaussian data with its stored fit, parameters and pulls](images/options/fit.png)
@@ -351,7 +351,7 @@ any other.
 ![True against measured value for data and simulation, sharing one log colour scale](images/options/colorbar.png)
 
 ```bash
-plotipus map --datafile Distributions -x Value -y Smeared --select Distribution -s Exponential --iterable Sample --diagonal --logz --labelx True --labely Measured --title '2D histograms with a shared colorbar'
+plotipus map --datafile Distributions -x Value -y Smeared --select Distribution -s Exponential --iterable Sample --diagonal --logz --matchx --labelx True --labely Measured --title '2D histograms with a shared colorbar'
 ```
 
 ## Contours
@@ -488,7 +488,7 @@ plotipus cat --datafile Moments -x Config --hue Sample -y Value --errory --selec
 ![True against measured values of exponential samples coloured by their residual](images/options/scatter.png)
 
 ```bash
-plotipus scatter --datafile Distributions -x Value -y Smeared --colorby Residual --select Distribution Sample -s Exponential Data --marker_size 4 --labelx True --labely Measured --title 'Points coloured by a third column'
+plotipus scatter --datafile Distributions -x Value -y Response --colorby Residual --select Distribution Sample -s Exponential Data --marker_size 4 --rangey 0.5 1.5 --labelx True --labely 'Measured / True' --title 'Points coloured by a third column'
 ```
 
 `--hue` gives each row its own colour and legend entry. Here the rows are
@@ -497,5 +497,5 @@ three distributions picked with `--select` (values of one key are OR-ed):
 ![True against measured values of Gaussian, exponential and log-normal data, one colour each](images/options/hue.png)
 
 ```bash
-plotipus scatter --datafile Distributions -x Value -y Smeared --hue Distribution --select Sample Distribution Distribution Distribution -s Data Gaussian Exponential Log-normal --marker_size 4 --labelx True --labely Measured --title 'Points coloured by group (--hue)'
+plotipus scatter --datafile Distributions -x Value -y Response --hue Distribution --select Sample Distribution Distribution Distribution -s Data Gaussian Exponential Log-normal --marker_size 4 --rangey 0.5 1.5 --legend_loc 'lower right' --labelx True --labely 'Measured / True' --title 'Points coloured by group (--hue)'
 ```
