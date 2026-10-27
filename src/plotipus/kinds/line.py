@@ -1455,14 +1455,14 @@ def _finish_upper(fig, upper, lower, drawn, rows, args, variables, last_x, hue_v
 
     categorical = any(s.categorical for panel in drawn.values() for s in panel[-1:])
     rotated = categorical and args.plot_type != "barh"
-    compact = args.compact if args.compact is not None else ncols > 1
+    compact = (args.compact if args.compact is not None else ncols > 1) or style.figure_layout_mode == "panels"
     if compact and ncols > 1:
         # One y range per row, so the inner panels can drop their tick labels.
         for idx in range(min(n_panels, len(upper))):
             if idx % ncols:
                 upper[idx].sharey(upper[idx - idx % ncols])
         # Without inner y labels the panels move close (the layout widens the gap if x labels need it).
-        upper[0].get_gridspec().update(wspace=0.08)
+        upper[0].get_gridspec().update(wspace=style.compact_gap())
     categorical_y = categorical and args.plot_type == "barh"
     all_panels = args.legend_panel == "all"
     legend_panel = None if all_panels else args.legend_panel % n_panels

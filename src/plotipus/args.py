@@ -863,6 +863,17 @@ def add_common_args(parser, arg_names, overrides=None):
             "covers no data. With two legends and no --comparable_legend_loc, the style legend follows.",
         )
 
+    if "--layout" not in parser._option_string_actions:
+        parser.add_argument(
+            "--layout",
+            choices=["facets", "panels"],
+            default=None,
+            help="Several panels side by side: 'facets' (default) widen the figure, each facet adding the "
+            "style's facet_width share of one plot's width, at one plot's height; 'panels' split one plot's "
+            "area into touching panels that share the y axis. Facets are compact by default (--no-compact "
+            "shows every y axis).",
+        )
+
     if "--legend_ncol" not in parser._option_string_actions:
         parser.add_argument(
             "--legend_ncol",

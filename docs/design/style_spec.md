@@ -110,11 +110,14 @@ Widths are confirmed from the publishers' pages:
 | `nature` | 3.5 in (89 mm) | 2.6 in | 7 pt | Nature-family limits |
 | `slide` (default; `--medium slides`) | 8 in (1280 px wide) | 5.84 in (aspect 0.73 on slides) | 14 pt | talks; `half-slide` is 4 in wide, for two plots side by side |
 
-- **Panels.** A row of N panels keeps the preset's total width, so the
-  panels get narrower, and the row gets shorter: about square panels, at
-  least 3.2 in tall, never taller than one plot (`facet_rows`; decided
-  2026-10-27, after the example review). Text is never scaled to
-  compensate; this replaces `panel_font_scale`.
+- **Facets and panels.** Plots side by side are facets by default: each
+  facet adds 0.6 of the preset's width (`facet_width`), at one plot's
+  height, so marker and text sizes stay those of a single plot; compact by
+  default (shared y, labels on the first). `--layout panels` instead keeps
+  the preset's size and splits it into touching panels, the paper default
+  as the page width is fixed (decided 2026-10-27,
+  after the example review; this replaces "a row keeps the preset's width").
+  Text is never scaled to compensate; this replaces `panel_font_scale`.
 - **Ratio panels.** On paper, adding a lower panel adds 30% of the upper
   height instead of squeezing the upper panel. On slides (8 in at aspect
   0.73), the lower panel shares the figure's height, so every single plot

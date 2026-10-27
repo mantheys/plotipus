@@ -165,9 +165,11 @@ def test_slides_lower_panel_shares_the_height(make_project, spectra):
     assert with_lower == pytest.approx(plain)
 
 
-def test_a_row_of_panels_is_shorter(make_project, spectra):
-    """Panels side by side get shorter rows (about square panels, at least 3.2 in)."""
+def test_facets_widen_and_panels_keep_one_plot(make_project, spectra):
+    """Facets add 0.6 of the width each at one plot's height; --layout panels
+    keeps one plot's size."""
     make_project({"Spectra": spectra})
-    (_, single), = _sizes("--select", "Variable", "-s", "E")
-    sizes = _sizes("--select", "Variable", "-s", "E", "F", "--variables", "E", "F")
-    assert sizes[-1] == pytest.approx((8, 4.0)) and single == pytest.approx(0.73 * 8)
+    single = _sizes("--select", "Variable", "-s", "E")[-1]
+    two = ["--select", "Variable", "-s", "E", "F", "--variables", "E", "F"]
+    assert _sizes(*two)[-1] == pytest.approx((2 * 0.6 * 8, single[1]))
+    assert _sizes(*two, "--layout", "panels")[-1] == pytest.approx(single)

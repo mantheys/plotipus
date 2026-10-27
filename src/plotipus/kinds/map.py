@@ -397,6 +397,8 @@ def draw_sample_regions(ax, counts, xedges, yedges, args):
 def compact(args, ncols):
     """Whether panels side by side share one y axis (--compact; the default
     with several panels)."""
+    if style.figure_layout_mode == "panels":
+        return True  # one plot split in parts: always one y axis
     return args.compact if args.compact is not None else ncols > 1
 
 
@@ -408,7 +410,7 @@ def share_rows(axes, args):
         ax.set_ylabel("")
         ax.tick_params(labelleft=False)
     if colorbar_mode(args) == "shared":
-        axes[0].get_gridspec().update(wspace=0.08)
+        axes[0].get_gridspec().update(wspace=style.compact_gap())
 
 
 def colorbar_mode(args):

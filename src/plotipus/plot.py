@@ -1,7 +1,8 @@
 import re
 import numpy as np
 import matplotlib.pyplot as plt
-from matplotlib.patches import Rectangle
+from matplotlib.legend_handler import HandlerPatch
+from matplotlib.patches import Rectangle, StepPatch
 from matplotlib.transforms import Bbox
 from matplotlib.legend import Legend
 from typing import Any
@@ -48,9 +49,11 @@ def lower_height_ratios(n_lower):
 
 
 def get_common_figsize(ncols=1, nrows=1, height_ratios=None):
-    """Figure size (inches). At a --width (or the medium's), a row of panels
-    shares the width and each row is the preset's height; ``height_ratios``
-    (upper panel first) add the lower panels' height instead of squeezing.
+    """Figure size (inches). At a --width (or the medium's), each row is one
+    plot's height; facets side by side widen the figure, each adding the
+    style's ``facet_width`` share of one plot's width (``--layout panels``
+    keeps one plot's width instead). ``height_ratios`` (upper panel first)
+    add the lower panels' height, or share it (``lower_panels: share``).
     Without a width, the old geometry: base width plus a panel width per
     extra column. With --single_panel_size every figure has the size of one
     panel."""
@@ -58,16 +61,13 @@ def get_common_figsize(ncols=1, nrows=1, height_ratios=None):
         ncols, nrows, height_ratios = 1, 1, None
     rows = max(1, int(nrows))
     if _style.figure_width is not None:
-        row_height = _style.figure_row_height
-        facets = _style.figure_facet_rows
-        if ncols > 1 and facets.get("panel_aspect"):
-            # Panels side by side: shorter rows, so the panels are not tall and narrow.
-            panel = float(_style.figure_width) / ncols * float(facets["panel_aspect"])
-            row_height = min(row_height, max(float(facets.get("min_height", 0.0)), panel))
-        height = row_height * rows
+        width = float(_style.figure_width)
+        if ncols > 1 and _style.figure_layout_mode == "facets":
+            width = max(width, width * _style.figure_facet_width * ncols)
+        height = _style.figure_row_height * rows
         if height_ratios and _style.figure_lower_panels != "share":
             height *= sum(height_ratios) / height_ratios[0]
-        return (float(_style.figure_width), float(height))
+        return (width, float(height))
     panel_count = max(1, int(ncols))
     width = _style.figure_base_width + _style.figure_panel_width * (panel_count - 1)
     height = _style.figure_height * rows
@@ -572,6 +572,9 @@ def apply_legend_style(
 
     style.update(overrides)
     style = _style.role_colors(style)
+    # Step outlines drawn with stairs (series with empty bins) show the same
+    # box as those drawn by hist, not a line.
+    style.setdefault("handler_map", {StepPatch: HandlerPatch()})
     if is_redundant_legend_title(style.get("title")):
         style.pop("title")
 

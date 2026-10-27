@@ -49,8 +49,10 @@ are the example list, `examples/input/plots/example_scripts.txt`;
   to the data root), `--select COL -s VALUE` / `--remove_value`,
   `--variables` (values of the `Variable` column, one panel each).
   `--variable_column COL` takes the panels from another column. Panels side
-  by side share their y range and only the first shows the y label and tick
-  labels (`--no-compact` gives each its own axis).
+  by side are facets: the figure widens with each one (`--layout panels`
+  keeps one plot's size, split in touching panels). They share their y range
+  and only the first shows the y label and tick labels (`--no-compact` gives
+  each its own axis).
   Values beyond the last key belong to it, so
   `--select Distribution -s Gaussian Poisson` keeps both distributions.
 * **Encodings**: `--hue` (alias `--iterable`), `--style` (alias
@@ -467,8 +469,10 @@ centre, first in the legend, over the bars (or lines) of the others. With
 the hue values in one bar per category (the legend lists the stack from the
 top), with a band of the total's error, the errors added in quadrature.
 `--kind point` sets the series side by side within each category, so
-points with error bars do not hide each other. Use bars for counts, which
-start at zero, and points for any other quantity, such as a width or a mean.
+points with error bars do not hide each other. Points need something to be
+read against: a bar, a line, or a true scatter; a lone row of markers per
+category says little. Bars suit any quantity with a true zero (counts, a
+width); data points go over them with `--data_hue`.
 `scatter` draws one point per
 entry of the array cells, with colour (`--colorby`), size (`--sizeby`) and
 marker (`--markerby`) encodings; only the drawn columns are exploded into
@@ -487,15 +491,17 @@ plotipus cat --datafile Yields -x Region --hue Sample -y Counts --errory --kind 
 ```
 
 A `-y` column with one scalar per row (here the standard deviation of each
-sample, with its error) is drawn as it is. A width is not a count, so it is
-drawn as points, data and simulation side by side. Seven categories would
+sample, with its error) is drawn as it is. The figure asks whether the data
+spread like the simulation in each distribution: a width has a true zero, so
+the simulation is a bar (its error a band at the top) and the data a point
+read against it. Seven categories would
 overlap side by side, so their labels are rotated, and the layout makes room
 for them:
 
-![Standard deviation of seven distributions, data and simulation as points with error bars side by side](images/options/moments.png)
+![Standard deviation of seven distributions, simulation as bars and data as points](images/options/moments.png)
 
 ```bash
-plotipus cat --datafile Moments -x Config --hue Sample -y Value --errory --select Variable Config Config Config Config Config Config Config -s Std Gaussian Poisson Binomial Exponential Uniform Log-normal Chi-squared --kind point --data_hue Data --labelx Distribution --labely 'Standard deviation' --title 'One scalar per row: spread of each sample'
+plotipus cat --datafile Moments -x Config --hue Sample -y Value --errory --select Variable Config Config Config Config Config Config Config -s Std Gaussian Poisson Binomial Exponential Uniform Log-normal Chi-squared --kind bar --data_hue Data --labelx Distribution --labely 'Standard deviation' --title 'One scalar per row: spread of each sample'
 ```
 
 ![True against measured values of exponential samples coloured by their residual](images/options/scatter.png)
