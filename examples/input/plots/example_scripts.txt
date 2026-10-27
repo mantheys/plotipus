@@ -15,7 +15,7 @@ line --datafile Histogram --configs data simulation --names landau -x Bin -y Cou
 hist --datafile Distributions -x Value --hue Sample --weight Weight --select Distribution -s Breit-Wigner --data_hue Data --bins 40 --rangex 81 101 --flow show --labelx 'Mass (GeV)' --title 'Histogram of samples with under/overflow' --output_suffix flow
 
 # Lower panels
-line --datafile Distributions -x Bin -y Counts --hue Distribution --select Sample Distribution -s Simulation Exponential Landau Log-normal --peak --lower ratio --reference_value Exponential --labelx x --lower_labely 'Ratio to Exp.' --title 'Ratio to a reference series' --output_suffix ratio
+line --datafile Distributions -x Bin -y Counts --hue Distribution --select Sample Distribution -s Simulation Exponential Landau Log-normal --errory --peak --shift peak --lower ratio --reference_value Landau --labelx x --lower_labely 'Ratio to Landau' --title 'Peak-aligned shapes and their ratio' --output_suffix ratio
 line --datafile Distributions -x Bin -y Counts --hue Sample --select Distribution -s Poisson --data_hue Data --errory --lower column:Pull --labelx k --lower_labely Pull --title 'Lower panel from a stored column' --output_suffix column
 line --datafile Distributions -x Bin -y Counts --hue Sample --select Distribution Sample -s Resonance Background Signal --stacked --errory --lower group --reference_group Signal --other_group Background --group_significance --lower_labely '$S/\sqrt{B}$' --labelx 'Mass (GeV)' --labely 'Events / 2 GeV' --title 'Stacked simulation and the signal significance' --output_suffix significance
 
@@ -28,7 +28,7 @@ line --datafile Distributions -x Bin -y Counts --select Distribution Sample -s G
 line --datafile Distributions -x Bin -y Counts --select Distribution Sample -s Resonance Data --fit --data_hue Data --lower pull --chi2 --max_fit_params 3 --labelx 'Mass (GeV)' --labely 'Events / 2 GeV' --title 'Data with a signal + background fit' --output_suffix datafit
 
 # 2D: histograms, colorbars, sigma regions, contours of a map
-map --datafile Distributions -x Value -y Smeared --select Distribution -s Exponential --iterable Sample --diagonal --logz --labelx True --labely Measured --title '2D histograms with a shared colorbar' --output_suffix colorbar
+map --datafile Distributions -x Value -y Smeared --select Distribution -s Exponential --iterable Sample --diagonal --logz --matchx --labelx True --labely Measured --title '2D histograms with a shared colorbar' --output_suffix colorbar
 map --datafile Distributions -x X -y Y --select Distribution -s 'Bivariate Gaussian' --iterable Sample --contour --bins 30 --logz --title 'A bivariate Gaussian and its 1, 2 and 3 sigma regions' --output_suffix sigmas
 map --datafile Distributions -x MeanScan -y SigmaScan -z Chi2Scan --select Distribution -s Gaussian --iterable Sample --contour --fill_contours --labelx '$\mu$' --labely '$\sigma$' --title 'Confidence regions of a $\Delta\chi^2$ scan' --output_suffix contours
 
@@ -37,7 +37,7 @@ line --datafile Distributions -x Value -y Residual --binned --estimator std --hu
 line --datafile Distributions -x Value -y Residual --binned --plot_type box --hue Sample --select Distribution -s Exponential --bins 11 --rangex 0 10 --labelx True --labely 'Measured - True' --title 'Box plots per bin' --output_suffix box
 
 # Other kinds: categories and scatter
-cat --datafile Distributions -x Distribution --hue Sample -y Counts --errory --select Distribution -s Gaussian Poisson Binomial Exponential Landau Breit-Wigner --kind bar --data_hue Data --labely Events --title 'Yields: summed counts per sample' --output_suffix yields
-cat --datafile Moments -x Config --hue Sample -y Value --errory --select Variable Config Config Config Config Config Config Config -s Std Gaussian Poisson Binomial Exponential Uniform Log-normal Chi-squared --kind bar --data_hue Data --labelx Distribution --labely 'Standard deviation' --title 'One scalar per row: spread of each sample' --output_suffix moments
-scatter --datafile Distributions -x Value -y Smeared --colorby Residual --select Distribution Sample -s Exponential Data --marker_size 4 --labelx True --labely Measured --title 'Points coloured by a third column' --output_suffix scatter
-scatter --datafile Distributions -x Value -y Smeared --hue Distribution --select Sample Distribution Distribution Distribution -s Data Gaussian Exponential Log-normal --marker_size 4 --labelx True --labely Measured --title 'Points coloured by group (--hue)' --output_suffix scatter_hue
+cat --datafile Yields -x Region --hue Sample -y Counts --errory --kind bar --stacked --data_hue Data --labely Events --title 'Yields per mass region' --output_suffix yields
+cat --datafile Moments -x Config --hue Sample -y Value --errory --select Variable Config Config Config Config Config Config Config -s Std Gaussian Poisson Binomial Exponential Uniform Log-normal Chi-squared --kind point --data_hue Data --labelx Distribution --labely 'Standard deviation' --title 'One scalar per row: spread of each sample' --output_suffix moments
+scatter --datafile Distributions -x Value -y Response --colorby Residual --select Distribution Sample -s Exponential Data --marker_size 4 --rangey 0.5 1.5 --labelx True --labely 'Measured / True' --title 'Points coloured by a third column' --output_suffix scatter
+scatter --datafile Distributions -x Value -y Response --hue Distribution --select Sample Distribution Distribution Distribution -s Data Gaussian Exponential Log-normal --marker_size 4 --rangey 0.5 1.5 --legend_loc 'lower right' --labelx True --labely 'Measured / True' --title 'Points coloured by group (--hue)' --output_suffix scatter_hue

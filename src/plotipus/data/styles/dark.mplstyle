@@ -11,3 +11,4 @@ xtick.labelcolor: d0d3d8
 ytick.labelcolor: d0d3d8
 grid.color: 33363d
 legend.labelcolor: e8eaed
+image.cmap: plotipus_dark

@@ -108,13 +108,17 @@ Widths are confirmed from the publishers' pages:
 | `onehalf` | 5.3 in (13.5 cm) | 3.6 in | 8 pt | 1.5 column |
 | `double` | 6.8 in (17.2 cm) | 3.0 in per row | 8 pt | full width; 2–3 panels |
 | `nature` | 3.5 in (89 mm) | 2.6 in | 7 pt | Nature-family limits |
-| `slide` (default; `--medium slides`) | 8 in (16:9 at 1280 px) | 4.5 in | 14 pt | talks; `half-slide` is 4 in wide, for two plots side by side |
+| `slide` (default; `--medium slides`) | 8 in (1280 px wide) | 5.84 in (aspect 0.73 on slides) | 14 pt | talks; `half-slide` is 4 in wide, for two plots side by side |
 
 - **Panels.** A row of N panels keeps the preset's total width, so the
-  panels get narrower. Text is never scaled to compensate; this replaces
-  `panel_font_scale`.
-- **Ratio panels.** Adding a lower panel adds 30% of the upper height
-  instead of squeezing the upper panel.
+  panels get narrower, and the row gets shorter: about square panels, at
+  least 3.2 in tall, never taller than one plot (`facet_rows`; decided
+  2026-10-27, after the example review). Text is never scaled to
+  compensate; this replaces `panel_font_scale`.
+- **Ratio panels.** On paper, adding a lower panel adds 30% of the upper
+  height instead of squeezing the upper panel. On slides (8 in at aspect
+  0.73), the lower panel shares the figure's height, so every single plot
+  has one size (`lower_panels: share`; decided 2026-10-27).
 - **Output.**
   - PDF (vector) for papers.
   - PNG at `savefig.dpi: 300`, or 600 for line art in APS journals.
@@ -180,7 +184,10 @@ Widths are confirmed from the publishers' pages:
   Data points ("data" in data/MC plots) are always `ink` circles. The
   simulation takes palette colours.
 - **Sequential maps.**
-  - Default: `viridis`.
+  - Default: `plotipus` (`src/plotipus/colormaps.py`): cream → teal → the
+    palette's blue → dark ink blue, CIELAB L* linear from 96 to 16, a tint
+    (not white) at the low end so empty bins stay visible; `plotipus_dark`
+    (dark blue → cream) in the dark theme. `classic` keeps `viridis`.
   - `cividis` when the plot must be read under CVD with fine detail.
   - Counts: log norm when the range spans more than 2 decades. Empty bins
     are transparent (not the darkest colour, B08).
@@ -192,8 +199,10 @@ Widths are confirmed from the publishers' pages:
   default is the counter-example (Part 1 §2.6).
 - **Confidence regions (contours).** No colormap. Each dataset is one hue in
   graded fills: 68% at 100% hue, 95% at 55%, 99.7% at 25% mixed with
-  `paper`. Outlines are solid, dashed and dotted, and the best fit is a `+`
-  in the same hue (B03).
+  `paper`. Outlines are solid, dashed and dotted, and the best fit of a Δχ²
+  map is an `ink` point with its 1σ profile intervals as error bars (in the
+  set's hue when several maps share a panel); significance maps keep a `+`
+  (B03).
 - **Brazil bands.** `brazil` preset: ±1σ `#4daf4a`-like green, ±2σ
   `#ffdd00`-like yellow (HEP convention). The default is `graded`, two
   lightness steps of `muted`, because green and yellow are close in
@@ -400,7 +409,7 @@ axes.linewidth: 0.6          lines.linewidth: 1.2      lines.markersize: 3.5
 xtick/ytick.direction: in    xtick.top / ytick.right: True   x/ytick.minor.visible: True
 x/ytick.major.size: 3.5      x/ytick.minor.size: 1.8   errorbar.capsize: 0
 axes.prop_cycle: petroff10   axes.formatter.limits: -3, 5    axes.grid: False
-legend.frameon: False        image.cmap: viridis       figure.figsize: 3.5, 2.6
+legend.frameon: False        image.cmap: plotipus      figure.figsize: 3.5, 2.6
 savefig.dpi: 300             savefig.pad_inches: 0.02
 ```
 

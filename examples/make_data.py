@@ -1,7 +1,7 @@
 """Write the example data of input/plots/example_scripts.txt (and of the
-figures of docs/options.md): Distributions.pkl, and two files derived from
-it, the per-config files of the --configs example and Moments.pkl for the
-table and scalar-cell cat examples.
+figures of docs/options.md): Distributions.pkl, and the files derived from
+it: the per-config files of the --configs example, Moments.pkl for the table
+and scalar-cell cat examples and Yields.pkl for the stacked cat example.
 
     python make_data.py          # into input/data
     python make_data.py DIR      # into DIR (the gallery's data)
@@ -123,6 +123,12 @@ for sample, n in (("Data", 2000), ("Simulation", 20000)):
     xy = rng.multivariate_normal([0, 0], cov, n)
     rows.append({"Distribution": "Bivariate Gaussian", "Sample": sample, "X": xy[:, 0], "Y": xy[:, 1],
                  "Weight": np.full(n, 2000 / n)})
+# Response = Measured / True of every event sample (NaN where True is 0), for scatter plots that spread
+# the resolution over the y axis instead of along the diagonal.
+for row in rows:
+    if "Value" in row:
+        value = np.asarray(row["Value"], dtype=float)
+        row["Response"] = np.divide(row["Smeared"], value, out=np.full(value.shape, np.nan), where=value != 0)
 frame = pd.DataFrame(rows)
 frame.to_pickle(out / "Distributions.pkl")
 
@@ -145,4 +151,15 @@ for row in frame[frame.Value.notna()].itertuples():
         moments.append({"Config": row.Distribution, "Sample": row.Sample, "Variable": name, "Value": v,
                         "ValueError": e})
 pd.DataFrame(moments).to_pickle(out / "Moments.pkl")
+
+# Yields: the Resonance counts summed in three mass regions (the sidebands and
+# the signal region), one scalar per (region, sample), for the stacked cat example.
+regions = {"Low sideband": (100, 120), "Signal region": (120, 130), "High sideband": (130, 160)}
+yields = []
+for row in frame[frame.Distribution == "Resonance"].itertuples():
+    for region, (low, high) in regions.items():
+        inside = (row.Bin > low) & (row.Bin < high)
+        yields.append({"Region": region, "Sample": row.Sample, "Counts": float(np.sum(row.Counts[inside])),
+                       "CountsError": float(np.sqrt(np.sum(row.CountsError[inside] ** 2)))})
+pd.DataFrame(yields).to_pickle(out / "Yields.pkl")
 print(f"Example data written to {out}")

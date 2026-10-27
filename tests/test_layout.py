@@ -155,7 +155,7 @@ def test_pointer_tick_labels_fit_without_growing_the_figure(example_data, tmp_pa
     try:
         fig = _draw("line --datafile Distributions -x Bin -y Counts --hue Sample --select Distribution -s Gaussian "
                     "--plot_type step --ytick 100 --ytick_label threshold --xtick 1.5 --xtick_label '$x_0$'")[0]
-        assert tuple(fig.get_size_inches()) == pytest.approx((8, 4.5))  # the default slides size
+        assert tuple(fig.get_size_inches()) == pytest.approx((8, 0.73 * 8))  # the default slides size
         assert _outside(fig) == []
     finally:
         style.reset()

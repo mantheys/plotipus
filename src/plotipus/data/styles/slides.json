@@ -1,8 +1,9 @@
 {
-  "_comment": "slides medium (style_spec 2.1, 2.11): a 16:9 slide, titles allowed.",
+  "_comment": "slides medium (style_spec 2.1, 2.11): 8 in wide at aspect 0.73, a lower panel shares that height; titles allowed.",
   "mplstyle": "slides.mplstyle",
   "width": "slide",
-  "aspect": 0.5625,
+  "aspect": 0.73,
+  "lower_panels": "share",
   "font_sizes": {
     "titlefontsize": "x-large", "subtitlefontsize": "large",
     "legendtitlefontsize": "medium", "legendfontsize": "medium",

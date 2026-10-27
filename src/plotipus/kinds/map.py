@@ -9,8 +9,9 @@ Three inputs, one row per panel (panels from ``--variables`` or ``--hue``):
   with a colour bar;
 * contours (``--contour``): gridded maps (Δχ² or significance) of every
   ``--configs``/``--names`` entry drawn as confidence contours (2-dof Δχ²
-  levels by default, ``--contour_dof``), lines or graded filled bands, with a
-  ``+`` at the best fit and an optional background image, optionally combined
+  levels by default, ``--contour_dof``), lines or graded filled bands, with
+  the best fit (a point with its 1-sigma profile intervals on a Delta-chi2
+  map, else a ``+``) and an optional background image, optionally combined
   bin by bin (``--combine_op squared_sum``) and projected to another exposure
   (``--project``). Defaults come from the style's ``contours`` section.
 
@@ -111,7 +112,10 @@ def build_parser():
         help="One colorbar and colour scale for the row of panels (shared, the default unless --norm) "
         "or one per panel (each).")
     add("--panel_title", nargs="+", type=parse_plot_label, default=None, help="Title of each panel.")
-    add("--compact", action="store_true", default=False, help="Hide repeated y ticks on inner panels.")
+    add("--compact", action="store_true", default=None,
+        help="Panels side by side share their y range and only the first shows the y label and tick labels "
+        "(default with several panels; --no-compact gives each panel its own y axis).")
+    add("--no-compact", dest="compact", action="store_false")
     add("--iterable_mapping", type=str, default=None,
         help="Mapping renaming the datafile of each overlaid contour variant in the legend.")
     add("--iterable_color_mapping", type=str, default=None,
@@ -144,7 +148,7 @@ def build_parser():
     add("--background", default=None, choices=["all", "combined", "first", "none"],
         help="Background image: sum of all maps, the combined map, the first map or none (default: style "
         "contours.background, none). Delta-chi2 backgrounds are clipped at the outermost level.")
-    add("--no_best_fit", action="store_true", default=False, help="Do not mark the map minimum with a '+'.")
+    add("--no_best_fit", action="store_true", default=False, help="Do not mark the best fit (the map minimum).")
     add("--nan_fill", default="interpolate", choices=["interpolate", "nearest", "zero", "none"],
         help="How NaN map cells are filled.")
     add("--nan_interp_method", default="linear", choices=["cubic", "linear"])
@@ -333,6 +337,12 @@ def draw_histogram_figure(rows, args, kdx):
             ax.set_ylim(args.rangey)
         apply_tick_formatter(ax, axis="both")
         draw_overlays(ax, args)
+    if compact(args, len(panels)) and len(panels) > 1:
+        # One y range spanning every panel's, then shared.
+        low = min(ax.get_ylim()[0] for ax in axes[:len(panels)])
+        high = max(ax.get_ylim()[1] for ax in axes[:len(panels)])
+        share_rows(axes[:len(panels)], args)
+        axes[0].set_ylim(low, high)
     handle_lists = [regions.get(pdx, []) for pdx in range(len(panels))]
     for pdx in legend_panels(handle_lists):
         handles = handle_lists[pdx]
@@ -382,6 +392,23 @@ def draw_sample_regions(ax, counts, xedges, yedges, args):
         lines.set_path_effects(halo)
         handles.append(level_handle(label, ink, linestyle, width))
     return handles
+
+
+def compact(args, ncols):
+    """Whether panels side by side share one y axis (--compact; the default
+    with several panels)."""
+    return args.compact if args.compact is not None else ncols > 1
+
+
+def share_rows(axes, args):
+    """--compact: the panels share the first one's y range and drop the inner
+    y labels; they move close unless each has its own colorbar between them."""
+    for ax in axes[1:]:
+        ax.sharey(axes[0])
+        ax.set_ylabel("")
+        ax.tick_params(labelleft=False)
+    if colorbar_mode(args) == "shared":
+        axes[0].get_gridspec().update(wspace=0.08)
 
 
 def colorbar_mode(args):
@@ -714,19 +741,66 @@ def draw_outlines(ax, x, y, image, levels, hues, linestyles, width, alpha, args,
     _filter_vertices(lines, args.contour_min_vertices)
 
 
-def draw_best_fit(ax, x, y, image, color, zorder):
-    """A '+' at the grid minimum, haloed in the paper colour so it shows on
-    a fill of its own hue."""
+def _profile_interval(values, delta):
+    """(low, high) where the profile ``delta`` (Delta-chi2, minimum 0) stays
+    within 1, interpolated linearly between grid points; None if unbounded."""
+    inside = np.flatnonzero(np.isfinite(delta) & (delta <= 1.0))
+    if not inside.size:
+        return None
+    first, last = inside[0], inside[-1]
+
+    def crossing(a, b):
+        # Where the profile crosses 1 between grid points a (inside) and b (outside).
+        if not (0 <= b < len(values)) or not np.isfinite(delta[b]) or delta[b] == delta[a]:
+            return values[a]
+        return values[a] + (1.0 - delta[a]) / (delta[b] - delta[a]) * (values[b] - values[a])
+
+    return crossing(first, first - 1), crossing(last, last + 1)
+
+
+def best_fit_point(x, y, image):
+    """(bx, by, xerr, yerr) of the grid minimum. On a Delta-chi2 map the
+    errors are the 1-sigma profile intervals of each parameter (the Delta-chi2
+    <= 1 region projected on each axis, as (minus, plus)); else None."""
     image = np.asarray(image, dtype=float)
     if not np.isfinite(image).any():
-        return
+        return None
     i, j = np.unravel_index(np.nanargmin(image), image.shape)
     xa, ya = np.asarray(x, dtype=float), np.asarray(y, dtype=float)
-    bx = xa[i, j] if xa.ndim == 2 else xa[j]
-    by = ya[i, j] if ya.ndim == 2 else ya[i]
+    xs = xa[0, :] if xa.ndim == 2 else xa
+    ys = ya[:, 0] if ya.ndim == 2 else ya
+    bx, by = xs[j], ys[i]
+    delta = image - np.nanmin(image)
+    with np.errstate(all="ignore"):
+        profile_x, profile_y = np.nanmin(delta, axis=0), np.nanmin(delta, axis=1)
+    errors = []
+    for values, profile, best in ((xs, profile_x, bx), (ys, profile_y, by)):
+        interval = _profile_interval(values, profile)
+        errors.append(None if interval is None else (abs(best - min(interval)), abs(max(interval) - best)))
+    return bx, by, errors[0], errors[1]
+
+
+def draw_best_fit(ax, x, y, image, color, zorder, errors=False):
+    """The best fit: with ``errors`` (a Delta-chi2 map), a point with its
+    1-sigma profile intervals as error bars; else a '+' at the grid minimum.
+    Both are haloed in the paper colour so they show on a fill of their own
+    hue. Returns the error-bar container (a legend handle) or None."""
+    point = best_fit_point(x, y, image)
+    if point is None:
+        return None
+    bx, by, xerr, yerr = point
+    halo = [patheffects.withStroke(linewidth=max(1.5, plt.rcParams["lines.linewidth"]) + 2, foreground=_paper())]
+    if errors:
+        container = ax.errorbar([bx], [by], xerr=None if xerr is None else [[xerr[0]], [xerr[1]]],
+                                yerr=None if yerr is None else [[yerr[0]], [yerr[1]]], fmt="o", color=color,
+                                zorder=zorder, label="Best fit")
+        for artist in container.get_children():
+            artist.set_path_effects(halo)
+        return container
     size, width = 2.5 * plt.rcParams["lines.markersize"], max(1.5, plt.rcParams["lines.linewidth"])
     ax.plot([bx], [by], linestyle="none", marker="+", color=color, markersize=size, markeredgewidth=width,
             zorder=zorder, path_effects=[patheffects.withStroke(linewidth=width + 2, foreground=_paper())])
+    return None
 
 
 def level_handle(label, color, linestyle, width, fill=None):
@@ -961,7 +1035,7 @@ def draw_contour_panel(ax, fig, panel_idx, subset, projected, args, configs, nam
         draw_background(ax, fig, bx, by, combined, args, subset, levels)
 
     # Each contour set: filled bands (best fit outwards), outlines per level, a '+' at the minimum.
-    sets = []
+    sets, best = [], []
     smooth = lambda z: _smooth(_smooth(z, args.background_smoothing_sigma), args.contour_smoothing_sigma)  # noqa: E731
 
     def draw_set(x, y, image, color, label, linestyle, width, alpha, zorder, offset=0, palette_colors=False):
@@ -973,7 +1047,12 @@ def draw_contour_panel(ax, fig, panel_idx, subset, projected, args, configs, nam
             width, alpha = args.fill_outline_linewidth if args.fill_outline_linewidth is not None else width, 1.0
         draw_outlines(ax, x, y, image, levels, hues, styles, width, alpha, args, zorder + 0.5)
         if not args.no_best_fit:
-            draw_best_fit(ax, x, y, image, hues[0], zorder=7)
+            # On a Delta-chi2 map the best fit is a point with its 1-sigma intervals: in ink for one
+            # contour set, in the set's colour when several share the panel.
+            delta_chi2 = args.contour_level_mode == "sigma_probability"
+            single = len(payloads) == 1 and args.combine_op != "squared_sum"
+            best.append(draw_best_fit(ax, x, y, image, style.role("ink") if delta_chi2 and single else hues[0],
+                                      zorder=7, errors=delta_chi2))
         sets.append({"label": label, "hues": hues, "styles": styles, "width": width, "fills": fills,
                      "palette": palette_colors})
 
@@ -991,6 +1070,9 @@ def draw_contour_panel(ax, fig, panel_idx, subset, projected, args, configs, nam
 
     labels = sigma_labels(levels, args.contour_sigmas, args.contour_level_mode, args.contour_dof, args.contour_label)
     handles = contour_legend(sets, labels)
+    marks = [b for b in best if b is not None]
+    if len(marks) == 1:
+        handles = handles + marks  # "Best fit": a point with error bars
     ax._contour_handles = handles
     xs, ys = np.asarray(bx, dtype=float), np.asarray(by, dtype=float)
     return [float(np.nanmin(xs)), float(np.nanmax(xs))], [float(np.nanmin(ys)), float(np.nanmax(ys))]
@@ -1058,6 +1140,8 @@ def draw_contour_figure(df, args):
     # One panel per hue value left by the selection (not per value anywhere in the file).
     ncols = len(variables) if args.variables is not None else len(hues) if args.iterable is not None else 1
     fig, axes, _, _ = create_panels(ncols, grid=False)
+    # Compact panels share one y range (the union of theirs).
+    match_y = args.matchy or (compact(args, ncols) and ncols > 1)
     # One colour per config in every panel; config_color entries are reserved first.
     colors = ColorAllocator()
     config_color = style.get_mapping_dict("config_color") or {}
@@ -1092,7 +1176,7 @@ def draw_contour_figure(df, args):
             else:
                 if args.matchx:
                     matched[0] = [min(matched[0][0], x_range[0]), max(matched[0][1], x_range[1])]
-                if args.matchy:
+                if match_y:
                     matched[1] = [min(matched[1][0], y_range[0]), max(matched[1][1], y_range[1])]
             contour_artists = set(ax.get_children())
             if args.diagonal:
@@ -1113,10 +1197,8 @@ def draw_contour_figure(df, args):
                 ax.set_ylabel(resolve_axis_label(args.labely, args.y, subset))
             else:
                 ax.set_ylabel("")
-                if args.compact:
-                    ax.tick_params(labelleft=False)
             ax.set_xlim(matched[0] if args.matchx else x_range)
-            ax.set_ylim(matched[1] if args.matchy else y_range)
+            ax.set_ylim(matched[1] if match_y else y_range)
             if args.rangex is not None:
                 ax.set_xlim(args.rangex)
             if args.rangey is not None:
@@ -1136,10 +1218,12 @@ def draw_contour_figure(df, args):
     for pdx in legend_panels(handle_lists):
         apply_legend_style(axes[pdx], handles=handle_lists[pdx], capitalize_labels=args.capitalize_legend).set_zorder(10)
 
+    if compact(args, ncols) and ncols > 1:
+        limits = axes[0].get_ylim()
+        share_rows(axes[:ncols], args)
+        axes[0].set_ylim(limits)
     draw_colorbars(fig, [(ax, *ax._background_colorbar) for ax in axes if hasattr(ax, "_background_colorbar")], args)
     add_title_and_note(fig, args)
-    if args.compact and ncols > 1:
-        fig.tight_layout()
     return save(fig, args, None, suffix="contour.png")
 
 
