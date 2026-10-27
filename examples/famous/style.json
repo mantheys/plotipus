@@ -86,7 +86,7 @@
       "Blackbody": "black"
     },
     "firas_labels": {
-      "FIRAS data": "FIRAS (errors $\\times$400)",
+      "FIRAS data": "FIRAS",
       "Blackbody": "Blackbody, $T$ = 2.725 K"
     },
     "hubble_colors": {

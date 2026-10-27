@@ -36,15 +36,15 @@ command lists.
 |---|---|---|---|
 | A Distributions | 7 | 0 | 5 |
 | B Relationships | 6 | 1 | 2 |
-| C Trends and fits | 6 | 3 | 1 |
+| C Trends and fits | 7 | 2 | 1 |
 | D Comparisons | 4 | 2 | 3 |
 | E Ratios and significance | 5 | 2 | 1 |
 | F ML diagnostics | 4 | 3 | 0 |
-| G Uncertainty | 5 | 2 | 2 |
+| G Uncertainty | 6 | 2 | 1 |
 | H Small multiples and layout | 2 | 2 | 4 |
 | I Annotations | 6 | 1 | 3 |
 | J Tables | 4 | 1 | 2 |
-| **Total (89)** | **49** | **17** | **23** |
+| **Total (89)** | **51** | **16** | **22** |
 
 Nearly half of the ◐ entries are partial only because of a bug in
 [bugs.md](bugs.md), not because an option is missing. Fixing B01–B13 moves
@@ -92,7 +92,7 @@ about 12 of them to ✅.
 | C3 | Stored fit over data with parameter box | publish a fit result | F06, F08, F19 | ✅ | `line --datafile Fit -x X -y Counts --fit --plot_type errorbar --errory` (P04). Fit line in the style's `ink` role (`--fit_color`, T11). | — |
 | C4 | Fit with residual panel | fit quality | F01, F06, F07, F09 | ✅ | `... --fit --lower residual` (P04): (data−fit)/fit, masked where the fit is below 1e-3 of its peak (B13, fixed in T06). | — |
 | C5 | Fit with pull panel | fit quality in σ | F01, F17 | ✅ | `... --fit --lower pull` (P05): (data−fit)/σ with ±1σ/±2σ bands; `--lower residual --lower pull` stacks both (B13, fixed in T06). | — |
-| C6 | Several model curves over data | model comparison | F09, F12, F17 | ◐ | Model curves stored as extra hue rows (`--hue Model`), data as error bars; no per-series plot type (points for data, lines for models). | `--series_type VALUE=errorbar` (per-hue plot type). |
+| C6 | Several model curves over data | model comparison | F09, F12, F17 | ✅ | `line --hue Model --plot_type line --series_type data=errorbar` (F09, F12, F17): points with error bars for data, on top, lines for the models; `--series_type_mapping` sets the types in a style file (T21). | — |
 | C7 | Stacked area | composition over x | F23 | ✅ | `--stacked --plot_type line` (`fill_between` from the running total; B10 fixed in T18). | — |
 | C8 | Time series with dates | monitoring, Keeling curve | F13 | ◐ | Works on numeric x (decimal year); no date axis formatting. | Convert datetime64 x and use `ConciseDateFormatter`. |
 | C9 | Smoothed / rolling line | trend under noise | F13, F14 | ✗ | — | `line --smooth N [--smooth_kind rolling\|savgol]` drawn over the raw series. |
@@ -151,7 +151,7 @@ All curves are precomputed by the analysis (plotipus does not fit or score).
 | G6 | Hatched systematic band on a stack total | MC uncertainty | F03 | ✅ | `--stack_total_error` (stacked errors in quadrature) or `--stack_total_error_column COL` (precomputed, e.g. with systematics); hatch from `plot_settings.stack_error` (T18). | — |
 | G7 | 1D likelihood scan with Δχ² = 1, 4 lines | parameter intervals | — | ◐ | `line --datafile Scan -x Mu -y DeltaNLL --horizontal 1 4 --horizontal_label 1σ 2σ` (P07). Points are drawn as markers, and the labels are misplaced (one left, one right). | Consistent right-edge labels for `--horizontal`. |
 | G8 | 2D Δχ² confidence contours, several datasets | joint constraints | F10 | ◐ | `map --contour` with configs: one hue per dataset, levels by line style, one legend entry per dataset and per level (B03, fixed in T02). | `--hue` over datasets. |
-| G9 | Error-bar magnification with note | tiny errors | F06, F17 | ✗ | `--multiply` scales values, not only errors. | `--error_scale K` (adds "errors ×K" to the legend). |
+| G9 | Error-bar magnification with note | tiny errors | F06, F17 | ✅ | `line ... --errory --error_scale 400` (F06, F17): the drawn errors only, "(errors ×400)" in the legend label (T21). | — |
 
 ## H. Small multiples and layout
 

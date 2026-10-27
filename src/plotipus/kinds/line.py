@@ -28,6 +28,7 @@ from ..args import (
     add_panel_args,
     map_iterable_color,
     map_iterable_label,
+    map_iterable_value,
     resolve_axis_label,
 )
 from ..encodings import (
@@ -205,6 +206,16 @@ def build_parser():
         "ratio/subtract/relative_difference lower panels compare the data with their total. The values may "
         "also be --style values: those series are drawn as points in their hue colour, and the style legend "
         "shows a point for them. With --by_config, the values are configs, names or hue values.")
+    add("--series_type", nargs="+", default=None, metavar="VALUE=TYPE",
+        help="Plot type per hue value (any --plot_type value), e.g. 'data=errorbar' for points with error bars "
+        "over model lines; unlisted values use --plot_type. Error-bar series are drawn on top, in their colour "
+        "(ink for --overlay values), with their error bars whatever --errory says.")
+    add("--series_type_mapping", type=str, default=None, metavar="NAME",
+        help="Mapping (style mappings) giving the plot type of each hue value, e.g. \"series_types\": "
+        "{\"data\": \"errorbar\"}; --series_type entries win over it.")
+    add("--error_scale", type=float, default=None, metavar="K",
+        help="Multiply the drawn errors (not the values) by K, e.g. to show tiny errors; the legend labels of "
+        "those series get \"(errors ×K)\".")
     add("--stack_reverse", action="store_true", default=False, help="Stack in reverse order (first series on top).")
     add("--stack_total_error", action="store_true", default=False,
         help="With --stacked: a hatched band around the stack total, from the stacked series' errors added in "
@@ -315,6 +326,12 @@ def _check_args(args, parser):
         resolve_estimator_args(args, parser)
     elif args.y is None:
         parser.error("the following arguments are required: -y")
+    for entry in args.series_type or []:
+        value, sep, kind = entry.rpartition("=")
+        if not sep or not value:
+            parser.error(f"--series_type: expected VALUE=TYPE, got '{entry}'")
+        if kind not in PLOT_TYPES:
+            parser.error(f"--series_type {entry}: TYPE must be one of {', '.join(PLOT_TYPES)}")
 
 
 def main(argv=None):
@@ -573,6 +590,37 @@ def _counts(y):
     return y.size > 0 and bool(np.all(y >= 0)) and bool(np.all(y == np.round(y)))
 
 
+def _series_type(hue, args):
+    """Plot type of hue value ``hue`` from --series_type (or the
+    --series_type_mapping), None when it is not listed."""
+    if hue is None or isinstance(hue, _SumSlot):
+        return None
+    for entry in args.series_type or []:
+        value, _, kind = entry.rpartition("=")
+        if value == str(hue):
+            return kind
+    kind = map_iterable_value(hue, args.series_type_mapping)
+    if kind is not None and kind not in PLOT_TYPES:
+        rprint(f"[yellow]Warning:[/yellow] {args.series_type_mapping}: unknown plot type '{kind}' for {hue}; "
+               "using --plot_type.")
+        return None
+    return kind
+
+
+def _scale_errors(s, args, plot_type):
+    """Multiply the errors of ``s`` by --error_scale when they are drawn;
+    returns the stored errors to restore after drawing (None: unchanged)."""
+    if not args.error_scale or args.error_scale == 1 or s.error is None or not np.isfinite(s.error).any():
+        return None
+    if plot_type != "data" and not (args.errory or getattr(s, "show_error", False)):
+        return None
+    stored = s.error
+    s.error = np.asarray(stored, dtype=float) * args.error_scale
+    if s.label:
+        s.label = f"{s.label} (errors ×{args.error_scale:g})"
+    return stored
+
+
 def _is_data(hue, args):
     """Whether hue value ``hue`` is drawn as data (--data_hue)."""
     return bool(args.data_hue) and not isinstance(hue, _SumSlot) and str(hue) in {str(v) for v in args.data_hue}
@@ -602,7 +650,8 @@ def draw_series(ax, s, args, plot_type=None, stack_bottom=None, dodge_shift=0.0)
         return
     if plot_type == "data":
         xerr = np.diff(s.x_edges) / 2 if args.errory_x and s.x_edges is not None else None
-        plot_data(args, ax, s.x, y=s.y, plot_type="errorbar", yerr=s.error, xerr=xerr, fmt="o", zorder=3, **common)
+        x = np.asarray(s.x, dtype=float) + dodge_shift if dodge_shift and not s.categorical else s.x
+        plot_data(args, ax, x, y=s.y, plot_type="errorbar", yerr=s.error, xerr=xerr, fmt="o", zorder=3, **common)
         return
     lw = {} if s.linewidth is None else {"linewidth": s.linewidth}
     fill = {}
@@ -867,7 +916,12 @@ def draw_figure(rows, args, kdx=None):
                         labeled.add(key)
 
                 plot_type = _row_value(s, args.plot_type_column) or _resolved_plot_type(args)
-                if s.is_data:
+                series_type = _series_type(hue, args)
+                if series_type == "errorbar":
+                    plot_type = "data"  # points with their error bars, on top
+                elif series_type is not None:
+                    plot_type = series_type
+                elif s.is_data:
                     plot_type = "data"
                 elif plot_type is None and args.data_hue and not args.stacked:
                     plot_type = "step"
@@ -876,7 +930,8 @@ def draw_figure(rows, args, kdx=None):
                     bottom = stack_bottoms.setdefault(comparable_value, np.zeros(len(s.y), dtype=float))
                     if len(bottom) != len(s.y):
                         bottom = None
-                if s.categorical and plot_type == "errorbar" and args.dodge and len(regular) > 1:
+                stored_error = _scale_errors(s, args, plot_type)
+                if s.categorical and plot_type in ("errorbar", "data") and args.dodge and len(regular) > 1:
                     shift = (jdx - (len(regular) - 1) / 2) * args.dodge
                     s.x = _dodge_categorical(ax, s, shift)
                     draw_series(ax, s, args, plot_type)
@@ -884,6 +939,8 @@ def draw_figure(rows, args, kdx=None):
                     shift = (jdx - (len(regular) - 1) / 2) * args.dodge if args.dodge and len(regular) > 1 else 0.0
                     draw_series(ax, s, args, (plot_type or "line") if s.is_sum else plot_type,
                                 stack_bottom=bottom, dodge_shift=shift)
+                if stored_error is not None:
+                    s.error = stored_error  # lower panels compare the stored errors
                 if bottom is not None:
                     bottom += s.y
                 if s.extrapolated.any() and plot_type == "line":
