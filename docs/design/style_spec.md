@@ -7,6 +7,11 @@ remains for code rather than style files.
 
 ## 0. Decisions that shape this spec (2026-10-24)
 
+> The [style guide](../styleguide.md) (2026-10-27) is the enforceable
+> summary and wins where the two differ: side-by-side panels keep the
+> proportions of a single plot (the figure widens, rule L3), and a lower
+> panel takes its height from the plot in every medium (L2).
+
 The maintainer chose the `paper` visual language, with **slides as the
 default medium** (decision D1 in [roadmap.md](roadmap.md)). A style is
 therefore the combination of three choices:

@@ -215,6 +215,9 @@ Kinds follow the data relationship (as in seaborn/plotly), not the use case.
   finished figure, one command at a time.
 * [Famous plots](examples/famous/README.md): the reproductions above, their
   data, commands and remaining gaps.
+* [Style guide](docs/styleguide.md): the conventions plotipus applies by
+  default (data, simulation, fits, sizes, uncertainties) and those it does
+  not enforce yet.
 * [Options](docs/options.md): shared options, lower panels, colorbars,
   contours and binned estimators.
 * [Projects](docs/projects.md): `plotipus.toml`, style files, plugins and
