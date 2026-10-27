@@ -440,6 +440,62 @@ COMMON_ARG_SPECS = {
             "help": "Color(s) for vertical line(s) (e.g. gray red C0), one per line",
         },
     },
+    "vertical_band": {
+        "flags": ["--vertical_band"],
+        "kwargs": {
+            "type": float,
+            "nargs": "+",
+            "default": None,
+            "metavar": "X",
+            "help": "Shaded x range(s) behind the data, as pairs: X1 X2 [X1 X2 ...]",
+        },
+    },
+    "vertical_band_label": {
+        "flags": ["--vertical_band_label"],
+        "kwargs": {
+            "type": str,
+            "nargs": "+",
+            "default": None,
+            "help": "Label(s) written inside the --vertical_band range(s), one per band",
+        },
+    },
+    "vertical_band_color": {
+        "flags": ["--vertical_band_color"],
+        "kwargs": {
+            "type": str,
+            "nargs": "+",
+            "default": None,
+            "help": "Colour(s) of the --vertical_band range(s) (default: the style's muted role, translucent)",
+        },
+    },
+    "horizontal_band": {
+        "flags": ["--horizontal_band"],
+        "kwargs": {
+            "type": float,
+            "nargs": "+",
+            "default": None,
+            "metavar": "Y",
+            "help": "Shaded y range(s) behind the data, as pairs: Y1 Y2 [Y1 Y2 ...]",
+        },
+    },
+    "horizontal_band_label": {
+        "flags": ["--horizontal_band_label"],
+        "kwargs": {
+            "type": str,
+            "nargs": "+",
+            "default": None,
+            "help": "Label(s) written inside the --horizontal_band range(s), one per band",
+        },
+    },
+    "horizontal_band_color": {
+        "flags": ["--horizontal_band_color"],
+        "kwargs": {
+            "type": str,
+            "nargs": "+",
+            "default": None,
+            "help": "Colour(s) of the --horizontal_band range(s) (default: the style's muted role, translucent)",
+        },
+    },
     "xtick": {
         "flags": ["--xtick"],
         "kwargs": {
@@ -861,6 +917,17 @@ def add_common_args(parser, arg_names, overrides=None):
             help="Legend location for all panels: a matplotlib loc ('lower left', 'upper right', ...), "
             "'above' (or 'outside'), 'below' or 'right' of the axes, or 'none'; default (best): where it "
             "covers no data. With two legends and no --comparable_legend_loc, the style legend follows.",
+        )
+
+    if "--layout" not in parser._option_string_actions:
+        parser.add_argument(
+            "--layout",
+            choices=["facets", "panels"],
+            default=None,
+            help="Several panels side by side: 'facets' (default) widen the figure, each facet adding the "
+            "style's facet_width share of one plot's width, at one plot's height; 'panels' split one plot's "
+            "area into touching panels that share the y axis. Facets are compact by default (--no-compact "
+            "shows every y axis).",
         )
 
     if "--legend_ncol" not in parser._option_string_actions:

@@ -238,10 +238,13 @@ def test_box_colours_and_legend(make_project):
     handles = legend.legend_handles
     edges = [to_hex(h.get_edgecolor()) for h in handles]
     assert len(set(edges)) == 3
-    assert all(h.get_facecolor()[3] == pytest.approx(0.25) for h in handles)
-    # Median lines in the box colour; fliers hollow.
-    medians = [l for l in ax.lines if len(l.get_xdata()) == 2 and l.get_xdata()[0] != l.get_xdata()[1]]
-    assert {to_hex(l.get_color()) for l in medians} <= set(edges)
+    assert all(h.get_facecolor()[3] == pytest.approx(0.6) for h in handles)  # a strong face
+    # Median lines in ink, so they read on the face; fliers hollow.
+    from plotipus import style
+
+    medians = [l for l in ax.lines if len(l.get_xdata()) == 2 and l.get_xdata()[0] != l.get_xdata()[1]
+               and l.get_linewidth() == 2]
+    assert medians and {to_hex(l.get_color()) for l in medians} == {to_hex(style.role("ink"))}
     fliers = [l for l in ax.lines if l.get_marker() == "o"]
     assert fliers and all(l.get_markerfacecolor() == "none" for l in fliers)
 
@@ -323,3 +326,28 @@ def test_box_dodge_counts_selected_hues_only(make_project):
                       for p in boxes})
     first_bin = [c for c in centres if c < 1]
     assert len(first_bin) == 2 and np.mean(first_bin) == pytest.approx(0.5)
+
+
+def test_violin_per_bin(make_project):
+    """--plot_type violin: a body per bin in the series colour, the
+    interquartile range as an ink bar and the median as a dot."""
+    from matplotlib.collections import LineCollection, PathCollection, PolyCollection
+
+    from plotipus import registry
+
+    figures = []
+    registry.add_figure_hook(lambda fig, args: figures.append(fig))
+    rng = np.random.default_rng(5)
+    x = rng.uniform(0, 4, 2000)
+    make_project({"V": pd.DataFrame([{"X": x, "Y": rng.normal(0, 1 + x, x.size), "Sample": "S"}])})
+    outputs = line.main(["--datafile", "V", "-x", "X", "-y", "Y", "--binned", "--plot_type", "violin",
+                         "--bins", "5", "--rangex", "0", "4"])  # 5 edges, 4 bins
+    assert outputs[0].endswith("violin.png")
+    ax = figures[0].axes[0]
+    bodies = [c for c in ax.collections if isinstance(c, PolyCollection)]
+    assert len(bodies) == 4
+    widths = [np.ptp(b.get_paths()[0].vertices[:, 1]) for b in bodies]
+    assert widths == sorted(widths)  # the spread grows with x
+    (bars,) = [c for c in ax.collections if isinstance(c, LineCollection)]
+    (medians,) = [c for c in ax.collections if isinstance(c, PathCollection)]
+    assert len(bars.get_segments()) == 4 and len(medians.get_offsets()) == 4

@@ -135,6 +135,25 @@ def test_colorby_signed_values_use_the_diverging_map(make_project):
     scatter.main(["--datafile", "Signed", "-x", "X", "-y", "Y", "--colorby", "R"])
     scatter.main(["--datafile", "Signed", "-x", "X", "-y", "Y", "--colorby", "P"])
     signed, positive = (fig.axes[0].collections[0] for fig in figures)
-    assert signed.get_cmap().name == style.diverging_cmap
+    assert signed.get_cmap().name == style.diverging_marker_cmap == "berlin"  # dark at 0 on light paper
     assert signed.norm.vmin == -signed.norm.vmax
-    assert positive.get_cmap().name != style.diverging_cmap
+    assert positive.get_cmap().name != style.diverging_marker_cmap
+
+
+def test_marker_diverging_map_stands_out_from_the_background(make_project):
+    """The centre of the markers' diverging map contrasts with the paper:
+    dark on the light themes, light on the dark theme."""
+    from matplotlib import colormaps
+    from matplotlib.colors import to_rgb
+
+    from plotipus import project, style
+
+    def lightness(color):
+        r, g, b = to_rgb(color)
+        return 0.2126 * r + 0.7152 * g + 0.0722 * b
+
+    make_project({})
+    for name in ("slides", "slides-dark", "open"):
+        project.apply_rendering(preset=name)
+        centre, paper = colormaps[style.diverging_marker_cmap](0.5), style.role("paper")
+        assert abs(lightness(centre) - lightness(paper)) > 0.5, name

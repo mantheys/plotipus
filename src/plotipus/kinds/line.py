@@ -88,7 +88,7 @@ from ..transforms import (
 from . import _base
 
 KIND = "line"
-PLOT_TYPES = ["scatter", "line", "bar", "barh", "step", "stepmid", "plot", "errorbar", "box", "fill"]
+PLOT_TYPES = ["scatter", "line", "bar", "barh", "step", "stepmid", "plot", "errorbar", "box", "violin", "fill"]
 EXTRAPOLATED_LINESTYLE = "--"
 
 
@@ -105,6 +105,8 @@ def build_parser():
             "labely", "labelz", "logx", "logy", "rangex", "rangey", "plot_style", "plot_type",
             "title", "output", "subfolder", "horizontal", "horizontal_label", "horizontal_style",
             "horizontal_color", "vertical", "vertical_label", "vertical_style", "vertical_color",
+            "vertical_band", "vertical_band_label", "vertical_band_color", "horizontal_band",
+            "horizontal_band_label", "horizontal_band_color",
             "xtick", "xtick_label", "xtick_height", "xtick_side", "xtick_edge", "ytick",
             "ytick_label", "ytick_height", "ytick_side", "ytick_edge", "square", "square_label",
             "square_style", "square_color", "line", "line_label", "line_style", "line_color",
@@ -1559,14 +1561,14 @@ def _finish_upper(fig, upper, lower, drawn, rows, args, variables, last_x, hue_v
 
     categorical = any(s.categorical for panel in drawn.values() for s in panel[-1:])
     rotated = categorical and args.plot_type != "barh"
-    compact = args.compact if args.compact is not None else ncols > 1
+    compact = (args.compact if args.compact is not None else ncols > 1) or style.figure_layout_mode == "panels"
     if compact and ncols > 1:
         # One y range per row, so the inner panels can drop their tick labels.
         for idx in range(min(n_panels, len(upper))):
             if idx % ncols:
                 upper[idx].sharey(upper[idx - idx % ncols])
         # Without inner y labels the panels move close (the layout widens the gap if x labels need it).
-        upper[0].get_gridspec().update(wspace=0.08)
+        upper[0].get_gridspec().update(wspace=style.compact_gap())
     categorical_y = categorical and args.plot_type == "barh"
     all_panels = args.legend_panel == "all"
     legend_panel = None if all_panels else args.legend_panel % n_panels

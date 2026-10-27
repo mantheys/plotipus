@@ -455,3 +455,25 @@ def test_overlays_keep_a_reversed_range():
     (label,) = [t for t in ax.texts if t.get_text() == "Red clump"]
     assert label.get_position()[1] == -0.2  # the visually upper edge
     plt.close(fig)
+
+
+def test_vertical_and_horizontal_bands(make_project):
+    """--vertical_band X1 X2: a shaded range behind the data, with its label;
+    an odd value is dropped with a warning."""
+    from matplotlib.patches import Rectangle
+
+    from plotipus import registry
+    from plotipus.kinds import line
+
+    x = np.arange(0.5, 10, 1.0)
+    make_project({"B": pd.DataFrame([{"X": x, "Y": x ** 2}])})
+    figures = []
+    registry.add_figure_hook(lambda fig, args: figures.append(fig))
+    line.main(["--datafile", "B", "-x", "X", "-y", "Y", "--plot_type", "line", "--vertical_band", "2", "4", "6",
+               "--vertical_band_label", "Window", "--horizontal_band", "10", "20"])
+    ax = figures[0].axes[0]
+    spans = [p for p in ax.patches if isinstance(p, Rectangle) and p.get_zorder() < 1]
+    assert len(spans) == 2
+    vertical = min(spans, key=lambda p: p.get_width() if p.get_height() == 1 else 1e9)
+    assert vertical.get_x() == pytest.approx(2) and vertical.get_width() == pytest.approx(2)
+    assert "Window" in [t.get_text() for t in ax.texts]

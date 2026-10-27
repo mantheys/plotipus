@@ -116,6 +116,7 @@ def _run(module, argv):
     if not getattr(args, "show", False):
         matplotlib.use("Agg")
     setup_legend_frame(args)
+    style.set_layout(getattr(args, "layout", None))
     return module.run(args)
 
 

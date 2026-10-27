@@ -857,3 +857,17 @@ def test_short_line_styles_parse_as_values():
                        "--plot_style", "--", "--logy"])
     assert args.comparable_linestyles == ["solid", "dashed", "dashdot", ":"]
     assert args.plot_style == "dashed" and args.logy
+
+
+def test_shifted_steps_keep_box_legend_entries(make_project):
+    """Steps with empty bins (stairs) show the same legend box as the others."""
+    from matplotlib.patches import Rectangle
+
+    x = np.arange(0.5, 10, 1.0)
+    frame = pd.DataFrame([{"X": x, "Y": np.exp(-0.5 * (x - c) ** 2) + 0.01, "Sample": s}
+                          for s, c in (("Ref", 4.5), ("Other", 6.5))])
+    make_project({"S": frame})
+    figures = _capture()
+    line.main(["--datafile", "S", "-x", "X", "-y", "Y", "--hue", "Sample", "--shift", "peak", "--reference_value", "Ref"])
+    handles = figures[0].axes[0].get_legend().legend_handles
+    assert len(handles) == 2 and all(isinstance(h, Rectangle) for h in handles)

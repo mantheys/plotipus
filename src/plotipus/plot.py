@@ -2,7 +2,8 @@ import math
 import re
 import numpy as np
 import matplotlib.pyplot as plt
-from matplotlib.patches import Rectangle
+from matplotlib.legend_handler import HandlerPatch
+from matplotlib.patches import Rectangle, StepPatch
 from matplotlib.transforms import Bbox
 from matplotlib.legend import Legend
 from typing import Any
@@ -49,9 +50,11 @@ def lower_height_ratios(n_lower):
 
 
 def get_common_figsize(ncols=1, nrows=1, height_ratios=None):
-    """Figure size (inches). At a --width (or the medium's), a row of panels
-    shares the width and each row is the preset's height; ``height_ratios``
-    (upper panel first) add the lower panels' height instead of squeezing.
+    """Figure size (inches). At a --width (or the medium's), each row is one
+    plot's height; facets side by side widen the figure, each adding the
+    style's ``facet_width`` share of one plot's width (``--layout panels``
+    keeps one plot's width instead). ``height_ratios`` (upper panel first)
+    add the lower panels' height, or share it (``lower_panels: share``).
     Without a width, the old geometry: base width plus a panel width per
     extra column. With --single_panel_size every figure has the size of one
     panel."""
@@ -59,16 +62,13 @@ def get_common_figsize(ncols=1, nrows=1, height_ratios=None):
         ncols, nrows, height_ratios = 1, 1, None
     rows = max(1, int(nrows))
     if _style.figure_width is not None:
-        row_height = _style.figure_row_height
-        facets = _style.figure_facet_rows
-        if ncols > 1 and facets.get("panel_aspect"):
-            # Panels side by side: shorter rows, so the panels are not tall and narrow.
-            panel = float(_style.figure_width) / ncols * float(facets["panel_aspect"])
-            row_height = min(row_height, max(float(facets.get("min_height", 0.0)), panel))
-        height = row_height * rows
+        width = float(_style.figure_width)
+        if ncols > 1 and _style.figure_layout_mode == "facets":
+            width = max(width, width * _style.figure_facet_width * ncols)
+        height = _style.figure_row_height * rows
         if height_ratios and _style.figure_lower_panels != "share":
             height *= sum(height_ratios) / height_ratios[0]
-        return (float(_style.figure_width), float(height))
+        return (width, float(height))
     panel_count = max(1, int(ncols))
     width = _style.figure_base_width + _style.figure_panel_width * (panel_count - 1)
     height = _style.figure_height * rows
@@ -676,6 +676,9 @@ def apply_legend_style(
 
     style.update(overrides)
     style = _style.role_colors(style)
+    # Step outlines drawn with stairs (series with empty bins) show the same
+    # box as those drawn by hist, not a line.
+    style.setdefault("handler_map", {StepPatch: HandlerPatch()})
     if is_redundant_legend_title(style.get("title")):
         style.pop("title")
 
@@ -1400,15 +1403,38 @@ def plot_data(
     if plot_type == "boxplot":
         boxplot_data = kwargs.pop("boxplot_data", y)
         if color is not None:
-            # Edge, whiskers, caps and median in the series colour, the face at
-            # alpha 0.25, fliers as small hollow markers; the legend shows one box.
+            # Edge, whiskers and caps in the series colour, the face at alpha
+            # 0.6, the median in ink so it reads on the face, fliers as small
+            # hollow markers; the legend shows one box.
             kwargs.setdefault("patch_artist", True)
-            kwargs.setdefault("boxprops", {"facecolor": to_rgba(color, 0.25), "edgecolor": color})
-            for key in ("medianprops", "whiskerprops", "capprops"):
-                kwargs.setdefault(key, {"color": color})
+            kwargs.setdefault("boxprops", {"facecolor": to_rgba(color, 0.6), "edgecolor": color, "linewidth": 1.5})
+            kwargs.setdefault("medianprops", {"color": _style.role("ink"), "linewidth": 2})
+            for key in ("whiskerprops", "capprops"):
+                kwargs.setdefault(key, {"color": color, "linewidth": 1.5})
             kwargs.setdefault("flierprops", {"marker": "o", "markersize": 3, "markerfacecolor": "none",
                                              "markeredgecolor": color})
         return ax.boxplot(boxplot_data, label=label, **kwargs)
+
+    if plot_type == "violin":
+        # A violin per position: the density in the series colour (face at alpha
+        # 0.6), the interquartile range as a thick ink bar and the median as a
+        # paper dot on it; the legend shows the body.
+        data = kwargs.pop("violin_data", y)
+        positions = kwargs.pop("positions", x)
+        parts = ax.violinplot(data, positions=positions, widths=kwargs.pop("widths", 0.8), showmeans=False,
+                              showmedians=False, showextrema=False)
+        for body in parts["bodies"]:
+            body.set_facecolor(to_rgba(color, 0.6) if color is not None else None)
+            body.set_edgecolor(color)
+            body.set_linewidth(1.2)
+            body.set_alpha(None)
+        if parts["bodies"]:
+            parts["bodies"][0].set_label(label)
+        q1, median, q3 = (np.array([np.percentile(d, q) for d in data]) for q in (25, 50, 75))
+        ax.vlines(positions, q1, q3, color=_style.role("ink"), linewidth=4, zorder=3)
+        ax.scatter(positions, median, s=12, color=_style.role("paper"), edgecolors=_style.role("ink"),
+                   linewidths=0.8, zorder=4)
+        return parts
 
     if plot_type == "hist2d":
         return ax.hist2d(
@@ -1696,6 +1722,35 @@ def draw_vertical_lines(ax, values, labels=None, styles=None, colors=None, fonts
                 box = _label_avoid_box(text_obj, ax, fontsize)
                 if box is not None:
                     avoid_boxes.append(box)
+
+
+def draw_bands(ax, axis, values, labels=None, colors=None, fontsize=None, alpha=0.18):
+    """Shade ``axis`` ("x" or "y") ranges, given as pairs ``[a1, b1, a2,
+    b2, ...]``, behind the data (--vertical_band, --horizontal_band). Each
+    label is written in its band like a line label, and ``colors`` default to
+    the style's muted role; lists shorter than the bands reuse their last item."""
+    if not values:
+        return
+    if len(values) % 2:
+        from rich import print as rprint
+
+        rprint(f"[yellow]Warning:[/yellow] --{'vertical' if axis == 'x' else 'horizontal'}_band takes pairs of "
+               f"values; the last one ({values[-1]:g}) is ignored.")
+    avoid = []
+    for i in range(len(values) // 2):
+        low, high = sorted(values[2 * i:2 * i + 2])
+        color = _ref_line_get(colors, i, _style.role("muted"))
+        span = ax.axvspan if axis == "x" else ax.axhspan
+        span(low, high, facecolor=color, edgecolor="none", alpha=alpha, zorder=0.5)
+        _include_in_limits(ax, axis, low, high)
+        label = _ref_line_get(labels, i, None) if labels is not None else None
+        if label:
+            place = place_vertical_label if axis == "x" else place_horizontal_label
+            text_obj = place(ax, 0.5 * (low + high), label, fontsize=fontsize, avoid=avoid)
+            if text_obj is not None:
+                box = _label_avoid_box(text_obj, ax, fontsize)
+                if box is not None:
+                    avoid.append(box)
 
 
 def draw_horizontal_lines(ax, values, labels=None, styles=None, colors=None, fontsize=None):

@@ -3,6 +3,7 @@
   "mplstyle": "paper.mplstyle",
   "width": "single",
   "aspect": 0.75,
+  "layout": "panels",
   "font_sizes": {
     "titlefontsize": "large", "subtitlefontsize": "medium",
     "legendtitlefontsize": "medium", "legendfontsize": "medium",

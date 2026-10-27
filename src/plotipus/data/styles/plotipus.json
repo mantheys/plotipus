@@ -4,6 +4,7 @@
   "palette": "petroff10",
   "plot_settings": {
     "figure_layout": {"two_panel_hspace": 0.0},
-    "diverging_cmap": "RdBu_r"
+    "diverging_cmap": "RdBu_r",
+    "diverging_marker_cmap": "berlin"
   }
 }

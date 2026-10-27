@@ -16,6 +16,7 @@ from .plot import (
     apply_note_to_figure,
     create_common_subplots,
     create_common_two_panel_figure,
+    draw_bands,
     draw_horizontal_lines,
     draw_lines,
     draw_squares,
@@ -186,6 +187,9 @@ def draw_overlays(ax, args, vertical=None, labels=True):
     """Reference overlays of one panel: horizontal/vertical lines, points,
     rectangles, segments and custom ticks. ``vertical`` replaces --vertical
     (e.g. per-panel positions); ``labels`` False draws unlabelled lines."""
+    for axis, name in (("x", "vertical"), ("y", "horizontal")):
+        draw_bands(ax, axis, getattr(args, f"{name}_band", None), labels=getattr(args, f"{name}_band_label", None),
+                   colors=getattr(args, f"{name}_band_color", None), fontsize=style.linelabelfontsize)
     draw_horizontal_overlay(ax, args)
     draw_vertical_lines(
         ax,

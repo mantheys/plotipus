@@ -49,8 +49,10 @@ are the example list, `examples/input/plots/example_scripts.txt`;
   to the data root), `--select COL -s VALUE` / `--remove_value`,
   `--variables` (values of the `Variable` column, one panel each).
   `--variable_column COL` takes the panels from another column. Panels side
-  by side share their y range and only the first shows the y label and tick
-  labels (`--no-compact` gives each its own axis).
+  by side are facets: the figure widens with each one (`--layout panels`
+  keeps one plot's size, split in touching panels). They share their y range
+  and only the first shows the y label and tick labels (`--no-compact` gives
+  each its own axis).
   Values beyond the last key belong to it, so
   `--select Distribution -s Gaussian Poisson` keeps both distributions.
 * **Encodings**: `--hue` (alias `--iterable`), `--style` (alias
@@ -185,12 +187,15 @@ plotipus line --datafile Distributions -x Bin -y Counts --hue Sample --select Di
 `--horizontal_label` (`--vertical_label`) writes a label next to its line:
 just above it (else below), at its right end, its left end or along it,
 wherever it covers the least data. Labels and `--note` boxes get a
-translucent background only where they sit on data.
+translucent background only where they sit on data. `--vertical_band X1 X2
+[X1 X2 ...]` (`--horizontal_band Y1 Y2 ...`) shades ranges behind the data,
+in the style's muted colour (`--vertical_band_color`), with an optional
+`--vertical_band_label` written in the band like a line label.
 
-![Breit-Wigner peak with vertical lines at the half-maximum points and a horizontal line at half maximum labelled with the width](images/options/overlays.png)
+![Breit-Wigner peak with the full width at half maximum shaded and a horizontal line at half maximum labelled with the width](images/options/overlays.png)
 
 ```bash
-plotipus line --datafile Distributions -x Bin -y Counts --hue Sample --select Distribution -s Breit-Wigner --data_hue Data --errory --vertical 89.94 92.44 --horizontal 128 --horizontal_label 'FWHM = 2.50 GeV' --labelx 'Mass (GeV)' --title 'Reference lines and a line label'
+plotipus line --datafile Distributions -x Bin -y Counts --hue Sample --select Distribution -s Breit-Wigner --data_hue Data --errory --vertical_band 89.94 92.44 --horizontal 128 --horizontal_label 'FWHM = 2.50 GeV' --labelx 'Mass (GeV)' --title 'A shaded region and a line label'
 ```
 
 ## Histograms
@@ -459,7 +464,10 @@ open steps with error bands:
   `--rangex` or else the range of all the hues' x values.
 * **Box plots** (`--plot_type box`): one box per bin (per category for a
   non-numeric x), the hues side by side within the bin, in their colours
-  with one legend entry each. Numeric bins keep a plain numeric axis
+  (a strong face, the median in ink) with one legend entry each. **Violin
+  plots** (`--plot_type violin`) draw the density of y per bin instead,
+  with the interquartile range as an ink bar and the median as a dot; they
+  take the same bins, axis and colours. Numeric bins keep a plain numeric axis
   over the bin edges; `--box_tick_labels centres` puts a tick at each bin
   centre and `--box_tick_labels ranges` labels the bins "[a, b)". `--whis` sets the
   whisker reach (default 1.5 IQR, or two percentiles such as `5 95`) and
@@ -471,10 +479,16 @@ open steps with error bands:
 plotipus line --datafile Distributions -x Value -y Residual --binned --estimator std --hue Sample --data_hue Data --select Distribution -s Exponential --bins 11 --rangex 0 10 --labelx True --labely 'Measured - True' --title 'Binned estimator: resolution'
 ```
 
-![Box plots of measured - true per bin of the true value, data and simulation side by side](images/options/box.png)
+![Box plots of measured - true per bin of the true value, simulation](images/options/box.png)
 
 ```bash
-plotipus line --datafile Distributions -x Value -y Residual --binned --plot_type box --hue Sample --select Distribution -s Exponential --bins 11 --rangex 0 10 --labelx True --labely 'Measured - True' --title 'Box plots per bin'
+plotipus line --datafile Distributions -x Value -y Residual --binned --plot_type box --select Distribution Sample -s Exponential Simulation --bins 11 --rangex 0 10 --labelx True --labely 'Measured - True' --title 'Box plots per bin'
+```
+
+![Violin plots of measured - true per bin of the true value, simulation](images/options/violin.png)
+
+```bash
+plotipus line --datafile Distributions -x Value -y Residual --binned --plot_type violin --select Distribution Sample -s Exponential Simulation --bins 11 --rangex 0 10 --labelx True --labely 'Measured - True' --title 'Violin plots per bin'
 ```
 
 ## Categories and scatter
@@ -491,13 +505,19 @@ centre, first in the legend, over the bars (or lines) of the others. With
 the hue values in one bar per category (the legend lists the stack from the
 top), with a band of the total's error, the errors added in quadrature.
 `--kind point` sets the series side by side within each category, so
-points with error bars do not hide each other. Use bars for counts, which
-start at zero, and points for any other quantity, such as a width or a mean.
+points with error bars do not hide each other. Points need something to be
+read against: a bar, a line, or a true scatter; a lone row of markers per
+category says little. Bars suit any quantity with a true zero (counts, a
+width); data points go over them with `--data_hue`.
 `scatter` draws one point per
 entry of the array cells, with colour (`--colorby`), size (`--sizeby`) and
 marker (`--markerby`) encodings; only the drawn columns are exploded into
 points. A `--colorby` column of both signs takes the style's diverging map
-(`plot_settings.diverging_cmap`), centred at 0; others the sequential
+for markers (`plot_settings.diverging_marker_cmap`), centred at 0: its
+centre stands out from the paper (`berlin`, dark at 0, on the light
+styles; `RdBu_r`, light at 0, on the dark theme), the opposite of the map
+of filled cells (`diverging_cmap`), whose centre melts into the paper. Other
+columns take the sequential
 `image.cmap` (`plotipus`; cividis with `--experiment dune`).
 
 The yields of a search are counts, so they are bars: the simulated
@@ -511,15 +531,17 @@ plotipus cat --datafile Yields -x Region --hue Sample -y Counts --errory --kind 
 ```
 
 A `-y` column with one scalar per row (here the standard deviation of each
-sample, with its error) is drawn as it is. A width is not a count, so it is
-drawn as points, data and simulation side by side. Seven categories would
+sample, with its error) is drawn as it is. The figure asks whether the data
+spread like the simulation in each distribution: a width has a true zero, so
+the simulation is a bar (its error a band at the top) and the data a point
+read against it. Seven categories would
 overlap side by side, so their labels are rotated, and the layout makes room
 for them:
 
-![Standard deviation of seven distributions, data and simulation as points with error bars side by side](images/options/moments.png)
+![Standard deviation of seven distributions, simulation as bars and data as points](images/options/moments.png)
 
 ```bash
-plotipus cat --datafile Moments -x Config --hue Sample -y Value --errory --select Variable Config Config Config Config Config Config Config -s Std Gaussian Poisson Binomial Exponential Uniform Log-normal Chi-squared --kind point --data_hue Data --labelx Distribution --labely 'Standard deviation' --title 'One scalar per row: spread of each sample'
+plotipus cat --datafile Moments -x Config --hue Sample -y Value --errory --select Variable Config Config Config Config Config Config Config -s Std Gaussian Poisson Binomial Exponential Uniform Log-normal Chi-squared --kind bar --data_hue Data --labelx Distribution --labely 'Standard deviation' --title 'One scalar per row: spread of each sample'
 ```
 
 ![True against measured values of exponential samples coloured by their residual](images/options/scatter.png)
