@@ -910,15 +910,19 @@ def _is_data(hue, args):
     return bool(args.data_hue) and not isinstance(hue, _SumSlot) and str(hue) in {str(v) for v in args.data_hue}
 
 
-def _nested_bands(s, args, plot_type, stacking):
-    """Whether series ``s`` draws its errors as opaque nested bands (several
-    --errory_column columns, or --band_colors): errors shown as bands
-    around a line, step or markers."""
-    if s.error is None or not (s.bands or args.band_colors) or stacking:
+def _shows_bands(s, args, plot_type, stacking):
+    """Whether series ``s`` draws its errors as bands around a line, step or markers."""
+    if s.error is None or stacking:
         return False
     if not (args.errory or getattr(s, "show_error", False)) or plot_type not in (None, "line", "step", "stepmid", "plot"):
         return False
     return errory_type(args, plot_type or "errorbar") == "bands"
+
+
+def _nested_bands(s, args, plot_type, stacking):
+    """Whether series ``s`` draws its errors as opaque nested bands (several
+    --errory_column columns, or --band_colors)."""
+    return bool(s.bands or args.band_colors) and _shows_bands(s, args, plot_type, stacking)
 
 
 def _draw_nested_bands(ax, s, args, plot_type):
@@ -951,6 +955,19 @@ def draw_series(ax, s, args, plot_type=None, stack_bottom=None, dodge_shift=0.0)
     if (args.smooth and not stacking and not s.categorical and not s.is_data
             and plot_type not in ("bar", "barh", "fill", "band", "empty", "beyond", "scatter")):
         _draw_smoothed(ax, s, args, plot_type, dodge_shift)
+        return
+    if s.linewidth == 0 and not _nested_bands(s, args, plot_type, stacking) and _shows_bands(s, args, plot_type,
+                                                                                             stacking):
+        # A band-only series: its band carries the legend entry (the line has no width).
+        before = set(ax.collections)
+        label, s.label = s.label, None
+        try:
+            _draw_series(ax, s, args, plot_type, stack_bottom, dodge_shift, stacking)
+        finally:
+            s.label = label
+        new = [c for c in ax.collections if c not in before]
+        if new:
+            new[0].set_label(label)
         return
     if _nested_bands(s, args, plot_type, stacking):
         _draw_nested_bands(ax, s, args, plot_type)

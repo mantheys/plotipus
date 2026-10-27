@@ -1230,3 +1230,25 @@ def test_inset_of_a_binned_estimator(make_project, selections):
                "--estimator mean --bins 13"])
     _, (inset,) = _main_and_inset(figures[0])
     assert inset.get_lines() and inset.get_xlim()[1] <= 13.5
+
+
+def test_band_only_series_has_a_band_in_the_legend(make_project):
+    """A series drawn without a line (width 0) shows its band in the legend, with or without --band_colors."""
+    from plotipus import style
+
+    x = np.linspace(110, 150, 9)
+    frame = pd.DataFrame([
+        {"Mass": x, "P0": 1e-3 * np.ones_like(x), "Hypothesis": "Expected"},
+        {"Mass": x, "P0": 1e-3 * np.ones_like(x), "Hypothesis": "Band", "Width": 0.0,
+         "P0Error+": 5e-4 * np.ones_like(x), "P0Error-": 5e-4 * np.ones_like(x)},
+    ])
+    make_project({"P0": frame})
+    figures = _capture()
+    line.main(["--datafile", "P0", "-x", "Mass", "-y", "P0", "--hue", "Hypothesis", "--linewidth_column", "Width",
+               "--plot_type", "line", "--errory", "--errory_type", "bands"])
+    legend = figures[0].axes[0].get_legend()
+    handles = dict(zip([t.get_text() for t in legend.get_texts()], legend.legend_handles))
+    band = handles["Band"]
+    assert not hasattr(band, "get_linewidth") or type(band).__name__ != "Line2D"
+    alpha = band.get_alpha() if band.get_alpha() is not None else band.get_facecolor()[3]
+    assert alpha == pytest.approx(style.band_alpha)  # the translucent band, as drawn
