@@ -17,3 +17,9 @@ table --datafile Summary -y Value --variables Efficiency Purity Rate --html --ti
 
 # J5 Cut flow
 # needs T22.11: table --datafile Yields -y Counts --variable_name Stage --cutflow --output_name J5.tex
+
+# J6 Summary statistics table (mean, variance, correlation, line)
+table --datafile Anscombe -x X -y Y --select Type -s Data --row_name Dataset --stats mean var corr line --title "Anscombe's quartet: the same statistics" --output_name J6.tex
+
+# J7 Fit-parameter table from stored fits
+table --datafile Moseley -x AtomicNumber -y SqrtFrequency --select Type -s Data --fit_params --row_name Series --title "Moseley's law fits" --output_name J7.tex

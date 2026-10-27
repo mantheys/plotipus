@@ -11,6 +11,12 @@
   set size, with the spread over five folds as the error.
 - ``Importance``: the feature importance of the BDT and the DNN, one scalar
   cell per feature and model (normalised to sum to one per model).
+- ``Confusion``: the event counts of a three-class particle-ID network, one
+  grid of true (rows) against predicted (columns) class.
+- ``Calibration``: the reliability curve of the BDT and the DNN: the
+  fraction of signal per bin of the predicted probability, with its binomial
+  error, and the events per bin (``Count``). The DNN is overconfident.
+- ``Correlation``: the correlation matrix of the input features.
 """
 
 import numpy as np
@@ -67,9 +73,42 @@ def importance(rng):
     return pd.DataFrame(rows)
 
 
+CLASSES = np.array(["electron", "pion", "muon"])
+
+
+def confusion(rng):
+    # rows: the true class, columns: the predicted one
+    probabilities = np.array([[0.93, 0.06, 0.01], [0.09, 0.88, 0.03], [0.01, 0.04, 0.95]])
+    counts = np.array([rng.multinomial(n, p) for n, p in zip((5200, 6100, 900), probabilities)], dtype=float)
+    return pd.DataFrame([{"Predicted": CLASSES, "True": CLASSES, "Count": counts}])
+
+
+def calibration(rng):
+    edges = np.linspace(0, 1, 11)
+    predicted = 0.5 * (edges[1:] + edges[:-1])
+    rows = []
+    for model, sharpness in (("BDT", 1.0), ("DNN", 0.6)):
+        # an overconfident model's true probability is pulled towards 0.5
+        truth = 0.5 + (predicted - 0.5) * sharpness
+        count = np.round(4000 * (0.3 + 4 * (predicted - 0.5) ** 2)).astype(float)
+        observed = rng.binomial(count.astype(int), truth) / count
+        rows.append({"Model": model, "Predicted": predicted, "Observed": observed,
+                     "ObservedError": np.sqrt(observed * (1 - observed) / count), "Count": count})
+    return pd.DataFrame(rows)
+
+
+def correlation(rng):
+    loadings = rng.normal(0, 1, (len(FEATURES), 2)) * np.array([1.0, 0.6])
+    covariance = loadings @ loadings.T + np.diag(rng.uniform(0.3, 1.0, len(FEATURES)))
+    scale = np.sqrt(np.diag(covariance))
+    names = np.array(FEATURES)
+    return pd.DataFrame([{"FeatureX": names, "FeatureY": names, "Correlation": covariance / np.outer(scale, scale)}])
+
+
 def _classifier(rng):
     frame = scores(rng)
-    return {"Scores": frame, "ROC": roc(frame), "LearningCurve": learning_curve(rng), "Importance": importance(rng)}
+    return {"Scores": frame, "ROC": roc(frame), "LearningCurve": learning_curve(rng), "Importance": importance(rng),
+            "Confusion": confusion(rng), "Calibration": calibration(rng), "Correlation": correlation(rng)}
 
 
 GENERATORS = {"classifier": _classifier}

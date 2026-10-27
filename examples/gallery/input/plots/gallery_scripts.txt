@@ -44,8 +44,11 @@ hist --datafile Showers -x RecoEnergy --select Particle -s muon --bins 40 --rang
 # A9 Box plot per category
 line --datafile Showers -x TrueEnergy -y Residual --binned --plot_type box --hue Particle --select Particle -s electron pion --bins 8 --rangex 5 75 --no_fliers --labelx 'Beam energy (GeV)' --labely '$(E_{reco}-E_{true})/E_{true}$' --title 'Energy residuals per beam-energy bin' --output_suffix A9
 
-# A10 Violin / strip / box per category
-# needs T22.2: cat --datafile Showers -x Particle -y Response --kind violin --labely 'Response' --title 'Response per particle' --output_suffix A10
+# A10 Violin per bin
+line --datafile Showers -x TrueEnergy -y Residual --binned --plot_type violin --select Particle -s pion --bins 8 --rangex 5 75 --labelx 'Beam energy (GeV)' --labely '$(E_{reco}-E_{true})/E_{true}$' --title 'Pion energy residuals per beam-energy bin' --output_suffix A10
+
+# A10b Violin / strip / box per category
+# needs T22.2: cat --datafile Showers -x Particle -y Response --kind violin --labely 'Response' --title 'Response per particle' --output_suffix A10b
 
 # == B Relationships
 
@@ -90,8 +93,14 @@ line --datafile ZLineshape -x Energy -y CrossSection --hue Model --series_type D
 # C7 Stacked area
 line --datafile Distributions -x Bin -y Counts --hue Sample --select Distribution Sample -s Resonance Background Signal --stacked --plot_type line --labelx 'Mass (GeV)' --labely 'Events / 2 GeV' --title 'Signal on background as a stacked area' --output_suffix C7
 
+# C8 Time series with dates
+line --datafile Monitoring -x Day -y Gain --hue Channel --plot_type line --errory --labely 'Relative gain' --title 'Daily gain of two calorimeter channels' --output_suffix C8
+
+# C9 Smoothed / rolling line
+line --datafile Monitoring -x Day -y Gain --hue Channel --plot_type line --smooth 15 --labely 'Relative gain' --title 'Gain drift, smoothed over 15 days' --output_suffix C9
+
 # C10 Many series with a sequential colour
-# needs T22.5: line --datafile RotationCurves -x Radius -y Velocity --hue Galaxy --hue_cmap viridis --plot_type line --labelx 'R (kpc)' --labely 'V (km/s)' --title 'Rotation curves on a colour map' --output_suffix C10
+line --datafile RotationCurves -x Radius -y Velocity --hue Galaxy --hue_cmap viridis --plot_type line --rangex 0 125 --rangey 0 350 --labelx 'R (kpc)' --labely 'V (km/s)' --title 'Rotation curves on a colour map' --output_suffix C10
 
 # == D Comparisons
 
@@ -103,6 +112,9 @@ cat --datafile Importance -x Feature -y Importance --select Model -s BDT --hue M
 
 # D3 Grouped bars
 cat --datafile Importance -x Feature -y Importance --hue Model --kind bar --labely 'Importance' --title 'Feature importance of two models' --output_suffix D3
+
+# D8 Heatmap of a category × category table
+map --datafile Correlation -x FeatureX -y FeatureY -z Correlation --annotate .2f --matrix --cmap RdBu_r --zmin -1 --labelz 'Correlation' --title 'Correlation of the input features' --output_suffix D8
 
 # D9 Before/after (slope) chart
 cat --datafile Yields -x Stage -y Counts --hue Particle --kind line --labely Events --title 'Yields before and after the selection' --output_suffix D9
@@ -124,8 +136,14 @@ line --datafile Distributions -x Bin -y Counts --hue Sample --select Distributio
 # E5 S/√B or significance panel
 line --datafile Distributions -x Bin -y Counts --hue Sample --select Distribution Sample -s Resonance Background Signal --stacked --lower group --reference_group Signal --other_group Background --group_significance --lower_labely '$S/\sqrt{B}$' --labelx 'Mass (GeV)' --labely 'Events / 2 GeV' --title 'Stacked simulation and the signal significance' --output_suffix E5
 
+# E6 Residual relative to a named model component
+line --datafile HiggsDiphoton -x Mass -y Events --select Weighting -s Unweighted --select Component -s Data 'Sig+Bkg Fit' --fit --data_hue Data --errory --lower 'residual:Bkg (4th order polynomial)' --lower_labely 'Data $-$ Bkg' --no-fit_type_subtitle --max_fit_params 3 --labelx '$m_{\gamma\gamma}$ [GeV]' --labely 'Events / 2 GeV' --title 'H→γγ: data minus the background fit' --output_suffix E6
+
 # E7 Local p0 scan with σ reference lines
-# needs T20: line --datafile HiggsLocalP0 -x Mass -y P0 --hue Hypothesis --plot_type line --errory --logy --sigma_lines 1 2 3 4 5 --labelx '$m_H$ [GeV]' --labely 'Local $p_0$' --title 'Local p0 with σ lines' --output_suffix E7
+line --datafile HiggsLocalP0 -x Mass -y P0 --hue Hypothesis --iterable_mapping p0_labels --linewidth_column Width --plot_type line --errory --errory_type bands --band_colors '#66ccff' --logy --rangex 110 150 --rangey 1e-12 10 --legend_loc 'lower left' --sigma_lines 1 2 3 4 5 --labelx '$m_H$ [GeV]' --labely 'Local $p_0$' --title 'Local $p_0$ with $\sigma$ lines' --output_suffix E7
+
+# E8 Pull distribution
+hist --datafile Distributions -x Pull --select Sample -s Data --bins 16 --rangex -4 4 --overlay_gaussian --labelx 'Pull (data $-$ expected)/$\sigma$' --title 'Pulls of every data histogram' --output_suffix E8
 
 # == F ML diagnostics
 
@@ -138,8 +156,11 @@ line --datafile ROC -x Recall -y Precision --hue Model --plot_type line --rangex
 # F3 Learning curve with band
 line --datafile LearningCurve -x TrainSize -y Accuracy --hue Split --errory --plot_type line --logx --labelx 'Training events' --labely 'Accuracy' --title 'Learning curve, spread over five folds' --output_suffix F3
 
+# F4 Calibration (reliability) curve + counts
+line --datafile Calibration -x Predicted -y Observed --hue Model --plot_type errorbar --errory --line 0 0 1 1 --lower column:Count --lower_plot_type bar --rangex 0 1 --rangey 0 1 --labelx 'Predicted probability' --labely 'Fraction of signal' --lower_labely 'Events' --title 'Calibration of two classifiers' --output_suffix F4
+
 # F5 Confusion matrix
-# needs T22.3: map --datafile Confusion -x Predicted -y True -z Fraction --annotate '{:.0%}' --matrix --title 'Confusion matrix' --output_suffix F5
+map --datafile Confusion -x Predicted -y True -z Count --norm horizontal --annotate .0% --matrix --cmap Blues --title 'Particle-ID confusion matrix' --output_suffix F5
 
 # F6 Feature importance
 # needs T22.1: cat --datafile Importance -x Feature -y Importance --kind bar --orient h --sort desc --title 'Feature importance' --output_suffix F6
@@ -159,7 +180,10 @@ line --datafile TriggerEfficiency -x Energy -y Efficiency --hue Particle --selec
 line --datafile TriggerEfficiency -x Energy -y Efficiency --hue Particle --select Config -s HLT --plot_type line --errory --logx --horizontal 100 --labelx 'Energy (GeV)' --labely 'Efficiency (%)' --title 'HLT turn-on with its uncertainty band' --output_suffix G4
 
 # G5 Nested ±1σ/±2σ bands (Brazil plot)
-# needs T20: line --datafile HiggsLimit -x Mass -y MuLimit --select Limit -s Observed -s Expected --hue Limit --style Limit --plot_type line --errory --errory_column MuLimit1Sigma MuLimit2Sigma --band_colors brazil --logy --logx --horizontal 1 --labelx '$m_H$ [GeV]' --labely '95% CL Limit on $\mu$' --title 'Brazil plot' --output_suffix G5
+line --datafile HiggsLimit -x Mass -y MuLimit --hue Limit --style Limit --exclude_iterable 'Expected +-1 sigma' 'Expected +-2 sigma' --plot_type line --errory --errory_column MuLimit1Sigma MuLimit2Sigma --band_colors brazil --band_labels '$\pm1\sigma$' '$\pm2\sigma$' --logy --logx --rangex 110 600 --horizontal 1 --labelx '$m_H$ [GeV]' --labely '95% CL limit on $\mu$' --title 'Brazil plot' --output_suffix G5
+
+# G7 1D likelihood scan with Δχ² = 1, 4 lines
+line --datafile EnergyScale -x Scale -y DeltaNLL --plot_type line --delta_chi2_lines 1 4 --rangey 0 9 --labelx 'Electron energy scale' --labely '$-2\,\Delta\ln L$' --no_legend --title 'Profile-likelihood scan of the energy scale' --output_suffix G7
 
 # == H Small multiples and layout
 
@@ -167,13 +191,16 @@ line --datafile TriggerEfficiency -x Energy -y Efficiency --hue Particle --selec
 line --datafile Anscombe -x X -y Y --hue Type --data_hue Data --variables I II III IV --plot_type line --no_legend --rangex 2 20 --rangey 2 14 --labelx 'x' --labely 'y' --single_panel_size --title "Anscombe's quartet, one panel per dataset" --output_suffix H1
 
 # H2 Shared axes and colour scales across facets
-# needs T22.6: line --datafile Anscombe -x X -y Y --hue Type --data_hue Data --variables I II III IV --plot_type line --sharex --sharey --no_legend --title 'Shared axes' --output_suffix H2
+line --datafile Anscombe -x X -y Y --hue Type --data_hue Data --variables I II III IV --plot_type line --sharex all --sharey all --no_legend --labelx 'x' --labely 'y' --title "Anscombe's quartet on shared axes" --output_suffix H2
+
+# H3 Facet grid (rows × columns by two columns)
+line --datafile TriggerEfficiency -x Energy -y Efficiency --facet_row Config --facet_col Particle --plot_type errorbar --errory --logx --horizontal 100 --labelx 'Energy (GeV)' --labely 'Efficiency (%)' --no_legend --title 'Turn-on per trigger level and particle' --output_suffix H3
 
 # H4 Upper + lower panels
 line --datafile SupernovaHubble -x Redshift -y DistanceModulus --hue Series --style Series --data_hue 'Union2.1 SNe' --iterable_color_mapping sn_colors --comparable_linestyles solid solid dotted dashed --plot_type line --errory --logx --rangex 0.008 1.6 --rangey 32.5 46.5 --lower column:DeltaMu --lower_labely '$\Delta$(m-M) (mag)' --lower_rangey -0.9 0.9 --no_lower_legend --labelx 'z' --labely 'm-M (mag)' --title 'Supernovae and three cosmologies, residuals below' --output_suffix H4
 
 # H5 Inset axes
-# needs T22.7: line --datafile Keeling -x DecimalDate -y CO2 --hue Series --plot_type line --inset 2015 2020 --inset_pos 0.55 0.1 0.4 0.35 --title 'Keeling curve with a zoom' --output_suffix H5
+line --datafile Keeling -x DecimalDate -y CO2 --hue Series --plot_type line --inset 2015 2020 396 418 --inset_pos 0.08 0.5 0.4 0.35 --legend_loc 'lower right' --labelx 'Year' --labely 'CO$_2$ (ppm)' --title 'Keeling curve with a zoom' --output_suffix H5
 
 # H8 Figure sized for a journal column
 line --datafile ROC -x FPR -y TPR --hue Model --plot_type line --medium paper --width single --rangex 0 1 --rangey 0 1 --labelx 'False-positive rate' --labely 'True-positive rate' --title 'ROC curves at a single journal column' --output_suffix H8
@@ -195,8 +222,20 @@ line --datafile FourLepton -x Mass -y Events --hue Sample --data_hue Data --iter
 # I4b Experiment preset and a status watermark
 line --datafile FourLepton -x Mass -y Events --hue Sample --data_hue Data --iterable_color_mapping zz_colors --iterable_mapping zz_labels --stacked --rangex 70 181 --labelx '$m_{4\ell}$ (GeV)' --labely 'Events / 3 GeV' --experiment cms --label_status Preliminary --label_right '$\sqrt{s}$ = 7 TeV, L = 5.1 fb$^{-1}$' '$\sqrt{s}$ = 8 TeV, L = 5.3 fb$^{-1}$' --watermark simulation --watermark_style diagonal --output_suffix I4b
 
+# I5 Text at data coordinates, arrows
+line --datafile Distributions -x Bin -y Counts --hue Sample --select Distribution -s Resonance --data_hue Data --stacked --errory --text 136 300 'signal' --text_coords data --arrow 126.5 265 --labelx 'Mass (GeV)' --labely 'Events / 2 GeV' --title 'A labelled excess' --output_suffix I5
+
+# I6 Direct labels (no legend)
+line --datafile ZLineshape -x Energy -y CrossSection --hue Model --data_hue Data --plot_type line --errory --error_scale 10 --direct_labels max --labelx '$E_{cm}$ [GeV]' --labely '$\sigma_{had}$ [nb]' --title 'Z line shape, curves named at their peaks' --output_suffix I6
+
 # I7 Inverted axis
 line --datafile Leavitt -x LogPeriod -y Magnitude --hue Brightness --data_hue Maximum Minimum --iterable_color_mapping leavitt_colors --plot_type line --rangex 0 2.2 --rangey 17 10.5 --labelx 'log P (days)' --labely 'Apparent magnitude' --title "Leavitt's period-luminosity relation, magnitudes inverted" --output_suffix I7
+
+# I8 Shaded excluded region (polygon)
+map --datafile OmegaContours --configs SN CMB --names Riess1998 Riess1998 -x OmegaM -y OmegaLambda -z DeltaChi2 --contour --contour_sigmas 1 2 3 --fill_contours --background none --region '0,0.9 0,1.6 0.35,1.6' --region_hatch '//' --region_label 'No Big Bang' --rangex 0 1.4 --rangey -0.4 1.6 --labelx '$\Omega_M$' --labely '$\Omega_\Lambda$' --title 'An excluded region' --output_suffix I8
+
+# I9 Inline contour labels
+map --datafile OmegaContours --configs SN --names Riess1998 -x OmegaM -y OmegaLambda -z DeltaChi2 --contour --contour_sigmas 1 2 3 --contour_labels --contour_label_pos 0.22 0.57 0.16 0.445 0.12 0.338 --background none --rangex 0 0.7 --rangey 0.2 1.2 --labelx '$\Omega_M$' --labely '$\Omega_\Lambda$' --title 'Contours labelled on the lines' --output_suffix I9
 
 # I10 Legend outside / above the axes
 line --datafile ROC -x FPR -y TPR --hue Model --plot_type line --legend_loc outside --labelx 'False-positive rate' --labely 'True-positive rate' --title 'ROC curves, the legend above the axes' --output_suffix I10
