@@ -202,12 +202,15 @@ derived from (or stored in) the same DataFrame. Each `--lower` adds one:
 
 ```bash
 --lower ratio                 # every series / the reference series (--reference, --reference_value):
-                              # the reference is a line at 1 in its colour, the others points
+                              # the reference is a line at 1 in its colour, the others points with
+                              # both series' errors (with --errory)
 --lower relative_difference   # also subtract, asymmetry, excess, excess_probability, sum, mean, rms
---lower group --reference_group S --other_group B1 B2 --group_significance   # S/sqrt(B), points with errors
+--lower group --reference_group S --other_group B1 B2 --group_significance   # S/sqrt(B): a step with the
+                              # band a measured significance spreads over, sqrt(1 + S/B) and the simulation's error
 --lower residual              # (data - fit) / fit of the stored model (with --fit: masked where fit < 1e-3 of its peak)
 --lower pull                  # (data - fit) / error, at least +-3 with +-1 and +-2 bands (with --fit)
---lower column:Significance   # a series stored in the pickle (with SignificanceError)
+--lower column:Significance   # a series stored in the pickle (with SignificanceError), over a dashed
+                              # line at 0 (1 for a column named like a ratio; --no_lower_reference)
 --lower events:OpHit          # event markers read from OpHit* columns
 ```
 
@@ -267,12 +270,14 @@ point for the data. A `--lower column:NAME` panel of a data series is drawn
 as points. `line --density` normalises every series to unit area (y divided
 by the sum of y times the bin width, errors alike), to compare shapes of
 samples of different sizes; the y label becomes "Density". `--peak`
-divides every series by its maximum instead (y label "Relative to peak"), so
-shapes compare at their peaks. `--lower ratio`
+divides every series by its maximum instead (y label "Normalised to 1"), so
+shapes compare at their heights. `--shift peak` also moves every series by
+whole bins so its maximum sits at the reference's (`--reference_value`, else
+the first series), and lower panels compare the aligned shapes. `--lower ratio`
 (also `subtract`, `relative_difference`) then compares the data with the
 total of the simulation: data points with their own errors over a band of
 the simulation's error, around a dashed line at 1 (0). Bins where both are
-empty (0/0) carry no information and are left out; data over an empty
+empty (0/0) agree: an open point at 1 without an error; data over an empty
 prediction is an arrow at the top of the panel; no data over a non-empty
 prediction is 0 with the upper error of observing nothing (1.84 counts,
 Garwood). `--reference_value` or `--reference_sum` restore the

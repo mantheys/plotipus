@@ -58,8 +58,14 @@ def get_common_figsize(ncols=1, nrows=1, height_ratios=None):
         ncols, nrows, height_ratios = 1, 1, None
     rows = max(1, int(nrows))
     if _style.figure_width is not None:
-        height = _style.figure_row_height * rows
-        if height_ratios:
+        row_height = _style.figure_row_height
+        facets = _style.figure_facet_rows
+        if ncols > 1 and facets.get("panel_aspect"):
+            # Panels side by side: shorter rows, so the panels are not tall and narrow.
+            panel = float(_style.figure_width) / ncols * float(facets["panel_aspect"])
+            row_height = min(row_height, max(float(facets.get("min_height", 0.0)), panel))
+        height = row_height * rows
+        if height_ratios and _style.figure_lower_panels != "share":
             height *= sum(height_ratios) / height_ratios[0]
         return (float(_style.figure_width), float(height))
     panel_count = max(1, int(ncols))

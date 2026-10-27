@@ -108,13 +108,17 @@ Widths are confirmed from the publishers' pages:
 | `onehalf` | 5.3 in (13.5 cm) | 3.6 in | 8 pt | 1.5 column |
 | `double` | 6.8 in (17.2 cm) | 3.0 in per row | 8 pt | full width; 2–3 panels |
 | `nature` | 3.5 in (89 mm) | 2.6 in | 7 pt | Nature-family limits |
-| `slide` (default; `--medium slides`) | 8 in (16:9 at 1280 px) | 4.5 in | 14 pt | talks; `half-slide` is 4 in wide, for two plots side by side |
+| `slide` (default; `--medium slides`) | 8 in (1280 px wide) | 5.84 in (aspect 0.73 on slides) | 14 pt | talks; `half-slide` is 4 in wide, for two plots side by side |
 
 - **Panels.** A row of N panels keeps the preset's total width, so the
-  panels get narrower. Text is never scaled to compensate; this replaces
-  `panel_font_scale`.
-- **Ratio panels.** Adding a lower panel adds 30% of the upper height
-  instead of squeezing the upper panel.
+  panels get narrower, and the row gets shorter: about square panels, at
+  least 3.2 in tall, never taller than one plot (`facet_rows`; decided
+  2026-10-27, after the example review). Text is never scaled to
+  compensate; this replaces `panel_font_scale`.
+- **Ratio panels.** On paper, adding a lower panel adds 30% of the upper
+  height instead of squeezing the upper panel. On slides (8 in at aspect
+  0.73), the lower panel shares the figure's height, so every single plot
+  has one size (`lower_panels: share`; decided 2026-10-27).
 - **Output.**
   - PDF (vector) for papers.
   - PNG at `savefig.dpi: 300`, or 600 for line art in APS journals.

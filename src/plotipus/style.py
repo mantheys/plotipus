@@ -214,6 +214,7 @@ def _publish():
     global capitalize_exceptions, redundant_legend_titles, title_short_forms
     global widths, figure_aspect, figure_width, figure_row_height, draw_titles
     global fit_color, zero_line_color, diverging_cmap, header, figure_single_panel, text_scale
+    global figure_lower_panels, figure_facet_rows
 
     rcparams = _CONFIG.get("rcparams", {})
     plt.rcParams.update(rcparams)
@@ -271,6 +272,11 @@ def _publish():
     figure_single_panel = bool(geometry.get("single_panel", False))
     figure_width, figure_row_height = resolve_width(
         geometry.get("width", _CONFIG.get("width")), widths, figure_aspect, geometry.get("aspect"))
+    # Lower panels "add" height to the upper panel's, or "share" the figure's.
+    figure_lower_panels = str(_CONFIG.get("lower_panels", "add"))
+    # A row of several panels: each about panel_aspect (height/width), the
+    # row at least min_height inches and never taller than one plot.
+    figure_facet_rows = dict(_CONFIG.get("facet_rows", {}))
 
     layout = settings.get("figure_layout", {})
     figure_base_width = layout.get("base_width", 8)
