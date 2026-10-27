@@ -113,6 +113,18 @@ cat --datafile Importance -x Feature -y Importance --select Model -s BDT --hue M
 # D3 Grouped bars
 cat --datafile Importance -x Feature -y Importance --hue Model --kind bar --labely 'Importance' --title 'Feature importance of two models' --output_suffix D3
 
+# D4 Stacked bars per category
+cat --datafile Yields -x Stage -y Counts --hue Particle --kind bar --stacked --errory --labely Events --title 'Composition per selection stage' --output_suffix D4
+
+# D5 Horizontal bars (sorted)
+cat --datafile Importance -x Feature -y Importance --select Model -s BDT --hue Model --kind bar --orient h --sort desc --errory --labely 'Importance' --title 'Ranked BDT feature importance' --output_suffix D5
+
+# D6 Dot plot / Cleveland dot
+cat --datafile Importance -x Feature -y Importance --hue Model --kind point --orient h --sort desc --errory --labely 'Importance' --title 'Feature importance of two models, ranked' --output_suffix D6
+
+# D7 Lollipop
+cat --datafile Importance -x Feature -y Importance --select Model -s DNN --hue Model --kind lollipop --orient h --sort desc --errory --labely 'Importance' --title 'Ranked DNN feature importance' --output_suffix D7
+
 # D8 Heatmap of a category × category table
 map --datafile Correlation -x FeatureX -y FeatureY -z Correlation --annotate .2f --matrix --cmap RdBu_r --zmin -1 --labelz 'Correlation' --title 'Correlation of the input features' --output_suffix D8
 
@@ -163,7 +175,7 @@ line --datafile Calibration -x Predicted -y Observed --hue Model --plot_type err
 map --datafile Confusion -x Predicted -y True -z Count --norm horizontal --annotate .0% --matrix --cmap Blues --title 'Particle-ID confusion matrix' --output_suffix F5
 
 # F6 Feature importance
-# needs T22.1: cat --datafile Importance -x Feature -y Importance --kind bar --orient h --sort desc --title 'Feature importance' --output_suffix F6
+cat --datafile Importance -x Feature -y Importance --hue Model --kind bar --orient h --sort desc --errory --labely 'Importance' --title 'Feature importance' --output_suffix F6
 
 # F7 Score distributions per class
 hist --datafile Scores -x Score --hue Class --select Model -s DNN --bins 50 --rangex 0 1 --density --logy --labelx 'DNN score' --title 'Classifier score per class' --output_suffix F7

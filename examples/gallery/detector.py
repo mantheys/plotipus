@@ -90,8 +90,9 @@ def yields(rng):
         shape = np.exp(-centres / (35 if particle != "muon" else 8))
         shape /= shape.sum()
         for stage, fraction in (("Preselection", 1.0), ("Final selection", kept)):
-            rows.append({"Particle": particle, "Stage": stage, "Energy": centres,
-                         "Counts": rng.poisson(total * fraction * shape).astype(float)})
+            counts = rng.poisson(total * fraction * shape).astype(float)
+            rows.append({"Particle": particle, "Stage": stage, "Energy": centres, "Counts": counts,
+                         "CountsError": np.sqrt(counts)})
     return {"Yields": pd.DataFrame(rows)}
 
 

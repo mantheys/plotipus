@@ -655,6 +655,22 @@ for them:
 plotipus cat --datafile Moments -x Config --hue Sample -y Value --errory --select Variable Config Config Config Config Config Config Config -s Std Gaussian Poisson Binomial Exponential Uniform Log-normal Chi-squared --kind bar --data_hue Data --labelx Distribution --labely 'Standard deviation' --title 'One scalar per row: spread of each sample'
 ```
 
+Rankings and long category names read better across: `--orient h` puts the
+categories down the y axis (the first on top) and the values along x, which
+keeps `--labely`, `--logy`, `--rangey` and `--horizontal` (drawn as vertical
+lines). `--sort desc` (or `asc`) orders the categories by their total over
+every series, and replaces `--x_order`. `--kind lollipop` draws each value as
+a marker at the end of a thin stem from zero, with less ink than a bar; its
+error bar has caps, since it runs along the stem. Lollipops and points are
+set side by side when there are several series, the data (`--data_hue`)
+first. Every kind works in both orientations, `--stacked` bars included.
+
+![Standard deviations of seven distributions as horizontal lollipops, sorted, with the data as points](images/options/ranking.png)
+
+```bash
+plotipus cat --datafile Moments -x Config --hue Sample -y Value --errory --select Variable Config Config Config Config Config Config Config -s Std Gaussian Poisson Binomial Exponential Uniform Log-normal Chi-squared --kind lollipop --orient h --sort desc --data_hue Data --labelx Distribution --labely 'Standard deviation' --title 'Ranked spreads: horizontal lollipops'
+```
+
 ![True against measured values of exponential samples coloured by their residual](images/options/scatter.png)
 
 ```bash
