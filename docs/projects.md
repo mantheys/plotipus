@@ -176,6 +176,15 @@ run with the current Python). `plotipus run LIST` accepts `--jobs N`,
 `--match TEXT`, `--dry_run` (print the commands) and `--check` (only parse
 them).
 
+The runner imports plotipus and every kind once and warms up matplotlib's
+text layout, then runs each command in a fork of itself (`--isolate fork`,
+the default where `os.fork` exists): every command starts from the same
+fresh state, as if run alone, without paying the imports again, so a list
+runs about twice as fast; `--jobs N` runs N commands at a time on top of
+that. `--isolate subprocess` (also `PLOTIPUS_ISOLATE=subprocess`) starts a
+new Python per command, as before; `--show`, project scripts and systems
+without fork always do.
+
 Command lines written for the original plotting scripts of the
 LOWE_RECONSTRUCTION_PUBLICATION repository (`scripts/script_*.py ...`) are
 translated automatically (`plotipus translate <line>` shows the result) and
