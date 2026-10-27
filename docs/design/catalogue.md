@@ -36,15 +36,15 @@ command lists.
 |---|---|---|---|
 | A Distributions | 7 | 0 | 5 |
 | B Relationships | 6 | 1 | 2 |
-| C Trends and fits | 7 | 2 | 1 |
-| D Comparisons | 4 | 2 | 3 |
-| E Ratios and significance | 6 | 1 | 1 |
-| F ML diagnostics | 4 | 3 | 0 |
+| C Trends and fits | 10 | 0 | 0 |
+| D Comparisons | 5 | 1 | 3 |
+| E Ratios and significance | 8 | 0 | 0 |
+| F ML diagnostics | 6 | 1 | 0 |
 | G Uncertainty | 8 | 1 | 0 |
 | H Small multiples and layout | 2 | 2 | 4 |
-| I Annotations | 6 | 1 | 3 |
+| I Annotations | 10 | 0 | 0 |
 | J Tables | 4 | 1 | 2 |
-| **Total (89)** | **54** | **14** | **21** |
+| **Total (89)** | **66** | **7** | **16** |
 
 Nearly half of the ◐ entries are partial only because of a bug in
 [bugs.md](bugs.md), not because an option is missing. Fixing B01–B13 moves
@@ -94,9 +94,9 @@ about 12 of them to ✅.
 | C5 | Fit with pull panel | fit quality in σ | F01, F17 | ✅ | `... --fit --lower pull` (P05): (data−fit)/σ with ±1σ/±2σ bands; `--lower residual --lower pull` stacks both (B13, fixed in T06). | — |
 | C6 | Several model curves over data | model comparison | F09, F12, F17 | ✅ | `line --hue Model --plot_type line --series_type data=errorbar` (F09, F12, F17): points with error bars for data, on top, lines for the models; `--series_type_mapping` sets the types in a style file (T21). | — |
 | C7 | Stacked area | composition over x | F23 | ✅ | `--stacked --plot_type line` (`fill_between` from the running total; B10 fixed in T18). | — |
-| C8 | Time series with dates | monitoring, Keeling curve | F13 | ◐ | Works on numeric x (decimal year); no date axis formatting. | Convert datetime64 x and use `ConciseDateFormatter`. |
-| C9 | Smoothed / rolling line | trend under noise | F13, F14 | ✗ | — | `line --smooth N [--smooth_kind rolling\|savgol]` drawn over the raw series. |
-| C10 | Many series with a sequential colour | ordered hue (runs, energies) | F11 | ◐ | Only the categorical palette (past its end colours repeat with a warning, T01). | `line --hue_cmap viridis` for numeric/ordered hues, with a colorbar instead of a legend. |
+| C8 | Time series with dates | monitoring, Keeling curve | F13 | ✅ | `line -x Day` with a datetime column (T22.10): date numbers on a `ConciseDateFormatter` axis; decimal years still work as numbers. | — |
+| C9 | Smoothed / rolling line | trend under noise | F13, F14 | ✅ | `line --smooth 15 [--smooth_kind savgol] [--smooth_only]` (T22.10): the smoothed line over the faint raw series. | — |
+| C10 | Many series with a sequential colour | ordered hue (runs, energies) | F11 | ✅ | `line --hue Run --hue_cmap viridis` (also `hist`; T22.5): numeric hues by value, others in draw order, a colorbar instead of the colour legend. | — |
 
 ## D. Comparisons across categories
 
@@ -109,7 +109,7 @@ about 12 of them to ✅.
 | D5 | Horizontal bars (sorted) | long labels, rankings | — | ✗ | `line --plot_type barh` fails on categorical x (exit 1); `cat` has no orientation. | `cat --orient h --sort`. |
 | D6 | Dot plot / Cleveland dot | many categories, precise values | — | ◐ | `cat --kind point` (P11), marker-only legend handles; vertical only. | `--orient h`. |
 | D7 | Lollipop | rankings with less ink | — | ✗ | — | `cat --kind lollipop` (stem + point). |
-| D8 | Heatmap of a category × category table | correlation / yields | F25 | ◐ | `map -z` draws the grid (P17) but without cell values, without categorical tick labels and with the y axis not inverted. | `map --annotate [FORMAT]`; string x/y become ticks. |
+| D8 | Heatmap of a category × category table | correlation / yields | F25 | ✅ | `map -x A -y B -z Value --annotate .2f --matrix` (T22.3): string x/y become one tick per name, cell values written dark on light and light on dark. | — |
 | D9 | Before/after (slope) chart | paired change | — | ✅ | `cat --datafile Spectra -x Stage -y Counts --integrate_over Energy --hue Sample --kind line` (legends avoid the data, B06 fixed in T15). | — |
 
 ## E. Ratios, differences and significance
@@ -121,9 +121,9 @@ about 12 of them to ✅.
 | E3 | Data points over stacked MC with ratio panel | the HEP control plot | F03 | ✅ | `line --datafile Spectrum -x Mass -y Counts --hue Sample --stacked --plot_type fill --overlay data --stack_total_error --lower ratio` (fixed in T18). Errors are the stored ones until T19 adds Poisson intervals. | — |
 | E4 | Several lower panels | ratio and difference together | F01 | ✅ | `--lower ratio --lower relative_difference` (Q6). | — |
 | E5 | S/√B or significance panel | optimisation | — | ✅ | `--lower group --reference_group signal --other_group ... --group_significance` (example 3). The panel's legend repeats the formula as raw text. | — |
-| E6 | Residual relative to a named model component | bump over background | F01, F09 | ◐ | `--lower subtract --reference_value bkg` works for stored curves, but not against a component of a stored fit. | `--lower residual:COMPONENT`. |
+| E6 | Residual relative to a named model component | bump over background | F01, F09 | ✅ | `line --fit --lower residual:Background` (T22.14): data minus a `FitComponents` entry, with the rest of the fit (the signal) over it; `--lower subtract --reference_value bkg` for stored curves. | — |
 | E7 | Local p0 scan with σ reference lines | discovery significance | F04 | ✅ | `line --logy --hue Kind --sigma_lines 1 2 3 4 5` (T20): dashed lines at the one-sided p-values of nσ, labelled "1σ" ... at the right edge (`--sigma_line_color`); the expected-curve band works (B11, fixed in T07). | — |
-| E8 | Pull distribution | fit validation | — | ✗ | Needs pulls computed upstream, then `hist`. | `hist --overlay_gaussian` (unit normal for comparison). |
+| E8 | Pull distribution | fit validation | — | ✅ | `hist --datafile Pulls -x Pull --overlay_gaussian` (T22.13): the unit normal scaled to the entries (pulls computed upstream). | — |
 
 ## F. Machine-learning diagnostics
 
@@ -134,8 +134,8 @@ All curves are precomputed by the analysis (plotipus does not fit or score).
 | F1 | ROC curve | classifier comparison | — | ✅ | `line --datafile ROC -x FPR -y TPR --hue Model --plot_type line --line 0 0 1 1` (P08). Log axes: P22 (HEP "background rejection" style via `--logy`). | — |
 | F2 | Precision–recall | imbalanced classes | — | ✅ | Same as F1 with `-x Recall -y Precision`. | — |
 | F3 | Learning curve with band | over/under-fitting | — | ✅ | `line --datafile Learning -x TrainSize -y Score --hue Split --errory --errory_type bands --plot_type line --logx` (P09). | — |
-| F4 | Calibration (reliability) curve + counts | probability calibration | — | ◐ | Curve and diagonal: as F1. The lower histogram of counts needs a stored column (`--lower column:Count`), drawn as a line. | `--lower_plot_type bar` for a column lower panel. |
-| F5 | Confusion matrix | per-class errors | — | ◐ | `map -z Frac` (P17): no cell text, numeric ticks, y not inverted; row normalisation via `--norm horizontal` exists for histograms only. | D8 (`--annotate`, categorical ticks) + `--norm` for `-z` grids. |
+| F4 | Calibration (reliability) curve + counts | probability calibration | — | ✅ | `line -x Predicted -y Observed --line 0 0 1 1 --lower column:Count --lower_plot_type bar` (T22.12): numeric bars take 80% of the x spacing. | — |
+| F5 | Confusion matrix | per-class errors | — | ✅ | `map -x Predicted -y True -z Count --norm horizontal --annotate .0% --matrix` (T22.3). | — |
 | F6 | Feature importance | model explanation | — | ◐ | `cat -y Importance --kind bar` on scalar cells (B07, fixed in T08); no horizontal sorted bars. | D5 (`--orient h`, `--sort`). |
 | F7 | Score distributions per class | separation | — | ✅ | `hist -x Score --hue Class --density --logy` (as P13). | — |
 
@@ -174,11 +174,11 @@ All curves are precomputed by the analysis (plotipus does not fit or score).
 | I2 | Highlighted points and regions | best fit, signal window | F08, F10 | ✅ | `--point`, `--square`. | — |
 | I3 | Free text box | selection, dataset | — | ✅ | `--note`. | — |
 | I4 | Experiment / status label ("plotipus Preliminary", lumi, √s) | publication | F01–F05 | ✅ | Built in (T17): `--label 'TEXT' --label_status Preliminary --label_right 'TEXT'`, `--experiment atlas|cms|lhcb|alice|dune`, `--watermark wip`; logos through a figure hook. | — |
-| I5 | Text at data coordinates, arrows | region labels | F10, F18 | ✗ | — | `--text X Y 'TEXT' [--arrow X2 Y2]` (repeatable). |
-| I6 | Direct labels at line ends (no legend) | few series | F17 | ✗ | — | `--direct_labels`: label each series at its last point, de-overlapped. |
+| I5 | Text at data coordinates, arrows | region labels | F10, F18 | ✅ | `--text X Y 'TEXT' --text_coords data --arrow X2 Y2` (repeatable, every kind; T22.8). | — |
+| I6 | Direct labels at line ends (no legend) | few series | F17 | ✅ | `line --direct_labels` (T22.8): each line series named at its last point in view, in its colour, moved apart. | — |
 | I7 | Inverted axis | magnitudes | F21, F22 | ✅ | Reversed range: `--rangey 1 0` (Q1). | — |
-| I8 | Shaded excluded region (polygon) | "No Big Bang" region | F10 | ✗ | — | `--region 'x1,y1 x2,y2 …' --region_hatch`. |
-| I9 | Inline contour labels | iso-lines | F10 | ◐ | Legend only (B03). | `--contour_labels` (`clabel`). |
+| I8 | Shaded excluded region (polygon) | "No Big Bang" region | F10 | ✅ | `--region 'x1,y1 x2,y2 …' [--region_hatch // --region_label TEXT]` (every kind; T22.8): under the data, never widening the axes. | — |
+| I9 | Inline contour labels | iso-lines | F10 | ✅ | `map --contour --contour_labels` (T22.8): each level's label on its line; the legend keeps one entry per map. | — |
 | I10 | Legend outside / above the axes | crowded plots | — | ✅ | `--legend_loc outside`, and automatically past 6 entries or when no position inside is free; the layout reserves the room (B06, fixed in T15). | — |
 
 ## J. Tables

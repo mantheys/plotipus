@@ -438,3 +438,93 @@ def test_diagonal_spans_the_matched_axes(make_project):
     panels = [ax for ax in figures[0].axes if not hasattr(ax, "_colorbar") and ax.collections]
     for ax in panels:
         assert [l for l in ax.get_lines() if isinstance(l, AxLine)]
+
+
+# --- T22.8: inline contour labels -------------------------------------------------------
+
+
+def test_contour_labels_on_the_lines(make_project):
+    ax = _contour(make_project, "--contour_labels")
+    texts = {t.get_text() for t in ax.texts}
+    assert texts & {"68.3% CL", "95.4% CL", "99.7% CL"}
+    legend = ax.get_legend()
+    assert legend is None or "68.3% CL" not in [t.get_text() for t in legend.get_texts()]
+
+
+def test_contour_labels_keep_one_entry_per_map(make_project):
+    frames = {"one_s_Maps": _maps()[:1], "two_s_Maps": _maps()[1:]}
+    ax = _contour(make_project, "--configs", "one", "two", "--names", "s", "--contour_labels", frames=frames)
+    texts, _ = _legend(ax)
+    assert len(texts) == 2 and "68.3% CL" not in texts
+
+
+# --- T22.3: annotated, categorical and normalised grids; colour scales ---------------------
+
+
+def _confusion():
+    names = np.array(["cat", "dog", "bird"])
+    counts = np.array([[50.0, 3, 2], [5, 40, 10], [1, 8, 45]])
+    return pd.DataFrame([{"Pred": names, "True_": names, "Count": counts}])
+
+
+def _grid(make_project, frame, *extra):
+    make_project({"Grid": frame})
+    figures = _capture()
+    map_kind.main(["--datafile", "Grid", "-x", "Pred", "-y", "True_", "-z", "Count", *extra])
+    return figures[0]
+
+
+def test_confusion_matrix_names_norm_annotate(make_project):
+    fig = _grid(make_project, _confusion(), "--norm", "horizontal", "--annotate", ".0%", "--matrix")
+    ax = fig.axes[0]
+    assert [t.get_text() for t in ax.get_xticklabels()] == ["cat", "dog", "bird"]
+    assert [t.get_text() for t in ax.get_yticklabels()] == ["cat", "dog", "bird"]
+    assert ax.get_ylim()[0] > ax.get_ylim()[1]  # the first row at the top
+    texts = {(t.get_position(), t.get_text()) for t in ax.texts}
+    assert ((0.0, 0.0), "91%") in texts and ((1.0, 1.0), "73%") in texts
+    rows = np.asarray(ax.collections[0].get_array()).reshape(3, 3)
+    assert np.allclose(rows.sum(axis=1), 1)  # each row sums to 1
+    light, dark = [t for t in ax.texts if t.get_text() in ("5%", "91%")]
+    colours = {t.get_text(): t.get_color() for t in (light, dark)}
+    from plotipus import style
+
+    assert colours["91%"] == style.role("paper") and colours["5%"] == style.role("ink")
+
+
+def test_numeric_grid_annotated_without_categories(make_project):
+    frame = pd.DataFrame([{"Pred": np.arange(2.0), "True_": np.arange(2.0), "Count": np.array([[1.0, 2], [3, 4]])}])
+    ax = _grid(make_project, frame, "--annotate").axes[0]
+    assert sorted(t.get_text() for t in ax.texts) == ["1", "2", "3", "4"]
+    assert ax.get_ylim()[0] < ax.get_ylim()[1]
+
+
+def test_power_scale_zunder_and_no_colorbar(make_project):
+    from matplotlib.colors import PowerNorm
+
+    frame = pd.DataFrame([{"Pred": np.arange(3.0), "True_": np.arange(2.0),
+                           "Count": np.array([[1.0, 10, 100], [1000, 0.5, 50]])}])
+    fig = _grid(make_project, frame, "--zpower", "0.5", "--zmin", "1", "--zunder", "black", "--colorbar", "none",
+                "--cmap", "magma")
+    mesh = fig.axes[0].collections[0]
+    assert isinstance(mesh.norm, PowerNorm) and mesh.norm.gamma == 0.5 and mesh.norm.vmin == 1
+    assert mesh.get_cmap().name.startswith("magma")
+    assert tuple(mesh.get_cmap().get_under()) == (0.0, 0.0, 0.0, 1.0)
+    assert len(fig.axes) == 1  # no colorbar
+
+
+def test_power_scale_colorbar_ticks_at_decades(make_project):
+    frame = pd.DataFrame([{"Pred": np.arange(3.0), "True_": np.arange(2.0),
+                           "Count": np.array([[1.0, 10, 100], [1000, 2, 50]])}])
+    fig = _grid(make_project, frame, "--zpower", "0.5", "--zmin", "1")
+    (cbar,) = [a for a in fig.axes if hasattr(a, "_colorbar")]
+    assert [t.get_text() for t in cbar.get_yticklabels()] == ["1", "10", "100", "1000"]
+
+
+def test_hist2d_cmap_and_log_axes(make_project):
+    rng = np.random.default_rng(4)
+    make_project({"Points": pd.DataFrame([{"X": rng.uniform(1, 100, 500), "Y": rng.uniform(1, 100, 500)}])})
+    figures = _capture()
+    map_kind.main(["--datafile", "Points", "-x", "X", "-y", "Y", "--cmap", "cividis", "--logx", "--logy"])
+    ax = figures[0].axes[0]
+    assert ax.collections[0].get_cmap().name.startswith("cividis")
+    assert ax.get_xscale() == "log" and ax.get_yscale() == "log"

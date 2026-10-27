@@ -299,11 +299,14 @@ def add_title_and_note(fig, args, tight_rows=1):
 
 
 def apply_figure_hooks(fig, args):
-    """Draw the experiment header and watermark (:mod:`plotipus.header`),
-    then run the plugin figure hooks (logos, ...) on ``fig``."""
+    """Draw the experiment header and watermark (:mod:`plotipus.header`) and
+    the --text/--region annotations (:mod:`plotipus.annotations`), then run
+    the plugin figure hooks (logos, ...) on ``fig``."""
+    from .annotations import draw_annotations
     from .header import draw as draw_header
 
     draw_header(fig, args)
+    draw_annotations(fig, args)
     for hook in registry.figure_hooks:
         hook(fig, args)
 

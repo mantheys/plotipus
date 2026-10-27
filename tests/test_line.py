@@ -983,3 +983,125 @@ def test_sigma_lines_dotted_with_labels_outside(make_project, spectra):
     texts = [t for t in ax.texts if t.get_text() in ("1$\\sigma$", "2$\\sigma$")]
     assert len(texts) == 2 and all(t.xy[0] == 1.0 and t.get_ha() == "left" for t in texts)
     assert all(to_hex(t.get_color()) == "#ff0000" for t in texts)
+
+
+# --- T22.15: --reference by hue value ---------------------------------------------------
+
+
+@pytest.mark.parametrize("reference, value, index", [("2", None, 2), ("B", "B", 0), ("B", "C", 0)])
+def test_reference_takes_index_or_hue_value(reference, value, index):
+    argv = ["--datafile", "X", "-y", "Y", "--reference", reference]
+    args = line.parse(argv + (["--reference_value", value] if value else []))
+    assert args.reference == index and args.reference_value == (value or (None if reference == "2" else reference))
+
+
+def test_reference_by_hue_value_in_ratio(make_project, spectra):
+    figures = _capture()
+    run(make_project, spectra, "--hue", "Sample", "--select", "Stage", "-s", "Raw", "--plot_type", "line",
+        "--lower", "ratio", "--reference", "B")
+    lower = figures[0].axes[1]
+    ratios = {line.get_label(): line.get_ydata() for line in lower.get_lines()}
+    assert np.allclose(ratios["A / B"], 0.5) and np.allclose(ratios["C / B"], 0.25)
+
+
+# --- T22.5: --hue_cmap -------------------------------------------------------------------
+
+
+def test_hue_cmap_ordered_values_and_colorbar(make_project, spectra):
+    import matplotlib
+
+    figures = _capture()
+    run(make_project, spectra, "--hue", "Sample", "--select", "Stage", "-s", "Raw", "--plot_type", "line",
+        "--hue_cmap", "plasma")
+    fig = figures[0]
+    ax = fig.axes[0]
+    cmap = matplotlib.colormaps["plasma"]
+    colors = {l.get_label(): to_hex(l.get_color()) for l in ax.get_lines() if not l.get_label().startswith("_")}
+    assert len(set(colors.values())) == 3
+    assert colors["A"] == to_hex(cmap(0.0)) and colors["C"] == to_hex(cmap(1.0))  # the ends of the map, in order
+    assert ax.get_legend() is None
+    (cbar,) = [a for a in fig.axes if hasattr(a, "_colorbar")]
+    assert [t.get_text() for t in cbar.get_yticklabels()] == ["A", "B", "C"]
+
+
+def test_hue_cmap_keeps_mapped_colours_and_style_legend(make_project, spectra, tmp_path):
+    (tmp_path / "style.json").write_text('{"mappings": {"sample_colors": {"C": "black"}}}')
+    figures = _capture()
+    make_project({"Spectra": spectra}, 'style = ["style.json"]\n')
+    line.main(["--datafile", "Spectra", "-x", "Energy", "-y", "Counts", "--hue", "Sample", "--style", "Stage",
+               "--plot_type", "line", "--hue_cmap", "viridis", "--iterable_color_mapping", "sample_colors"])
+    fig = figures[0]
+    ax = fig.axes[0]
+    colors = {to_hex(l.get_color()) for l in ax.get_lines() if l.get_label() == "C"}
+    assert colors == {"#000000"}
+    (cbar,) = [a for a in fig.axes if hasattr(a, "_colorbar")]
+    assert [t.get_text() for t in cbar.get_yticklabels()] == ["A", "B"]
+    legends = [a for a in ax.get_children() if isinstance(a, Legend)]
+    assert legends and all("A" not in [t.get_text() for t in leg.get_texts()] for leg in legends)
+
+
+def test_hue_cmap_rejects_unknown_map():
+    with pytest.raises(SystemExit):
+        line.parse(["--datafile", "X", "-y", "Y", "--hue_cmap", "notamap"])
+
+
+# --- T22.12: bar lower panels ----------------------------------------------------------------
+
+
+def test_column_lower_panel_as_bars(make_project):
+    from matplotlib.patches import Rectangle
+
+    p = np.linspace(0.05, 0.95, 10)
+    frame = pd.DataFrame([{"Predicted": p, "Observed": p ** 1.2, "Count": np.arange(10.0) + 1, "Model": "clf"}])
+    make_project({"Calib": frame})
+    figures = _capture()
+    line.main(["--datafile", "Calib", "-x", "Predicted", "-y", "Observed", "--hue", "Model", "--plot_type", "line",
+               "--lower", "column:Count", "--lower_plot_type", "bar"])
+    lower = figures[0].axes[1]
+    bars = [r for r in lower.patches if isinstance(r, Rectangle) and r.get_height() > 0]
+    assert len(bars) == 10
+    assert np.allclose([b.get_width() for b in bars], 0.08)  # 80% of the 0.1 spacing
+    assert np.allclose([b.get_height() for b in bars], np.arange(10.0) + 1)
+    assert lower.get_xlim()[0] > -0.1 and lower.get_xlim()[1] < 1.1
+
+
+# --- T22.10: smoothing and dates ---------------------------------------------------------------
+
+
+def test_smooth_draws_raw_faint_and_smoothed_line(make_project):
+    from plotipus.transforms import smooth
+
+    x = np.arange(50.0)
+    y = np.sin(x / 8) + np.where(x % 2, 0.5, -0.5)
+    make_project({"Noisy": pd.DataFrame([{"X": x, "Y": y, "Run": "r1"}])})
+    figures = _capture()
+    line.main(["--datafile", "Noisy", "-x", "X", "-y", "Y", "--hue", "Run", "--plot_type", "line", "--smooth", "4",
+               "--single_legend"])
+    ax = figures[0].axes[0]
+    raw = [l for l in ax.lines if l.get_alpha() is not None and l.get_alpha() < 1]
+    smoothed = [l for l in ax.lines if l.get_label() == "r1"]
+    assert len(raw) == 1 and np.allclose(raw[0].get_ydata(), y)
+    assert len(smoothed) == 1 and np.allclose(smoothed[0].get_ydata(), smooth(y, 4))
+    assert [t.get_text() for t in ax.get_legend().get_texts()] == ["r1"]
+
+
+def test_smooth_kinds():
+    from plotipus.transforms import smooth
+
+    y = np.array([0.0, 2, 0, 2, 0, 2, 0])
+    assert np.allclose(smooth(y, 3)[1:-1], [2 / 3, 4 / 3, 2 / 3, 4 / 3, 2 / 3])
+    quadratic = np.arange(9.0) ** 2
+    assert np.allclose(smooth(quadratic, 5, "savgol"), quadratic)  # a quadratic filter keeps a parabola
+    assert np.isnan(smooth(np.array([1.0, np.nan, 3.0]), 2)[1])
+
+
+def test_dates_on_x_get_concise_ticks(make_project):
+    import matplotlib.dates as mdates
+
+    days = pd.date_range("2024-01-01", periods=60, freq="D").to_numpy()
+    make_project({"Daily": pd.DataFrame([{"Day": days, "Load": np.arange(60.0)}])})
+    figures = _capture()
+    line.main(["--datafile", "Daily", "-x", "Day", "-y", "Load", "--plot_type", "line"])
+    ax = figures[0].axes[0]
+    assert isinstance(ax.xaxis.get_major_formatter(), mdates.ConciseDateFormatter)
+    assert np.isclose(ax.lines[0].get_xdata()[0], mdates.date2num(np.datetime64("2024-01-01")))

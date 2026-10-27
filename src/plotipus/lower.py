@@ -9,7 +9,9 @@ A lower panel is described by ``--lower SPEC`` (repeatable, one panel each):
 * ``group``: two weighted sums of series (``--reference_group`` against
   ``--other_group``), their difference or significance;
 * ``residual`` / ``pull``: data against a fit/model curve,
-  (y - model) / model and (y - model) / error;
+  (y - model) / model and (y - model) / error; ``residual:COMPONENT``
+  (with ``--fit``): data minus one component of the stored fit, with the
+  rest of the fit drawn over it;
 * ``column:NAME``: a series stored in the DataFrame (with ``NAMEError``);
 * ``events:PREFIX``: event markers read from ``PREFIX*`` columns.
 
@@ -64,6 +66,7 @@ REFERENCE_LINES = {"ratio": 1.0, "subtract": 0.0, "relative_difference": 0.0, "r
 class LowerSpec:
     kind: str  # "operation", "column" or "events"
     name: str
+    component: str = None  # residual:COMPONENT, a FitComponents entry
 
     @property
     def label(self):
@@ -77,6 +80,8 @@ def parse_lower(spec):
         kind, _, name = text.partition(":")
         if kind in ("column", "events"):
             return LowerSpec(kind, name)
+        if kind == "residual" and name:
+            return LowerSpec("operation", "residual", component=name)
     if text in OPERATIONS:
         return LowerSpec("operation", text)
     return LowerSpec("column", text)

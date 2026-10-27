@@ -28,7 +28,7 @@ import matplotlib.pyplot as plt
 from matplotlib import patheffects
 import numpy as np
 import pandas as pd
-from matplotlib.colors import LogNorm, Normalize, to_rgb, to_rgba
+from matplotlib.colors import LogNorm, Normalize, PowerNorm, to_rgb, to_rgba
 from matplotlib.lines import Line2D
 from matplotlib.patches import Patch
 from matplotlib.path import Path
@@ -85,7 +85,7 @@ def build_parser():
         [
             "datafile", "configs", "names", "variables", "x", "y", "z", "percentile", "iterable",
             "select", "save_values", "remove_value", "filename_select", "bins", "labelx", "labely",
-            "labelz", "rangex", "rangey", "rangez", "logz", "density", "norm", "zoom", "matchx",
+            "labelz", "rangex", "rangey", "rangez", "logx", "logy", "logz", "density", "norm", "zoom", "matchx",
             "matchy", "horizontal", "horizontal_label", "horizontal_style", "horizontal_color", "horizontal_label_pos",
             "vertical", "vertical_label", "vertical_style", "vertical_color", "square",
             "vertical_band", "vertical_band_label", "vertical_band_color", "horizontal_band",
@@ -110,9 +110,20 @@ def build_parser():
     add("--cmap", type=str, default=None,
         help="Matplotlib colour map of -z images; 'diverging' is the style's map for signed values "
         "(RdBu_r, berlin on dark backgrounds).")
-    add("--colorbar", default=None, choices=["shared", "each"],
-        help="One colorbar and colour scale for the row of panels (shared, the default unless --norm) "
-        "or one per panel (each).")
+    add("--colorbar", default=None, choices=["shared", "each", "none"],
+        help="One colorbar and colour scale for the row of panels (shared, the default unless --norm), "
+        "one per panel (each) or none.")
+    add("--annotate", nargs="?", const=".3g", default=None, metavar="FORMAT",
+        help="Write each cell's value in it (-z grids and 2D histograms), with a Python format: '.2f', "
+        "'.0%%' (default .3g); the text is dark on light cells and light on dark ones.")
+    add("--matrix", action="store_true", default=False,
+        help="Matrix layout for -z grids (confusion matrices, correlation tables): the first y value at the top.")
+    add("--zpower", type=float, default=None, metavar="GAMMA",
+        help="Power-law colour scale, value**GAMMA (0.5: square root); the colorbar is ticked at powers of ten.")
+    add("--zmin", type=float, default=None, metavar="VALUE",
+        help="Bottom of the colour scale; lower values take --zunder (default: blank on a log or power scale).")
+    add("--zunder", type=str, default=None, metavar="COLOUR",
+        help="Colour of the values below --zmin (e.g. black for the sparsest bins).")
     add("--panel_title", nargs="+", type=parse_plot_label, default=None, help="Title of each panel.")
     add("--compact", action="store_true", default=None,
         help="Panels side by side share their y range and only the first shows the y label and tick labels "
@@ -143,6 +154,8 @@ def build_parser():
     add("--contour_linestyles", nargs="+", type=str, default=None,
         help="Line style per sigma level (default: style contours.linestyles, solid, dashed, dotted).")
     add("--contour_linewidth", type=float, default=2.0)
+    add("--contour_labels", action="store_true", default=False,
+        help="Write each level's label (68.3% CL, 1 sigma, ...) on its contour line instead of in the legend.")
     add("--contour_alpha", type=float, default=0.95)
     add("--contour_smoothing_sigma", type=float, default=0.0, help="Gaussian smoothing of the maps before contouring (in bins; without -z, default 1).")
     add("--background_smoothing_sigma", type=float, default=0.0, help="Gaussian smoothing of the background image.")
@@ -192,6 +205,87 @@ def main(argv=None):
 
 
 # --- Histogram / image panels ------------------------------------------------------------
+
+
+NORM_SUFFIX = {"global": "normalized", "horizontal": "per row", "vertical": "per column",
+               "combined": "per row + column"}
+
+
+def _categorical(values):
+    """(positions, names) of an axis: strings become 0, 1, ... with their
+    names (in order of first appearance), numbers stay (names None)."""
+    values = np.asarray(values)
+    if values.ndim != 1 or values.dtype.kind in "biuf":
+        return values, None
+    try:
+        return values.astype(float), None
+    except (TypeError, ValueError):
+        names = list(dict.fromkeys(str(v) for v in values))
+        return np.array([names.index(str(v)) for v in values], dtype=float), names
+
+
+def _category_ticks(ax, x_names, y_names):
+    """One tick per category name; long x names are rotated."""
+    if x_names is not None:
+        ax.set_xticks(range(len(x_names)), x_names, rotation=45 if max(map(len, x_names)) > 4 else 0,
+                      ha="right" if max(map(len, x_names)) > 4 else "center")
+        ax.tick_params(axis="x", which="minor", bottom=False, top=False)
+    if y_names is not None:
+        ax.set_yticks(range(len(y_names)), y_names)
+        ax.tick_params(axis="y", which="minor", left=False, right=False)
+
+
+def annotate_cells(ax, mappable, x, y, values, fmt, skip_masked=None):
+    """--annotate: each finite cell value (``values[j, i]`` at x[i], y[j]) in
+    its cell, formatted with ``fmt``, dark on light cells and light on dark."""
+    fontsize = style.linelabelfontsize
+
+    def luminance(color):
+        red, green, blue = to_rgb(color)
+        return 0.299 * red + 0.587 * green + 0.114 * blue
+
+    # The style's ink or paper colour, whichever stands out more from the cell.
+    ink, paper = style.role("ink"), style.role("paper")
+    for j, yj in enumerate(y):
+        for i, xi in enumerate(x):
+            value = values[j, i]
+            if not np.isfinite(value) or (skip_masked is not None and skip_masked[j, i]):
+                continue
+            cell = luminance(mappable.cmap(mappable.norm(value))[:3])
+            color = ink if abs(luminance(ink) - cell) >= abs(luminance(paper) - cell) else paper
+            text = format(value, fmt) if "{" not in fmt else fmt.format(value)
+            ax.text(xi, yj, text, ha="center", va="center", fontsize=fontsize, color=color, zorder=OVERLAY_ZORDER)
+
+
+def _colour_scale(mappable, args):
+    """--zpower (a power-law norm), --zmin and --zunder on one image or
+    histogram."""
+    if args.zpower is None and args.zmin is None and args.zunder is None:
+        return
+    low, high = mappable.get_clim()
+    low = args.zmin if args.zmin is not None else max(low, 0) if args.zpower is not None else low
+    if args.zpower is not None:
+        mappable.set_norm(PowerNorm(args.zpower, vmin=low, vmax=high))
+    else:
+        mappable.set_clim(low, high)
+    if args.zunder is not None:
+        mappable.set_cmap(mappable.get_cmap().with_extremes(under=args.zunder))
+
+
+def _power_ticks(mappable, args):
+    """On a --zpower colorbar, ticks at the powers of ten (linear ticks crowd
+    its top), dropping a decade within 6% of the bar of the one above."""
+    colorbar = getattr(mappable, "colorbar", None)
+    if args.zpower is None or colorbar is None:
+        return
+    low, high = mappable.norm.vmin, mappable.norm.vmax
+    decades = 10.0 ** np.arange(np.ceil(np.log10(max(low, 1e-12))), np.floor(np.log10(high)) + 1)
+    kept = []
+    for value in decades[::-1]:
+        if not kept or mappable.norm(kept[-1]) - mappable.norm(value) >= 0.06:
+            kept.append(value)
+    colorbar.set_ticks(kept[::-1], labels=[f"{d:g}" for d in kept[::-1]])
+    colorbar.ax.minorticks_off()
 
 
 def normalize_hist2d(h, mode):
@@ -266,6 +360,11 @@ def draw_histogram_figure(rows, args, kdx):
                 rprint(f"[yellow]Warning:[/yellow] Dropping {(~valid).sum()} non-finite entries out of {len(valid)}")
             x, y = x[valid], y[valid]
 
+        x_names = y_names = None
+        if z is not None:
+            # String axes of a grid (classes, samples) are categories: one tick per name.
+            x, x_names = _categorical(x)
+            y, y_names = _categorical(y)
         x_range = [np.percentile(x, args.percentile[0]), np.percentile(x, args.percentile[1])]
         y_range = [np.percentile(y, args.percentile[0]), np.percentile(y, args.percentile[1])]
         if ranges is None or not args.zoom:
@@ -275,6 +374,9 @@ def draw_histogram_figure(rows, args, kdx):
                       [max(ranges[1][0], y_range[0]), min(ranges[1][1], y_range[1])]]
 
         if z is not None:
+            if args.norm is not None:
+                # A grid is z[y, x]: rows are y slices.
+                z = normalize_hist2d(np.asarray(z, dtype=float).T, args.norm).T
             mappable = plot_data(args, ax, x, y=y, plot_type="image", z=z,
                                  **({"cmap": args.cmap} if args.cmap is not None else {}))
             if args.logz:
@@ -284,7 +386,17 @@ def draw_histogram_figure(rows, args, kdx):
                 if args.logz:
                     # Bins below the log floor stay blank instead of taking the lowest colour.
                     mappable.set_cmap(mappable.get_cmap().with_extremes(under="none"))
-            colorbars.append((ax, mappable, resolve_axis_label(args.labelz, args.z, subset)))
+            _colour_scale(mappable, args)
+            label = resolve_axis_label(args.labelz, args.z, subset)
+            if args.norm is not None and args.labelz is None:
+                label = f"{label} ({NORM_SUFFIX[args.norm]})"
+            colorbars.append((ax, mappable, label))
+            ax._plotipus_categories = (x_names, y_names)
+            if args.annotate is not None and np.ndim(x) == 1 and np.ndim(y) == 1:
+                cells = np.ma.filled(np.ma.asarray(mappable.get_array(), dtype=float), np.nan)
+                annotate_cells(ax, mappable, x, y, cells.reshape(len(y), len(x)), args.annotate)
+            if args.matrix:
+                ax._plotipus_matrix = True
         else:
             kwargs = {"range": (x_range, y_range), "bins": args.bins or style.nbins}
             if is_integer_valued(x) and is_integer_valued(y):
@@ -301,8 +413,17 @@ def draw_histogram_figure(rows, args, kdx):
                 mesh.set_clim(0, mesh.get_array().max())
             if args.rangez is not None:
                 mesh.set_clim(*args.rangez)
+            if args.cmap is not None:
+                mesh.set_cmap(args.cmap)
+            _colour_scale(mesh, args)
             label = args.labelz or (NORM_LABELS[args.norm] if args.norm else "Density" if args.density else "Counts")
             colorbars.append((ax, mesh, label))
+            if args.annotate is not None:
+                centres = [0.5 * (edges[1:] + edges[:-1]) for edges in (hist[1], hist[2])]
+                annotate_cells(ax, mesh, *centres, np.ma.getdata(mesh.get_array()).reshape(len(centres[1]),
+                                                                                           len(centres[0])),
+                               args.annotate, skip_masked=np.ma.getmaskarray(mesh.get_array()).reshape(
+                                   len(centres[1]), len(centres[0])))
             if args.contour:
                 regions[pdx] = draw_sample_regions(ax, hist[0], hist[1], hist[2], args)
 
@@ -312,6 +433,8 @@ def draw_histogram_figure(rows, args, kdx):
             ax.set_ylim(ranges[0])
 
     draw_colorbars(fig, colorbars, args)
+    for _, mappable, _ in colorbars:
+        _power_ticks(mappable, args)
 
     for pdx, ((variable, hue), ax) in enumerate(zip(panels, axes)):
         hue_index = hues.index(hue) if hue in hues else 0
@@ -337,7 +460,15 @@ def draw_histogram_figure(rows, args, kdx):
             ax.set_xlim(args.rangex)
         if args.rangey is not None:
             ax.set_ylim(args.rangey)
+        if args.logx:
+            ax.set_xscale("log")
+        if args.logy:
+            ax.set_yscale("log")
+        if getattr(ax, "_plotipus_matrix", False):
+            low, high = sorted(ax.get_ylim())
+            ax.set_ylim(high, low)
         apply_tick_formatter(ax, axis="both")
+        _category_ticks(ax, *getattr(ax, "_plotipus_categories", (None, None)))
         draw_overlays(ax, args)
     if compact(args, len(panels)) and len(panels) > 1:
         # One y range spanning every panel's, then shared.
@@ -410,14 +541,15 @@ def share_rows(axes, args):
     for ax in axes[1:]:
         ax.sharey(axes[0])
         ax.set_ylabel("")
-        ax.tick_params(labelleft=False)
-    if colorbar_mode(args) == "shared":
+        ax.tick_params(which="both", labelleft=False)  # minor labels too (log axes label some)
+    if colorbar_mode(args) in ("shared", "none"):
         axes[0].get_gridspec().update(wspace=style.compact_gap())
 
 
 def colorbar_mode(args):
-    """shared or each: panels share one colorbar unless --norm normalises
-    each panel on its own scale (or --colorbar each asks for one per panel)."""
+    """shared, each or none: panels share one colorbar unless --norm
+    normalises each panel on its own scale (or --colorbar each asks for one
+    per panel)."""
     return args.colorbar or ("each" if args.norm else "shared")
 
 
@@ -425,7 +557,7 @@ def draw_colorbars(fig, entries, args):
     """Colorbars of ``entries`` [(ax, mappable, label)]: one per panel, or a
     shared one right of the row when the panels show the same quantity (one
     label), with one norm spanning every panel."""
-    if not entries:
+    if not entries or colorbar_mode(args) == "none":
         return
     labels = {label for _, _, label in entries}
     if colorbar_mode(args) == "shared" and len(entries) > 1 and len(labels) == 1:
@@ -750,10 +882,18 @@ def draw_filled(ax, x, y, image, levels, color, args, zorder, offset=0):
     return bands
 
 
-def draw_outlines(ax, x, y, image, levels, hues, linestyles, width, alpha, args, zorder):
+def draw_outlines(ax, x, y, image, levels, hues, linestyles, width, alpha, args, zorder, labels=None):
+    """Contour lines of one set; with --contour_labels each level's label is
+    written on its line (``labels``, one per level)."""
     lines = ax.contour(x, y, image, levels=levels, colors=hues, linestyles=linestyles,
                        linewidths=width, alpha=alpha, zorder=zorder)
     _filter_vertices(lines, args.contour_min_vertices)
+    if args.contour_labels and labels:
+        texts = ax.clabel(lines, lines.levels, inline=True, fontsize=style.linelabelfontsize,
+                          fmt=dict(zip(lines.levels, labels)))
+        for text in texts:
+            text.set_zorder(zorder + 0.1)
+    return lines
 
 
 def _profile_interval(values, delta):
@@ -1051,6 +1191,7 @@ def draw_contour_panel(ax, fig, panel_idx, subset, projected, args, configs, nam
 
     # Each contour set: filled bands (best fit outwards), outlines per level, a '+' at the minimum.
     sets, best = [], []
+    labels = sigma_labels(levels, args.contour_sigmas, args.contour_level_mode, args.contour_dof, args.contour_label)
     smooth = lambda z: _smooth(_smooth(z, args.background_smoothing_sigma), args.contour_smoothing_sigma)  # noqa: E731
 
     def draw_set(x, y, image, color, label, linestyle, width, alpha, zorder, offset=0, palette_colors=False):
@@ -1060,7 +1201,7 @@ def draw_contour_panel(ax, fig, panel_idx, subset, projected, args, configs, nam
         if args.fill_contours:
             fills = draw_filled(ax, x, y, image, levels, color, args, zorder, offset)
             width, alpha = args.fill_outline_linewidth if args.fill_outline_linewidth is not None else width, 1.0
-        draw_outlines(ax, x, y, image, levels, hues, styles, width, alpha, args, zorder + 0.5)
+        draw_outlines(ax, x, y, image, levels, hues, styles, width, alpha, args, zorder + 0.5, labels)
         if not args.no_best_fit:
             # On a Delta-chi2 map the best fit is a point with its 1-sigma intervals: in ink for one
             # contour set, in the set's colour when several share the panel.
@@ -1083,8 +1224,12 @@ def draw_contour_panel(ax, fig, panel_idx, subset, projected, args, configs, nam
         draw_set(bx, by, smooth(combined), args.combined_color, args.combined_label, args.combined_linestyle,
                  _combined_width(args), args.combined_alpha, zorder=6, offset=offset, palette_colors=bool(colors))
 
-    labels = sigma_labels(levels, args.contour_sigmas, args.contour_level_mode, args.contour_dof, args.contour_label)
-    handles = contour_legend(sets, labels)
+    if args.contour_labels:
+        # The levels are written on the lines: the legend only tells several sets apart.
+        handles = [level_handle(s["label"], s["hues"][0], s["styles"][0], s["width"], (s["fills"] or [None])[0])
+                   for s in sets] if len(sets) > 1 else []
+    else:
+        handles = contour_legend(sets, labels)
     marks = [b for b in best if b is not None]
     if len(marks) == 1:
         handles = handles + marks  # "Best fit": a point with error bars

@@ -12,9 +12,11 @@ Lower panels (``--lower``) show operations between the drawn series, a
 stored column or a residual; see :mod:`plotipus.lower`.
 """
 
+import copy
 import json
 
 import matplotlib
+import matplotlib.font_manager
 import matplotlib.lines as mlines
 import matplotlib.ticker
 import matplotlib.transforms
@@ -34,6 +36,7 @@ from ..args import (
 )
 from ..encodings import (
     DATA_STYLE,
+    HueColormap,
     add_encoding_args,
     comparable_legend_title,
     comparable_maps,
@@ -83,6 +86,7 @@ from ..transforms import (
     project,
     rebin_rows,
     scale_cells,
+    smooth,
     union_grid,
     y_error_of,
 )
@@ -272,6 +276,13 @@ def build_parser():
     add("--vertical_column_map", type=str, default=None,
         help="JSON {panel value: column}: vertical line per hue value at that column's value, in its colour.")
     add("--vertical_column_style", type=str, default="--")
+    add("--smooth", type=int, default=None, metavar="N",
+        help="Draw each line smoothed over N points over its raw series (thin and translucent).")
+    add("--smooth_kind", choices=["rolling", "savgol"], default="rolling",
+        help="--smooth filter: a centred rolling mean (default) or a quadratic Savitzky-Golay filter.")
+    add("--smooth_only", action="store_true", default=False, help="With --smooth: leave the raw series out.")
+    add("--direct_labels", action="store_true", default=False,
+        help="Name each line series at its last point, in its colour, instead of a legend.")
     add("--mean_band", action="store_true", default=False,
         help="Horizontal line at the mean of all y values with a +-1 std band.")
     add("--sigma_lines", nargs="+", type=float, default=None, metavar="N",
@@ -299,7 +310,9 @@ def build_parser():
         "column:NAME (stored series) or events:PREFIX.")
     add("--lower_across", choices=["hue", "comparable"], default="hue",
         help="Pairwise lower operations compare hue series (default) or, per hue value, style series.")
-    add("--reference", type=int, default=0, help="Index of the reference series of pairwise operations.")
+    add("--reference", type=str, default="0",
+        help="Reference series of pairwise operations: its index (default 0, the first) or its hue value (a "
+        "whole number is an index; --reference_value takes numeric hue values).")
     add("--reference_value", type=str, default=None, help="Reference series by hue value (overrides --reference).")
     add("--lower_line_index", type=int, default=1,
         help="With --lower_across comparable: index of the style value compared with the reference.")
@@ -395,6 +408,20 @@ def _check_args(args, parser):
             parser.error(f"--series_marker {entry}: {error}")
     if args.errorx_column and len(args.errorx_column) > 2:
         parser.error("--errorx_column takes LOW HIGH or one column of half-widths")
+    if args.hue_cmap and args.hue_cmap not in matplotlib.colormaps:
+        parser.error(f"--hue_cmap: unknown colour map '{args.hue_cmap}' (e.g. viridis, plasma, cividis)")
+    _resolve_reference(args)
+
+
+def _resolve_reference(args):
+    """--reference as an index, or a hue value moved to --reference_value
+    (which wins when both are given)."""
+    try:
+        args.reference = int(args.reference)
+    except (TypeError, ValueError):
+        if args.reference_value is None:
+            args.reference_value = args.reference
+        args.reference = 0
 
 
 def main(argv=None):
@@ -527,6 +554,7 @@ class Series:
         self.is_sum = False
         self.is_data = False
         self.interval = None  # poisson / clopper_pearson errors
+        self.dates = False  # x holds matplotlib date numbers
         self.bands = []  # errors of the nested bands after the first (--errory_column C1 C2 ...)
 
 
@@ -554,8 +582,9 @@ def extract(subset, args, x_column=None, y_column=None):
         y = points[y_column].astype(float).to_numpy()
     except (ValueError, TypeError):
         return None
+    dates = _as_dates(points[x_column])
     try:
-        x = points[x_column].astype(float).to_numpy()
+        x = dates if dates is not None else points[x_column].astype(float).to_numpy()
     except (ValueError, TypeError):
         x = points[x_column].astype(str).to_numpy()
         return Series(x, y, error=y_error_of(points), categorical=True, rows=subset)
@@ -583,7 +612,35 @@ def extract(subset, args, x_column=None, y_column=None):
         return None
     s = Series(x, y, error=error, x_edges=edges_from_centers(x), extrapolated=extrapolated, rows=subset)
     s.bands = bands
+    s.dates = dates is not None
     return s
+
+
+def _as_dates(values):
+    """Matplotlib date numbers of a datetime column (datetime64, Timestamps or
+    datetime objects), else None."""
+    import datetime
+
+    import matplotlib.dates as mdates
+
+    if pd.api.types.is_datetime64_any_dtype(values):
+        return mdates.date2num(pd.to_datetime(values).to_numpy())
+    first = next((v for v in values if v is not None and v == v), None)
+    if isinstance(first, (datetime.date, np.datetime64)):
+        try:
+            return mdates.date2num(pd.to_datetime(values).to_numpy())
+        except (ValueError, TypeError):
+            return None
+    return None
+
+
+def _date_axis(ax):
+    """Concise date ticks on the x axis (--x holding dates)."""
+    import matplotlib.dates as mdates
+
+    locator = mdates.AutoDateLocator()
+    ax.xaxis.set_major_locator(locator)
+    ax.xaxis.set_major_formatter(mdates.ConciseDateFormatter(locator))
 
 
 def _sum_series(series_list):
@@ -867,6 +924,10 @@ def draw_series(ax, s, args, plot_type=None, stack_bottom=None, dodge_shift=0.0)
     Error bars on points are joined only with --connect. Plot type "data"
     draws points with their error bars whatever --errory_type says."""
     stacking = args.stacked and stack_bottom is not None and s.x_edges is not None and not s.categorical
+    if (args.smooth and not stacking and not s.categorical and not s.is_data
+            and plot_type not in ("bar", "barh", "fill", "band", "empty", "beyond", "scatter")):
+        _draw_smoothed(ax, s, args, plot_type, dodge_shift)
+        return
     if _nested_bands(s, args, plot_type, stacking):
         _draw_nested_bands(ax, s, args, plot_type)
         error, label, s.error = s.error, s.label, None
@@ -878,6 +939,31 @@ def draw_series(ax, s, args, plot_type=None, stack_bottom=None, dodge_shift=0.0)
             s.error, s.label = error, label
         return
     _draw_series(ax, s, args, plot_type, stack_bottom, dodge_shift, stacking)
+
+
+RAW_ALPHA = 0.35
+
+
+def _draw_smoothed(ax, s, args, plot_type, dodge_shift):
+    """--smooth: the raw series thin and translucent (with its errors, no
+    legend entry; left out with --smooth_only), then a smoothed copy as a line
+    with the label. The series itself stays raw (lower panels compare it)."""
+    if not args.smooth_only:
+        before = set(ax.get_children())
+        label, s.label = s.label, None
+        try:
+            _draw_series(ax, s, args, plot_type, None, dodge_shift, False)
+        finally:
+            s.label = label
+        for artist in set(ax.get_children()) - before:
+            artist.set_alpha(RAW_ALPHA if artist.get_alpha() is None else artist.get_alpha() * RAW_ALPHA)
+            if isinstance(artist, mlines.Line2D):
+                artist.set_linewidth(0.6 * artist.get_linewidth())
+    smoothed = copy.copy(s)
+    smoothed.y, smoothed.error, smoothed.bands = smooth(s.y, args.smooth, args.smooth_kind), None, []
+    smoothed.marker = None
+    _draw_series(ax, smoothed, args, "line" if plot_type in (None, "plot", "errorbar") else plot_type, None,
+                 dodge_shift, False)
 
 
 def _draw_series(ax, s, args, plot_type, stack_bottom, dodge_shift, stacking):
@@ -987,7 +1073,9 @@ def _draw_series(ax, s, args, plot_type, stack_bottom, dodge_shift, stacking):
     elif plot_type == "scatter":
         plot_data(args, ax, s.x, y=s.y, errory=s.error, plot_type="scatter", fmt="o", **common)
     elif plot_type in ("bar", "barh"):
-        plot_data(args, ax, s.x, y=s.y, plot_type=plot_type, **common)
+        # Numeric x: bars 80% of the point spacing (a fixed 0.8 would overlap on a 0-1 axis).
+        width = {} if s.categorical or plot_type == "barh" else {"width": 0.8 * _bar_width(s.x)}
+        plot_data(args, ax, s.x, y=s.y, plot_type=plot_type, **width, **common)
     else:
         plot_data(args, ax, s.x, y=s.y, plot_type="plot", **{"marker": "o", **markers}, linestyle=linestyle,
                   **common, **lw)
@@ -1233,6 +1321,13 @@ def draw_figure(rows, args, kdx=None):
 
     _finish_upper(fig, upper, lower, drawn, rows, args, variables, last_x, hue_values, comparable,
                   style_map, alpha_map, iterable_style_map, extrapolated_axes, nrows, ncols)
+    if colors.hue_cmap is not None and not args.no_hue_colorbar:
+        hc = colors.hue_cmap
+        column = comparable if invert else args.iterable
+        mapping = args.comparable_mapping if invert else args.iterable_mapping
+        title = (comparable_legend_title(args) if invert else iterable_legend_title(args)) or column
+        hc.colorbar(fig, upper[:len(variables)], label=args.labelz or title,
+                    tick_labels=[str(map_iterable_label(v, column, mapping)) for v in hc.values])
 
     suffix = "stacked_line.png" if args.stacked else "line.png"
     return save(fig, args, kdx, suffix=suffix)
@@ -1288,7 +1383,12 @@ def _allocate_colors(hue_values, comparable_values, args, invert):
         values, reverse = list(comparable_values), args.comparable_reverse
     else:
         values, reverse = [v for v in hue_values if not isinstance(v, _SumSlot)], args.iterable_reverse
-    colors.reserve(values, lambda value: map_iterable_color(value, args.iterable_color_mapping))
+    # Values with a mapped colour keep it and stay off the colour map.
+    unmapped = [v for v in values if map_iterable_color(v, args.iterable_color_mapping) is None]
+    colors.hue_cmap = HueColormap(unmapped[::-1] if reverse else unmapped, args.hue_cmap,
+                                  args.hue_cmap_range) if args.hue_cmap and unmapped else None
+    colors.reserve(values, lambda value: map_iterable_color(value, args.iterable_color_mapping)
+                   or (colors.hue_cmap.color(value) if colors.hue_cmap else None))
     for value in values[::-1] if reverse else values:
         colors.color_for(value)
     if args.sum_iterables and not (invert and comparable_values):
@@ -1719,6 +1819,9 @@ def _finish_upper(fig, upper, lower, drawn, rows, args, variables, last_x, hue_v
             ax.set_ylim(0, 105)
             ax.axhline(100, color=style.role("muted"), linestyle="--", linewidth=1)
         apply_axis_options(ax, args)
+        if any(getattr(s, "dates", False) for s in drawn.get(idx, [])):
+            for date_ax in (ax, *lower[idx]):
+                _date_axis(date_ax)
         if args.axis and "equal" in args.axis:
             ax.set_aspect("equal", adjustable="box")
         if args.axis and "off" in args.axis:
@@ -1730,6 +1833,9 @@ def _finish_upper(fig, upper, lower, drawn, rows, args, variables, last_x, hue_v
         show_legend = len([v for v in hue_values]) > 1 or args.single_legend or (
             base_selection == "comparable" and secondary_style_map
         ) or bool(lower[idx])
+        if args.direct_labels:
+            _direct_labels(ax, drawn.get(idx, []), args)
+            show_legend = False
         if show_legend and (all_panels or idx in (legend_panel, comparable_panel)) and base_selection != "none":
             selection = base_selection if all_panels else _panel_selection(base_selection, idx, legend_panel,
                                                                           comparable_panel)
@@ -1771,6 +1877,39 @@ def _finish_upper(fig, upper, lower, drawn, rows, args, variables, last_x, hue_v
     add_title_and_note(fig, args, tight_rows=nrows)
     if args.compact and ncols > 1:
         fig.tight_layout()
+
+
+def _direct_labels(ax, series, args):
+    """--direct_labels: each labelled line series named at its last point in
+    view, in its colour, moved apart vertically so the names do not overlap
+    (instead of a legend; --data_hue points are left unlabelled)."""
+    xlim = sorted(ax.get_xlim())
+    ends = []
+    for s in series:
+        if not s.label or s.is_data or s.categorical:
+            continue
+        x, y = np.asarray(s.x, dtype=float), np.asarray(s.y, dtype=float)
+        visible = np.isfinite(x) & np.isfinite(y) & (x >= xlim[0]) & (x <= xlim[1])
+        if not visible.any():
+            continue
+        last = np.flatnonzero(visible)[-1]
+        ends.append((x[last], y[last], s.label, s.color))
+    if not ends:
+        return
+    fontsize = style.linelabelfontsize
+    points = matplotlib.font_manager.FontProperties(size=fontsize).get_size_in_points()
+    gap = 1.3 * points  # in points
+    to_points = 72.0 / ax.figure.dpi
+    heights = [ax.transData.transform((x, y))[1] * to_points for x, y, _, _ in ends]
+    order = np.argsort(heights)
+    placed = {}
+    previous = -np.inf
+    for i in order:
+        placed[i] = max(heights[i], previous + gap)
+        previous = placed[i]
+    for i, (x, y, label, color) in enumerate(ends):
+        ax.annotate(label, (x, y), xytext=(4, placed[i] - heights[i]), textcoords="offset points", ha="left",
+                    va="center", color=color, fontsize=fontsize, annotation_clip=False, zorder=10)
 
 
 def _draw_reference_lines(ax, args):

@@ -247,6 +247,29 @@ def extrapolated_segments(x, y, mask):
     return x_norm, y_norm, x_ext, y_ext
 
 
+def smooth(y, window, kind="rolling"):
+    """``y`` smoothed over ``window`` points: a centred rolling mean (``rolling``,
+    shorter at the ends) or a quadratic Savitzky-Golay filter (``savgol``,
+    window made odd and at most the series length). NaN stay NaN."""
+    y = np.asarray(y, dtype=float)
+    window = int(window)
+    if window < 2 or y.size < 2:
+        return y.copy()
+    if kind == "savgol":
+        from scipy.signal import savgol_filter
+
+        window = min(window + (window + 1) % 2, y.size - (y.size + 1) % 2)
+        if window < 3:
+            return y.copy()
+        finite = np.isfinite(y)
+        out = np.full_like(y, np.nan)
+        out[finite] = savgol_filter(y[finite], window, min(2, window - 1), mode="interp")
+        return out
+    smoothed = pd.Series(y).rolling(window, center=True, min_periods=1).mean().to_numpy(copy=True)
+    smoothed[~np.isfinite(y)] = np.nan
+    return smoothed
+
+
 def mirror(x, y, at_edge=False):
     """Extend a spectrum by its reflection: around the upper edge of the last
     bin (``at_edge``), or around the last bin centre without repeating it."""

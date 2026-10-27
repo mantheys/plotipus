@@ -144,7 +144,7 @@ def test_extracted_figures(frames):
 
 @pytest.mark.parametrize("command", COMMANDS, ids=[f"{i:02d}" for i in range(len(COMMANDS))])
 def test_command_renders(command, frames, make_project):
-    config = (f'python_path = ["{FAMOUS.as_posix()}"]\nplugins = ["models", "annotations", "colorscale"]\n'
+    config = (f'python_path = ["{FAMOUS.as_posix()}"]\nplugins = ["models"]\n'
               f'style = ["{(FAMOUS / "style.json").as_posix()}"]\n')
     out = make_project(frames, config=config)
     kind, *argv = build_command(command)
@@ -166,7 +166,7 @@ def test_paper_style_keeps_one_figure_size(frames, make_project, start):
     size (3.5 x 2.7 in at 300 dpi)."""
     from PIL import Image
 
-    config = (f'python_path = ["{FAMOUS.as_posix()}"]\nplugins = ["models", "annotations", "colorscale"]\n'
+    config = (f'python_path = ["{FAMOUS.as_posix()}"]\nplugins = ["models"]\n'
               f'style = ["{(FAMOUS / "style.json").as_posix()}"]\n')
     out = make_project(frames, config=config)
     command = next(c for c in COMMANDS if c.startswith(start))

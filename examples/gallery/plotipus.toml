@@ -13,4 +13,4 @@ tables = "input/tables"
 output = "output"
 style = ["input/famous_mappings.json", "style.json"]
 python_path = ["../famous"]
-plugins = ["models", "annotations", "colorscale"]
+plugins = ["models"]

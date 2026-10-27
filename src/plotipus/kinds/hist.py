@@ -11,13 +11,14 @@ panel shares one set of bin edges, spanning all of them; entries outside
 or added to the edge bins.
 """
 
+import matplotlib
 import numpy as np
 from matplotlib.transforms import offset_copy
 from rich import print as rprint
 
 from .. import intervals, style
 from ..args import add_common_args, map_iterable_color, map_iterable_label, resolve_axis_label
-from ..encodings import add_legend_args
+from ..encodings import HueColormap, add_hue_cmap_args, add_legend_args
 from ..format import make_config_color_and_style_from_args, make_config_label_from_args, make_subtitle_from_args
 from ..io import import_data, prepare_import
 from ..palettes import ColorAllocator
@@ -72,7 +73,11 @@ def build_parser():
     add("--errory_type", type=str, default=None, choices=["poisson"],
         help="Error bars on every histogram: Poisson (Garwood) intervals of the bin counts, or sqrt(sum of "
         "squared weights) with --weight (data points always have them).")
+    add("--overlay_gaussian", nargs="*", type=float, default=None, metavar=("MU", "SIGMA"),
+        help="Draw a Gaussian over the histogram, scaled to the first series' entries: the unit normal (no "
+        "values; for pull distributions) or MU SIGMA.")
     add_legend_args(parser)
+    add_hue_cmap_args(parser)
     add_panel_line_args(parser, horizontal=False)
     _base.add_output_args(parser)
     return parser
@@ -177,6 +182,25 @@ def _draw_flow_hints(ax, counts, edges, under, over, color):
                     transform=offset_copy(ax.transData, fig=ax.figure, x=dx, units="points"))
 
 
+def _overlay_gaussian(ax, series, edges, density, args):
+    """--overlay_gaussian: N(MU, SIGMA) (default the unit normal) over the
+    panel, scaled to the entries of ``series`` inside the edges (or a density),
+    dashed in ink, labelled with its parameters."""
+    from scipy.stats import norm
+
+    values = list(args.overlay_gaussian) + [0.0, 1.0][len(args.overlay_gaussian):]
+    mu, sigma = values[0], values[1]
+    _, x, weights = series
+    inside = (x >= edges[0]) & (x <= edges[-1])
+    entries = float(np.sum(weights[inside])) if weights is not None else float(np.sum(inside))
+    width = float(np.mean(np.diff(edges)))
+    grid = np.linspace(edges[0], edges[-1], 400)
+    curve = norm.pdf(grid, mu, sigma) * (1.0 if density else entries * width)
+    label = r"$\mathcal{N}(0, 1)$" if (mu, sigma) == (0.0, 1.0) else rf"$\mathcal{{N}}({mu:g}, {sigma:g})$"
+    ax.plot(grid, curve, color=style.role("ink"), linestyle="--", linewidth=style.default_linewidth, label=label,
+            zorder=4)
+
+
 def _series_style(args, value, name):
     """(label, mapped colour or None, line style or None) of one hue value."""
     if args.iterable == "Config":
@@ -209,7 +233,11 @@ def draw_figure(df, args, kdx, config, name):
     is_data = lambda value: value is not None and str(value) in data  # noqa: E731
     values = [v for v in values if is_data(v)] + [v for v in values if not is_data(v)]  # data first
     colors = ColorAllocator()
-    colors.reserve([v for v in values if not is_data(v)], lambda value: _series_style(args, value, name)[1])
+    # --hue_cmap: the hue values without a mapped colour on one colour map, explained by a colorbar.
+    unmapped = [v for v in values if not is_data(v) and v is not None and _series_style(args, v, name)[1] is None]
+    hue_cmap = HueColormap(unmapped, args.hue_cmap, args.hue_cmap_range) if args.hue_cmap and unmapped else None
+    colors.reserve([v for v in values if not is_data(v)],
+                   lambda value: _series_style(args, value, name)[1] or (hue_cmap.color(value) if hue_cmap else None))
     density = args.density or args.labely == "Density"
 
     for idx, variable in enumerate(variables):
@@ -255,6 +283,8 @@ def draw_figure(df, args, kdx, config, name):
                     ax.errorbar(centres, counts, yerr=errors, fmt="none", color=color, linewidth=1)
             if args.flow == "hint":
                 _draw_flow_hints(ax, counts, edges, under, over, color)
+        if args.overlay_gaussian is not None:
+            _overlay_gaussian(ax, series[0], edges, density, args)
 
     data_labels = {_series_style(args, v, name)[0] for v in values if is_data(v)}
     is_data_label = lambda label: label in data_labels  # noqa: E731
@@ -286,8 +316,9 @@ def draw_figure(df, args, kdx, config, name):
             ax.semilogy()
         if args.logx:
             ax.semilogx()
-        # A single series without --hue needs no legend.
-        if idx == n_panels - 1 and args.iterable is not None and not args.no_legend and args.draw_legend != "none":
+        # A single series without --hue needs no legend (unless a Gaussian is drawn over it).
+        if (idx == n_panels - 1 and (args.iterable is not None or args.overlay_gaussian is not None)
+                and not args.no_legend and args.draw_legend != "none" and hue_cmap is None):
             handles, labels = ax.get_legend_handles_labels()
             # matplotlib lists error bars after the steps: the data entries go first.
             order = sorted(range(len(labels)), key=lambda i: not is_data_label(labels[i]))
@@ -296,6 +327,9 @@ def draw_figure(df, args, kdx, config, name):
         draw_overlays(ax, args)
         draw_panel_lines(ax, args, idx)
 
+    if hue_cmap is not None and not args.no_hue_colorbar:
+        hue_cmap.colorbar(fig, list(axes[:n_panels]), label=args.labelz or args.iterable,
+                          tick_labels=[str(_series_style(args, v, name)[0]) for v in hue_cmap.values])
     add_title_and_note(fig, args)
     return save(fig, args, kdx, suffix="hist.png")
 
@@ -312,6 +346,9 @@ def _project_relative(path):
 
 
 def run(args):
+    if args.hue_cmap and args.hue_cmap not in matplotlib.colormaps:
+        rprint(f"[red]Error:[/red] --hue_cmap: unknown colour map '{args.hue_cmap}' (e.g. viridis, plasma, cividis).")
+        return []
     args.panel_vertical_file = _project_relative(args.panel_vertical_file)
     resolve_panel_lines(args, n_panels=len(args.variables) if args.variables is not None else None, unit="--variables entry")
     df = import_data(args)

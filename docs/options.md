@@ -87,6 +87,20 @@ are the example list, `examples/input/plots/example_scripts.txt`;
   `--sum_color`, `--reference_sum_color`, default: a free colour) never
   share one. With more values than colours, colours repeat and a warning
   is printed.
+* **Time series**: an x column of dates (datetime64, Timestamps) is drawn on a
+  date axis with concise tick labels (2023, Mar, May, ...). `--smooth N`
+  draws each line smoothed over N points (`--smooth_kind rolling`, a centred
+  mean, or `savgol`, a quadratic Savitzky-Golay filter) over its raw series,
+  which turns thin and translucent and keeps its errors (`--smooth_only`
+  leaves it out); lower panels still compare the raw values.
+* **Ordered hues** (runs, energies, galaxies by size): `--hue_cmap viridis`
+  (`line`, `hist`) takes the colours from a matplotlib colour map instead:
+  numeric hue values by value (`--hue_cmap_range MIN MAX` fixes the ends),
+  others in their draw order (set by `--iterable_mapping`). A colorbar
+  labelled with the hue column (`--labelz`) replaces the colour legend
+  (`--no_hue_colorbar` drops it); values with an `--iterable_color_mapping`
+  colour keep it and stay off the colour map, and the `--style` legend is
+  still drawn.
 * **Errors**: `--errory` draws the `{y}Error` (or `{y}Error+/-`) column as
   a band for `--plot_type line|step` and as bars on points;
   `--errory_type bars|bands` picks either for any plot type. The band takes
@@ -220,6 +234,23 @@ in the style's muted colour (`--vertical_band_color`), with an optional
 plotipus line --datafile Distributions -x Bin -y Counts --hue Sample --select Distribution -s Breit-Wigner --data_hue Data --errory --vertical_band 89.94 92.44 --horizontal 128 --horizontal_label 'FWHM = 2.50 GeV' --labelx 'Mass (GeV)' --title 'A shaded region and a line label'
 ```
 
+Free annotations work in every kind and are drawn after the axis ranges are
+set:
+
+* `--text X Y 'TEXT'` (repeatable) writes a text at axes fractions, or in
+  data coordinates with `--text_coords data`; `--text_axes`, `--text_color`,
+  `--text_size` (default x-large, scaled by the medium), `--text_rotation`,
+  `--text_weight`, `--text_style` and `--text_ha` take one value per text
+  (the last repeats). `--arrow X2 Y2` (repeatable, matched to the texts in
+  order, `nan nan` to skip one) draws an arrow from the text to (X2, Y2).
+* `--region 'x,y x,y ...'` (repeatable) shades a polygon in data
+  coordinates under the data without widening the axes, in `--region_color`
+  (muted) at `--region_alpha` (0.3), with an optional `--region_hatch` and a
+  `--region_label` written inside its visible part.
+* `line --direct_labels` names each line series at its last point, in its
+  colour, instead of a legend; `map --contour --contour_labels` writes each
+  level's label on its contour line.
+
 ## Histograms
 
 `hist` bins per-event arrays, every hue over the same edges. `--weight COL`
@@ -227,7 +258,10 @@ weights the entries (here the simulation down to the data total), `--density`
 normalises each histogram to unit area, and `--flow` handles the entries
 outside the range: `none` drops them, `hint` marks them beyond the outer
 edge, `show` adds them to the first/last bin. Their number is printed in
-every mode.
+every mode. `--overlay_gaussian` draws the unit normal (or `--overlay_gaussian
+MU SIGMA`) over the histogram, scaled to the first series' entries in range,
+to judge a pull distribution; `--hue_cmap` colours ordered hues from a colour
+map (see [Shared options](#shared-options)).
 
 ![Breit-Wigner samples with the long tails collected in the first and last bins](images/options/flow.png)
 
@@ -241,7 +275,7 @@ A lower panel is the same kind of panel as the upper one; it plots a column
 derived from (or stored in) the same DataFrame. Each `--lower` adds one:
 
 ```bash
---lower ratio                 # every series / the reference series (--reference, --reference_value):
+--lower ratio                 # every series / the reference series (--reference INDEX|VALUE, --reference_value):
                               # the reference is a line at 1 in its colour, the others points with
                               # both series' errors (with --errory)
 --lower relative_difference   # also subtract, asymmetry, excess, excess_probability, sum, mean, rms
@@ -252,6 +286,7 @@ derived from (or stored in) the same DataFrame. Each `--lower` adds one:
 --lower column:Significance   # a series stored in the pickle (with SignificanceError), over a dashed
                               # line at 0 (1 for a column named like a ratio; --no_lower_reference)
 --lower events:OpHit          # event markers read from OpHit* columns
+--lower column:Count --lower_plot_type bar   # stored counts as bars (80% of the x spacing), e.g. under a calibration curve
 ```
 
 ![Stacked background and signal simulation with the signal significance S/sqrt(B) in a lower panel](images/options/significance.png)
@@ -381,7 +416,10 @@ the fitted `Params` with `ParamsError` and `ParamsLabel`, and optionally
   second legend, placed with the series legend where both cover the least
   data; `--fitlegendposition X Y` pins a text box there instead.
 * `--lower residual` shows (data - fit) / fit, `--lower pull`
-  (data - fit) / error.
+  (data - fit) / error, and `--lower residual:COMPONENT` the data minus one
+  `FitComponents` entry (its name, or the start of it: `residual:Back`),
+  with the data errors and the rest of the fit drawn over it: the "data −
+  background" panel with the signal curve.
 * With `--data_hue`, the data is drawn as in
   [Data and simulation](#data-and-simulation) (ink points with error bars)
   and the fit takes the palette's first colour.
@@ -410,7 +448,23 @@ in greyscale and under colour-vision deficiencies, and its lightest colour is
 a tint, so blank (empty) bins stand apart. The dark theme uses
 `plotipus_dark`, rising from a dark blue to the cream; `--experiment dune`
 keeps DUNE's cividis, and `classic` matplotlib's viridis. `--cmap NAME` picks
-any other.
+any other, for `-z` grids and 2D histograms alike.
+
+* **Colour scales.** `--zpower 0.5` is a power-law (here square-root) scale,
+  its colorbar ticked at the powers of ten; `--zmin VALUE` sets the bottom
+  of the scale and `--zunder COLOUR` the colour of the values below it (the
+  Gaia diagrams draw their sparsest bins black); `--colorbar none` drops the
+  bar. `--logx`/`--logy` give the map log axes (a spectrogram's frequency).
+* **Tables as grids** (confusion matrices, yields): string x or y values
+  become one tick per name; `--norm horizontal|vertical|global|combined`
+  normalises a `-z` grid as it does a 2D histogram (rows of a confusion
+  matrix: `horizontal`); `--annotate [FORMAT]` writes each cell's value in it
+  (`.0%`, `.2f`; default `.3g`), dark on light cells and light on dark ones;
+  `--matrix` puts the first y value at the top.
+
+```bash
+plotipus map --datafile Confusion -x Predicted -y True -z Count --norm horizontal --annotate .0% --matrix --cmap Blues
+```
 
 ![True against measured value for data and simulation, sharing one log colour scale](images/options/colorbar.png)
 

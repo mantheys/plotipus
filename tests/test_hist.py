@@ -168,3 +168,41 @@ def test_histogram_errors_scale_with_density():
     counts, _, _, errors = hist.histogram_with_errors(np.array([0.5, 0.5, 1.5, 1.5]), np.array([0.0, 1.0, 2.0]),
                                                       density=True)
     assert np.allclose(counts, [0.5, 0.5]) and np.allclose(errors, np.sqrt(2) / 4)
+
+
+def test_hist_hue_cmap_colorbar(make_project):
+    import matplotlib
+    from matplotlib.colors import to_hex
+
+    rng = np.random.default_rng(3)
+    frame = pd.DataFrame({"Run": [1, 2, 4], "X": [rng.normal(m, 1, 200) for m in (0, 1, 2)]})
+    make_project({"Runs": frame})
+    figures = _capture()
+    hist.main(["--datafile", "Runs", "-x", "X", "--hue", "Run", "--hue_cmap", "viridis"])
+    fig = figures[0]
+    ax = fig.axes[0]
+    colors = [to_hex(p.get_edgecolor()) for p in _stairs(ax)]
+    cmap = matplotlib.colormaps["viridis"]
+    assert colors == [to_hex(cmap(v)) for v in (0.0, 1 / 3, 1.0)]  # numeric runs on a 1-4 scale
+    assert ax.get_legend() is None
+    assert any(hasattr(a, "_colorbar") for a in fig.axes)
+
+
+def test_overlay_gaussian_scaled_to_entries(make_project):
+    from scipy.stats import norm
+
+    pulls = np.random.default_rng(5).normal(0, 1, 4000)
+    make_project({"Pulls": pd.DataFrame([{"Pull": pulls}])})
+    figures = _capture()
+    hist.main(["--datafile", "Pulls", "-x", "Pull", "--bins", "40", "--overlay_gaussian"])
+    ax = figures[0].axes[0]
+    (curve,) = [l for l in ax.lines if l.get_label().startswith("$\\mathcal{N}")]
+    edges = _stairs(ax)[0].get_data().edges
+    peak = norm.pdf(0) * len(pulls) * np.diff(edges).mean()
+    assert np.isclose(curve.get_ydata().max(), peak, rtol=0.01)
+    assert [t.get_text() for t in ax.get_legend().get_texts()] == ["$\\mathcal{N}(0, 1)$"]
+    figures.clear()
+    hist.main(["--datafile", "Pulls", "-x", "Pull", "--density", "--overlay_gaussian", "0.5", "2"])
+    (curve,) = [l for l in figures[0].axes[0].lines if l.get_label().startswith("$\\mathcal{N}")]
+    assert np.isclose(curve.get_ydata().max(), norm.pdf(0, 0, 2), rtol=0.01)
+    assert curve.get_label() == "$\\mathcal{N}(0.5, 2)$"

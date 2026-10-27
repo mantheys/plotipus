@@ -82,6 +82,9 @@
       "Expected": "Bkg. Expected",
       "Observed": "Observed"
     },
+    "rubin_colors": {
+      "Keplerian": "black"
+    },
     "firas_colors": {
       "FIRAS data": "black",
       "Blackbody": "black"

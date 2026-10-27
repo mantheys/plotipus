@@ -172,3 +172,35 @@ def test_fit_parameter_box_at_position(make_project):
     line.main(["--datafile", "Fits", "-x", "Values", "-y", "Counts", "--fit", "--fitlegendposition", "0.6", "0.9"])
     texts = [t.get_text() for t in figures[-1].axes[0].texts]
     assert texts[0] == "Fit Parameters:" and texts[1].startswith("A = ")
+
+
+def test_residual_against_a_fit_component(make_project):
+    """--lower residual:COMPONENT: data minus the background, with the signal (fit minus background) over it."""
+    figures = _capture()
+    frame = _signal_background_frame()
+    make_project({"Fits": frame})
+    line.main(["--datafile", "Fits", "-x", "Mass", "-y", "Counts", "--hue", "Sample", "--fit", "--data_hue", "Data",
+               "--errory", "--lower", "residual:Back"])
+    lower = figures[-1].axes[1]
+    x = frame["Mass"].iloc[0]
+    background = 1e4 * np.exp(-x / 30)
+    points = [l for l in lower.lines if l.get_marker() not in (None, "None", "")]
+    assert np.allclose(points[0].get_ydata(), frame["Counts"].iloc[0] - background)
+    curve = max(lower.lines, key=lambda l: len(l.get_xdata()))
+    assert np.isclose(np.max(curve.get_ydata()), 80.0, rtol=1e-3)  # the signal peak
+    assert "Background" in lower.texts[0].get_text()
+
+
+def test_residual_against_a_missing_component_warns(make_project, capsys):
+    make_project({"Fits": _signal_background_frame()})
+    line.main(["--datafile", "Fits", "-x", "Mass", "-y", "Counts", "--hue", "Sample", "--fit", "--lower",
+               "residual:Nope"])
+    assert "no such fit component" in capsys.readouterr().out
+
+
+def test_parse_residual_component():
+    from plotipus.lower import parse_lower
+
+    spec = parse_lower("residual:Bkg (4th order polynomial)")
+    assert (spec.kind, spec.name, spec.component) == ("operation", "residual", "Bkg (4th order polynomial)")
+    assert parse_lower("residual").component is None
