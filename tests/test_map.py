@@ -419,3 +419,22 @@ def test_panels_compact_by_default(make_project):
     assert first.get_ylim() == second.get_ylim() and second.get_ylabel() == ""
     assert second.yaxis.get_tick_params(which="major")["labelleft"] is False
     assert figures[1].axes[1].get_ylabel() != ""
+
+
+def test_diagonal_spans_the_matched_axes(make_project):
+    """--diagonal crosses the whole panel, also where --matchx widens it past
+    this panel's data."""
+    from matplotlib.lines import AxLine
+
+    rng = np.random.default_rng(2)
+    frame = pd.DataFrame([{"Sample": s, "X": x, "Y": x + rng.normal(scale=0.3, size=x.size)}
+                          for s, x in (("narrow", rng.uniform(0, 4, 500)), ("wide", rng.uniform(0, 10, 500)))])
+    from plotipus import registry
+
+    make_project({"Events": frame})
+    figures = []
+    registry.add_figure_hook(lambda fig, args: figures.append(fig))
+    map_kind.main(["--datafile", "Events", "-x", "X", "-y", "Y", "--iterable", "Sample", "--diagonal", "--matchx"])
+    panels = [ax for ax in figures[0].axes if not hasattr(ax, "_colorbar") and ax.collections]
+    for ax in panels:
+        assert [l for l in ax.get_lines() if isinstance(l, AxLine)]

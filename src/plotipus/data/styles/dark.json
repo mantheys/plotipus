@@ -1,7 +1,7 @@
 {
-  "_comment": "dark theme: Petroff-10 in the same order with lightened twins of its darkest entries (contrast >= 3.5:1 on #1b1d22), diverging maps made for dark backgrounds.",
+  "_comment": "dark theme: Petroff-10 in the same order with lightened twins of its darkest entries (contrast >= 3.5:1 on #1b1d22), diverging maps made for dark backgrounds (filled cells dark at 0; markers light at 0, so they stand out).",
   "mplstyle": "dark.mplstyle",
   "palette": "petroff10-dark",
   "roles": {"ink": "#e8eaed", "muted": "#8b9099", "faint": "#33363d", "paper": "#1b1d22", "accent": "#e12501"},
-  "plot_settings": {"diverging_cmap": "berlin"}
+  "plot_settings": {"diverging_cmap": "berlin", "diverging_marker_cmap": "RdBu_r"}
 }

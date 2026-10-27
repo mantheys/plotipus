@@ -214,7 +214,7 @@ def _publish():
     global note_style, base_font_size, mappings, auto_title, contours, stack_error, sci_in_label, error_label
     global capitalize_exceptions, redundant_legend_titles, title_short_forms
     global widths, figure_aspect, figure_width, figure_row_height, draw_titles
-    global fit_color, zero_line_color, diverging_cmap, header, figure_single_panel, text_scale
+    global fit_color, zero_line_color, diverging_cmap, diverging_marker_cmap, header, figure_single_panel, text_scale
     global figure_lower_panels, figure_facet_rows
 
     rcparams = _CONFIG.get("rcparams", {})
@@ -261,6 +261,10 @@ def _publish():
     fit_color = settings.get("fit_color")
     zero_line_color = settings.get("zero_line_color", "role:muted")
     diverging_cmap = settings.get("diverging_cmap", "RdBu_r")
+    # Signed colours of markers (scatter --colorby): the centre must stand out
+    # from the background, so it is the opposite of the filled cells' map
+    # (dark at 0 on light paper, light at 0 on a dark theme).
+    diverging_marker_cmap = settings.get("diverging_marker_cmap", diverging_cmap)
     # Scale for the free texts of plugins and figure hooks (relative font
     # sizes already follow the medium's font.size; dense media shrink them).
     text_scale = float(settings.get("text_scale", 1.0))

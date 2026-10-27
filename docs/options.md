@@ -174,12 +174,15 @@ plotipus line --datafile Distributions -x Bin -y Counts --hue Sample --select Di
 `--horizontal_label` (`--vertical_label`) writes a label next to its line:
 just above it (else below), at its right end, its left end or along it,
 wherever it covers the least data. Labels and `--note` boxes get a
-translucent background only where they sit on data.
+translucent background only where they sit on data. `--vertical_band X1 X2
+[X1 X2 ...]` (`--horizontal_band Y1 Y2 ...`) shades ranges behind the data,
+in the style's muted colour (`--vertical_band_color`), with an optional
+`--vertical_band_label` written in the band like a line label.
 
-![Breit-Wigner peak with vertical lines at the half-maximum points and a horizontal line at half maximum labelled with the width](images/options/overlays.png)
+![Breit-Wigner peak with the full width at half maximum shaded and a horizontal line at half maximum labelled with the width](images/options/overlays.png)
 
 ```bash
-plotipus line --datafile Distributions -x Bin -y Counts --hue Sample --select Distribution -s Breit-Wigner --data_hue Data --errory --vertical 89.94 92.44 --horizontal 128 --horizontal_label 'FWHM = 2.50 GeV' --labelx 'Mass (GeV)' --title 'Reference lines and a line label'
+plotipus line --datafile Distributions -x Bin -y Counts --hue Sample --select Distribution -s Breit-Wigner --data_hue Data --errory --vertical_band 89.94 92.44 --horizontal 128 --horizontal_label 'FWHM = 2.50 GeV' --labelx 'Mass (GeV)' --title 'A shaded region and a line label'
 ```
 
 ## Histograms
@@ -435,7 +438,10 @@ open steps with error bands:
   `--rangex` or else the range of all the hues' x values.
 * **Box plots** (`--plot_type box`): one box per bin (per category for a
   non-numeric x), the hues side by side within the bin, in their colours
-  with one legend entry each. Numeric bins keep a plain numeric axis
+  (a strong face, the median in ink) with one legend entry each. **Violin
+  plots** (`--plot_type violin`) draw the density of y per bin instead,
+  with the interquartile range as an ink bar and the median as a dot; they
+  take the same bins, axis and colours. Numeric bins keep a plain numeric axis
   over the bin edges; `--box_tick_labels centres` puts a tick at each bin
   centre and `--box_tick_labels ranges` labels the bins "[a, b)". `--whis` sets the
   whisker reach (default 1.5 IQR, or two percentiles such as `5 95`) and
@@ -447,10 +453,16 @@ open steps with error bands:
 plotipus line --datafile Distributions -x Value -y Residual --binned --estimator std --hue Sample --data_hue Data --select Distribution -s Exponential --bins 11 --rangex 0 10 --labelx True --labely 'Measured - True' --title 'Binned estimator: resolution'
 ```
 
-![Box plots of measured - true per bin of the true value, data and simulation side by side](images/options/box.png)
+![Box plots of measured - true per bin of the true value, simulation](images/options/box.png)
 
 ```bash
-plotipus line --datafile Distributions -x Value -y Residual --binned --plot_type box --hue Sample --select Distribution -s Exponential --bins 11 --rangex 0 10 --labelx True --labely 'Measured - True' --title 'Box plots per bin'
+plotipus line --datafile Distributions -x Value -y Residual --binned --plot_type box --select Distribution Sample -s Exponential Simulation --bins 11 --rangex 0 10 --labelx True --labely 'Measured - True' --title 'Box plots per bin'
+```
+
+![Violin plots of measured - true per bin of the true value, simulation](images/options/violin.png)
+
+```bash
+plotipus line --datafile Distributions -x Value -y Residual --binned --plot_type violin --select Distribution Sample -s Exponential Simulation --bins 11 --rangex 0 10 --labelx True --labely 'Measured - True' --title 'Violin plots per bin'
 ```
 
 ## Categories and scatter
@@ -473,7 +485,11 @@ start at zero, and points for any other quantity, such as a width or a mean.
 entry of the array cells, with colour (`--colorby`), size (`--sizeby`) and
 marker (`--markerby`) encodings; only the drawn columns are exploded into
 points. A `--colorby` column of both signs takes the style's diverging map
-(`plot_settings.diverging_cmap`), centred at 0; others the sequential
+for markers (`plot_settings.diverging_marker_cmap`), centred at 0: its
+centre stands out from the paper (`berlin`, dark at 0, on the light
+styles; `RdBu_r`, light at 0, on the dark theme), the opposite of the map
+of filled cells (`diverging_cmap`), whose centre melts into the paper. Other
+columns take the sequential
 `image.cmap` (`plotipus`; cividis with `--experiment dune`).
 
 The yields of a search are counts, so they are bars: the simulated

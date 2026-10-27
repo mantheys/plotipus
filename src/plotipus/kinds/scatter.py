@@ -516,9 +516,10 @@ def draw_points(rows, args, kdx):
         cmap = None  # the style's sequential map (image.cmap)
         finite = all_values[np.isfinite(all_values)]
         if not args.logz and finite.size and finite.min() < 0 < finite.max():
-            # Values of both signs: the diverging map, white at 0.
+            # Values of both signs: the style's diverging map for markers, whose
+            # centre stands out from the background.
             reach = float(np.max(np.abs(finite)))
-            norm, cmap = Normalize(vmin=-reach, vmax=reach), style.diverging_cmap
+            norm, cmap = Normalize(vmin=-reach, vmax=reach), style.diverging_marker_cmap
         last = None
         for value, group, marker, hollow in _marker_groups(rows, args.markerby, markers):
             colors = group[args.colorby].astype(float).to_numpy()
