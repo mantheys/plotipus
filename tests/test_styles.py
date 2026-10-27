@@ -178,6 +178,22 @@ def test_plugin_settings_survive_a_named_style(make_project, spectra, tmp_path, 
     sys.modules.pop("my_plugin", None)
 
 
+def test_plugin_colour_cycle_survives_project_style_files(make_project, spectra, tmp_path, monkeypatch):
+    """A cycle a plugin sets in rcParams replaces the palette, also when
+    project style files (without a palette) and --medium come after it."""
+    (tmp_path / "cycle_plugin.py").write_text(
+        "import matplotlib.pyplot as plt\nfrom cycler import cycler\n"
+        "plt.rcParams['axes.prop_cycle'] = cycler(color=['#111111', '#222222'])\n")
+    (tmp_path / "style.json").write_text('{"font_sizes": {"titlefontsize": 12}}')
+    monkeypatch.syspath_prepend(str(tmp_path))
+    make_project({"Spectra": spectra}, 'plugins = ["cycle_plugin"]\nstyle = ["style.json"]\n')
+    project.load_project()
+    for name in (None, "paper", "open-dark"):
+        project.apply_rendering(preset=name)
+        assert plt.rcParams["axes.prop_cycle"].by_key()["color"] == ["#111111", "#222222"]
+    sys.modules.pop("cycle_plugin", None)
+
+
 def test_save_style_writes_the_resolved_style(make_project, spectra):
     out = make_project({"Spectra": spectra})
     line.main(["--datafile", "Spectra", "-x", "Energy", "-y", "Counts", "--style_preset", "paper-dark",

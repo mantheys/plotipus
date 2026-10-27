@@ -122,6 +122,26 @@ def test_by_config_distinct_colours_and_config_color(make_project, tmp_path):
     assert colors[:2] == [to_hex("C3"), to_hex("C4")]
 
 
+def test_by_config_one_mapped_config_split_by_hue(make_project, tmp_path):
+    """Issue #1: one config with a config_color, split by --hue, draws each
+    hue value in its own colour (--iterable_color_mapping wins)."""
+    x = np.arange(0.5, 10, 1.0)
+    frame = pd.DataFrame([{"Values": x, "Counts": k * np.ones_like(x), "Config": "hd", "Name": "n", "Signal": s}
+                          for k, s in ((3, "Signal"), (2, "External"), (1, "Intrinsic"))])
+    (tmp_path / "style.json").write_text('{"mappings": {"config_color": {"hd": "C3"}, '
+                                         '"hue_colors": {"External": "#123456"}}}')
+    make_project({"hd_n_Spec": frame}, 'style = ["style.json"]\n')
+    figures = _capture()
+    base = ["--datafile", "Spec", "--configs", "hd", "--names", "n", "-x", "Values", "-y", "Counts",
+            "-i", "Signal", "--by_config", "--plot_type", "line"]
+    line.main(base)
+    line.main([*base, "--iterable_color_mapping", "hue_colors"])
+    plain, mapped = (_line_colors(fig.axes[0]) for fig in figures)
+    assert len(plain) == 3 and len({color for color, _ in plain.values()}) == 3
+    assert len({color for color, _ in mapped.values()}) == 3
+    assert "#123456" in {color for color, _ in mapped.values()}
+
+
 def test_many_hues_repeat_colours_with_a_warning(make_project, capsys):
     x = np.linspace(0, 10, 20)
     frame = pd.DataFrame([{"X": x, "Y": np.sin(x + i), "Run": f"run{i:02d}"} for i in range(12)])

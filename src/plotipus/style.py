@@ -408,6 +408,10 @@ def difference(before, after):
 def replay(changes):
     """Apply a :func:`difference` (e.g. what plugins changed) again."""
     config, rc = changes
+    if "axes.prop_cycle" in rc and "palette" not in config:
+        # A colour cycle set directly (plugin rcParams, plt.style.use) replaces
+        # the palette like a style file's, so later layers keep it.
+        config = _deep_merge(config, {"rcparams": {"axes.prop_cycle": repr(rc["axes.prop_cycle"])}})
     if config:
         configure(config)
     dict.update(plt.rcParams, rc)
