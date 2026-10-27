@@ -1516,12 +1516,22 @@ def run_by_config(df, args):
     )
     # One colour per (hue value, config/name) in every panel; mapped colours are reserved first.
     colors = ColorAllocator()
+    configs, names = prepare_import(args)
+    # One config/name split by --hue: its mapped colour would draw every hue
+    # value alike, so the hue values take --iterable_color_mapping or the palette.
+    by_hue = len(iterables) > 1 and len(configs or [None]) == 1 and len(names or [None]) == 1
+
+    def mapped_color(iterable, config, name):
+        mapped, linestyle = make_config_color_and_style_from_args(args, config=config, name=name)
+        if by_hue:
+            mapped = map_iterable_color(iterable, args.iterable_color_mapping)
+        return mapped, linestyle
+
     if args.combine != "prefix":
-        configs, names = prepare_import(args)
         pairs = list(enumerate(zip(configs if configs is not None else [None], names if names is not None else [None])))
         for iterable in iterables:
             colors.reserve([(iterable, ldx, config, name) for ldx, (config, name) in pairs],
-                           lambda key: make_config_color_and_style_from_args(args, config=key[2], name=key[3])[0])
+                           lambda key: mapped_color(key[0], key[2], key[3])[0])
     linestyles, line_colors = {}, {}  # per series, so every panel draws it alike
     plotted = set()
     data_labels = set()  # --data_hue series, first in the legend
@@ -1627,7 +1637,7 @@ def run_by_config(df, args):
                     continue
 
                 key = (iterable, ldx, config, name)
-                mapped, base_linestyle = make_config_color_and_style_from_args(args, config=config, name=name)
+                mapped, base_linestyle = mapped_color(iterable, config, name)
                 color = colors.color_for(key, mapped)
                 if key not in linestyles:
                     many = len(set(prefixes)) > 1 or len(args.configs or []) > 1 or len(args.names or []) > 2
