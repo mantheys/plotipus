@@ -40,7 +40,7 @@ def build_parser():
             "datafile", "configs", "names", "variables", "x", "iterable", "reduce", "select",
             "save_values", "remove_value", "filename_select", "filename_suffix", "bins", "percentile",
             "labelx", "labely", "labelz", "logx", "logy", "rangex", "rangey", "title", "output",
-            "subfolder", "horizontal", "horizontal_label", "horizontal_style", "horizontal_color",
+            "subfolder", "horizontal", "horizontal_label", "horizontal_style", "horizontal_color", "horizontal_label_pos",
             "vertical", "vertical_label", "vertical_style", "vertical_color", "point", "point_label",
             "vertical_band", "vertical_band_label", "vertical_band_color", "horizontal_band",
             "horizontal_band_label", "horizontal_band_color",

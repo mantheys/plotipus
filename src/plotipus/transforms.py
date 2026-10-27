@@ -73,20 +73,21 @@ def edges_from_centers(x):
     return np.concatenate([[x[0] - steps[0] / 2], x[:-1] + steps / 2, [x[-1] + steps[-1] / 2]])
 
 
-def y_error_of(points):
+def y_error_of(points, prefix="Error"):
     """Errors of exploded points: ``ErrorLow``/``ErrorHigh`` stacked (2, N),
     else ``Error`` (N,), else None (also when not castable to floats, and
     when every error is NaN: a row without an error cell in a frame where
-    other rows have one has no error, so the default intervals apply)."""
+    other rows have one has no error, so the default intervals apply).
+    ``prefix`` names other error columns the same way."""
     error = None
     try:
-        if "ErrorLow" in points.columns and "ErrorHigh" in points.columns:
+        if f"{prefix}Low" in points.columns and f"{prefix}High" in points.columns:
             error = np.vstack([
-                points["ErrorLow"].astype(float).to_numpy(),
-                points["ErrorHigh"].astype(float).to_numpy(),
+                points[f"{prefix}Low"].astype(float).to_numpy(),
+                points[f"{prefix}High"].astype(float).to_numpy(),
             ])
-        elif "Error" in points.columns:
-            error = points["Error"].astype(float).to_numpy()
+        elif prefix in points.columns:
+            error = points[prefix].astype(float).to_numpy()
     except (ValueError, TypeError):
         return None
     if error is None or error.size == 0 or np.all(np.isnan(error)):

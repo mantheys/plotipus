@@ -871,3 +871,115 @@ def test_shifted_steps_keep_box_legend_entries(make_project):
     line.main(["--datafile", "S", "-x", "X", "-y", "Y", "--hue", "Sample", "--shift", "peak", "--reference_value", "Ref"])
     handles = figures[0].axes[0].get_legend().legend_handles
     assert len(handles) == 2 and all(isinstance(h, Rectangle) for h in handles)
+
+
+# --- T20: nested bands, sigma and Delta chi2 lines ----------------------------------
+
+
+@pytest.fixture
+def expected_limits():
+    mass = np.linspace(110, 150, 9)
+    expected = 0.5 + 0.01 * (mass - 110)
+    return pd.DataFrame([
+        {"Mass": mass, "MuLimit": expected * 1.2, "Limit": "Observed"},
+        {"Mass": mass, "MuLimit": expected, "Limit": "Expected",
+         "MuLimit1Sigma+": 0.2 * expected, "MuLimit1Sigma-": 0.15 * expected,
+         "MuLimit2Sigma+": 0.5 * expected, "MuLimit2Sigma-": 0.3 * expected},
+    ])
+
+
+def _opaque_bands(ax):
+    return [c for c in ax.collections if isinstance(c, PolyCollection) and c.get_alpha() in (None, 1.0)]
+
+
+def test_brazil_bands_nested_with_legend(make_project, expected_limits):
+    from plotipus.plot import BRAZIL_COLORS
+
+    figures = _capture()
+    make_project({"Limit": expected_limits})
+    line.main(["--datafile", "Limit", "-x", "Mass", "-y", "MuLimit", "--hue", "Limit", "--plot_type", "line",
+               "--errory", "--errory_column", "MuLimit1Sigma", "MuLimit2Sigma", "--band_colors", "brazil"])
+    ax = figures[0].axes[0]
+    bands = _opaque_bands(ax)
+    assert len(bands) == 2
+    by_color = {to_hex(b.get_facecolor()[0]): b for b in bands}
+    inner, outer = by_color[BRAZIL_COLORS[0]], by_color[BRAZIL_COLORS[1]]
+    assert inner.get_zorder() > outer.get_zorder()  # +-1 sigma on top
+    assert all(b.get_zorder() < l.get_zorder() for b in bands for l in ax.get_lines())  # under the lines
+    # The outer band reaches 0.5 x expected above the curve at the first point (asymmetric C+/C- sizes).
+    assert np.isclose(outer.get_paths()[0].vertices[:, 1].max(), 1.5 * (0.5 + 0.4))
+    labels = [t.get_text() for t in ax.get_legend().get_texts()]
+    assert "Expected $\\pm1\\sigma$" in labels and "$\\pm2\\sigma$" in labels
+    assert labels.index("Expected $\\pm1\\sigma$") < labels.index("$\\pm2\\sigma$")
+
+
+def test_band_labels_and_graded_colors(make_project, expected_limits):
+    from plotipus import style
+
+    figures = _capture()
+    make_project({"Limit": expected_limits})
+    line.main(["--datafile", "Limit", "-x", "Mass", "-y", "MuLimit", "--hue", "Limit", "--plot_type", "line",
+               "--errory", "--errory_column", "MuLimit1Sigma", "MuLimit2Sigma", "--band_labels", "68%", "95%"])
+    ax = figures[0].axes[0]
+    colors = sorted(to_hex(b.get_facecolor()[0]) for b in _opaque_bands(ax))
+    muted, paper = style.role("muted"), style.role("paper")
+    assert colors == sorted(style._mix(muted, paper, share) for share in (0.45, 0.2))  # an "expected" series
+    labels = [t.get_text() for t in ax.get_legend().get_texts()]
+    assert "68%" in labels and "95%" in labels
+
+
+def test_single_errory_column_keeps_translucent_band(make_project, spectra):
+    figures = _capture()
+    run(make_project, spectra, "--hue", "Sample", "--select", "Stage", "-s", "Raw", "--plot_type", "line",
+        "--errory", "--errory_column", "CountsError")
+    ax = figures[0].axes[0]
+    bands = [c for c in ax.collections if isinstance(c, PolyCollection)]
+    assert len(bands) == 3 and all(b.get_alpha() < 1 for b in bands)
+    assert all(not b.get_label() or b.get_label().startswith("_") for b in bands)
+
+
+def test_sigma_lines_at_one_sided_pvalues(make_project, spectra):
+    figures = _capture()
+    run(make_project, spectra, "--select", "Sample", "-s", "A", "--select", "Stage", "-s", "Raw",
+        "--plot_type", "line", "--logy", "--sigma_lines", "1", "2", "3")
+    ax = figures[0].axes[0]
+    levels = sorted(l.get_ydata()[0] for l in ax.get_lines() if l.get_linestyle() == "--")
+    assert np.allclose(levels, [0.00135, 0.02275, 0.1587], rtol=1e-3)
+    texts = {t.get_text(): t for t in ax.texts}
+    assert {"1$\\sigma$", "2$\\sigma$", "3$\\sigma$"} <= set(texts)
+    assert all(t.xy[0] > 0.9 and t.get_ha() == "right" for t in texts.values())
+
+
+def test_delta_chi2_and_cl_lines():
+    from plotipus.plot import delta_chi2_lines
+
+    values, labels = delta_chi2_lines([1, 4, 2.3])
+    assert values == [1, 4, 2.3] and labels[:2] == ["1$\\sigma$", "2$\\sigma$"] and "2.3" in labels[2]
+    values, labels = delta_chi2_lines(levels=[68.27, 95.45])
+    assert np.allclose(values, [1, 4], atol=1e-3) and labels == ["68.27% CL", "95.45% CL"]
+    values, _ = delta_chi2_lines(levels=[68.27], dof=2)
+    assert np.isclose(values[0], 2.30, atol=0.01)
+
+
+@pytest.mark.parametrize("pos, ha, x", [(None, "right", 0.98), ("left", "left", 0.02)])
+def test_horizontal_labels_on_one_side(make_project, spectra, pos, ha, x):
+    figures = _capture()
+    run(make_project, spectra, "--select", "Sample", "-s", "A", "--select", "Stage", "-s", "Raw",
+        "--plot_type", "line", "--horizontal", "0.2", "0.6", "--horizontal_label", "low", "high",
+        *(["--horizontal_label_pos", pos] if pos else []))
+    texts = [t for t in figures[0].axes[0].texts if t.get_text() in ("low", "high")]
+    assert len(texts) == 2
+    assert all(t.get_ha() == ha and np.isclose(t.xy[0], x) and t.get_va() == "bottom" for t in texts)
+
+
+def test_sigma_lines_dotted_with_labels_outside(make_project, spectra):
+    figures = _capture()
+    run(make_project, spectra, "--select", "Sample", "-s", "A", "--select", "Stage", "-s", "Raw",
+        "--plot_type", "line", "--logy", "--sigma_lines", "1", "2", "--sigma_line_style", "dotted",
+        "--sigma_line_color", "red", "--horizontal_label_pos", "outside")
+    ax = figures[0].axes[0]
+    lines = [l for l in ax.get_lines() if l.get_linestyle() == ":"]
+    assert len(lines) == 2 and all(to_hex(l.get_color()) == "#ff0000" for l in lines)
+    texts = [t for t in ax.texts if t.get_text() in ("1$\\sigma$", "2$\\sigma$")]
+    assert len(texts) == 2 and all(t.xy[0] == 1.0 and t.get_ha() == "left" for t in texts)
+    assert all(to_hex(t.get_color()) == "#ff0000" for t in texts)

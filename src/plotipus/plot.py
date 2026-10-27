@@ -1163,13 +1163,15 @@ def errory_type(args, plot_type):
     return "bars" if plot_type in ("errorbar", "scatter") else "bands"
 
 
-def _draw_band(ax, x, x_edges, y, errory, color, plot_type, drawstyle=None):
+def _draw_band(ax, x, x_edges, y, errory, color, plot_type, drawstyle=None, alpha=None, **extra):
     """Shade y ± errory (1-D symmetric, or 2xN lower/upper) in the series
-    colour: stepwise across the bins for steps."""
+    colour: stepwise across the bins for steps. ``extra`` (label, zorder)
+    goes to fill_between."""
     y = np.asarray(y, dtype=float)
     errory = np.asarray(errory, dtype=float)
     low, high = (y - errory, y + errory) if errory.ndim == 1 else (y - errory[0], y + errory[1])
-    band = dict(color=color, alpha=_style.band_alpha, edgecolor="none", linewidth=0)
+    band = dict(color=color, alpha=_style.band_alpha if alpha is None else alpha, edgecolor="none", linewidth=0,
+                **extra)
     if plot_type == "step" and x_edges is not None and len(x_edges) == len(y) + 1:
         ax.fill_between(np.asarray(x_edges, dtype=float), np.append(low, low[-1]), np.append(high, high[-1]),
                         step="post", **band)
@@ -1179,6 +1181,71 @@ def _draw_band(ax, x, x_edges, y, errory, color, plot_type, drawstyle=None):
         ax.fill_between(x, low, high, step=drawstyle.partition("-")[2] or "pre", **band)
     else:
         ax.fill_between(x, low, high, **band)
+
+
+# Expected-limit band colours of ATLAS arXiv:1207.7214 Fig. 7(a): the vector
+# fills of its ±1σ and ±2σ bands are pure green and yellow (ROOT kGreen and
+# kYellow, read by examples/famous/extract/extract_atlas_p0_limit.py).
+BRAZIL_COLORS = ("#00ff00", "#ffff00")
+# Share of the base colour in each graded band, innermost first.
+_GRADED_SHARES = (0.45, 0.2)
+
+
+def band_colors(spec, base, n):
+    """Colours of ``n`` nested bands, innermost first (--band_colors):
+    ``graded`` mixes ``base`` into the paper colour in steps, ``brazil`` is
+    green and yellow, anything else is a list of colours ("c1,c2" or
+    separate words); short lists reuse their last colour."""
+    spec = [part for item in (spec or ["graded"]) for part in str(item).split(",") if part]
+    if spec == ["graded"]:
+        shares = np.linspace(*_GRADED_SHARES, n) if n > 1 else _GRADED_SHARES[:1]
+        return [_style._mix(base, _style.role("paper"), share) for share in shares]
+    colors = list(BRAZIL_COLORS) if spec == ["brazil"] else [_style.resolve_mapped_color(c) for c in spec]
+    return [colors[min(i, len(colors) - 1)] for i in range(n)]
+
+
+def draw_nested_bands(ax, x, x_edges, y, errors, colors, labels, plot_type, drawstyle=None):
+    """Shade one opaque band per entry of ``errors`` (innermost first), each
+    in its colour and with its legend label (None: no entry). The
+    innermost band is drawn on top (by z order, so that the legend lists it
+    first), all of them under the lines."""
+    n = len(errors)
+    for i in range(n):
+        label = labels[i] if labels is not None and i < len(labels) else None
+        _draw_band(ax, x, x_edges, y, errors[i], colors[i], plot_type, drawstyle, alpha=1.0, label=label,
+                   zorder=1.0 + 0.01 * (n - 1 - i))
+
+
+def sigma_pvalue(n):
+    """One-sided p-value of an n σ excess, 1 - Φ(n)."""
+    from scipy.stats import norm
+
+    return float(norm.sf(n))
+
+
+def sigma_lines(sigmas):
+    """(p-values, labels) of --sigma_lines: 1σ is at p = 0.1587."""
+    return [sigma_pvalue(n) for n in sigmas], [f"{format_ref_value(n)}$\\sigma$" for n in sigmas]
+
+
+def delta_chi2_lines(values=None, levels=None, dof=1):
+    """(Δχ² values, labels) of --delta_chi2_lines (labelled nσ for whole
+    √Δχ² with 1 dof, else Δχ² = v) and of --cl_lines (confidence levels in
+    percent, at the χ² quantile for ``dof``, labelled "68% CL")."""
+    from scipy.stats import chi2
+
+    out, labels = [], []
+    for value in values or []:
+        root = math.sqrt(value) if value >= 0 else float("nan")
+        out.append(float(value))
+        if dof == 1 and root == round(root) and root > 0:
+            labels.append(f"{int(root)}$\\sigma$")
+        else:
+            labels.append(f"$\\Delta\\chi^2$ = {format_ref_value(value)}")
+    for level in levels or []:
+        out.append(float(chi2.ppf(level / 100.0, dof)))
+        labels.append(f"{format_ref_value(level)}% CL")
+    return out, labels
 
 
 def plot_data(
@@ -1746,19 +1813,21 @@ def draw_bands(ax, axis, values, labels=None, colors=None, fontsize=None, alpha=
         label = _ref_line_get(labels, i, None) if labels is not None else None
         if label:
             place = place_vertical_label if axis == "x" else place_horizontal_label
-            text_obj = place(ax, 0.5 * (low + high), label, fontsize=fontsize, avoid=avoid)
+            kwargs = {} if axis == "x" else {"pos": "auto"}
+            text_obj = place(ax, 0.5 * (low + high), label, fontsize=fontsize, avoid=avoid, **kwargs)
             if text_obj is not None:
                 box = _label_avoid_box(text_obj, ax, fontsize)
                 if box is not None:
                     avoid.append(box)
 
 
-def draw_horizontal_lines(ax, values, labels=None, styles=None, colors=None, fontsize=None):
+def draw_horizontal_lines(ax, values, labels=None, styles=None, colors=None, fontsize=None, label_pos="right"):
     """Draw one or more horizontal reference lines on *ax*.
 
     Each positional list (``labels``, ``styles``, ``colors``) is matched to
     ``values`` by index; if shorter than ``values`` the last element is reused
-    as a default.
+    as a default. ``label_pos`` is the side of the labels (right, left, or
+    auto: wherever they cover the least data).
 
     No label is shown unless ``labels`` is explicitly provided. Use
     ``format_ref_value`` to build default numeric-value labels yourself if
@@ -1776,7 +1845,7 @@ def draw_horizontal_lines(ax, values, labels=None, styles=None, colors=None, fon
         _include_in_limits(ax, "y", v, v)
         ax.axhline(v, color=color, linestyle=style, linewidth=1, zorder=5)
         if label is not None and label:
-            text_obj = place_horizontal_label(ax, v, label, fontsize=fontsize, avoid=avoid_boxes)
+            text_obj = place_horizontal_label(ax, v, label, fontsize=fontsize, avoid=avoid_boxes, pos=label_pos)
             if text_obj is not None:
                 box = _label_avoid_box(text_obj, ax, fontsize)
                 if box is not None:
@@ -2391,7 +2460,7 @@ def place_vertical_label(ax, x_value, label_text, fontsize=None, pad_fraction=0.
     return text_obj
 
 
-def place_horizontal_label(ax, y_value, label_text, fontsize=None, pad_fraction=0.02, avoid=None):
+def place_horizontal_label(ax, y_value, label_text, fontsize=None, pad_fraction=0.02, avoid=None, pos="auto"):
     """Place a label next to a horizontal line at `y_value`: just above the
     line (else below it), at its right end, its left end or along it,
     wherever it covers the least drawn data.
@@ -2400,6 +2469,10 @@ def place_horizontal_label(ax, y_value, label_text, fontsize=None, pad_fraction=
         avoid: optional list of (x0, x1, y0, y1) data-space boxes (e.g. other
             labels placed earlier in the same batch) the new label should not
             overlap.
+        pos: "right" or "left" keeps the label at that end of the line (above
+            it, below only when above leaves the axes); "outside" writes it
+            in the right margin, level with the line; "auto" tries every
+            place.
     """
     if label_text is None or not str(label_text).strip():
         return None
@@ -2424,8 +2497,16 @@ def place_horizontal_label(ax, y_value, label_text, fontsize=None, pad_fraction=
                            ha=ha, va="bottom" if above else "top", zorder=100,
                            bbox={"facecolor": _style.role("paper"), "alpha": 0.8, "edgecolor": "none"})
 
+    if pos == "outside":
+        text_obj = ax.annotate(text_str, (1.0, y0), xycoords=ax.get_yaxis_transform(), xytext=(offset, 0),
+                               textcoords="offset points", fontsize=fontsize, ha="left", va="center",
+                               annotation_clip=False, zorder=100)
+        return text_obj
+
     # Right end first, then the left end, then along the line; above the line before below it.
     anchors = [(0.98, "right"), (0.02, "left"), (0.75, "center"), (0.25, "center"), (0.5, "center")]
+    if pos in ("right", "left"):
+        anchors = [anchors[0] if pos == "right" else anchors[1]]
     best = None
     for above in (True, False):
         for x, ha in anchors:
@@ -2433,7 +2514,8 @@ def place_horizontal_label(ax, y_value, label_text, fontsize=None, pad_fraction=
             box = probe.get_window_extent(renderer)
             clash = avoid and any(_rects_overlap(_display_to_data_box(ax, box), other) for other in avoid)
             inside = ax.bbox.y0 <= box.y0 and box.y1 <= ax.bbox.y1
-            score = occupancy.fraction(box, pad=0) + (1.0 if clash else 0.0) + (0.0 if inside else 2.0)
+            covered = occupancy.fraction(box, pad=0) if pos == "auto" else 0.0  # a fixed side stays above the line
+            score = covered + (1.0 if clash else 0.0) + (0.0 if inside else 2.0)
             probe.remove()
             if best is None or score < best[0] - 1e-9:
                 best = (score, x, ha, above)

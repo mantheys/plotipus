@@ -42,7 +42,7 @@ def build_parser():
             "datafile", "configs", "names", "variables", "iterable", "select", "save_values",
             "remove_value", "filename_select", "filename_suffix", "x", "y", "labelx", "labely", "logy",
             "rangey", "title", "output", "subfolder", "horizontal", "horizontal_label",
-            "horizontal_style", "horizontal_color", "note", "multiply", "debug", "errory",
+            "horizontal_style", "horizontal_color", "horizontal_label_pos", "note", "multiply", "debug", "errory",
         ],
         overrides={
             "datafile": {"required": True},

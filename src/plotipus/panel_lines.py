@@ -143,6 +143,7 @@ def draw_panel_lines(ax, args, idx):
             styles=_entry(getattr(args, "panel_horizontal_style", None), idx),
             colors=_entry(getattr(args, "panel_horizontal_color", None), idx),
             fontsize=style.linelabelfontsize,
+            label_pos=getattr(args, "horizontal_label_pos", "right"),
         )
     vertical = getattr(args, "panel_vertical", None)
     if vertical is not None and vertical[idx] is not None:
