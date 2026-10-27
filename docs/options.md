@@ -112,7 +112,12 @@ are the example list, `examples/input/plots/example_scripts.txt`;
   `axes.formatter.limits` call for a common power of ten, it goes into the
   axis label, "Density (×10⁻²)", inside the unit when there is one: "Rate
   (×10⁻⁵ Hz)". `--no-sci_in_label` keeps matplotlib's
-  offset text at the end of the axis instead. Log axes label decades (10ⁿ).
+  offset text at the end of the axis instead. `--log_labels [AXIS=]MODE ...`
+  writes log-axis tick labels as `plain` numbers (200, 0.01), as `sci`
+  powers (10ⁿ) or `auto` (default: plain when every label lies in
+  10⁻³–10⁴, else 10ⁿ); AXIS is `x`, `y` or `z` (the colorbar), e.g.
+  `--log_labels x=plain z=sci`. Short ranges label the ticks between decades
+  too, always as plain numbers.
 * **Medium and size**: `--medium slides|paper|web|all`, `--theme
   light|dark`, `--width single|onehalf|double|nature|slide|half-slide|INCHES`,
   `--aspect H/W`, `--single_panel_size` (a grid of panels or a figure with

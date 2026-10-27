@@ -663,7 +663,7 @@ def _scale_errors(s, args, plot_type):
     stored = s.error
     s.error = np.asarray(stored, dtype=float) * args.error_scale
     if s.label:
-        s.label = f"{s.label} (errors ×{args.error_scale:g})"
+        s.label = f"{s.label} (errors $\\times${args.error_scale:g})"
     return stored
 
 

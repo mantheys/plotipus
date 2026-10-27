@@ -710,7 +710,7 @@ def test_error_scale_multiplies_drawn_errors_only(make_project, models):
     assert np.allclose(half, 10 * 0.2)
     assert np.allclose(data.lines[0].get_ydata(), models["Mu"].iloc[0])  # values unscaled
     labels = [t.get_text() for t in ax.get_legend().get_texts()]
-    assert any("×10" in t for t in labels) and sum("×10" in t for t in labels) == 1
+    assert sum(t.endswith("(errors $\\times$10)") for t in labels) == 1
 
 
 def test_error_scale_skips_series_without_errors(make_project, models):
@@ -720,7 +720,8 @@ def test_error_scale_skips_series_without_errors(make_project, models):
     line.main(["--datafile", "Hubble", "-x", "Z", "-y", "Mu", "--hue", "Model", "--plot_type", "line", "--errory",
                "--overlay", "data", "--error_scale", "10"])
     labels = [t.get_text() for t in figures[0].axes[0].get_legend().get_texts()]
-    assert labels[0] == "data (errors ×10)" and not any("×" in t for t in labels[1:])
+    # Mathtext: the serif fonts of paper have no × glyph.
+    assert labels[0] == "data (errors $\\times$10)" and not any("times" in t for t in labels[1:])
 
 
 def test_shift_peak_aligns_the_maxima_on_the_reference(make_project):

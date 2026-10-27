@@ -112,7 +112,7 @@ Struck through: done and merged into `main`.
 | ~~[T09](T09-map-colorbars.md)~~ | ~~Shared, labelled colorbars~~ | 3 | M | low |
 | ~~[T10](T10-box-plots.md)~~ | ~~Box plots~~ | 3 | S | low |
 | ~~[T11](T11-style-infrastructure.md)~~ | ~~`mplstyle` key and colour roles~~ | 3 | M | low |
-| ~~[T12](T12-ticks-and-output.md)~~ | ~~Tick labels and output resolution~~ | 4 | S | low |
+| ~~[T12](T12-ticks-and-output.md)~~ | ~~Tick labels and output resolution~~ (follow-up: `--log_labels`, plain log tick labels on short ranges) | 4 | S | low |
 | ~~[T13](T13-measured-layout.md)~~ | ~~Measured layout~~ | 4 | L | med |
 | ~~[T14](T14-media-widths-themes.md)~~ | ~~Media (slides/paper/web), widths, themes~~ (famous-plot follow-up: `style.text_scale`, `--single_panel_size`; the famous paper gallery is `--medium paper`) | 5 | L | med |
 | ~~[T15](T15-legends.md)~~ | ~~Legends that never cover data~~ (famous-plot follow-up: a legend per panel, below/right of the axes, one `--legend_loc` for both legends) | 5 | M | med |

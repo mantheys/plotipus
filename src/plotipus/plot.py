@@ -1,3 +1,4 @@
+import math
 import re
 import numpy as np
 import matplotlib.pyplot as plt
@@ -395,13 +396,13 @@ def _apply_plot_style(kwargs, plot_style):
     kwargs["ls"] = plot_style
 
 from matplotlib.colors import LogNorm, to_rgba
-from matplotlib.ticker import ScalarFormatter
+from matplotlib.ticker import LogFormatter, LogFormatterMathtext, LogFormatterSciNotation, ScalarFormatter
 
 
 def apply_tick_formatter(ax, axis="both"):
     """Plain tick numbers with a common power of ten (``ScalarFormatter`` with
     mathtext, limits from the style's ``axes.formatter.limits``) on the linear
-    axes of ``ax``; log axes keep matplotlib's 10^n labels. With
+    axes of ``ax``; log axes are labelled when saved (:func:`apply_log_labels`). With
     ``sci_in_label`` the power of ten moves into the axis label when the
     figure is saved (:func:`finish_tick_labels`)."""
     for name in ("x", "y"):
@@ -437,11 +438,114 @@ def _label_with_offset(label, offset):
     return f"{label} ({offset})"
 
 
-def finish_tick_labels(fig, sci_in_label=None):
+LOG_LABEL_MODES = ("auto", "sci", "plain")
+# auto writes plain numbers when every labelled tick lies in this range.
+PLAIN_LOG_RANGE = (1e-3, 1e4)
+
+
+def _plain_number(x):
+    """A log tick value k x 10^n as a decimal number: 200, 0.01, 0.002."""
+    digits = max(0, -math.floor(math.log10(x) + 1e-9))
+    return rf"$\mathdefault{{{x:.{digits}f}}}$"
+
+
+class LogTickFormatter(LogFormatterSciNotation):
+    """Log-axis tick labels in ``mode``: "sci" (10^n), "plain" (200, 0.01) or
+    "auto" (plain when every labelled tick lies in :data:`PLAIN_LOG_RANGE`).
+    Which ticks get a label is matplotlib's choice (decades; minor ticks too
+    on short ranges). A minor tick is never written as 2x10^2: in sci it is
+    unlabelled when two decades are labelled, else written plain."""
+
+    def __init__(self, mode="auto", minor=False):
+        super().__init__(labelOnlyBase=False)
+        self.mode, self.minor = mode, minor
+        self._resolved = None
+
+    def _in_view(self, locs):
+        low, high = sorted(self.axis.get_view_interval())
+        return [v for v in locs if low * (1 - 1e-9) <= v <= high * (1 + 1e-9) and v > 0]
+
+    def _majors(self):
+        return self._in_view(self.axis.get_majorticklocs())
+
+    def resolved_mode(self):
+        if self.mode != "auto":
+            return self.mode
+        majors = self._majors()
+        values = majors if len(majors) >= 2 else [*majors, *self._in_view(self.axis.get_minorticklocs())]
+        low, high = PLAIN_LOG_RANGE
+        plain = all(low * (1 - 1e-9) <= v <= high * (1 + 1e-9) for v in values)
+        return "plain" if plain else "sci"
+
+    def set_locs(self, locs=None):
+        super().set_locs(locs)
+        self._resolved = self.resolved_mode()
+
+    def __call__(self, x, pos=None):
+        label = super().__call__(x, pos)
+        if not label or x <= 0:
+            return label
+        mode = self._resolved or self.resolved_mode()
+        if mode == "plain":
+            return _plain_number(x)
+        if math.isclose(math.log10(x), round(math.log10(x)), abs_tol=1e-9):
+            return label
+        if self.minor and len(self._majors()) >= 2:
+            return ""
+        return _plain_number(x)
+
+
+def log_label_modes(value=None):
+    """{"x", "y", "z"} -> mode from ``--log_labels`` values ("plain",
+    "x=plain", "z=sci"), else the style's ``plot_settings.log_labels`` (a
+    mode, or {"x": ..., "y": ..., "z": ...}). "z" is a colorbar's axis."""
+    if value is None:
+        value = _style.log_labels
+    if isinstance(value, dict):
+        items = [f"{key}={mode}" for key, mode in value.items()]
+    else:
+        items = [value] if isinstance(value, str) else list(value)
+    modes = dict.fromkeys("xyz", "auto")
+    for item in items:
+        keys, _, mode = item.rpartition("=")
+        for key in keys or "xyz":
+            modes[key] = mode
+    return modes
+
+
+def _default_log_formatter(formatter):
+    return type(formatter) in (LogFormatter, LogFormatterMathtext, LogFormatterSciNotation, LogTickFormatter)
+
+
+def apply_log_labels(fig, log_labels=None):
+    """Put :class:`LogTickFormatter` on every base-10 log axis of ``fig``
+    (colorbars included) that has matplotlib's default log labels; modes
+    from :func:`log_label_modes`."""
+    modes = log_label_modes(log_labels)
+    for ax in fig.axes:
+        colorbar = getattr(ax, "_colorbar", None)
+        long_axis = None if colorbar is None else ax.yaxis if colorbar.orientation == "vertical" else ax.xaxis
+        for name, axis in (("x", ax.xaxis), ("y", ax.yaxis)):
+            major, minor = axis.get_major_formatter(), axis.get_minor_formatter()
+            if axis.get_scale() != "log" or not _default_log_formatter(major) or getattr(major, "_base", 10) != 10:
+                continue
+            key = "z" if axis is long_axis else name
+            new_major = LogTickFormatter(modes[key])
+            new_minor = LogTickFormatter(modes[key], minor=True) if _default_log_formatter(minor) else minor
+            if axis is long_axis:
+                colorbar.formatter, colorbar.minorformatter = new_major, new_minor
+            else:
+                axis.set_major_formatter(new_major)
+                axis.set_minor_formatter(new_minor)
+
+
+def finish_tick_labels(fig, sci_in_label=None, log_labels=None):
     """Write every common power of ten as "$\\times10^{n}$" (mathtext) and,
     with ``sci_in_label`` (default: the style's ``plot_settings.sci_in_label``),
     move the offset text of each labelled axis into its label ("Density
-    ($\\times10^{-2}$)", "Rate ($\\times10^{-5}$ Hz)") before saving."""
+    ($\\times10^{-2}$)", "Rate ($\\times10^{-5}$ Hz)") before saving. Log
+    axes get labels in the ``log_labels`` modes (:func:`apply_log_labels`)."""
+    apply_log_labels(fig, log_labels)
     if sci_in_label is None:
         sci_in_label = _style.sci_in_label
     formatters = [(axis, axis.get_major_formatter()) for ax in fig.axes for axis in (ax.xaxis, ax.yaxis)]
