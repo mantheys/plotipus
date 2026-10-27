@@ -7,7 +7,8 @@
     "image.cmap": "inferno"
   },
   "plot_settings": {
-    "auto_title": false
+    "auto_title": false,
+    "band_alpha": 1.0
   },
   "labels": {
     "redundant_legend_titles": [
@@ -60,7 +61,7 @@
       "Data": "Data"
     },
     "p0_colors": {
-      "Expected +-1 sigma": "#0099ff",
+      "Expected +-1 sigma": "#66ccff",
       "Expected": "black",
       "Observed": "black"
     },
@@ -70,8 +71,8 @@
       "Observed": "Obs."
     },
     "limit_colors": {
-      "Expected +-2 sigma": "#ffcc00",
-      "Expected +-1 sigma": "#00cc00",
+      "Expected +-2 sigma": "#ffff00",
+      "Expected +-1 sigma": "#00ff00",
       "Expected": "black",
       "Observed": "black"
     },
@@ -94,7 +95,7 @@
       "Groups": "black",
       "Mean of 22 nebulae": "black",
       "K = 465 (individual)": "black",
-      "K = 513 (groups)": "#888888"
+      "K = 513 (groups)": "black"
     },
     "sn_colors": {
       "Union2.1 SNe": "black",
@@ -121,12 +122,14 @@
       "Deseasonalized": "black"
     },
     "mbh_colors": {
+      "Uncertainty": "#d4d4d4",
       "Reconstruction": "black",
       "Instrumental": "#999999",
       "40-year smoothed": "black",
       "Linear trend": "black"
     },
     "mbh_labels": {
+      "Uncertainty": "_nolegend_",
       "Reconstruction": "reconstruction (AD 1000-1980)",
       "Instrumental": "instrumental data (AD 1902-1998)",
       "40-year smoothed": "reconstruction (40 year smoothed)",
@@ -153,8 +156,8 @@
       "Data - BG - Geo $\\nu_e$": "black"
     },
     "kamland_labels": {
-      "Expectation (curve)": "Expectation based on osci. parameters",
-      "Expectation (histogram)": "determined by KamLAND",
+      "Expectation (curve)": "_nolegend_",
+      "Expectation (histogram)": "Expectation based on osci. parameters\ndetermined by KamLAND",
       "Data - BG - Geo $\\nu_e$": "Data - BG - Geo $\\bar\\nu_e$"
     },
     "lep_colors": {
@@ -192,7 +195,7 @@
       "Fit": "#1f77b4"
     },
     "config_color": {
-      "SN": "#3a6fb0",
+      "SN": "black",
       "CMB": "#e6550d"
     }
   }

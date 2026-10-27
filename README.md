@@ -198,8 +198,10 @@ Higgs, KamLAND and LEP plots, and synthetic data only for the 1912-1913 tables. 
 one was compared with the published figure. The data generators, the
 commands and what is still missing are in
 [examples/famous](examples/famous/README.md); `make -C examples famous`
-renders them all and refreshes these images. The images use the paper
-style: serif text, a 3.5 in column width and one figure size for all.
+renders them all and refreshes these images. Each command aims at the
+original's look (its colours, line styles, markers, legend and
+annotations); the text is the paper style's serif at a 3.5 in column
+width, one figure size for all.
 
 <p align="center">
   <a href="https://arxiv.org/abs/1207.7214"><img src="docs/images/famous/higgs-diphoton.png" width="32%" alt="Diphoton mass spectrum with the Higgs boson bump, a signal plus background fit and the data minus background"></a>
@@ -211,7 +213,7 @@ style: serif text, a 3.5 in column width and one figure size for all.
   <a href="https://arxiv.org/abs/0801.4589"><img src="docs/images/famous/kamland.png" width="32%" alt="Reactor antineutrino survival probability against L/E with the oscillation expectation"></a>
   <br><sub><a href="https://arxiv.org/abs/1207.7214">Brazil band, ATLAS 2012</a> · <a href="https://arxiv.org/abs/hep-ex/0509008">Z lineshape, LEP 2006</a> · <a href="https://arxiv.org/abs/0801.4589">neutrino oscillation, KamLAND 2008</a></sub><br><br>
   <a href="https://arxiv.org/abs/astro-ph/9805201"><img src="docs/images/famous/omega-contours.png" width="32%" alt="Confidence regions in the matter and dark-energy densities with deceleration and geometry lines"></a>
-  <a href="https://doi.org/10.1073/pnas.15.3.168"><img src="docs/images/famous/hubble-1929.png" width="32%" alt="Velocity against distance of 24 nebulae with Hubble's two fitted lines"></a>
+  <a href="https://doi.org/10.1073/pnas.15.3.168"><img src="docs/images/famous/hubble-1929.png" width="32%" alt="Velocity against distance of 24 nebulae and 9 groups with Hubble's two fitted lines on his grid"></a>
   <a href="https://arxiv.org/abs/1804.09378"><img src="docs/images/famous/hr-diagram.png" width="32%" alt="Hertzsprung-Russell diagram of 66 million Gaia DR2 stars on a square-root colour scale"></a>
   <br><sub><a href="https://arxiv.org/abs/astro-ph/9805201">Ω<sub>M</sub>–Ω<sub>Λ</sub>, Riess et al. 1998 (Union2.1 data)</a> · <a href="https://doi.org/10.1073/pnas.15.3.168">Hubble 1929 (real data)</a> · <a href="https://arxiv.org/abs/1804.09378">HR diagram, Gaia DR2 2018 (real data)</a></sub><br><br>
   <a href="https://gml.noaa.gov/ccgg/trends/"><img src="docs/images/famous/keeling.png" width="32%" alt="Monthly atmospheric CO2 at Mauna Loa since 1958 with the deseasonalised trend"></a>
