@@ -396,7 +396,7 @@ def _apply_plot_style(kwargs, plot_style):
     kwargs["ls"] = plot_style
 
 from matplotlib.colors import LogNorm, to_rgba
-from matplotlib.ticker import LogFormatter, LogFormatterMathtext, LogFormatterSciNotation, ScalarFormatter
+from matplotlib.ticker import Formatter, LogFormatter, LogFormatterMathtext, LogFormatterSciNotation, ScalarFormatter
 
 
 def apply_tick_formatter(ax, axis="both"):
@@ -805,6 +805,72 @@ def axes_occupancy(ax, renderer=None, extra_boxes=(), exclude=()):
         ey0, ey1 = int(extra.y0) - y0, int(np.ceil(extra.y1)) - y0
         mask[max(0, ey0):max(0, ey1), max(0, ex0):max(0, ex1)] = True
     return mask, (x0, y0)
+
+
+class _HideTickValue(Formatter):
+    """A y formatter that leaves the label at one tick ``value`` empty and
+    otherwise formats like ``inner`` (offsets and all)."""
+
+    def __init__(self, inner, value):
+        self.inner, self.value = inner, value
+
+    def _hidden(self, x):
+        return math.isclose(x, self.value, rel_tol=1e-9, abs_tol=1e-12)
+
+    def __call__(self, x, pos=None):
+        return "" if self._hidden(x) else self.inner(x, pos)
+
+    def format_ticks(self, values):
+        labels = self.inner.format_ticks(values)
+        return ["" if self._hidden(v) else label for v, label in zip(values, labels)]
+
+    def set_axis(self, axis):
+        super().set_axis(axis)
+        self.inner.set_axis(axis)
+
+    def set_locs(self, locs):
+        self.inner.set_locs(locs)
+
+    def get_offset(self):
+        return self.inner.get_offset()
+
+
+def _edge_tick(ax, renderer, lowest):
+    """(value, label box) of the lowest (or highest) labelled y tick drawn
+    next to ``ax`` (centred within half a label of its range), or None."""
+    found = []
+    for tick in ax.yaxis.get_major_ticks():
+        label = tick.label1
+        if not (label.get_visible() and label.get_text() and tick.get_visible()):
+            continue
+        box = label.get_window_extent(renderer)
+        if ax.bbox.y0 - box.height / 2 <= (box.y0 + box.y1) / 2 <= ax.bbox.y1 + box.height / 2:
+            found.append((tick.get_loc(), box))
+    if not found:
+        return None
+    return min(found, key=lambda f: f[1].y0) if lowest else max(found, key=lambda f: f[1].y1)
+
+
+def separate_panel_tick_labels(fig, pad_px=1.0):
+    """Where an upper panel sits on a lower one, the upper panel's lowest y
+    tick label and the lower panel's highest can overlap ("0" over "2"):
+    the upper one is left empty (the lower panel keeps its scale)."""
+    panels = [ax for ax in fig.axes if ax.get_visible() and not hasattr(ax, "_colorbar") and ax.get_subplotspec()]
+    if len(panels) < 2:
+        return
+    fig.draw_without_rendering()
+    renderer = fig.canvas.get_renderer()
+    for upper in panels:
+        top = upper.get_position()
+        for lower in panels:
+            bottom = lower.get_position()
+            touching = (lower is not upper and abs(top.x0 - bottom.x0) < 1e-3 and abs(top.x1 - bottom.x1) < 1e-3
+                        and 0 <= top.y0 - bottom.y1 < 0.02)
+            if not touching:
+                continue
+            low, high = _edge_tick(upper, renderer, lowest=True), _edge_tick(lower, renderer, lowest=False)
+            if low is not None and high is not None and low[1].y0 < high[1].y1 + pad_px:
+                upper.yaxis.set_major_formatter(_HideTickValue(upper.yaxis.get_major_formatter(), low[0]))
 
 
 def settle_text_backgrounds(fig):

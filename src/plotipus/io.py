@@ -576,7 +576,7 @@ def save_figure_to_paths(fig, output_arg, output_file, default_output_dir=None, 
     directory when none is given); ``sci_in_label`` and ``log_labels`` as in
     :func:`plotipus.plot.finish_tick_labels`."""
     from .plot import (_shorten_title_to_fit, apply_measured_layout, attach_legends, finish_tick_labels, place_legends,
-                       settle_text_backgrounds)
+                       separate_panel_tick_labels, settle_text_backgrounds)
 
     finish_tick_labels(fig, sci_in_label, log_labels)
     apply_measured_layout(fig)
@@ -592,6 +592,7 @@ def save_figure_to_paths(fig, output_arg, output_file, default_output_dir=None, 
             apply_measured_layout(fig)
     attach_legends(fig)  # legends kept next to another one, on the final layout
     settle_text_backgrounds(fig)  # note/label backgrounds only over data
+    separate_panel_tick_labels(fig)  # no "0" over the lower panel's top label
 
     # Layout may have narrowed the title since it was set; re-check it fits.
     _shorten_title_to_fit(fig, getattr(fig, "_suptitle", None))

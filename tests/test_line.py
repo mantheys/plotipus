@@ -1252,3 +1252,37 @@ def test_band_only_series_has_a_band_in_the_legend(make_project):
     assert not hasattr(band, "get_linewidth") or type(band).__name__ != "Line2D"
     alpha = band.get_alpha() if band.get_alpha() is not None else band.get_facecolor()[3]
     assert alpha == pytest.approx(style.band_alpha)  # the translucent band, as drawn
+
+
+def test_tick_labels_where_upper_and_lower_panels_meet_do_not_overlap(make_project):
+    """README 'Your own data': the upper panel's '0' and the ratio panel's '2' met at the shared edge."""
+    x = np.arange(0.25, 10, 0.5)
+    expected = 200 * np.exp(-x / 3)
+    observed = np.random.default_rng(1).poisson(expected)
+    make_project({"Spectrum": pd.DataFrame([
+        {"Sample": "Simulation", "Energy": x, "Counts": expected, "CountsError": 0.05 * expected},
+        {"Sample": "Data", "Energy": x, "Counts": observed}])})
+    figures = _capture()
+    line.main(["--datafile", "Spectrum", "-x", "Energy", "-y", "Counts", "--hue", "Sample", "--data_hue", "Data",
+               "--errory", "--lower", "ratio"])
+    from matplotlib.backends.backend_agg import FigureCanvasAgg
+
+    fig = figures[0]
+    upper, lower = fig.axes[:2]
+    FigureCanvasAgg(fig)  # the saved figure was closed
+    fig.canvas.draw()
+    renderer = fig.canvas.get_renderer()
+
+    def shown(ax):
+        """The y tick labels drawn next to the axes (centred on a tick within its range)."""
+        labels = []
+        for t in ax.get_yticklabels():
+            box = t.get_window_extent(renderer)
+            if t.get_visible() and t.get_text() and ax.bbox.y0 - box.height / 2 <= (box.y0 + box.y1) / 2 <= ax.bbox.y1 + box.height / 2:
+                labels.append(t)
+        return labels
+
+    bottom = min(shown(upper), key=lambda t: t.get_window_extent(renderer).y0)
+    top = max(shown(lower), key=lambda t: t.get_window_extent(renderer).y1)
+    assert bottom.get_window_extent(renderer).y0 >= top.get_window_extent(renderer).y1  # no overlap
+    assert "2" in top.get_text()  # the ratio panel keeps its labels
