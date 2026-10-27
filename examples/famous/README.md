@@ -118,7 +118,7 @@ Patterns the commands use:
 
 | figure | source | data | status | missing (task) |
 |---|---|---|---|---|
-| F01 H→γγ m_γγ | ATLAS, PLB 716 (2012) 1, Fig. 4 | **extracted** (figure) | ◐ | (ATLAS header inside: `--experiment atlas --label_position inside`) 4 panels in one figure (T22.6); residual vs a fit component (T22.14); the Sig+Bkg − Bkg curve in the lower panel, drawn by T21 and lost in the example-feedback-3 merge (follow-up); the ATLAS header inside, which an explicit `--legend_loc` overlaps (T15/T17 follow-up; drawn above here) |
+| F01 H→γγ m_γγ | ATLAS, PLB 716 (2012) 1, Fig. 4 | **extracted** (figure) | ◐ | (ATLAS header inside: `--experiment atlas --label_position inside`) (data − background under the S+B fit: `--fit --lower residual:Bkg`) 4 panels in one figure (T22.6); the Sig+Bkg − Bkg curve in the lower panel, drawn by T21 and lost in the example-feedback-3 merge (follow-up); the ATLAS header inside, which an explicit `--legend_loc` overlaps (T15/T17 follow-up; drawn above here) |
 | F03 H→ZZ*→4ℓ | CMS, PLB 716 (2012) 30, Fig. 4 | **extracted** (figure) | ◐ | (CMS header above: `--experiment cms`; Garwood bars from the counts: `--errory_type poisson`; the signal as an open outline on the filled stack: `--series_type Signal=step --plot_type fill`) inset (T22.7) |
 | F04 local p₀ | ATLAS, Fig. 9 | **extracted** (figure) | ✅ | (ATLAS header with two right lines; small markers on the observed curve: `--series_marker Observed=o:2.5`; dotted σ lines labelled outside the frame: `--sigma_lines 0 1 2 3 4 5 6 --sigma_line_style dotted --horizontal_label_pos outside`; the band in its own colour with a legend swatch: `--band_colors '#66ccff'`) |
 | F05 Brazil band | ATLAS, Fig. 7(a) | **extracted** (figure) | ◐ | (ATLAS header; nested green and yellow bands from the expected row: `--errory_column MuLimit1Sigma MuLimit2Sigma --band_colors brazil`; dotted expected and μ = 1 lines) the swatches beside the line entries in two columns (legend follow-up); the broken x axis (TODO.md, postponed) |
@@ -149,7 +149,6 @@ Patterns the commands use:
 | T22.7 | insets | F03, F13 |
 | T22.8 | `--text`/`--region`/`--direct_labels`/`--contour_labels` in the core | F10, F17 |
 | T22.11 | `table --agg corr` | F25 |
-| T22.14 | `--lower residual:COMPONENT` | F01 |
 
 F02, F07, F18, F23 and F24 have no dataset here. They are not in the T24
 brief; polar and flow charts are out of scope (`docs/design/TODO.md`).

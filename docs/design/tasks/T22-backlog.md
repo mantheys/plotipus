@@ -10,7 +10,7 @@ Each item below is small enough for one session. Start a session with:
 
 Every item follows the common rules and definition of done in
 [00-README.md](00-README.md), and updates its catalogue rows. Items in
-different kinds can run in parallel.
+different kinds can run in parallel. Struck through: done.
 
 | item | option(s) | kind / files | catalogue | effort |
 |---|---|---|---|---|
@@ -27,8 +27,8 @@ different kinds can run in parallel.
 | T22.11 | `table --agg std\|median\|corr`, `--cutflow`, `--fit_params` | `kinds/table.py` | J5–J7 | M |
 | T22.12 | `--lower_plot_type bar` for `column:` lower panels (calibration counts) | `kinds/line.py` | F4 | S |
 | T22.13 | `hist --overlay_gaussian` (unit normal over a pull distribution) | `kinds/hist.py` | E8 | S |
-| T22.14 | `--lower residual:COMPONENT` (residual against one component of a stored fit) | `kinds/_fit.py`, `lower.py` | E6 | S |
-| T22.15 | `--reference` accepts a hue value as well as an index (the most common stumble) | `kinds/line.py` | — | S |
+| ~~T22.14~~ | ~~`--lower residual:COMPONENT` (residual against one component of a stored fit)~~ | ~~`kinds/_fit.py`, `lower.py`~~ | ~~E6~~ | ~~S~~ |
+| ~~T22.15~~ | ~~`--reference` accepts a hue value as well as an index (the most common stumble)~~ | ~~`kinds/line.py`~~ | — | ~~S~~ |
 
 Postponed items (polar, geographic, flow, hybrid or broken axes, secondary
 axes) are in [../TODO.md](../TODO.md).

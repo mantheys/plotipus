@@ -38,13 +38,13 @@ command lists.
 | B Relationships | 6 | 1 | 2 |
 | C Trends and fits | 7 | 2 | 1 |
 | D Comparisons | 4 | 2 | 3 |
-| E Ratios and significance | 6 | 1 | 1 |
+| E Ratios and significance | 7 | 0 | 1 |
 | F ML diagnostics | 4 | 3 | 0 |
 | G Uncertainty | 8 | 1 | 0 |
 | H Small multiples and layout | 2 | 2 | 4 |
 | I Annotations | 6 | 1 | 3 |
 | J Tables | 4 | 1 | 2 |
-| **Total (89)** | **54** | **14** | **21** |
+| **Total (89)** | **55** | **13** | **21** |
 
 Nearly half of the ◐ entries are partial only because of a bug in
 [bugs.md](bugs.md), not because an option is missing. Fixing B01–B13 moves
@@ -121,7 +121,7 @@ about 12 of them to ✅.
 | E3 | Data points over stacked MC with ratio panel | the HEP control plot | F03 | ✅ | `line --datafile Spectrum -x Mass -y Counts --hue Sample --stacked --plot_type fill --overlay data --stack_total_error --lower ratio` (fixed in T18). Errors are the stored ones until T19 adds Poisson intervals. | — |
 | E4 | Several lower panels | ratio and difference together | F01 | ✅ | `--lower ratio --lower relative_difference` (Q6). | — |
 | E5 | S/√B or significance panel | optimisation | — | ✅ | `--lower group --reference_group signal --other_group ... --group_significance` (example 3). The panel's legend repeats the formula as raw text. | — |
-| E6 | Residual relative to a named model component | bump over background | F01, F09 | ◐ | `--lower subtract --reference_value bkg` works for stored curves, but not against a component of a stored fit. | `--lower residual:COMPONENT`. |
+| E6 | Residual relative to a named model component | bump over background | F01, F09 | ✅ | `line --fit --lower residual:Background` (T22.14): data minus a `FitComponents` entry, with the rest of the fit (the signal) over it; `--lower subtract --reference_value bkg` for stored curves. | — |
 | E7 | Local p0 scan with σ reference lines | discovery significance | F04 | ✅ | `line --logy --hue Kind --sigma_lines 1 2 3 4 5` (T20): dashed lines at the one-sided p-values of nσ, labelled "1σ" ... at the right edge (`--sigma_line_color`); the expected-curve band works (B11, fixed in T07). | — |
 | E8 | Pull distribution | fit validation | — | ✗ | Needs pulls computed upstream, then `hist`. | `hist --overlay_gaussian` (unit normal for comparison). |
 

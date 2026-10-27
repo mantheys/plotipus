@@ -7,8 +7,10 @@ Rows describe a fitted series: ``x``/``y`` arrays plus the model,
 ``FitFunctionFormula``, ``Chi2`` and ``FitComponents`` ({label: [model,
 [parameter indices]]}, each drawn dashed). No fitting happens here: the stored
 model is evaluated, drawn over the data with a parameter box, and each
-``--lower`` entry adds a panel: ``residual`` (data - fit) / fit, or ``pull``
-(data - fit) / error with the stored ``{y}Error``.
+``--lower`` entry adds a panel: ``residual`` (data - fit) / fit, ``pull``
+(data - fit) / error with the stored ``{y}Error``, or ``residual:COMPONENT``
+data - component (e.g. data minus the background), with the rest of the fit
+(fit - component, e.g. the signal) drawn over it.
 """
 
 import matplotlib.lines as mlines
@@ -213,6 +215,11 @@ def _draw_fit_rows(ax_top, lowers, rows, args, kind):
         mask &= (x >= lo) & (x <= hi)
     limits = []
     for spec, ax_bottom in lowers:
+        if spec.component is not None:
+            limit = _draw_component_residual(ax_bottom, spec, components, params, function, x, y, error, fit_x,
+                                             fit_color, args, plot_type, style_kwargs)
+            limits.append(limit)
+            continue
         values, errors = _lower_values(spec, x, y, fit, error, rows, args, mask)
         limit = _lower_limit(spec, values, len(params))
         limits.append(limit)
@@ -232,6 +239,45 @@ def _draw_fit_rows(ax_top, lowers, rows, args, kind):
     if args.fitlegendposition is not None:
         _parameter_box(ax_top, args, lines)
     return limits, function_label, formula, lines
+
+
+def find_component(components, name):
+    """The FitComponents key ``name`` names: exact, else the only key it
+    starts (``Bkg`` for "Bkg (4th order polynomial)"); None if none or
+    several."""
+    if name in components:
+        return name
+    matches = [key for key in components if str(key).startswith(name)]
+    return matches[0] if len(matches) == 1 else None
+
+
+def _draw_component_residual(ax, spec, components, params, function, x, y, error, fit_x, fit_color, args,
+                             plot_type, style_kwargs):
+    """--lower residual:COMPONENT: data minus the component, with the data
+    errors, and the rest of the fit (fit minus the component) as a line.
+    Returns the symmetric y range (None when the component is missing)."""
+    key = find_component(components, spec.component)
+    model = get_function(components[key][0]) if key is not None else None
+    if model is None:
+        names = ", ".join(map(repr, components)) or "none"
+        rprint(f"[yellow]Warning:[/yellow] --lower residual:{spec.component}: no such fit component (FitComponents: "
+               f"{names}); the panel is empty.")
+        return None
+    indices = components[key][1]
+    component = model(x, *[params[i] for i in indices])
+    values = y - component
+    if args.fit_rangex is not None:
+        values[(x < args.fit_rangex[0]) | (x > args.fit_rangex[1])] = np.nan
+    errors = np.asarray(error, dtype=float) if error is not None else None
+    plot_data(args, ax, x, y=values, errory=errors, color=style.role("ink"), plot_type=plot_type, **style_kwargs)
+    rest = function(fit_x, *params) - model(fit_x, *[params[i] for i in indices])
+    plot_data(args, ax, fit_x, y=rest, color=fit_color, plot_type="plot", linestyle="-")
+    spread = np.abs(values) + (np.abs(errors) if errors is not None else 0)
+    spread = np.concatenate([spread[np.isfinite(spread)], np.abs(rest[np.isfinite(rest)])])
+    limit = 1.2 * float(np.max(spread)) if spread.size else 1.0
+    ax.set_ylim(-limit, limit)
+    spec.component = key
+    return limit
 
 
 def _lower_specs(args):
@@ -289,6 +335,8 @@ def _lower_limit(spec, values, n_params):
 def _lower_label(spec):
     """(y label, formula subtitle) of a lower panel. The formula goes inside
     the panel: as the y label it is taller than a lower panel."""
+    if spec.component is not None:
+        return "Data $-$ Component", f"Data $-$ {spec.component}"
     if spec.name == "pull":
         # Mathtext: the minus and sigma glyphs exist in every style's math font (not in cmr10 text).
         return "Pull", r"(Data $-$ Fit) / $\sigma$"

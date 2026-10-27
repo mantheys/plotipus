@@ -381,7 +381,10 @@ the fitted `Params` with `ParamsError` and `ParamsLabel`, and optionally
   second legend, placed with the series legend where both cover the least
   data; `--fitlegendposition X Y` pins a text box there instead.
 * `--lower residual` shows (data - fit) / fit, `--lower pull`
-  (data - fit) / error.
+  (data - fit) / error, and `--lower residual:COMPONENT` the data minus one
+  `FitComponents` entry (its name, or the start of it: `residual:Back`),
+  with the data errors and the rest of the fit drawn over it: the "data −
+  background" panel with the signal curve.
 * With `--data_hue`, the data is drawn as in
   [Data and simulation](#data-and-simulation) (ink points with error bars)
   and the fit takes the palette's first colour.
