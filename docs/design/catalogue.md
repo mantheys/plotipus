@@ -38,13 +38,13 @@ command lists.
 | B Relationships | 6 | 1 | 2 |
 | C Trends and fits | 7 | 2 | 1 |
 | D Comparisons | 4 | 2 | 3 |
-| E Ratios and significance | 5 | 2 | 1 |
+| E Ratios and significance | 6 | 1 | 1 |
 | F ML diagnostics | 4 | 3 | 0 |
-| G Uncertainty | 6 | 2 | 1 |
+| G Uncertainty | 8 | 1 | 0 |
 | H Small multiples and layout | 2 | 2 | 4 |
 | I Annotations | 6 | 1 | 3 |
 | J Tables | 4 | 1 | 2 |
-| **Total (89)** | **51** | **16** | **22** |
+| **Total (89)** | **54** | **14** | **21** |
 
 Nearly half of the ◐ entries are partial only because of a bug in
 [bugs.md](bugs.md), not because an option is missing. Fixing B01–B13 moves
@@ -122,7 +122,7 @@ about 12 of them to ✅.
 | E4 | Several lower panels | ratio and difference together | F01 | ✅ | `--lower ratio --lower relative_difference` (Q6). | — |
 | E5 | S/√B or significance panel | optimisation | — | ✅ | `--lower group --reference_group signal --other_group ... --group_significance` (example 3). The panel's legend repeats the formula as raw text. | — |
 | E6 | Residual relative to a named model component | bump over background | F01, F09 | ◐ | `--lower subtract --reference_value bkg` works for stored curves, but not against a component of a stored fit. | `--lower residual:COMPONENT`. |
-| E7 | Local p0 scan with σ reference lines | discovery significance | F04 | ◐ | `line --logy --hue Kind --horizontal ...`; the σ lines have no right-margin labels, and the expected-curve band works (B11, fixed in T07). | `--sigma_lines 1 2 3 4 5` (p-values of nσ, labelled on the right). |
+| E7 | Local p0 scan with σ reference lines | discovery significance | F04 | ✅ | `line --logy --hue Kind --sigma_lines 1 2 3 4 5` (T20): dashed lines at the one-sided p-values of nσ, labelled "1σ" ... at the right edge (`--sigma_line_color`); the expected-curve band works (B11, fixed in T07). | — |
 | E8 | Pull distribution | fit validation | — | ✗ | Needs pulls computed upstream, then `hist`. | `hist --overlay_gaussian` (unit normal for comparison). |
 
 ## F. Machine-learning diagnostics
@@ -147,9 +147,9 @@ All curves are precomputed by the analysis (plotipus does not fit or score).
 | G2 | Computed Poisson (Garwood) intervals | low counts | F03, F16 | ✅ | `--errory_type poisson` in `line` and `hist` (Garwood, `intervals.garwood`); the default for `--overlay` data without an error column whose y are counts (T19). | — |
 | G3 | Efficiency intervals in plots | bounded efficiencies | — | ✅ | `line --errory_type clopper_pearson --count_column N [--efficiency_scale 100]`: bars or bands inside [0, 1] (T19, shared with `table --clopper_pearson`). | — |
 | G4 | Single band around a curve | systematic band | F14 | ✅ | `line --errory --errory_type bands` (B11, fixed in T07); series colour at `plot_settings.band_alpha` (default 0.2). | — |
-| G5 | Nested ±1σ/±2σ bands (Brazil plot) | expected limits | F02, F04, F05 | ✗ | One band per series only. | `--errory_column LimitErr1 LimitErr2` (one band per column, darker inside), with `--band_colors brazil`. |
+| G5 | Nested ±1σ/±2σ bands (Brazil plot) | expected limits | F02, F04, F05 | ✅ | `line --plot_type line --errory --errory_column LimitErr1 LimitErr2 --band_colors brazil` (T20): one opaque band per column (or `C+`/`C-` pair), innermost on top, `graded` by default, legend "Expected ±1σ", "±2σ" (`--band_labels`). | — |
 | G6 | Hatched systematic band on a stack total | MC uncertainty | F03 | ✅ | `--stack_total_error` (stacked errors in quadrature) or `--stack_total_error_column COL` (precomputed, e.g. with systematics); hatch from `plot_settings.stack_error` (T18). | — |
-| G7 | 1D likelihood scan with Δχ² = 1, 4 lines | parameter intervals | — | ◐ | `line --datafile Scan -x Mu -y DeltaNLL --horizontal 1 4 --horizontal_label 1σ 2σ` (P07). Points are drawn as markers, and the labels are misplaced (one left, one right). | Consistent right-edge labels for `--horizontal`. |
+| G7 | 1D likelihood scan with Δχ² = 1, 4 lines | parameter intervals | — | ✅ | `line --datafile Scan -x Mu -y DeltaNLL --plot_type line --delta_chi2_lines 1 4` (or `--cl_lines 68.27 95.45 --cl_dof 1`; T20). `--horizontal_label`s now sit at the right edge, just above their lines (P07; `--horizontal_label_pos left\|auto`). | — |
 | G8 | 2D Δχ² confidence contours, several datasets | joint constraints | F10 | ◐ | `map --contour` with configs: one hue per dataset, levels by line style, one legend entry per dataset and per level (B03, fixed in T02). | `--hue` over datasets. |
 | G9 | Error-bar magnification with note | tiny errors | F06, F17 | ✅ | `line ... --errory --error_scale 400` (F06, F17): the drawn errors only, "(errors ×400)" in the legend label (T21). | — |
 

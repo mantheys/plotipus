@@ -315,15 +315,16 @@ def test_note_background_only_over_data():
 
 
 def test_horizontal_label_sits_on_its_line_where_free():
-    """A horizontal line label goes next to its line (the right end first),
-    clear of the data, and stays on the line when the limits change."""
+    """With label_pos auto, a horizontal line label goes next to its line
+    (the right end first), clear of the data, and stays on the line when the
+    limits change."""
     from plotipus.plot import draw_horizontal_lines
 
     fig, ax = plt.subplots()
     x = np.linspace(0, 1, 100)
     ax.plot(x, np.exp(-0.5 * ((x - 0.85) / 0.05) ** 2))  # a peak on the right
     ax.set_ylim(0, 1.1)
-    draw_horizontal_lines(ax, [0.5], labels=["half maximum"])
+    draw_horizontal_lines(ax, [0.5], labels=["half maximum"], label_pos="auto")
     label = ax.texts[-1]
     fig.canvas.draw()
     renderer = fig.canvas.get_renderer()

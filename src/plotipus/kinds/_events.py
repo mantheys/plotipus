@@ -194,7 +194,8 @@ def run_events(df, args, spec):
     if ax_bottom is not None:
         draw_vertical_lines(ax_bottom, args.vertical, fontsize=style.linelabelfontsize)
     draw_horizontal_lines(ax_top, args.horizontal, labels=args.horizontal_label, styles=args.horizontal_style,
-                          colors=args.horizontal_color, fontsize=style.linelabelfontsize)
+                          colors=args.horizontal_color, fontsize=style.linelabelfontsize,
+                          label_pos=getattr(args, "horizontal_label_pos", "right"))
     apply_legend_style(ax_top, title=args.labelz, capitalize_labels=args.capitalize_legend)
 
     xlabel = args.labelx[0] if isinstance(args.labelx, list) else (args.labelx if args.labelx is not None else args.x)

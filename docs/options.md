@@ -105,6 +105,19 @@ are the example list, `examples/input/plots/example_scripts.txt`;
   drawn as bars or bands by the plot type's default; `--error_label` names
   the interval in the y label ("Counts, 68% CL (Poisson)"; on by default in
   the slides style, `plot_settings.error_label`).
+* **Nested bands** (expected limits, "Brazil" plots): `--errory_column C1
+  C2 ...` draws one band per column around the line, innermost first (a
+  column `C`, or a `C+`/`C-` pair of upper/lower sizes). The bands are
+  opaque, the innermost on top and all under the lines. `--band_colors
+  graded` (default) uses lighter steps of the series colour (of the muted
+  role for a series named "expected"), `brazil` the green and yellow of
+  ATLAS and CMS limit plots, or give colours (`'#66ccff'`, `c1,c2`). The
+  legend lists "<series> ±1σ", "±2σ", ...; `--band_labels` renames them. A
+  single `--errory_column` keeps the translucent band in the series colour
+  unless `--band_colors` is given, and a band-only series (line width 0
+  from `--linewidth_column`) shows its band in the legend. See the famous
+  [Brazil band](images/famous/brazil-band.png) (F05) and [local
+  p₀](images/famous/local-p0.png) (F04) plots.
 * **Line styles** (`--plot_style`, `--comparable_linestyles`,
   `--line_style`, `--horizontal_style`, ...): the names `solid`, `dashed`,
   `dotted`, `dashdot` or the codes `-`, `--`, `:`, `-.`; a lone `--` or
@@ -184,9 +197,18 @@ plotipus line --datafile Distributions -x Bin -y Counts --hue Sample --select Di
 plotipus line --datafile Distributions -x Bin -y Counts --hue Sample --select Distribution -s Exponential --data_hue Data --errory --multiply 1e-7 --labelx x --labely 'Rate per bin (Hz)' --title 'A rate: the power of ten in the label'
 ```
 
-`--horizontal_label` (`--vertical_label`) writes a label next to its line:
-just above it (else below), at its right end, its left end or along it,
-wherever it covers the least data. Labels and `--note` boxes get a
+`--horizontal_label` writes a label just above its line at the right end
+(below it when above leaves the axes); `--horizontal_label_pos left` moves
+the labels to the left end, and `auto` puts each one wherever it covers the
+least data (right end, left end or along the line, as `--vertical_label`
+does). `line --sigma_lines 1 2 3 4 5` draws dashed lines at the one-sided
+p-values of nσ (1 − Φ(n): 0.1587, 0.02275, ...) labelled "1σ" ... for log-y
+local p₀ scans; `--delta_chi2_lines 1 4` draws Δχ² levels of likelihood scans
+(labelled 1σ, 2σ), and `--cl_lines 68.27 95.45` the Δχ² of confidence
+levels for `--cl_dof` degrees of freedom (labelled "68.27% CL"). They are
+muted and dashed unless `--sigma_line_color` and `--sigma_line_style` are
+given; `--horizontal_label_pos outside` writes the labels in the right
+margin, level with their lines, as in ATLAS and CMS p₀ plots. Labels and `--note` boxes get a
 translucent background only where they sit on data. `--vertical_band X1 X2
 [X1 X2 ...]` (`--horizontal_band Y1 Y2 ...`) shades ranges behind the data,
 in the style's muted colour (`--vertical_band_color`), with an optional

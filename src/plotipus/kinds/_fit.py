@@ -454,7 +454,8 @@ def run_fit(df, args):
         for ax_bottom in ax_bottoms:
             draw_vertical_lines(ax_bottom, vertical, labels=[], fontsize=style.linelabelfontsize)
         draw_horizontal_lines(ax_top, horizontal, labels=horizontal_labels, styles=args.horizontal_style,
-                              colors=args.horizontal_color, fontsize=style.linelabelfontsize)
+                              colors=args.horizontal_color, fontsize=style.linelabelfontsize,
+                              label_pos=getattr(args, "horizontal_label_pos", "right"))
         from ..panels import draw_overlays
 
         args_points = _PointsOnly(args)

@@ -180,6 +180,7 @@ def draw_horizontal_overlay(ax, args, prefix=""):
         styles=getattr(args, f"{prefix}horizontal_style", None),
         colors=getattr(args, f"{prefix}horizontal_color", None),
         fontsize=style.linelabelfontsize,
+        label_pos=getattr(args, f"{prefix}horizontal_label_pos", None) or getattr(args, "horizontal_label_pos", "right"),
     )
 
 

@@ -86,7 +86,7 @@ def build_parser():
             "datafile", "configs", "names", "variables", "x", "y", "z", "percentile", "iterable",
             "select", "save_values", "remove_value", "filename_select", "bins", "labelx", "labely",
             "labelz", "rangex", "rangey", "rangez", "logz", "density", "norm", "zoom", "matchx",
-            "matchy", "horizontal", "horizontal_label", "horizontal_style", "horizontal_color",
+            "matchy", "horizontal", "horizontal_label", "horizontal_style", "horizontal_color", "horizontal_label_pos",
             "vertical", "vertical_label", "vertical_style", "vertical_color", "square",
             "vertical_band", "vertical_band_label", "vertical_band_color", "horizontal_band",
             "horizontal_band_label", "horizontal_band_color",
@@ -1197,7 +1197,8 @@ def draw_contour_figure(df, args):
             if args.diagonal:
                 _diagonal(ax, [min(x_range[0], y_range[0]), max(x_range[1], y_range[1])], color=line_color)
             draw_horizontal_lines(ax, args.horizontal, labels=args.horizontal_label, styles=args.horizontal_style,
-                                  colors=args.horizontal_color or [line_color], fontsize=style.linelabelfontsize)
+                                  colors=args.horizontal_color or [line_color], fontsize=style.linelabelfontsize,
+                                  label_pos=getattr(args, "horizontal_label_pos", "right"))
             draw_vertical_lines(ax, args.vertical, labels=args.vertical_label, styles=args.vertical_style,
                                 colors=args.vertical_color or [line_color], fontsize=style.linelabelfontsize)
             draw_contour_shapes(ax, args, line_color)

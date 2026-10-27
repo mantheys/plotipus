@@ -68,7 +68,8 @@ from ..panels import (
     save,
 )
 from ..plot import (apply_legend_style, apply_legend_style_clear_of_data, apply_tick_formatter, order_legend_entries,
-                    errory_type, plot_data)
+                    band_colors, delta_chi2_lines, draw_horizontal_lines, draw_nested_bands, errory_type, plot_data,
+                    sigma_lines)
 from ..selection import filter_dataframe
 from ..transforms import (
     align_error_column,
@@ -104,7 +105,7 @@ def build_parser():
             "remove_value", "filename_select", "filename_suffix", "x", "y", "reduce", "labelx",
             "labely", "labelz", "logx", "logy", "rangex", "rangey", "plot_style", "plot_type",
             "title", "output", "subfolder", "horizontal", "horizontal_label", "horizontal_style",
-            "horizontal_color", "vertical", "vertical_label", "vertical_style", "vertical_color",
+            "horizontal_color", "horizontal_label_pos", "vertical", "vertical_label", "vertical_style", "vertical_color",
             "vertical_band", "vertical_band_label", "vertical_band_color", "horizontal_band",
             "horizontal_band_label", "horizontal_band_color",
             "xtick", "xtick_label", "xtick_height", "xtick_side", "xtick_edge", "ytick",
@@ -144,8 +145,18 @@ def build_parser():
         help="Hue values left out of plot and legend.")
     add("--variable_label_map", type=str, default=None, help="JSON {panel value: panel title}.")
     add("--y_row", type=int, default=None, help="For 2D y cells, plot only this row (0-based).")
-    add("--errory_column", type=str, default=None,
-        help="Column holding the symmetric y error (default {y}Error).")
+    add("--errory_column", nargs="+", default=None, metavar="COL",
+        help="Column holding the symmetric y error (default {y}Error), or a COL+/COL- pair of upper/lower "
+        "sizes. Several columns draw nested bands, innermost first (e.g. the +-1 and +-2 sigma of an "
+        "expected limit).")
+    add("--band_colors", nargs="+", default=None, metavar="COLORS",
+        help="Colours of nested --errory_column bands, innermost first: graded (default: lighter steps of the "
+        "series colour, of the muted role for an 'expected' series), brazil (the green and yellow of ATLAS and "
+        "CMS expected limits), or colours ('c1,c2' or c1 c2). With one band, opaque colours instead of the "
+        "translucent series colour.")
+    add("--band_labels", nargs="+", default=None, metavar="LABEL",
+        help="Legend entries of the nested bands, innermost first (default with several bands: "
+        "'<series> +-1 sigma', '+-2 sigma', ...).")
     add("--errory_bounds", type=str, nargs=2, default=None, metavar=("LOW", "HIGH"),
         help="Columns holding the lower and upper edges of an asymmetric y interval.")
     add("--errory_x", action="store_true", default=False,
@@ -263,6 +274,22 @@ def build_parser():
     add("--vertical_column_style", type=str, default="--")
     add("--mean_band", action="store_true", default=False,
         help="Horizontal line at the mean of all y values with a +-1 std band.")
+    add("--sigma_lines", nargs="+", type=float, default=None, metavar="N",
+        help="Horizontal lines at the one-sided p-values of N sigma (1 - Phi(N): 0.1587 for 1), labelled "
+        "'N sigma' at the right edge; for log-y local p0 scans.")
+    add("--delta_chi2_lines", nargs="+", type=float, default=None, metavar="D",
+        help="Horizontal lines at Delta chi2 = D for likelihood scans, labelled 'n sigma' when sqrt(D) is a "
+        "whole number with --cl_dof 1 (1 4 gives 1 and 2 sigma).")
+    add("--cl_lines", nargs="+", type=float, default=None, metavar="CL",
+        help="Horizontal lines at the Delta chi2 of confidence levels CL in percent (68 95), for --cl_dof "
+        "degrees of freedom, labelled 'CL% CL'.")
+    add("--cl_dof", type=int, default=1,
+        help="Degrees of freedom of --cl_lines and --delta_chi2_lines (default 1).")
+    add("--sigma_line_color", type=str, default=None,
+        help="Colour of the --sigma_lines, --delta_chi2_lines and --cl_lines and their labels (default: the "
+        "style's muted role).")
+    add("--sigma_line_style", type=str, default="--",
+        help="Line style of the --sigma_lines, --delta_chi2_lines and --cl_lines (default: dashed).")
 
     group = parser.add_argument_group("lower panels")
     add = group.add_argument
@@ -427,7 +454,7 @@ def load(args):
         df["ErrorLow"] = [np.asarray(v, dtype=float) - np.asarray(lo, dtype=float) for v, lo in zip(df[y], df[low])]
         df["ErrorHigh"] = [np.asarray(hi, dtype=float) - np.asarray(v, dtype=float) for v, hi in zip(df[y], df[high])]
     elif args.errory_column is not None:
-        df["Error"] = df[args.errory_column]
+        df = _band_columns(df, args.errory_column)
     elif f"{y}Error" in df.columns:
         df["Error"] = df[f"{y}Error"]
     elif f"{y}Error+" in df.columns and f"{y}Error-" in df.columns:
@@ -435,6 +462,7 @@ def load(args):
         df["ErrorHigh"] = df[f"{y}Error+"]
 
     error_columns = [c for c in ("Error", "ErrorLow", "ErrorHigh") if c in df.columns]
+    error_columns += [c for c in df.columns if str(c).startswith(BAND_PREFIX)]
     # --by_config rebins its concatenated series itself (summing y).
     if args.rebin and args.rebin > 1 and args.x in df.columns and not args.by_config:
         df = rebin_rows(df, args.x, y, args.rebin, sum_y=args.rebin_sum, error_columns=error_columns)
@@ -446,6 +474,27 @@ def load(args):
     # NaN panel values are dropped unless --variables asks for "None".
     if args.variables is not None and "None" in args.variables and "Variable" in df.columns:
         df["Variable"] = df["Variable"].fillna("None")
+    return df
+
+
+# Nested bands after the first (--errory_column C1 C2 ...) are columns
+# _Band2, _Band2Low/_Band2High, ... (the first is Error or ErrorLow/ErrorHigh).
+BAND_PREFIX = "_Band"
+
+
+def _band_columns(df, columns):
+    """Copy the --errory_column columns into the error columns: a column
+    holds symmetric errors, else COL+/COL- hold the upper/lower sizes."""
+    df = df.copy()
+    for index, column in enumerate(columns):
+        prefix = "Error" if index == 0 else f"{BAND_PREFIX}{index + 1}"
+        if column in df.columns:
+            df[prefix] = df[column]
+        elif f"{column}+" in df.columns and f"{column}-" in df.columns:
+            df[f"{prefix}Low"] = df[f"{column}-"]
+            df[f"{prefix}High"] = df[f"{column}+"]
+        else:
+            raise KeyError(f"--errory_column {column}: no column {column} (or {column}+ and {column}-) in the data")
     return df
 
 
@@ -478,6 +527,7 @@ class Series:
         self.is_sum = False
         self.is_data = False
         self.interval = None  # poisson / clopper_pearson errors
+        self.bands = []  # errors of the nested bands after the first (--errory_column C1 C2 ...)
 
 
 def extract(subset, args, x_column=None, y_column=None):
@@ -486,7 +536,11 @@ def extract(subset, args, x_column=None, y_column=None):
     x_column = x_column or args.x
     y_column = y_column or args.y
     columns = [x_column, y_column]
-    for error_column in ("Error", "ErrorLow", "ErrorHigh"):
+    band_prefixes = sorted({str(c).removesuffix("Low").removesuffix("High") for c in subset.columns
+                            if str(c).startswith(BAND_PREFIX)},
+                           key=lambda prefix: int(prefix[len(BAND_PREFIX):])) if y_column == args.y else []
+    band_columns = [c for c in subset.columns if str(c).startswith(BAND_PREFIX)] if band_prefixes else []
+    for error_column in ("Error", "ErrorLow", "ErrorHigh", *band_columns):
         if error_column in subset.columns:
             subset = align_error_column(subset, y_column, error_column)
             columns.append(error_column)
@@ -507,10 +561,12 @@ def extract(subset, args, x_column=None, y_column=None):
         return Series(x, y, error=y_error_of(points), categorical=True, rows=subset)
 
     error = y_error_of(points)
+    bands = [y_error_of(points, prefix) for prefix in band_prefixes]
     mask = ~np.isnan(x) & ~np.isnan(y)
     x, y = x[mask], y[mask]
     if error is not None:
         error = error[..., mask]
+    bands = [band[..., mask] for band in bands if band is not None]
     extrapolated = (
         pd.array(raw_extrapolated[mask], dtype="boolean").fillna(False).to_numpy(dtype=bool)
         if raw_extrapolated is not None
@@ -521,10 +577,13 @@ def extract(subset, args, x_column=None, y_column=None):
         x, y = x[keep], y[keep]
         if error is not None:
             error = error[..., keep]
+        bands = [band[..., keep] for band in bands]
         extrapolated = np.zeros(len(x), dtype=bool)
     if len(x) == 0:
         return None
-    return Series(x, y, error=error, x_edges=edges_from_centers(x), extrapolated=extrapolated, rows=subset)
+    s = Series(x, y, error=error, x_edges=edges_from_centers(x), extrapolated=extrapolated, rows=subset)
+    s.bands = bands
+    return s
 
 
 def _sum_series(series_list):
@@ -770,6 +829,37 @@ def _is_data(hue, args):
     return bool(args.data_hue) and not isinstance(hue, _SumSlot) and str(hue) in {str(v) for v in args.data_hue}
 
 
+def _nested_bands(s, args, plot_type, stacking):
+    """Whether series ``s`` draws its errors as opaque nested bands (several
+    --errory_column columns, or --band_colors): errors shown as bands
+    around a line, step or markers."""
+    if s.error is None or not (s.bands or args.band_colors) or stacking:
+        return False
+    if not (args.errory or getattr(s, "show_error", False)) or plot_type not in (None, "line", "step", "stepmid", "plot"):
+        return False
+    return errory_type(args, plot_type or "errorbar") == "bands"
+
+
+def _draw_nested_bands(ax, s, args, plot_type):
+    """The --errory_column bands of ``s``, innermost first, in the
+    --band_colors and with the --band_labels (default with several bands:
+    "<series> ±1σ", "±2σ", ...; a series without a line, width 0, lends its
+    own label to the innermost band)."""
+    errors = [s.error, *s.bands]
+    expected = s.hue is not None and "expected" in str(s.hue).lower()
+    colors = band_colors(args.band_colors, style.role("muted") if expected else s.color, len(errors))
+    labels = args.band_labels
+    if labels is None and len(errors) > 1:
+        labels = [f"$\\pm{i + 1}\\sigma$" for i in range(len(errors))]
+        if s.label:
+            labels[0] = f"{s.label} {labels[0]}"
+    if labels is None and s.linewidth == 0:
+        labels = [s.label]
+    edges = s.x_edges if plot_type == "step" else None
+    draw_nested_bands(ax, s.x, edges, s.y, errors, colors, labels, plot_type or "line",
+                      "steps-mid" if plot_type == "stepmid" else None)
+
+
 def draw_series(ax, s, args, plot_type=None, stack_bottom=None, dodge_shift=0.0):
     """Draw one series with the plot type rules of the line kind: without
     --plot_type, markers (error bars with --errory, a line with
@@ -777,6 +867,20 @@ def draw_series(ax, s, args, plot_type=None, stack_bottom=None, dodge_shift=0.0)
     Error bars on points are joined only with --connect. Plot type "data"
     draws points with their error bars whatever --errory_type says."""
     stacking = args.stacked and stack_bottom is not None and s.x_edges is not None and not s.categorical
+    if _nested_bands(s, args, plot_type, stacking):
+        _draw_nested_bands(ax, s, args, plot_type)
+        error, label, s.error = s.error, s.label, None
+        if s.linewidth == 0:
+            s.label = None  # the band carries it
+        try:
+            _draw_series(ax, s, args, plot_type, stack_bottom, dodge_shift, stacking)
+        finally:
+            s.error, s.label = error, label
+        return
+    _draw_series(ax, s, args, plot_type, stack_bottom, dodge_shift, stacking)
+
+
+def _draw_series(ax, s, args, plot_type, stack_bottom, dodge_shift, stacking):
     if plot_type == "fill" and not stacking:  # closed shapes; stacked, fill is filled steps (below)
         face = _shape_color(args.facecolor) or s.color
         edge = _shape_color(args.edgecolor) or s.edgecolor or "none"
@@ -1654,12 +1758,11 @@ def _finish_upper(fig, upper, lower, drawn, rows, args, variables, last_x, hue_v
                 mean, std = float(np.mean(values)), float(np.std(values))
                 decimals = max(0, 1 - int(np.floor(np.log10(std)))) if std > 0 else 2
                 ax.axhspan(mean - std, mean + std, color=style.role("muted"), alpha=0.2, linewidth=0, zorder=0)
-                from ..plot import draw_horizontal_lines
-
                 draw_horizontal_lines(ax, [mean], labels=[f"Average {mean:.{decimals}f} $\\pm$ {std:.{decimals}f}"],
                                       styles=["--"], colors=[style.role("muted")], fontsize=style.linelabelfontsize)
         vertical = vertical_per_variable.get(variable) if vertical_per_variable and variable in vertical_per_variable else None
         draw_overlays(ax, args, vertical=vertical)
+        _draw_reference_lines(ax, args)
 
     if rotated:
         rotate_categorical_labels(fig)
@@ -1668,6 +1771,22 @@ def _finish_upper(fig, upper, lower, drawn, rows, args, variables, last_x, hue_v
     add_title_and_note(fig, args, tight_rows=nrows)
     if args.compact and ncols > 1:
         fig.tight_layout()
+
+
+def _draw_reference_lines(ax, args):
+    """The labelled --sigma_lines (p-values of n σ) and --delta_chi2_lines /
+    --cl_lines (Δχ² levels), in --sigma_line_style (dashed) and
+    --sigma_line_color (muted)."""
+    color = _shape_color(args.sigma_line_color) or style.role("muted")
+    for values, labels in (sigma_lines(args.sigma_lines or []),
+                           delta_chi2_lines(args.delta_chi2_lines, args.cl_lines, args.cl_dof)):
+        if values:
+            texts = set(ax.texts)
+            draw_horizontal_lines(ax, values, labels=labels, styles=[args.sigma_line_style], colors=[color],
+                                  fontsize=style.linelabelfontsize, label_pos=args.horizontal_label_pos)
+            if args.sigma_line_color:
+                for text in set(ax.texts) - texts:
+                    text.set_color(color)
 
 
 def _panel_labelx(args, idx, n_panels):
@@ -2019,6 +2138,7 @@ def run_by_config(df, args):
             ax.set_ylim(args.rangey[0], args.rangey[1])
         apply_tick_formatter(ax, axis="both")
         draw_overlays(ax, args)
+        _draw_reference_lines(ax, args)
         if args.logy:
             ax.set_yscale("log")
         if args.logx:

@@ -404,6 +404,17 @@ COMMON_ARG_SPECS = {
             "help": "Color(s) for horizontal line(s) (e.g. gray red C0), one per line",
         },
     },
+    "horizontal_label_pos": {
+        "flags": ["--horizontal_label_pos"],
+        "kwargs": {
+            "type": str,
+            "choices": ["right", "left", "outside", "auto"],
+            "default": "right",
+            "help": "Side of the --horizontal labels: just above the line at its right (default) or left end; "
+            "'outside' in the right margin, level with the line; 'auto' puts each label wherever it covers the "
+            "least data (the old placement)",
+        },
+    },
     "vertical": {
         "flags": ["--vertical"],
         "kwargs": {
@@ -1152,6 +1163,7 @@ PANEL_ARG_NAMES = (
     "horizontal_label",
     "horizontal_style",
     "horizontal_color",
+    "horizontal_label_pos",
 )
 
 
