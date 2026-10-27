@@ -88,7 +88,7 @@ from ..transforms import (
 from . import _base
 
 KIND = "line"
-PLOT_TYPES = ["scatter", "line", "bar", "barh", "step", "stepmid", "plot", "errorbar", "box", "fill"]
+PLOT_TYPES = ["scatter", "line", "bar", "barh", "step", "stepmid", "plot", "errorbar", "box", "violin", "fill"]
 EXTRAPOLATED_LINESTYLE = "--"
 
 
@@ -105,6 +105,8 @@ def build_parser():
             "labely", "labelz", "logx", "logy", "rangex", "rangey", "plot_style", "plot_type",
             "title", "output", "subfolder", "horizontal", "horizontal_label", "horizontal_style",
             "horizontal_color", "vertical", "vertical_label", "vertical_style", "vertical_color",
+            "vertical_band", "vertical_band_label", "vertical_band_color", "horizontal_band",
+            "horizontal_band_label", "horizontal_band_color",
             "xtick", "xtick_label", "xtick_height", "xtick_side", "xtick_edge", "ytick",
             "ytick_label", "ytick_height", "ytick_side", "ytick_edge", "square", "square_label",
             "square_style", "square_color", "line", "line_label", "line_style", "line_color",

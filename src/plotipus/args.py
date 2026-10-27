@@ -440,6 +440,62 @@ COMMON_ARG_SPECS = {
             "help": "Color(s) for vertical line(s) (e.g. gray red C0), one per line",
         },
     },
+    "vertical_band": {
+        "flags": ["--vertical_band"],
+        "kwargs": {
+            "type": float,
+            "nargs": "+",
+            "default": None,
+            "metavar": "X",
+            "help": "Shaded x range(s) behind the data, as pairs: X1 X2 [X1 X2 ...]",
+        },
+    },
+    "vertical_band_label": {
+        "flags": ["--vertical_band_label"],
+        "kwargs": {
+            "type": str,
+            "nargs": "+",
+            "default": None,
+            "help": "Label(s) written inside the --vertical_band range(s), one per band",
+        },
+    },
+    "vertical_band_color": {
+        "flags": ["--vertical_band_color"],
+        "kwargs": {
+            "type": str,
+            "nargs": "+",
+            "default": None,
+            "help": "Colour(s) of the --vertical_band range(s) (default: the style's muted role, translucent)",
+        },
+    },
+    "horizontal_band": {
+        "flags": ["--horizontal_band"],
+        "kwargs": {
+            "type": float,
+            "nargs": "+",
+            "default": None,
+            "metavar": "Y",
+            "help": "Shaded y range(s) behind the data, as pairs: Y1 Y2 [Y1 Y2 ...]",
+        },
+    },
+    "horizontal_band_label": {
+        "flags": ["--horizontal_band_label"],
+        "kwargs": {
+            "type": str,
+            "nargs": "+",
+            "default": None,
+            "help": "Label(s) written inside the --horizontal_band range(s), one per band",
+        },
+    },
+    "horizontal_band_color": {
+        "flags": ["--horizontal_band_color"],
+        "kwargs": {
+            "type": str,
+            "nargs": "+",
+            "default": None,
+            "help": "Colour(s) of the --horizontal_band range(s) (default: the style's muted role, translucent)",
+        },
+    },
     "xtick": {
         "flags": ["--xtick"],
         "kwargs": {

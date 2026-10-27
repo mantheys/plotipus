@@ -8,7 +8,7 @@ Each bin carries the standard error of its statistic (``--estimator_error``;
 stored per-event errors from ``--errory`` are propagated, see
 :func:`plotipus.transforms.estimate`) and bins with fewer than
 ``--min_count`` entries are dropped.
-``--plot_type box`` draws a box per bin (per category for non-numeric x)
+``--plot_type box`` draws a box per bin (per category for non-numeric x), ``violin`` a violin
 instead, the hues dodged side by side within each bin. ``--panels`` draws one x
 column per panel; with ``--compact`` the panels share one axis, their
 ``--panel_rangex`` ranges stitched side by side.
@@ -40,6 +40,8 @@ from ..transforms import _ESTIMATORS, bin_estimate, bin_reduce, edges_from_cente
 
 ESTIMATORS = tuple(_ESTIMATORS)
 SUFFIXES = {"scatter_points": "scatter", "scatter": "scatter"}
+# Plot types drawing the distribution of y per bin (instead of one statistic).
+DISTRIBUTION_TYPES = ("box", "violin")
 ERROR_MODES = ("sem", "std", "none")
 BOX_TICK_LABELS = ("axis", "centres", "ranges")
 # Most box tick labels on one axis (centres, ranges); past it, every k-th
@@ -113,8 +115,8 @@ def _group_rows(df, args, config, name):
 
 
 def _suffix(args):
-    if args.plot_type == "box":
-        return "box.png"
+    if args.plot_type in DISTRIBUTION_TYPES:
+        return f"{args.plot_type}.png"
     plot_type = args.plot_type or "scatter_points"
     return f"{SUFFIXES.get(plot_type, plot_type)}.png"
 
@@ -235,19 +237,24 @@ def _panel_figure(df, args, kdx, config, name):
             if isinstance(x, list):
                 continue
 
-            if args.plot_type == "box":
+            if args.plot_type in DISTRIBUTION_TYPES:
                 if np.ndim(x) == 0 and np.ndim(y) == 0:
-                    rprint("[yellow]Warning:[/yellow] box plots need array data; skipping.")
+                    rprint(f"[yellow]Warning:[/yellow] {args.plot_type} plots need array data; skipping.")
                     continue
                 if categories is None and np.ndim(x) != 0 and not np.issubdtype(np.asarray(x).dtype, np.number):
                     categories = _shared_categories(group, args, variable, x_col)
                 data, centres, edges = _box_groups(x, y, args, span, categories)
                 bin_widths = np.diff(edges) if edges is not None else np.ones(len(centres))
                 width = 0.8 * bin_widths / len(hues)
-                keep = np.array([np.size(d) > 0 for d in data], dtype=bool)
+                # A violin needs two values to estimate a density.
+                keep = np.array([np.size(d) > (1 if args.plot_type == "violin" else 0) for d in data], dtype=bool)
                 label = map_iterable_label(hue, args.iterable, args.iterable_mapping, len(hues)) \
                     if args.iterable is not None else None
-                if keep.any():
+                if keep.any() and args.plot_type == "violin":
+                    plot_data(args, ax, centres, y=[d for d, k in zip(data, keep) if k], label=label,
+                              plot_type="violin", color=box_colors.color_for(hue),
+                              positions=(centres + (jdx - (len(hues) - 1) / 2) * width)[keep], widths=width[keep])
+                elif keep.any():
                     plot_data(args, ax, centres, y=[d for d, k in zip(data, keep) if k], label=label,
                               plot_type="boxplot", color=box_colors.color_for(hue),
                               positions=(centres + (jdx - (len(hues) - 1) / 2) * width)[keep], widths=width[keep],

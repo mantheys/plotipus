@@ -42,6 +42,8 @@ def build_parser():
             "labelx", "labely", "labelz", "logx", "logy", "rangex", "rangey", "title", "output",
             "subfolder", "horizontal", "horizontal_label", "horizontal_style", "horizontal_color",
             "vertical", "vertical_label", "vertical_style", "vertical_color", "point", "point_label",
+            "vertical_band", "vertical_band_label", "vertical_band_color", "horizontal_band",
+            "horizontal_band_label", "horizontal_band_color",
             "note", "debug", "density", "confidence_level", "error_label",
         ],
         overrides={

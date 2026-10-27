@@ -88,6 +88,8 @@ def build_parser():
             "labelz", "rangex", "rangey", "rangez", "logz", "density", "norm", "zoom", "matchx",
             "matchy", "horizontal", "horizontal_label", "horizontal_style", "horizontal_color",
             "vertical", "vertical_label", "vertical_style", "vertical_color", "square",
+            "vertical_band", "vertical_band_label", "vertical_band_color", "horizontal_band",
+            "horizontal_band_label", "horizontal_band_color",
             "square_label", "square_style", "square_color", "line", "line_label", "line_style",
             "line_color", "title", "output", "subfolder", "point", "point_label", "note",
             "multiply", "debug",
@@ -305,7 +307,7 @@ def draw_histogram_figure(rows, args, kdx):
                 regions[pdx] = draw_sample_regions(ax, hist[0], hist[1], hist[2], args)
 
         if args.diagonal:
-            ax.plot(x_range, x_range, color=style.role("ink") if args.logz else style.role("paper"), linestyle="--")
+            _diagonal(ax, x_range, color=style.role("ink") if args.logz else style.role("paper"))
             ax.set_xlim(ranges[0])
             ax.set_ylim(ranges[0])
 
@@ -703,6 +705,17 @@ def mix_paper(color, fraction):
     """``fraction`` of ``color`` mixed with the paper (axes background) colour."""
     paper, rgb = _paper(), to_rgb(color)
     return tuple(fraction * c + (1 - fraction) * p for c, p in zip(rgb, paper))
+
+
+def _diagonal(ax, span, color):
+    """The y = x line across the whole visible axes (also where --matchx/--matchy
+    widen them past this panel's data), through two points of ``span``."""
+    low, high = (float(v) for v in span)
+    if low <= 0 < high and "log" in (ax.get_xscale(), ax.get_yscale()):
+        low = high / 10.0  # a point a log axis can show
+    if not low < high:
+        return
+    ax.axline((low, low), (high, high), color=color, linestyle="--")
 
 
 def band_colors(color, count, args, offset=0):
@@ -1182,8 +1195,7 @@ def draw_contour_figure(df, args):
                     matched[1] = [min(matched[1][0], y_range[0]), max(matched[1][1], y_range[1])]
             contour_artists = set(ax.get_children())
             if args.diagonal:
-                span = [min(x_range[0], y_range[0]), max(x_range[1], y_range[1])]
-                ax.plot(span, span, color=line_color, linestyle="--")
+                _diagonal(ax, [min(x_range[0], y_range[0]), max(x_range[1], y_range[1])], color=line_color)
             draw_horizontal_lines(ax, args.horizontal, labels=args.horizontal_label, styles=args.horizontal_style,
                                   colors=args.horizontal_color or [line_color], fontsize=style.linelabelfontsize)
             draw_vertical_lines(ax, args.vertical, labels=args.vertical_label, styles=args.vertical_style,
