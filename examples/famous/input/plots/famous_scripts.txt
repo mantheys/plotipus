@@ -34,7 +34,6 @@ line --datafile HiggsLocalP0 -x Mass -y P0 --hue Hypothesis --style Hypothesis -
 
 # F05 ATLAS 2012 limits on mu, Fig. 7(a): observed, expected, green and yellow bands
 # gap: saturated band colours (bands are drawn at alpha 0.2) and band legend swatches -> T20
-# gap: plain tick labels on the log x axis (200, not 2x10^2) -> T12
 # gap: the broken x axis (110-150 then 200-600) -> TODO.md (postponed)
 # line --datafile HiggsLimit -x Mass -y MuLimit --select Limit -s Observed -s Expected --hue Limit --style Limit --plot_type line --errory --errory_column MuLimit1Sigma MuLimit2Sigma --band_colors brazil --logy --logx --horizontal 1 --labelx '$m_H$ [GeV]' --labely '95% CL Limit on $\mu$'
 line --datafile HiggsLimit -x Mass -y MuLimit --hue Limit --style Limit --iterable_color_mapping limit_colors --iterable_mapping limit_labels --comparable_linestyles solid solid dashed solid --linewidth_column Width --plot_type line --errory --errory_type bands --logy --logx --rangex 110 600 --rangey 0.07 40 --horizontal 1 --horizontal_color blue --horizontal_style dashed --labelx '$m_H$ [GeV]' --labely '95% CL Limit on $\mu$' --experiment atlas --label_position inside --label_status '2011 - 2012' --label_right '$\sqrt{s}$ = 7 TeV: $\int L dt$ = 4.6-4.8 fb$^{-1}$' '$\sqrt{s}$ = 8 TeV: $\int L dt$ = 5.8-5.9 fb$^{-1}$' --text 0.97 0.06 'CL$_s$ Limits' --text_size xx-large --text_ha right
@@ -49,7 +48,6 @@ line --datafile FIRAS -x Wavenumber -y Intensity --select Component -s 'FIRAS da
 line --datafile Hubble1929 -x Distance -y Velocity --hue Sample --style Sample --data_hue 'Individual nebulae' Groups 'Mean of 22 nebulae' --iterable_color_mapping hubble_colors --comparable_linestyles solid solid solid solid dashed --plot_type line --rangex 0 2.2 --rangey -300 1200 --legend_loc 'upper left' --labelx 'Distance (10$^6$ parsecs)' --labely 'Velocity (km/s)' --text 0.5 1.05 'Velocity-Distance Relation among Extra-Galactic Nebulae' --text_ha center --text_size large
 
 # F09 Riess 1998, Fig. 4, with the 580 Union2.1 supernovae (real data): three cosmologies, residuals to (0.20, 0)
-# gap: plain tick labels on the log x axis (0.01, 0.10, 1.00) -> T12
 line --datafile SupernovaHubble -x Redshift -y DistanceModulus --hue Series --style Series --data_hue 'Union2.1 SNe' --iterable_color_mapping sn_colors --comparable_linestyles solid solid dotted dashed --plot_type line --errory --logx --rangex 0.008 1.6 --rangey 32.5 46.5 --lower column:DeltaMu --lower_labely '$\Delta$(m-M) (mag)' --lower_rangey -0.9 0.9 --no_lower_legend --legend_loc 'lower right' --labelx 'z' --labely 'm-M (mag)' --text 0.06 0.88 'Union2.1' --text_size xx-large
 
 # F10 Riess 1998, Fig. 6: Omega_M-Omega_Lambda confidence regions of the Union2.1 supernovae, with the reference lines

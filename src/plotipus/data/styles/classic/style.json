@@ -75,6 +75,7 @@
     "auto_title": true,
     "titles": true,
     "sci_in_label": false,
+    "log_labels": "sci",
     "error_label": false,
     "fit_color": "red",
     "zero_line_color": "red",

@@ -25,6 +25,15 @@ def make_parser(kind, description):
     return parser
 
 
+def _log_labels_item(value):
+    from ..plot import LOG_LABEL_MODES
+
+    keys, _, mode = value.rpartition("=")
+    if mode not in LOG_LABEL_MODES or set(keys) - set("xyz"):
+        raise argparse.ArgumentTypeError(f"expected [x|y|z=]{'|'.join(LOG_LABEL_MODES)}, got {value!r}")
+    return value
+
+
 def add_output_args(parser):
     add = parser.add_argument
     add("--output_suffix", type=str, default=None,
@@ -39,6 +48,10 @@ def add_output_args(parser):
         "plot_settings.sci_in_label, true).")
     add("--no-sci_in_label", dest="sci_in_label", action="store_false",
         help="Keep matplotlib's offset text at the end of the axis.")
+    add("--log_labels", nargs="+", type=_log_labels_item, default=None, metavar="[AXIS=]MODE",
+        help="Log-axis tick labels: auto (plain numbers such as 200 or 0.01 when every label lies in 1e-3..1e4, "
+        "else 10^n), sci (10^n) or plain; AXIS is x, y, z (colorbar) or several, e.g. 'x=plain z=sci' (default: "
+        "the style's plot_settings.log_labels, auto).")
 
 
 def main(module, argv=None):

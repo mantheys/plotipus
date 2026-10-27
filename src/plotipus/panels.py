@@ -313,7 +313,7 @@ def save(fig, args, idx=None, suffix="plot.png", prefix=None):
     output_file = make_name_from_args(args, idx, prefix=prefix, suffix=suffix)
     apply_figure_hooks(fig, args)
     save_figure_to_paths(fig, getattr(args, "output", None), output_file, subfolder=getattr(args, "subfolder", None),
-                         sci_in_label=getattr(args, "sci_in_label", None))
+                         sci_in_label=getattr(args, "sci_in_label", None), log_labels=getattr(args, "log_labels", None))
     if not getattr(args, "show", False):
         plt.close(fig)
     return output_file
