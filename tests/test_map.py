@@ -1,6 +1,8 @@
 import numpy as np
 import pandas as pd
+import pytest
 
+from plotipus import style
 from plotipus.kinds import map as map_kind
 from plotipus.legacy import translate
 
@@ -116,8 +118,8 @@ def test_contour_lines_levels_and_legend(make_project):
     lines = [c for c in ax.collections if type(c).__name__ == "QuadContourSet" and not c.filled]
     assert np.allclose(lines[0].levels, [2.30, 6.18, 11.83], atol=0.01)
     texts, handles = _legend(ax)
-    assert texts == ["68.3% CL", "95.4% CL", "99.7% CL"]
-    styles = [h.get_linestyle() for h in handles]
+    assert texts == ["68.3% CL", "95.4% CL", "99.7% CL", "Best fit"]
+    styles = [h.get_linestyle() for h in handles[:3]]
     assert len(set(styles)) == 3
 
 
@@ -130,17 +132,38 @@ def test_filled_contours_graded_from_best_fit(make_project):
     lightness = [np.mean(to_rgb(c)) for c in filled.get_facecolor()]
     assert lightness == sorted(lightness) and len(set(np.round(lightness, 3))) == 3
     texts, handles = _legend(ax)
-    assert texts == ["68.3% CL", "95.4% CL", "99.7% CL"]
-    swatches = {(tuple(np.round(h.get_facecolor(), 3)), str(h.get_linestyle())) for h in handles}
+    assert texts[:3] == ["68.3% CL", "95.4% CL", "99.7% CL"]
+    swatches = {(tuple(np.round(h.get_facecolor(), 3)), str(h.get_linestyle())) for h in handles[:3]}
     assert len(swatches) == 3
 
 
-def test_best_fit_marker(make_project):
+def _best_fit(ax):
+    from matplotlib.container import ErrorbarContainer
+
+    return [c for c in ax.containers if isinstance(c, ErrorbarContainer)]
+
+
+def test_best_fit_point_with_profile_errors(make_project):
+    """On a Delta-chi2 map the best fit is an ink point with its 1-sigma profile intervals (Delta-chi2 <= 1
+    projected on each axis): here sigma_x = 0.1, sigma_y = 0.2."""
+    from matplotlib.colors import to_hex
+
     ax = _contour(make_project)
-    marks = [line for line in ax.get_lines() if line.get_marker() == "+"]
+    marks = _best_fit(ax)
     assert len(marks) == 1
-    assert np.isclose(marks[0].get_xdata()[0], 0.4, atol=0.02) and np.isclose(marks[0].get_ydata()[0], 1.0, atol=0.03)
-    assert not [line for line in _contour(make_project, "--no_best_fit").get_lines() if line.get_marker() == "+"]
+    point = marks[0].lines[0]
+    assert np.isclose(point.get_xdata()[0], 0.4, atol=0.02) and np.isclose(point.get_ydata()[0], 1.0, atol=0.03)
+    assert to_hex(point.get_color()) == to_hex(style.role("ink"))
+    bx, by, xerr, yerr = map_kind.best_fit_point(*_maps()[["XGrid", "YGrid", "ZGrid"]].iloc[0])
+    assert sum(xerr) == pytest.approx(0.2, abs=0.02) and sum(yerr) == pytest.approx(0.4, abs=0.04)
+    texts, _ = _legend(ax)
+    assert texts[-1] == "Best fit"
+    assert not _best_fit(_contour(make_project, "--no_best_fit"))
+
+
+def test_best_fit_cross_on_z_maps(make_project):
+    ax = _contour(make_project, "--contour_level_mode", "z_values", "--contour_sigmas", "2", "4")
+    assert [line for line in ax.get_lines() if line.get_marker() == "+"] and not _best_fit(ax)
 
 
 def test_background_off_by_default_and_clipped(make_project):
@@ -156,7 +179,7 @@ def test_old_behaviour_options(make_project):
     ax = _contour(make_project, "--contour_dof", "1", "--contour_label", "sigma", "--background", "all")
     lines = [c for c in ax.collections if type(c).__name__ == "QuadContourSet"]
     assert np.allclose(lines[0].levels, [1, 4, 9])
-    assert _legend(ax)[0] == ["$1\\sigma$", "$2\\sigma$", "$3\\sigma$"]
+    assert _legend(ax)[0][:3] == ["$1\\sigma$", "$2\\sigma$", "$3\\sigma$"]
 
 
 def test_style_contours_section(make_project):
@@ -167,7 +190,7 @@ def test_style_contours_section(make_project):
     lines = [c for c in ax.collections if type(c).__name__ == "QuadContourSet"]
     assert np.allclose(lines[0].levels, [1, 4, 9])
     texts, handles = _legend(ax)
-    assert texts[0] == "$1\\sigma$" and {h.get_linestyle() for h in handles} == {"-"}
+    assert texts[0] == "$1\\sigma$" and {h.get_linestyle() for h in handles[:3]} == {"-"}
     ax = _contour(make_project, "--contour_dof", "2")  # the CLI overrides the style
     assert np.allclose([c for c in ax.collections if type(c).__name__ == "QuadContourSet"][0].levels[0], 2.30, atol=0.01)
 
@@ -194,7 +217,7 @@ def test_several_maps_legend(make_project):
     # One entry per map (its colour), then one per level (its line style).
     assert texts[-3:] == ["68.3% CL", "95.4% CL", "99.7% CL"] and len(texts) == 5
     assert handles[0].get_edgecolor() != handles[1].get_edgecolor()
-    assert len([line for line in ax.get_lines() if line.get_marker() == "+"]) == 2
+    assert len(_best_fit(ax)) == 2  # one best fit per map, in its colour; no "Best fit" entry
 
 
 def test_contour_shapes_and_points(make_project):
@@ -221,7 +244,7 @@ def test_contour_overlays_white_on_full_image(make_project):
 def test_contour_overlays_above_fills(make_project):
     ax = _contour(make_project, "--fill_contours", "--line", "0", "0", "1", "2", "--horizontal", "1")
     fills = max(c.get_zorder() for c in ax.collections if type(c).__name__ == "QuadContourSet")
-    best_fit = [line for line in ax.get_lines() if line.get_marker() == "+"][0].get_zorder()
+    best_fit = _best_fit(ax)[0].lines[0].get_zorder()
     overlays = [line for line in ax.get_lines() if list(line.get_ydata()) in ([0, 2], [1, 1])]
     assert len(overlays) == 2 and all(fills < line.get_zorder() < best_fit for line in overlays)
 
@@ -383,3 +406,16 @@ def test_legend_panels_keep_differing_legends():
     differ = [[Patch(color="C0", label="68%")], [Patch(color="C1", label="68%")]]
     assert map_kind.legend_panels(differ) == [0, 1]
     assert map_kind.legend_panels([[], same[0]]) == [1]
+
+
+def test_panels_compact_by_default(make_project):
+    """Several panels share one y range; only the first shows the y label and tick labels."""
+    frames = {"Points": pd.concat([_points().assign(Sample="a"), _points().assign(Sample="b")])}
+    make_project(frames)
+    figures = _capture()
+    map_kind.main(["--datafile", "Points", "-x", "X", "-y", "Y", "--iterable", "Sample"])
+    map_kind.main(["--datafile", "Points", "-x", "X", "-y", "Y", "--iterable", "Sample", "--no-compact"])
+    first, second = figures[0].axes[:2]
+    assert first.get_ylim() == second.get_ylim() and second.get_ylabel() == ""
+    assert second.yaxis.get_tick_params(which="major")["labelleft"] is False
+    assert figures[1].axes[1].get_ylabel() != ""

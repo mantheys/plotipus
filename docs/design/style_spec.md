@@ -184,7 +184,10 @@ Widths are confirmed from the publishers' pages:
   Data points ("data" in data/MC plots) are always `ink` circles. The
   simulation takes palette colours.
 - **Sequential maps.**
-  - Default: `viridis`.
+  - Default: `plotipus` (`src/plotipus/colormaps.py`): cream → teal → the
+    palette's blue → dark ink blue, CIELAB L* linear from 96 to 16, a tint
+    (not white) at the low end so empty bins stay visible; `plotipus_dark`
+    (dark blue → cream) in the dark theme. `classic` keeps `viridis`.
   - `cividis` when the plot must be read under CVD with fine detail.
   - Counts: log norm when the range spans more than 2 decades. Empty bins
     are transparent (not the darkest colour, B08).
@@ -196,8 +199,10 @@ Widths are confirmed from the publishers' pages:
   default is the counter-example (Part 1 §2.6).
 - **Confidence regions (contours).** No colormap. Each dataset is one hue in
   graded fills: 68% at 100% hue, 95% at 55%, 99.7% at 25% mixed with
-  `paper`. Outlines are solid, dashed and dotted, and the best fit is a `+`
-  in the same hue (B03).
+  `paper`. Outlines are solid, dashed and dotted, and the best fit of a Δχ²
+  map is an `ink` point with its 1σ profile intervals as error bars (in the
+  set's hue when several maps share a panel); significance maps keep a `+`
+  (B03).
 - **Brazil bands.** `brazil` preset: ±1σ `#4daf4a`-like green, ±2σ
   `#ffdd00`-like yellow (HEP convention). The default is `graded`, two
   lightness steps of `muted`, because green and yellow are close in
@@ -404,7 +409,7 @@ axes.linewidth: 0.6          lines.linewidth: 1.2      lines.markersize: 3.5
 xtick/ytick.direction: in    xtick.top / ytick.right: True   x/ytick.minor.visible: True
 x/ytick.major.size: 3.5      x/ytick.minor.size: 1.8   errorbar.capsize: 0
 axes.prop_cycle: petroff10   axes.formatter.limits: -3, 5    axes.grid: False
-legend.frameon: False        image.cmap: viridis       figure.figsize: 3.5, 2.6
+legend.frameon: False        image.cmap: plotipus      figure.figsize: 3.5, 2.6
 savefig.dpi: 300             savefig.pad_inches: 0.02
 ```
 

@@ -20,4 +20,4 @@ errorbar.capsize: 0
 legend.frameon: False
 legend.handlelength: 1.8
 legend.labelspacing: 0.3
-image.cmap: viridis
+image.cmap: plotipus
