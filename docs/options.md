@@ -419,11 +419,16 @@ outlines with `--plot_type step`, filled steps with a darker edge with
 the first series on top). Stacked with data, or with
 `--stack_total_error`, it draws a hatched band of the total's error (the
 stacked errors in quadrature, or a precomputed array column with
-`--stack_total_error_column COL`, e.g. with systematics); its label, hatch
-and colour come from the style file's `plot_settings.stack_error`, default
-`{"label": "Sim. unc.", "hatch": "////", "color": "role:muted"}`. The
+`--stack_total_error_column COL`); its label, hatch and colour come from
+the style file's `plot_settings.stack_error`, default `{"label": "Sim.
+unc.", "hatch": "////", "color": "role:muted"}`. Several columns are
+nested bands, innermost first, each in the legend (style guide U9):
+`--stack_total_error_column StackStatError StackTotalError` hatches the
+statistical error and shades the statistical and systematic in quadrature
+behind it, labelled by `stack_error.labels` ("Stat. unc.", "Stat. ⊕ syst.
+unc.") or `--stack_error_labels`, and the ratio panel shows both. The
 legend lists the data first (`--overlay_legend last` moves them to the
-end), then the stack from the top down, then the band. With
+end), then the stack from the top down, then the bands. With
 `--by_config`, the `--data_hue` values name configs, names or hue values.
 They may also be values of the `--style` column: with `--hue Distribution
 --style Sample --data_hue Data`, each distribution's data are points in its

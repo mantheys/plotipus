@@ -257,9 +257,13 @@ def build_parser():
     add("--stack_total_error", action="store_true", default=False,
         help="With --stacked: a hatched band around the stack total, from the stacked series' errors added in "
         "quadrature (also drawn with --overlay and --errory).")
-    add("--stack_total_error_column", type=str, default=None, metavar="COL",
-        help="Array column with a precomputed error of the stack total (e.g. with systematics), read from the "
-        "first stacked series that has it; implies --stack_total_error.")
+    add("--stack_total_error_column", nargs="+", default=None, metavar="COL",
+        help="Array column(s) with a precomputed error of the stack total, read from the first stacked series "
+        "that has them; several are nested bands, innermost first (e.g. the statistical error, then the "
+        "statistical and systematic in quadrature: rule U9); implies --stack_total_error.")
+    add("--stack_error_labels", nargs="+", default=None, metavar="LABEL",
+        help="Legend label of each stack total band, innermost first (default: the style's stack_error label, "
+        "or its labels with several bands, 'Stat. unc.' and 'Stat. ⊕ syst. unc.').")
     add("--overlay_legend", choices=["first", "last"], default="first",
         help="Legend position of the --overlay (--data_hue) entries: before the stack (default) or after it.")
     add("--bar_width", type=str, default=None,
@@ -1503,22 +1507,31 @@ def _inset_pass(rows, ns, parser):
 _SUM_KEY = ("sum",)
 
 
-def _stack_total_error(stacked, args):
-    """Error of the stack total: --stack_total_error_column of the first
-    stacked series that has it, else the stacked errors in quadrature (None
-    when one is missing)."""
-    column = getattr(args, "stack_total_error_column", None)
-    if column:
+def _stack_total_errors(stacked, args):
+    """Errors of the stack total, innermost first: the
+    --stack_total_error_column arrays of the first stacked series that has
+    them, else the stacked errors in quadrature (None when one is missing)."""
+    columns = getattr(args, "stack_total_error_column", None) or []
+    columns = [columns] if isinstance(columns, str) else list(columns)
+    if columns:
         for s in stacked:
-            if s.rows is not None and column in s.rows.columns:
-                value = s.rows[column].iloc[0]
-                if np.ndim(value) == 1 and len(value) == len(s.y):
-                    return np.asarray(value, dtype=float)
-        rprint(f"[yellow]Warning:[/yellow] No stacked series has a {column} array of matching length; "
+            if s.rows is not None and all(c in s.rows.columns for c in columns):
+                values = [s.rows[c].iloc[0] for c in columns]
+                if all(np.ndim(v) == 1 and len(v) == len(s.y) for v in values):
+                    return [np.asarray(v, dtype=float) for v in values]
+        rprint(f"[yellow]Warning:[/yellow] No stacked series has {', '.join(columns)} array(s) of matching length; "
                "using the stacked errors.")
     if any(s.error is None or np.ndim(s.error) != 1 for s in stacked):
         return None
-    return np.sqrt(np.sum([np.square(np.asarray(s.error, dtype=float)) for s in stacked], axis=0))
+    return [np.sqrt(np.sum([np.square(np.asarray(s.error, dtype=float)) for s in stacked], axis=0))]
+
+
+def _stack_error_labels(args, n):
+    """Legend labels of ``n`` stack total bands, innermost first (rule U9)."""
+    labels = list(getattr(args, "stack_error_labels", None) or [])
+    defaults = [style.stack_error["label"]] if n == 1 else list(style.stack_error.get("labels") or [])
+    labels += defaults[len(labels):n]
+    return labels + [f"Unc. {i + 1}" for i in range(len(labels), n)]
 
 
 def _draw_stack_error(ax, series, args):
@@ -1528,16 +1541,23 @@ def _draw_stack_error(ax, series, args):
     if not stacked or any(len(s.y) != len(stacked[0].y) for s in stacked):
         return
     total = np.sum([np.asarray(s.y, dtype=float) for s in stacked], axis=0)
-    error = _stack_total_error(stacked, args)
-    if error is None and not (args.stack_total_error or args.stack_total_error_column):
+    errors = _stack_total_errors(stacked, args)
+    if errors is None and not (args.stack_total_error or args.stack_total_error_column):
         return  # implied by --overlay with --errory (or Poisson data): only when the stack has errors
-    if error is None:
+    if errors is None:
         rprint("[yellow]Warning:[/yellow] The stack total error needs an error for every stacked series; "
                "no band drawn.")
         return
     band = style.role_colors(style.stack_error)
-    ax.stairs(total + error, stacked[0].x_edges, baseline=total - error, fill=False, hatch=band["hatch"] or None,
-              color=band["color"], linewidth=0, label=band["label"], zorder=2.5)
+    labels = _stack_error_labels(args, len(errors))
+    # The innermost band hatched; wider ones (e.g. with systematics, U9) shaded behind it.
+    for i, (error, label) in enumerate(zip(errors, labels)):
+        if i == 0:
+            ax.stairs(total + error, stacked[0].x_edges, baseline=total - error, fill=False,
+                      hatch=band["hatch"] or None, color=band["color"], linewidth=0, label=label, zorder=2.5)
+        else:
+            ax.stairs(total + error, stacked[0].x_edges, baseline=total - error, fill=True, color=band["color"],
+                      alpha=style.band_alpha, linewidth=0, label=label, zorder=2.5 - 0.01 * i)
 
 
 def _allocate_colors(hue_values, comparable_values, args, invert):
@@ -1850,7 +1870,7 @@ def _data_lower(x, aligned, operation, label, args=None):
     if not model:
         return []
     total = np.sum([np.asarray(s.y, dtype=float) for s in model], axis=0)
-    total_error = _stack_total_error(model, args)
+    total_errors = _stack_total_errors(model, args) or []
 
     def scaled(error):
         # Error of the comparison for an error on the compared values.
@@ -1860,9 +1880,9 @@ def _data_lower(x, aligned, operation, label, args=None):
             return (100.0 if operation == "relative_difference" else 1.0) * np.asarray(error, dtype=float) / total
 
     out = []
-    if total_error is not None:
-        centre = np.full_like(total, 1.0 if operation == "ratio" else 0.0)
-        color = model[0].color if len(model) == 1 else style.role("muted")
+    centre = np.full_like(total, 1.0 if operation == "ratio" else 0.0)
+    color = model[0].color if len(model) == 1 else style.role("muted")
+    for total_error in reversed(total_errors):  # nested bands (U9): the widest first, below the others
         band = _lower_series(x, np.where(total > 0, centre, np.nan), scaled(total_error), color, None, None)
         band.forced_type = "band"
         out.append(band)
@@ -2044,11 +2064,12 @@ def _finish_upper(fig, upper, lower, drawn, rows, args, variables, last_x, hue_v
                 order = sorted(range(len(labels)), key=lambda i: labels[i] not in data_labels)
                 handles, labels = [handles[i] for i in order], [labels[i] for i in order]
             else:
-                band_label = style.stack_error.get("label") if args.stacked else None
+                band_labels = _stack_error_labels(args, max(1, len(args.stack_total_error_column or []))) \
+                    if args.stacked else []
                 overlay_last = args.overlay_legend == "last"
                 handles, labels = order_legend_entries(
                     ax, handles, labels, stacked=args.stacked, keep_first=() if overlay_last else data_labels,
-                    keep_last=([band_label] if band_label else []) + (sorted(data_labels) if overlay_last else []))
+                    keep_last=band_labels + (sorted(data_labels) if overlay_last else []))
             for label, color in extrapolated_axes.get(ax, []):
                 handles.append(mlines.Line2D([], [], color=color, linestyle=EXTRAPOLATED_LINESTYLE, linewidth=1))
                 labels.append(f"{label} Extrapolated")

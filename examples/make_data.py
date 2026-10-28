@@ -116,6 +116,14 @@ for sample, (value, w, expected) in samples.items():
                 "ParamsUnit": ["", "GeV", "GeV", "", "GeV"],
                 "FitComponents": {"Signal": ["gaussian", [0, 1, 2]], "Background": ["exponential", [3, 4]]}}
     rows.append(row)
+# The error of the stacked simulation total, on each simulated row (U9): its statistical error
+# (the weights' in quadrature), and that with a 10% background and 5% signal normalisation
+# systematic added in quadrature.
+simulated = [row for row in rows if row["Distribution"] == "Resonance" and row["Sample"] != "Data"]
+stat = np.sqrt(sum(np.square(row["CountsError"]) for row in simulated))
+syst = np.hypot(*(scale * row["Counts"] for scale, row in zip((0.10, 0.05), simulated)))
+for row in simulated:
+    row["StackStatError"], row["StackTotalError"] = stat, np.hypot(stat, syst)
 
 # Bivariate Gaussian: correlated (X, Y) samples for 2D histograms and their sigma regions.
 cov = [[1.0, 0.9], [0.9, 2.25]]  # sigma_x = 1, sigma_y = 1.5, rho = 0.6

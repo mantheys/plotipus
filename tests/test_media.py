@@ -224,9 +224,10 @@ def test_cmr10_draws_less_and_greater_than(make_project, spectra):
     figures = []
     registry.add_figure_hook(lambda fig, args: figures.append(fig))
     line.main(["--datafile", "Spectra", "-x", "Energy", "-y", "Counts", "--hue", "Sample", "--select", "Variable",
-               "-s", "E", "--medium", "paper", "--labelx", "radius < 12 and > 3, $a<b$"])
+               "-s", "E", "--medium", "paper", "--labelx", "radius < 12 and > 3, $a<b$", "--labely", "a ⊕ b"])
     label = figures[0].axes[0].xaxis.label
     assert label.get_text() == "radius $<$ 12 and $>$ 3, $a<b$"
+    assert figures[0].axes[0].yaxis.label.get_text().startswith(r"a $\oplus$ b")  # nor has it '⊕' (U9 labels)
 
 
 def test_other_fonts_keep_their_text(make_project, spectra):
