@@ -291,7 +291,9 @@ def test_lollipop_orient_h_and_dodged_series(make_project):
     cat.main(["--datafile", "Yields", "-x", "Region", "-y", "Counts", "--hue", "Sample", "--kind", "lollipop",
               "--orient", "h"])
     ax = figures[0].axes[0]
-    stems = [c for c in ax.collections if isinstance(c, LineCollection) and len(c.get_segments()) == 3]
+    # Stems start at zero; the error bars (drawn by default, U1) run around the value.
+    stems = [c for c in ax.collections if isinstance(c, LineCollection) and len(c.get_segments()) == 3
+             and all(segment[0][0] == 0.0 for segment in c.get_segments())]
     assert len(stems) == 3
     for collection in stems:
         for (x0, y0), (x1, y1) in collection.get_segments():
