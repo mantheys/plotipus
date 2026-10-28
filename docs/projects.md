@@ -110,7 +110,7 @@ Style files (JSON) are merged over the defaults
 (`src/plotipus/data/style.json`): `palette` (a `--palette` name; an
 `axes.prop_cycle` in `rcparams` is kept when `palette` is absent), `rcparams`, `font_sizes`, `plot_settings`
 (figure layout, legend and note style, `band_alpha` for error bands, `stack_error` for the
-hatched band of stacked simulation; `"auto_title": false` drops the
+hatched band of stacked simulation, with `labels` for nested stat and stat ⊕ syst bands; `"auto_title": false` drops the
 title taken from the datafile name; `"sci_in_label": false` keeps the
 power-of-ten offset text at the axis end instead of in the label; `log_labels`
 (`auto`, `sci` or `plain`, or per axis `{"x": "plain", "z": "sci"}`) is the

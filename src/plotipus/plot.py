@@ -909,12 +909,13 @@ def separate_panel_tick_labels(fig, pad_px=1.0):
 
 # cmr10 (the paper style's Computer Modern) is a TeX font in the old OT1
 # encoding: its '<' and '>' slots hold '¡' and '¿'. Outside math they are
-# drawn as math, in the same Computer Modern.
-_CMR10_MATH = {"<": "$<$", ">": "$>$"}
+# drawn as math, in the same Computer Modern, like the '⊕' it lacks
+# ("Stat. ⊕ syst. unc.", rule U9).
+_CMR10_MATH = {"<": "$<$", ">": "$>$", "⊕": r"$\oplus$"}
 
 
 def _cmr10_text(text):
-    """``text`` with < and > outside $...$ math written as math."""
+    """``text`` with < and > (and ⊕) outside $...$ math written as math."""
     parts = re.split(r"(?<!\\)\$", text)
     if len(parts) % 2 == 0:  # an unclosed $: leave the text alone
         return text
@@ -924,13 +925,13 @@ def _cmr10_text(text):
 
 
 def fix_cmr10_glyphs(fig):
-    """Rewrite < and > of every text drawn in cmr10 (see _CMR10_MATH)."""
+    """Rewrite < and > (and ⊕) of every text drawn in cmr10 (see _CMR10_MATH)."""
     from matplotlib import font_manager
     from matplotlib.text import Text
 
     for artist in fig.findobj(Text):
         text = artist.get_text()
-        if not text or ("<" not in text and ">" not in text):
+        if not text or not any(char in text for char in _CMR10_MATH):
             continue
         if font_manager.findfont(artist.get_fontproperties()).endswith("cmr10.ttf"):
             artist.set_text(_cmr10_text(text))

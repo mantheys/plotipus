@@ -249,7 +249,8 @@ def _publish():
     band_alpha = float(settings.get("band_alpha", 0.2))
     # Band of the stacked simulation's total error (--data_hue --stacked --errory).
     error_label = bool(settings.get("error_label", False))
-    stack_error = {"label": "Sim. unc.", "hatch": "////", "color": "role:muted", **settings.get("stack_error", {})}
+    stack_error = {"label": "Sim. unc.", "labels": ["Stat. unc.", "Stat. ⊕ syst. unc."], "hatch": "////",
+                   "color": "role:muted", **settings.get("stack_error", {})}
     # Title from the datafile name when --title is not given.
     auto_title = bool(settings.get("auto_title", True))
     # A common power of ten in the axis label instead of offset text.

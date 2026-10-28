@@ -154,11 +154,14 @@ enforceable version. Where the two differ, this guide is the target.
 - **U8. Magnified errors say so.** ✅ `--error_scale K` adds "(errors ×K)"
   to the legend label.
 - **U9. Statistical and systematic uncertainties are labelled apart** when
-  both are drawn ("stat.", "stat. ⊕ syst."). ◐ plotipus draws one band
-  for the stack total, labelled by the style's `stack_error.label` ("Sim.
-  unc." by default); set it to say what the band contains. A series can
-  carry both as nested bands: `--errory_column Stat StatSyst --band_labels
-  'stat.' 'stat. ⊕ syst.'`.
+  both are drawn ("stat.", "stat. ⊕ syst."). ✅ The stack total takes
+  nested bands, `--stack_total_error_column Stat StatSyst`: the
+  statistical error hatched, the total shaded behind it, labelled "Stat.
+  unc." and "Stat. ⊕ syst. unc." (the style's `stack_error.labels`, or
+  `--stack_error_labels`), in the upper and the ratio panel. One band keeps
+  the style's `stack_error.label` ("Sim. unc."); set it to say what the
+  band contains. A series can carry both the same way: `--errory_column
+  Stat StatSyst --band_labels 'stat.' 'stat. ⊕ syst.'`.
 - **U10. Tables compute intervals the same way plots do.** ✅
   - A table that derives a number computes its error with the same method
     as the plot of that number: Clopper–Pearson for efficiencies, Garwood

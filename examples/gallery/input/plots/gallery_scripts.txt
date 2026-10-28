@@ -154,6 +154,9 @@ line --datafile Distributions -x Bin -y Counts --hue Sample --select Distributio
 # E3 G6 Data points over stacked MC with ratio panel and the hatched total error
 line --datafile Distributions -x Bin -y Counts --hue Sample --select Distribution Sample -s Resonance Data Background Signal --stacked --plot_type fill --overlay Data --stack_total_error --lower ratio --labelx 'Mass (GeV)' --labely 'Events / 2 GeV' --lower_labely 'Data / Sim.' --title 'Data over the stacked simulation' --output_suffix E3
 
+# E3b The stack's statistical and systematic uncertainties, labelled apart (style guide U9)
+line --datafile Distributions -x Bin -y Counts --hue Sample --select Distribution Sample -s Resonance Data Background Signal --stacked --plot_type fill --overlay Data --stack_total_error_column StackStatError StackTotalError --lower ratio --labelx 'Mass (GeV)' --labely 'Events / 2 GeV' --lower_labely 'Data / Sim.' --title 'Stat. and syst. uncertainties of the simulation' --output_suffix E3b
+
 # E4 Several lower panels
 line --datafile Distributions -x Bin -y Counts --hue Sample --select Distribution -s Landau --data_hue Data --errory --lower ratio --lower subtract --labelx x --title 'Ratio and difference to the simulation' --output_suffix E4
 

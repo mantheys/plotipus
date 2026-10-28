@@ -430,6 +430,7 @@ def _spectrum(total_error=False):
     if total_error:
         for row in rows:
             row["TotalError"] = 0.05 * sum(mc.values())
+            row["StatSystError"] = 0.12 * sum(mc.values())
     return pd.DataFrame(rows), data, mc
 
 
@@ -501,6 +502,39 @@ def test_stack_total_error_column_and_overlay_last(make_project):
     assert np.allclose(band.get_data().values, 1.05 * total)
     labels = [t.get_text() for t in ax.get_legend().get_texts()]
     assert labels == ["signal", "bkg_b", "bkg_a", band.get_label(), "data"]
+
+
+def test_stack_stat_and_syst_bands_labelled_apart(make_project):
+    """U9: the statistical and the statistical + systematic errors of the
+    stack total are nested bands, each with its own label, in the upper and
+    the ratio panel."""
+    from matplotlib.patches import StepPatch
+
+    frame, _, mc = _spectrum(total_error=True)
+    fig = _stack_run(make_project, frame, "--plot_type", "fill", "--overlay", "data", "--stack_total_error_column",
+                     "TotalError", "StatSystError", "--lower", "ratio")
+    upper, lower = fig.axes[:2]
+    total = sum(mc.values())
+    (stat,) = [p for p in upper.patches if isinstance(p, StepPatch) and not p.get_fill()]
+    (syst,) = [p for p in upper.patches if isinstance(p, StepPatch) and p.get_label() == "Stat. ⊕ syst. unc."]
+    assert stat.get_label() == "Stat. unc." and stat.get_hatch()
+    assert np.allclose(stat.get_data().values, 1.05 * total) and np.allclose(syst.get_data().values, 1.12 * total)
+    assert syst.get_zorder() < stat.get_zorder()
+    labels = [t.get_text() for t in upper.get_legend().get_texts()]
+    assert labels[-2:] == ["Stat. unc.", "Stat. ⊕ syst. unc."]
+    bands = [p for p in lower.patches if isinstance(p, StepPatch) and p.get_fill()]
+    assert [round(float(np.nanmax(b.get_data().values)), 3) for b in bands] == [1.12, 1.05]  # widest first
+
+
+def test_stack_error_labels_option(make_project):
+    from matplotlib.patches import StepPatch
+
+    frame, _, _ = _spectrum(total_error=True)
+    fig = _stack_run(make_project, frame, "--stack_total_error_column", "TotalError", "StatSystError",
+                     "--stack_error_labels", "MC stat.", "MC stat. + syst.")
+    labels = sorted(p.get_label() for p in fig.axes[0].patches if isinstance(p, StepPatch)
+                    and p.get_label() and p.get_label().startswith("MC"))
+    assert labels == ["MC stat.", "MC stat. + syst."]
 
 
 # --- Data and simulation conventions -----------------------------------------------------
