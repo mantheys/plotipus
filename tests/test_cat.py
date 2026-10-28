@@ -212,3 +212,224 @@ def test_points_dodge_side_by_side(make_project):
     first = sorted(c.lines[0].get_xdata()[0] for c in ax.containers if isinstance(c, ErrorbarContainer))
     assert len(first) == 3 and first[0] < first[1] < first[2] and np.isclose(np.mean(first), 0.0)
     assert first[2] - first[0] < 0.8  # all within the category
+
+
+# --- Orientation, sorting and lollipops (T22.1) ------------------------------------------
+
+
+def test_orient_h_puts_categories_on_y_first_on_top(make_project):
+    """D5: --orient h draws horizontal bars, the categories down the y axis with the first on top and
+    the value label on x."""
+    figures = _capture()
+    frame = _importance(["pt", "eta", "phi"])
+    make_project({"Importance": frame})
+    cat.main(["--datafile", "Importance", "-x", "Feature", "-y", "Importance", "--hue", "Model", "--kind", "bar",
+              "--orient", "h"])
+    ax = figures[-1].axes[0]
+    assert np.allclose([p.get_width() for p in ax.patches], frame["Importance"])
+    assert [round(p.get_y() + p.get_height() / 2, 6) for p in ax.patches] == [0.0, 1.0, 2.0]
+    assert [t.get_text() for t in ax.get_yticklabels()] == ["pt", "eta", "phi"]
+    bottom, top = ax.get_ylim()
+    assert bottom > top  # position 0 (the first category) at the top
+    assert ax.get_xlabel() == "Importance" and ax.get_ylabel() == "Feature"
+
+
+def test_sort_orders_categories_by_total(make_project):
+    """--sort desc: largest total first (on top with --orient h); asc the reverse."""
+    figures = _capture()
+    frame = pd.DataFrame({"Feature": ["a", "b", "c"], "Importance": [0.1, 0.5, 0.3], "Model": "BDT"})
+    make_project({"Importance": frame})
+    for order in ("desc", "asc"):
+        cat.main(["--datafile", "Importance", "-x", "Feature", "-y", "Importance", "--hue", "Model", "--kind", "bar",
+                  "--orient", "h", "--sort", order, "--output_suffix", f"{order}.png"])
+    desc, asc = ([t.get_text() for t in fig.axes[0].get_yticklabels()] for fig in figures)
+    assert desc == ["b", "c", "a"] and asc == ["a", "c", "b"]
+    widths = [p.get_width() for p in figures[0].axes[0].patches]
+    assert widths == sorted(widths, reverse=True)
+
+
+def test_sort_sums_every_series(make_project):
+    """The sort key is the category's total over every hue value, not the first series."""
+    figures = _capture()
+    make_project({"Yields": _yields()})
+    cat.main(["--datafile", "Yields", "-x", "Region", "-y", "Counts", "--hue", "Sample", "--kind", "bar",
+              "--sort", "asc"])
+    # Totals: low 206, peak 115, high 103.
+    assert [t.get_text() for t in figures[0].axes[0].get_xticklabels()] == ["high", "peak", "low"]
+
+
+def test_lollipop_stems_end_at_the_values_with_errors(make_project):
+    """D7: --kind lollipop draws a stem from zero to each value and the value as a marker with its
+    error bar; the legend shows markers only."""
+    from matplotlib.collections import LineCollection
+    from matplotlib.container import ErrorbarContainer
+
+    figures = _capture()
+    make_project({"Yields": _yields()})
+    cat.main(["--datafile", "Yields", "-x", "Region", "-y", "Counts", "--hue", "Sample", "--kind", "lollipop",
+              "--select", "Sample", "-s", "Background", "--errory"])
+    ax = figures[0].axes[0]
+    # Stems start at zero; the error bars (also line collections) at value - error.
+    stems = [c for c in ax.collections if isinstance(c, LineCollection)
+             and all(s[0][1] == 0.0 for s in c.get_segments())]
+    assert len(stems) == 1
+    segments = stems[0].get_segments()
+    assert [s[1][1] for s in segments] == [100.0, 40.0, 50.0]
+    points = [c for c in ax.containers if isinstance(c, ErrorbarContainer)]
+    assert len(points) == 1 and points[0].has_yerr
+    assert np.allclose(points[0].lines[0].get_ydata(), [100.0, 40.0, 50.0])
+    handle = ax.get_legend().legend_handles[0] if ax.get_legend() else None
+    assert handle is None or handle.get_linestyle() == "None"
+
+
+def test_lollipop_orient_h_and_dodged_series(make_project):
+    """Horizontal lollipops: stems along x; several series dodge within the category."""
+    from matplotlib.collections import LineCollection
+
+    figures = _capture()
+    make_project({"Yields": _yields()})
+    cat.main(["--datafile", "Yields", "-x", "Region", "-y", "Counts", "--hue", "Sample", "--kind", "lollipop",
+              "--orient", "h"])
+    ax = figures[0].axes[0]
+    stems = [c for c in ax.collections if isinstance(c, LineCollection) and len(c.get_segments()) == 3]
+    assert len(stems) == 3
+    for collection in stems:
+        for (x0, y0), (x1, y1) in collection.get_segments():
+            assert x0 == 0.0 and y0 == y1  # horizontal stems from zero
+    first = sorted(c.get_segments()[0][0][1] for c in stems)
+    assert first[0] < first[1] < first[2] and np.isclose(np.mean(first), 0.0)
+
+
+def test_stacked_horizontal_bars_and_band(make_project):
+    """--stacked with --orient h: stacks grow along x; the total's error band is horizontal."""
+    from matplotlib.container import BarContainer
+    from matplotlib.patches import Rectangle
+
+    figures = _capture()
+    make_project({"Yields": _yields()})
+    cat.main(["--datafile", "Yields", "-x", "Region", "-y", "Counts", "--hue", "Sample", "--kind", "bar",
+              "--stacked", "--data_hue", "Data", "--errory", "--orient", "h"])
+    ax = figures[0].axes[0]
+    background, signal = [c for c in ax.containers if isinstance(c, BarContainer)]
+    assert [p.get_x() for p in signal] == [p.get_width() for p in background]
+    bands = [p for p in ax.patches if isinstance(p, Rectangle) and p.get_hatch()]
+    totals = [b.get_width() + s.get_width() for b, s in zip(background, signal)]
+    assert np.allclose([p.get_x() + p.get_width() / 2 for p in bands], totals)
+    assert all(np.isclose(p.get_height(), 0.8) for p in bands)
+
+
+def test_orient_h_reference_lines_are_vertical(make_project):
+    figures = _capture()
+    make_project({"Importance": _importance(["pt", "eta"])})
+    cat.main(["--datafile", "Importance", "-x", "Feature", "-y", "Importance", "--hue", "Model", "--kind", "point",
+              "--orient", "h", "--horizontal", "0.2"])
+    ax = figures[0].axes[0]
+    assert any(np.allclose(line.get_xdata(), [0.2, 0.2]) for line in ax.get_lines())
+
+
+# --- Distributions per category (T22.2) ---------------------------------------------------
+
+
+def _responses():
+    """Two rows per particle (the arrays of a category are pooled), and a Detector hue column."""
+    rng = np.random.default_rng(7)
+    rows = []
+    for particle, centre in (("electron", 1.0), ("pion", 0.85), ("muon", 0.2)):
+        for detector in ("barrel", "endcap"):
+            rows.append({"Particle": particle, "Detector": detector,
+                         "Response": rng.normal(centre, 0.05, 200)})
+    return pd.DataFrame(rows)
+
+
+def test_box_pools_the_rows_of_a_category(make_project):
+    """A10: --kind box keeps the arrays as distributions: one box per category, its median that of the
+    pooled rows; without --hue there is one series and no legend."""
+    figures = _capture()
+    frame = _responses()
+    make_project({"Showers": frame})
+    cat.main(["--datafile", "Showers", "-x", "Particle", "-y", "Response", "--kind", "box"])
+    ax = figures[0].axes[0]
+    medians = [line for line in ax.get_lines() if len(line.get_xdata()) == 2 and line.get_linewidth() == 2]
+    assert len(medians) == 3
+    for line, particle in zip(medians, ("electron", "pion", "muon")):
+        pooled = np.concatenate(frame[frame.Particle == particle]["Response"].tolist())
+        assert np.isclose(line.get_ydata()[0], np.median(pooled))
+        assert np.isclose(np.mean(line.get_xdata()), ["electron", "pion", "muon"].index(particle))
+    assert ax.get_legend() is None
+    assert ax.get_ylabel() == "Response"  # a distribution, not "Integrated Response"
+
+
+def test_violins_side_by_side_per_hue_and_horizontal(make_project):
+    """--kind violin --hue: the hue values share the category's width; --orient h lays them along x."""
+    from matplotlib.collections import PolyCollection
+
+    figures = _capture()
+    make_project({"Showers": _responses()})
+    cat.main(["--datafile", "Showers", "-x", "Particle", "-y", "Response", "--hue", "Detector", "--kind", "violin"])
+    cat.main(["--datafile", "Showers", "-x", "Particle", "-y", "Response", "--hue", "Detector", "--kind", "violin",
+              "--orient", "h", "--output_suffix", "h.png"])
+    vertical, horizontal = (fig.axes[0] for fig in figures)
+    bodies = [c for c in vertical.collections if isinstance(c, PolyCollection)]
+    assert len(bodies) == 6
+    centres = sorted(np.mean(b.get_paths()[0].vertices[:, 0]) for b in bodies)
+    assert np.allclose(centres, [-0.2, 0.2, 0.8, 1.2, 1.8, 2.2], atol=0.02)
+    assert [t.get_text() for t in vertical.get_legend().get_texts()] == ["barrel", "endcap"]
+    body = [c for c in horizontal.collections if isinstance(c, PolyCollection)][0]
+    values = body.get_paths()[0].vertices
+    assert 0.8 < np.mean(values[:, 0]) < 1.2 and abs(np.mean(values[:, 1]) + 0.2) < 0.02  # electron, on top
+
+
+def test_strip_draws_every_value_jittered_within_the_category(make_project):
+    from matplotlib.collections import PathCollection
+
+    figures = _capture()
+    make_project({"Showers": _responses()})
+    cat.main(["--datafile", "Showers", "-x", "Particle", "-y", "Response", "--kind", "strip"])
+    ax = figures[0].axes[0]
+    strips = [c for c in ax.collections if isinstance(c, PathCollection)]
+    assert len(strips) == 3
+    for position, strip in enumerate(strips):
+        offsets = strip.get_offsets()
+        assert len(offsets) == 400  # both rows of the category
+        assert np.all(np.abs(offsets[:, 0] - position) <= 0.35 * 0.8)
+        assert 0 < strip.get_alpha() < 1
+
+
+def test_sort_distributions_by_median(make_project):
+    figures = _capture()
+    make_project({"Showers": _responses()})
+    cat.main(["--datafile", "Showers", "-x", "Particle", "-y", "Response", "--kind", "box", "--sort", "asc"])
+    assert [t.get_text() for t in figures[0].axes[0].get_xticklabels()] == ["muon", "pion", "electron"]
+
+
+def test_bars_without_hue_are_one_series(make_project):
+    """--hue is optional for every kind: one series, no legend."""
+    figures = _capture()
+    frame = _importance(["pt", "eta"]).drop(columns="Model")
+    make_project({"Importance": frame})
+    cat.main(["--datafile", "Importance", "-x", "Feature", "-y", "Importance", "--kind", "bar"])
+    ax = figures[0].axes[0]
+    assert np.allclose([p.get_height() for p in ax.patches], frame["Importance"])
+    assert ax.get_legend() is None
+
+
+def test_data_violins_and_boxes_are_hollow_ink(make_project):
+    """--data_hue with box/violin: the data are an ink outline without a face, listed first."""
+    from matplotlib.collections import PolyCollection
+    from matplotlib.colors import to_hex
+
+    from plotipus import style
+
+    figures = _capture()
+    frame = _responses().replace({"Detector": {"barrel": "Data", "endcap": "Simulation"}})
+    make_project({"Showers": frame})
+    for kind in ("violin", "box"):
+        cat.main(["--datafile", "Showers", "-x", "Particle", "-y", "Response", "--hue", "Detector", "--kind", kind,
+                  "--data_hue", "Data", "--output_suffix", f"{kind}.png"])
+    violins, boxes = (fig.axes[0] for fig in figures)
+    bodies = [c for c in violins.collections if isinstance(c, PolyCollection)]
+    data = [b for b in bodies if to_hex(b.get_edgecolor()[0]) == to_hex(style.role("ink"))]
+    assert len(data) == 3 and all(len(b.get_facecolor()) == 0 or b.get_facecolor()[0][3] == 0 for b in data)
+    assert [t.get_text() for t in violins.get_legend().get_texts()] == ["Data", "Simulation"]
+    faces = [p.get_facecolor()[3] for p in boxes.patches]
+    assert sorted(faces) == [0, 0, 0, 0.6, 0.6, 0.6]

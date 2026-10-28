@@ -49,9 +49,9 @@ def test_generators_are_seeded(frames):
 
 
 def test_build_is_small_and_fast(tmp_path):
-    start = time.perf_counter()
+    start = time.process_time()  # CPU time: a busy machine (parallel tests) does not count
     written = make_data.main(out=tmp_path)
-    assert time.perf_counter() - start < 10
+    assert time.process_time() - start < 10
     assert len(written) == len(set(written))
     assert sum(path.stat().st_size for path in tmp_path.glob("*.pkl")) < 5e6
 

@@ -22,7 +22,7 @@ dependencies = [
 
 [project.optional-dependencies]
 yaml = ["pyyaml"]
-dev = ["pytest", "pyyaml"]
+dev = ["pytest", "pytest-xdist", "pyyaml"]
 
 [project.scripts]
 plotipus = "plotipus.cli:main"
@@ -35,4 +35,7 @@ plotipus = ["data/*.json", "data/*.mplstyle", "data/styles/*.json", "data/styles
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
+# One worker per core (pytest-xdist, in the dev extra); -p no:xdist or -n 0 runs serially.
+# loadgroup keeps the xdist_group-marked gallery tests on one worker.
+addopts = "-n auto --dist loadgroup"
 markers = ["slow: renders many figures (the gallery); deselect with -m 'not slow'"]

@@ -6,18 +6,24 @@ one scalar ``-y`` per row (already integrated). The array is reduced to a
 scalar per row (``--integral_mode integrate``: sum of
 y times bin width; ``sum``: plain sum; optionally within
 ``--integration_range``); rows sharing a category are summed and errors add
-in quadrature. One series per ``--hue`` value (colour and marker), one line
-style (or bar opacity) per ``--style`` value; ``--kind`` draws points joined
-by lines (line), bare points (point, dodged side by side) or dodged bars
-(bar; ``--stacked``: one stack per category). Bar errors are a hatched band
-around the bar top, data (``--data_hue``) are ink points with error bars.
-Category labels are rotated only when they would overlap.
+in quadrature. One series per ``--hue`` value (colour and marker; one series without
+``--hue``), one line style (or bar opacity) per ``--style`` value;
+``--kind`` draws points joined by lines (line), bare points (point, dodged
+side by side), stems ending in a point (lollipop) or dodged bars (bar;
+``--stacked``: one stack per category). ``--kind box|violin|strip`` keep the
+array cells as distributions instead: a category's rows are pooled and drawn
+as a box, a violin or jittered points. Bar errors are a hatched band around the bar top, data
+(``--data_hue``) are ink points with error bars. ``--orient h`` puts the
+categories on the y axis (first on top), ``--sort`` orders them by their
+total. Category labels are rotated only when they would overlap.
 """
 
 import matplotlib.lines as mlines
 import matplotlib.patches as mpatches
 import matplotlib.pyplot as plt
 import numpy as np
+import pandas as pd
+from matplotlib.colors import to_rgba
 from rich import print as rprint
 
 from .. import intervals, style, uncertainty
@@ -26,12 +32,13 @@ from ..encodings import LINESTYLES
 from ..io import import_data, prepare_import
 from ..palettes import ColorAllocator
 from ..panels import add_title_and_note, create_panels, draw_horizontal_overlay, save
-from ..plot import apply_legend_style, apply_legend_style_clear_of_data, plot_data
+from ..plot import apply_legend_style, apply_legend_style_clear_of_data, draw_vertical_lines, plot_data
 from ..selection import filter_dataframe
 from . import _base
 
 KIND = "cat"
 MARKERS = ["o", "s", "^", "D", "v", "P", "X", "*"]
+DISTRIBUTIONS = ("box", "violin", "strip")
 
 
 def build_parser():
@@ -49,14 +56,24 @@ def build_parser():
             "datafile": {"required": True},
             "x": {"required": True, "help": "Categorical column (one position per value)"},
             "y": {"required": True, "help": "Array column reduced to one value per row (or a scalar per row)"},
-            "iterable": {"required": True, "help": "Column whose values become separate series (colour)"},
+            "iterable": {"help": "Column whose values become separate series (colour); without it, one series"},
             "errory": {"help": "Errors are drawn by default (the {y}Error column, in quadrature, else Garwood "
                        "intervals of integer counts); kept for old command lists"},
         },
     )
     add = parser.add_argument
-    add("--kind", choices=["line", "point", "bar"], default="line",
-        help="Points joined by lines, bare points, or dodged bars.")
+    add("--kind", choices=["line", "point", "lollipop", "bar", *DISTRIBUTIONS], default="line",
+        help="Points joined by lines, bare points, stems ending in a point (lollipop), or dodged bars; box, violin "
+        "and strip keep each row's -y array as a distribution (rows of a category pooled) instead of summing it.")
+    add("--orient", choices=["v", "h"], default="v",
+        help="v: categories along x; h: categories along y, first on top (long labels, rankings). The value axis "
+        "keeps --labely, --logy, --rangey and --horizontal.")
+    add("--sort", choices=["asc", "desc"], default=None,
+        help="Order the categories by their total over every series (box/violin/strip: the median of the pooled "
+        "values; desc: largest first); replaces --x_order.")
+    add("--whis", type=float, default=1.5,
+        help="With --kind box: whisker reach in interquartile ranges (default 1.5).")
+    add("--no_fliers", action="store_true", default=False, help="With --kind box: leave out the points past the whiskers.")
     add("--integrate_over", type=str, default=None,
         help="Array column with the bin centres of -y (default: bin index).")
     add("--integration_range", type=float, nargs=2, default=None, metavar=("LO", "HI"),
@@ -196,14 +213,78 @@ class _Errors(np.ndarray):
         self.counted = getattr(other, "counted", False)
 
 
+def _sorted_categories(rows, categories, args):
+    """--sort: the categories ordered by their total over every row (distribution kinds: the median of
+    the pooled values; stable for ties)."""
+    if args.kind in DISTRIBUTIONS:
+        totals = {category: float(np.median(_pooled(rows[rows[args.x] == category], args)))
+                  if len(_pooled(rows[rows[args.x] == category], args)) else -np.inf for category in categories}
+    else:
+        totals = {category: sum(integrate_row(row, args, with_errors=False)[0]
+                                for _, row in rows[rows[args.x] == category].iterrows())
+                  for category in categories}
+    return sorted(categories, key=lambda c: totals[c], reverse=args.sort == "desc")
+
+
+def _pooled(rows, args):
+    """The finite -y values of ``rows``, every row's array (or scalar) pooled, scaled by --multiply."""
+    parts = [np.ravel(np.asarray(value, dtype=float)) for value in rows[args.y]]
+    values = np.concatenate(parts) if parts else np.array([])
+    values = values[np.isfinite(values)]
+    return values * args.multiply if args.multiply is not None else values
+
+
+def _hue_values(rows, args):
+    """The --hue column of ``rows``, or one empty value per row without --hue."""
+    return rows[args.iterable] if args.iterable else pd.Series("", index=rows.index)
+
+
+class _Axes:
+    """Draws in (category position, value) coordinates on ``ax``, swapping x
+    and y for --orient h."""
+
+    def __init__(self, ax, horizontal):
+        self.ax, self.horizontal = ax, horizontal
+
+    def xy(self, positions, values):
+        return (values, positions) if self.horizontal else (positions, values)
+
+    def errorbar(self, positions, values, errors=None, **kwargs):
+        x, y = self.xy(positions, values)
+        key = "xerr" if self.horizontal else "yerr"
+        return self.ax.errorbar(x, y, **{key: errors}, **kwargs)
+
+    def bar(self, centres, values, width, bottom=None, **kwargs):
+        if self.horizontal:
+            return self.ax.barh(centres, values, height=width, left=bottom, **kwargs)
+        return self.ax.bar(centres, values, width=width, bottom=bottom, **kwargs)
+
+    def stems(self, positions, values, **kwargs):
+        method = self.ax.hlines if self.horizontal else self.ax.vlines
+        return method(positions, 0, values, **kwargs)
+
+    def box(self, centre, low, high, width, **kwargs):
+        """A rectangle spanning ``width`` around ``centre`` and [low, high] in value."""
+        if self.horizontal:
+            return mpatches.Rectangle((low, centre - width / 2), high - low, width, **kwargs)
+        return mpatches.Rectangle((centre - width / 2, low), width, high - low, **kwargs)
+
+
 def draw_figure(rows, args, kdx, comparable):
     categories = _ordered_unique(rows[args.x].tolist(), args.x_order)
-    hues = _ordered_unique(rows[args.iterable].tolist())
+    if args.sort:
+        if args.x_order:
+            rprint("[yellow]Warning:[/yellow] --sort orders the categories; --x_order is ignored.")
+        categories = _sorted_categories(rows, categories, args)
+    hue_values = _hue_values(rows, args)
+    hues = _ordered_unique(hue_values.tolist())
     comparables = _ordered_unique(rows[comparable].dropna().tolist()) if comparable else [None]
     linestyles = args.comparable_linestyles or LINESTYLES
     positions = np.arange(len(categories), dtype=float)
     fig, axes, _, _ = create_panels(1)
     ax = axes[0]
+    horizontal = args.orient == "h"
+    draw = _Axes(ax, horizontal)
 
     data_values = {str(v) for v in (args.data_hue or [])}
     data_hues = [hue for hue in hues if str(hue) in data_values]
@@ -212,22 +293,27 @@ def draw_figure(rows, args, kdx, comparable):
     colors.reserve(models, lambda hue: map_iterable_color(hue, args.iterable_color_mapping, args.iterable))
     hue_handles, style_handles, data_handles, band_handles = [], [], [], []
     stacked = args.stacked and args.kind == "bar"
-    # Points side by side: each series its own slot within the category (data first).
+    # Points and lollipops side by side: each series its own slot within the category (data first).
     n_series = len(data_hues) + len(models)
-    dodge = min(0.15, 0.6 / n_series) if args.kind == "point" and n_series > 1 else 0.0
+    dodge = min(0.15, 0.6 / n_series) if args.kind in ("point", "lollipop") and n_series > 1 else 0.0
 
     def offset(slot):
         return (slot - (n_series - 1) / 2) * dodge
 
+    if args.kind in DISTRIBUTIONS:
+        if comparable:
+            rprint(f"[yellow]Warning:[/yellow] --kind {args.kind} pools every --style value of a hue value.")
+        data_hues, models, comparables = [], [], [None]
+        hue_handles = _draw_distributions(draw, rows, hue_values, categories, positions, hues, data_values, colors, args)
     for ddx, hue in enumerate(data_hues):
         # Data: ink points with their errors at the category centre, first in the legend.
-        subset = rows[rows[args.iterable] == hue]
+        subset = rows[hue_values == hue]
         xs, ys, es = _category_totals(subset, categories, positions, args, with_errors=True,
                                       name=map_iterable_label(hue, args.iterable, args.iterable_mapping), hue=hue)
         if not len(xs):
             continue
-        ax.errorbar(xs + offset(ddx), ys, yerr=np.nan_to_num(es) if np.isfinite(es).any() else None, fmt="o",
-                    color=style.role("ink"), zorder=3)
+        draw.errorbar(xs + offset(ddx), ys, np.nan_to_num(es) if np.isfinite(es).any() else None, fmt="o",
+                      color=style.role("ink"), zorder=3)
         data_handles.append(mlines.Line2D([], [], color=style.role("ink"), linestyle="none", marker="o",
                                           label=map_iterable_label(hue, args.iterable, args.iterable_mapping)))
     stack_bottom = np.zeros(len(categories))
@@ -241,11 +327,11 @@ def draw_figure(rows, args, kdx, comparable):
         if args.kind == "bar":
             hue_handles.append(mpatches.Patch(facecolor=color, alpha=0.9, label=hue_label))
         else:
-            # Points: the marker only; lines: a line with the marker.
+            # Points and lollipops: the marker only; lines: a line with the marker.
             hue_handles.append(mlines.Line2D([], [], color=color, linestyle="-" if args.kind == "line" else "none",
                                              marker=marker, label=hue_label))
         for cdx, value in enumerate(comparables):
-            subset = rows[rows[args.iterable] == hue]
+            subset = rows[hue_values == hue]
             if value is not None:
                 subset = subset[subset[comparable] == value]
             if subset.empty:
@@ -258,7 +344,7 @@ def draw_figure(rows, args, kdx, comparable):
                    + ", ".join(f"{categories[int(i)]}={v:.3g}" for i, v in zip(xs, ys)))
             if stacked:
                 slots = xs.astype(int)
-                ax.bar(xs, ys, width=0.8, bottom=stack_bottom[slots], color=color, alpha=0.9 if cdx == 0 else 0.5)
+                draw.bar(xs, ys, 0.8, bottom=stack_bottom[slots], color=color, alpha=0.9 if cdx == 0 else 0.5)
                 stack_bottom[slots] += ys
                 if args.errory and np.isfinite(es).all():
                     stack_variance[:, slots] += np.square(es)
@@ -268,18 +354,26 @@ def draw_figure(rows, args, kdx, comparable):
             elif args.kind == "bar":
                 width = 0.8 / max(1, len(models))
                 centres = xs + (idx - (len(models) - 1) / 2) * width
-                ax.bar(centres, ys, width=width, color=color, alpha=0.9 if cdx == 0 else 0.5)
+                draw.bar(centres, ys, width, color=color, alpha=0.9 if cdx == 0 else 0.5)
                 if args.errory and np.isfinite(es).any():
-                    band_handles[:] = [_error_band(ax, centres, ys, np.nan_to_num(es), width)]
+                    band_handles[:] = [_error_band(draw, centres, ys, np.nan_to_num(es), width)]
+            elif args.kind == "lollipop":
+                # A thin, lighter stem from zero to the value, the value as the marker; the error bar runs
+                # along the stem, so caps mark its ends.
+                xs = xs + offset(len(data_hues) + idx)
+                draw.stems(xs, ys, color=color, linewidth=style.default_linewidth / 2, linestyle=linestyle, alpha=0.6)
+                errors = np.nan_to_num(es) if args.errory and np.isfinite(es).any() else None
+                draw.errorbar(xs, ys, errors, color=color, marker=marker, linestyle="none", capsize=3, zorder=3)
             else:
                 plot_type = "line" if args.kind == "line" else "scatter"
                 kwargs = {"marker": marker} if args.kind == "line" else {}
                 xs = xs + offset(len(data_hues) + idx)
                 if args.errory and np.isfinite(es).any():
-                    ax.errorbar(xs, ys, yerr=np.nan_to_num(es), color=color, marker=marker,
-                                linestyle=linestyle if args.kind == "line" else "none", capsize=3)
+                    draw.errorbar(xs, ys, np.nan_to_num(es), color=color, marker=marker,
+                                  linestyle=linestyle if args.kind == "line" else "none", capsize=3)
                 else:
-                    plot_data(args, ax, xs, y=ys, color=color, plot_type=plot_type, linestyle=linestyle, **kwargs)
+                    px, py = draw.xy(xs, ys)
+                    plot_data(args, ax, px, y=py, color=color, plot_type=plot_type, linestyle=linestyle, **kwargs)
             if value is not None and cdx >= len(style_handles):
                 value_label = map_iterable_label(value, comparable, args.comparable_mapping)
                 if args.kind == "bar":  # bars tell --style values apart by opacity
@@ -298,14 +392,12 @@ def draw_figure(rows, args, kdx, comparable):
                 errors = np.vstack([total - low, high - total])
             else:
                 errors = np.sqrt(stack_variance[:, filled])
-            band_handles = [_error_band(ax, positions[filled], total, errors, 0.8)]
+            band_handles = [_error_band(draw, positions[filled], total, errors, 0.8)]
         else:
             rprint("[yellow]Warning:[/yellow] The stack total error needs an error for every stacked value; "
                    "no band drawn.")
 
-    ax.set_xticks(positions)
-    ax.set_xticklabels([map_iterable_label(c, args.x, args.xtick_mapping) for c in categories])
-    ax.set_xlabel(resolve_axis_label(args.labelx, args.x, rows))
+    tick_labels = [map_iterable_label(c, args.x, args.xtick_mapping) for c in categories]
     ylabel = args.labely
     if ylabel is None:
         unit_column = f"{args.y}Unit"
@@ -313,15 +405,34 @@ def draw_figure(rows, args, kdx, comparable):
         if unit and args.integral_mode == "integrate" and "/ MeV" in str(unit):
             unit = str(unit).replace(" / MeV", "")
         scalar = all(np.ndim(value) == 0 for value in rows[args.y])  # already one value per row
-        ylabel = ("" if scalar else "Integrated ") + f"{args.y}" + (f" ({unit})" if unit else "")
-    ax.set_ylabel(ylabel)
-    if args.logy:
-        ax.set_yscale("log")
-    if args.rangey is not None:
-        ax.set_ylim(args.rangey)
-    ax.set_xlim(-0.5, len(categories) - 0.5)
-    draw_horizontal_overlay(ax, args)
-    _rotate_tick_labels(fig, ax, args.xtick_rotation)  # the measured layout makes room for them
+        integrated = not scalar and args.kind not in DISTRIBUTIONS
+        ylabel = ("Integrated " if integrated else "") + f"{args.y}" + (f" ({unit})" if unit else "")
+    category_label = resolve_axis_label(args.labelx, args.x, rows)
+    if horizontal:
+        # Categories down the y axis, the first on top; the value axis is x.
+        ax.set_yticks(positions)
+        ax.set_yticklabels(tick_labels)
+        ax.set_ylabel(category_label)
+        ax.set_xlabel(ylabel)
+        if args.logy:
+            ax.set_xscale("log")
+        if args.rangey is not None:
+            ax.set_xlim(args.rangey)
+        ax.set_ylim(len(categories) - 0.5, -0.5)
+        draw_vertical_lines(ax, args.horizontal, labels=args.horizontal_label, styles=args.horizontal_style,
+                            colors=args.horizontal_color, fontsize=style.linelabelfontsize)
+    else:
+        ax.set_xticks(positions)
+        ax.set_xticklabels(tick_labels)
+        ax.set_xlabel(category_label)
+        ax.set_ylabel(ylabel)
+        if args.logy:
+            ax.set_yscale("log")
+        if args.rangey is not None:
+            ax.set_ylim(args.rangey)
+        ax.set_xlim(-0.5, len(categories) - 0.5)
+        draw_horizontal_overlay(ax, args)
+        _rotate_tick_labels(fig, ax, args.xtick_rotation)  # the measured layout makes room for them
 
     # A stack lists its top first, as in line --stacked; the error band comes last.
     handles = data_handles + (hue_handles[::-1] if stacked else hue_handles) + band_handles
@@ -329,7 +440,9 @@ def draw_figure(rows, args, kdx, comparable):
         title = args.comparable_title if args.comparable_title is not None else comparable
         handles.append(mlines.Line2D([], [], color="none", label=f"$\\bf{{{title}}}$" if title else ""))
         handles += style_handles
-    if args.legend_loc:
+    if not args.iterable and not style_handles:
+        pass  # one series without --hue: nothing to tell apart
+    elif args.legend_loc:
         apply_legend_style(ax, handles=handles, capitalize_labels=args.capitalize_legend, loc=args.legend_loc)
     else:
         apply_legend_style_clear_of_data(ax, handles=handles, labels=[h.get_label() for h in handles],
@@ -339,17 +452,74 @@ def draw_figure(rows, args, kdx, comparable):
     return save(fig, args, kdx, suffix="cat.png")
 
 
-def _error_band(ax, centres, values, errors, width):
-    """Hatched boxes of ``values`` ± ``errors`` (N, or 2xN below and above) over bars of ``width`` at
-    ``centres`` (the style's stack_error look); returns the legend handle."""
+def _draw_distributions(draw, rows, hue_values, categories, positions, hues, data_values, colors, args):
+    """--kind box|violin|strip: the pooled -y values of every category x hue value, side by side within
+    the category (only the hue values present share its width); returns the legend handles. Data
+    (--data_hue) take the ink colour."""
+    horizontal = draw.horizontal
+    orientation = "horizontal" if horizontal else "vertical"
+    def color_of(hue):
+        return style.role("ink") if str(hue) in data_values else colors.color_for(hue)
+
+    jitter = np.random.default_rng(0)  # the same strip on every run
+    drawn = []
+    for position, category in zip(positions, categories):
+        in_category = rows[args.x] == category
+        present = [(hue, _pooled(rows[in_category & (hue_values == hue)], args)) for hue in hues]
+        present = [(hue, values) for hue, values in present if len(values) > (1 if args.kind == "violin" else 0)]
+        width = 0.8 / max(1, len(present))
+        for slot, (hue, values) in enumerate(present):
+            centre = position + (slot - (len(present) - 1) / 2) * width
+            color = color_of(hue)
+            is_data = str(hue) in data_values
+            if args.kind == "box":
+                parts = plot_data(args, draw.ax, [centre], y=[values], plot_type="boxplot", color=color,
+                                  positions=[centre], widths=[0.8 * width], whis=args.whis,
+                                  showfliers=not args.no_fliers, manage_ticks=False, orientation=orientation)
+                if is_data:  # data: a hollow ink outline, so they do not read as a filled simulation
+                    for box in parts["boxes"]:
+                        box.set_facecolor("none")
+            elif args.kind == "violin":
+                parts = plot_data(args, draw.ax, [centre], y=[values], plot_type="violin", color=color,
+                                  positions=[centre], widths=[0.9 * width], orientation=orientation)
+                if is_data:
+                    for body in parts["bodies"]:
+                        body.set_facecolor("none")
+            else:
+                # Jittered points, fainter the more there are; rasterised so a PDF stays small.
+                spread = jitter.uniform(-0.35 * width, 0.35 * width, len(values))
+                alpha = float(np.clip(15 / np.sqrt(len(values)), 0.03, 0.8))
+                x, y = draw.xy(centre + spread, values)
+                draw.ax.scatter(x, y, s=2, color=color, alpha=alpha, linewidths=0, rasterized=True)
+            if hue not in drawn:
+                drawn.append(hue)
+            rprint(f"\t{args.x}={category}" + (f", {args.iterable}={hue}" if args.iterable else "")
+                   + f": {len(values)} values, median {np.median(values):.3g}")
+    handles = []
+    data_first = sorted(drawn, key=lambda hue: (str(hue) not in data_values, hues.index(hue)))
+    for hue in data_first:
+        label = map_iterable_label(hue, args.iterable, args.iterable_mapping)
+        color = color_of(hue)
+        if args.kind == "strip":
+            handles.append(mlines.Line2D([], [], color=color, linestyle="none", marker="o", label=label))
+        else:
+            face = "none" if str(hue) in data_values else to_rgba(color, 0.6)
+            handles.append(mpatches.Patch(facecolor=face, edgecolor=color, label=label))
+    return handles
+
+
+def _error_band(draw, centres, values, errors, width):
+    """Hatched boxes of ``values`` ± ``errors`` (N, or 2xN below and above)
+    over bars of ``width`` at ``centres`` (the style's stack_error look;
+    ``draw`` is the --orient helper); returns the legend handle."""
     band = style.role_colors(style.stack_error)
     hatch = band["hatch"] or None
     errors = np.asarray(errors, dtype=float)
     low, high = (errors, errors) if errors.ndim == 1 else (errors[0], errors[1])
     for centre, value, below, above in zip(centres, values, low, high):
         if below + above > 0:
-            ax.add_patch(mpatches.Rectangle((centre - width / 2, value - below), width, below + above, fill=False,
-                                            hatch=hatch, edgecolor=band["color"], linewidth=0, zorder=2.5))
+            draw.ax.add_patch(draw.box(centre, value - below, value + above, width, fill=False, hatch=hatch,
+                                       edgecolor=band["color"], linewidth=0, zorder=2.5))
     return mpatches.Patch(fill=False, hatch=hatch, edgecolor=band["color"], linewidth=0, label=band["label"])
 
 
@@ -391,7 +561,7 @@ def run(args):
         rprint("[yellow]Warning:[/yellow] No datafiles found. Exiting...")
         return []
     for column in (args.x, args.y, args.iterable):
-        if column not in df.columns:
+        if column is not None and column not in df.columns:
             rprint(f"[red]Error:[/red] Column '{column}' not found. Available: {', '.join(map(str, df.columns))}")
             return []
     comparable = args.comparable if args.comparable in df.columns else None
@@ -408,7 +578,8 @@ def run(args):
         if name is not None:
             rows = rows[rows["Name"] == name]
         rows = filter_dataframe(rows, args)
-        rows = rows[rows[args.iterable].notna()]
+        if args.iterable:
+            rows = rows[rows[args.iterable].notna()]
         if rows.empty:
             rprint(f"[yellow]Warning:[/yellow] No data for Config={config}, Name={name}. Skipping.")
             continue

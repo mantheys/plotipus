@@ -139,3 +139,69 @@ def test_agg_median(tmp_project):
                 "--table_env", "none"])
     text = next(tmp_project.rglob("*median*tabular.tex")).read_text()
     assert "2.00" in text
+
+
+# --- Cut flow (T22.11) ----------------------------------------------------------------
+
+
+def _cutflow():
+    """Two samples through three nested stages: counts per bin, with Poisson errors for the signal only."""
+    rows = []
+    for sample, counts in (("signal", ([60, 40], [50, 30], [30, 15])), ("background", ([500, 500], [200, 100], [20, 5]))):
+        for stage, values in zip(("Trigger", "Isolation", "Final"), counts):
+            row = {"Sample": sample, "Stage": stage, "Counts": np.array(values, dtype=float)}
+            if sample == "signal":
+                row["CountsError"] = np.sqrt(np.array(values, dtype=float))
+            rows.append(row)
+    return pd.DataFrame(rows)
+
+
+def test_cutflow_events_and_efficiencies(tmp_project):
+    """J5: one row per stage; per sample the events with their error, and the efficiencies relative to
+    the previous stage and to the first, as Clopper-Pearson intervals of the counts in percent."""
+    from plotipus.intervals import clopper_pearson
+
+    write(tmp_project, "Yields", _cutflow())
+    table.main(["--datafile", "Yields", "-y", "Counts", "--hue", "Sample", "--variable_name", "Stage", "--cutflow",
+                "--table_env", "none"])
+    text = next(tmp_project.rglob("*cutflow*tabular.tex")).read_text()
+    lines = text.splitlines()
+    assert "\\multicolumn{3}{c}{signal} & \\multicolumn{3}{c}{background}" in text
+    assert "Events & Rel. eff. (\\%) & Cum. eff. (\\%)" in text  # the percent sign escaped for LaTeX
+    trigger, isolation, final = (next(l for l in lines if l.startswith(s)) for s in ("Trigger", "Isolation", "Final"))
+    assert "100 ± 10" in trigger and trigger.count("---") == 4  # no efficiency for the first stage
+    # Signal, final stage: 45 of 80 (relative), 45 of 100 (cumulative).
+    from plotipus.format import format_with_interval
+
+    low, high = clopper_pearson(45, 80)
+    assert format_with_interval(56.25, 100 * low, 100 * high) == final.split(" & ")[2]
+    low, high = clopper_pearson(45, 100)
+    assert format_with_interval(45.0, 100 * low, 100 * high) == final.split(" & ")[3]
+    # Background has no error column: the Garwood interval of its integer counts.
+    assert "$300^{+" in isolation
+
+
+def test_cutflow_stage_order_and_one_sample(tmp_project):
+    """--variables picks and orders the stages; without --hue the columns have one level."""
+    write(tmp_project, "Yields", _cutflow()[lambda d: d.Sample == "signal"])
+    table.main(["--datafile", "Yields", "-y", "Counts", "--variable_name", "Stage", "--variables", "Trigger", "Final",
+                "--cutflow", "--table_env", "none"])
+    text = next(tmp_project.rglob("*cutflow*tabular.tex")).read_text()
+    rows = [l.split(" & ")[0] for l in text.splitlines() if " & " in l]
+    assert rows == ["Stage", "Trigger", "Final"]
+    assert "\\multicolumn" not in text
+    from plotipus.format import format_with_interval
+    from plotipus.intervals import clopper_pearson
+
+    low, high = clopper_pearson(45, 100)
+    final = next(l for l in text.splitlines() if l.startswith("Final"))
+    assert final.split(" & ")[2] == format_with_interval(45.0, 100 * low, 100 * high)  # relative to Trigger
+
+
+def test_cutflow_non_integer_yields_warn_and_use_binomial_errors(tmp_project, capsys):
+    frame = _cutflow()
+    frame["Counts"] = frame["Counts"].map(lambda a: a * 0.5 + 0.25)
+    write(tmp_project, "Yields", frame)
+    table.main(["--datafile", "Yields", "-y", "Counts", "--hue", "Sample", "--variable_name", "Stage", "--cutflow",
+                "--table_env", "none"])
+    assert "not integer counts" in capsys.readouterr().out

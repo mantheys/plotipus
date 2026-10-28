@@ -129,12 +129,13 @@ def test_default_size_never_shrinks_the_panels(command, example_data, tmp_path, 
             assert new >= old - 1e-9
 
 
-def test_measured_layout_keeps_text_inside_at_default_size(example_data, tmp_path, monkeypatch):
+@pytest.mark.parametrize("command", COMMANDS, ids=lambda c: c.split("--output_suffix")[-1].split()[0]
+                         if "--output_suffix" in c else c.split()[2])
+def test_measured_layout_keeps_text_inside_at_default_size(command, example_data, tmp_path, monkeypatch):
     _project(tmp_path, monkeypatch, example_data, {})
     try:
-        for command in COMMANDS:
-            for fig in _draw(command):
-                assert _outside(fig) == [] and not _title_crowded(fig), command
+        for fig in _draw(command):
+            assert _outside(fig) == [] and not _title_crowded(fig), command
     finally:
         style.reset()
 

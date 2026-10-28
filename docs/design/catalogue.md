@@ -34,17 +34,17 @@ command lists.
 
 | Group | ✅ | ◐ | ✗ |
 |---|---|---|---|
-| A Distributions | 7 | 1 | 4 |
+| A Distributions | 12 | 0 | 0 |
 | B Relationships | 6 | 1 | 2 |
 | C Trends and fits | 10 | 0 | 0 |
-| D Comparisons | 5 | 1 | 3 |
+| D Comparisons | 9 | 0 | 0 |
 | E Ratios and significance | 8 | 0 | 0 |
-| F ML diagnostics | 6 | 1 | 0 |
+| F ML diagnostics | 7 | 0 | 0 |
 | G Uncertainty | 8 | 1 | 0 |
 | H Small multiples and layout | 6 | 0 | 2 |
 | I Annotations | 10 | 0 | 0 |
-| J Tables | 6 | 1 | 0 |
-| **Total (89)** | **72** | **6** | **11** |
+| J Tables | 7 | 0 | 0 |
+| **Total (89)** | **83** | **2** | **4** |
 
 Nearly half of the ◐ entries are partial only because of a bug in
 [bugs.md](bugs.md), not because an option is missing. Fixing B01–B13 moves
@@ -62,12 +62,12 @@ about 12 of them to ✅.
 | A4 | Normalised / density histogram | shapes at different statistics | — | ✅ | `hist --datafile Ev -x Xv --hue Group --bins 40 --density --logy` (P13). | — |
 | A5 | Weighted histogram | event weights | — | ✅ | `hist ... --weight Yv` (Q4). Errors not drawn: see G2. | — |
 | A6 | Histogram with Poisson errors | counts with statistical uncertainty | F01, F03 | ✅ | `hist ... --errory_type poisson` (Garwood from the bin counts, √Σw² with `--weight`); `line ... --errory_type poisson` on pre-binned counts (T19). | — |
-| A7 | KDE | smooth density of a sample | — | ✗ | — | `hist --hist_type kde` (scipy `gaussian_kde`, Scott bandwidth, `--bw`). |
-| A8 | ECDF / cumulative | quantiles, comparing tails | — | ✗ | — | `hist --hist_type ecdf` (and `--cumulative` for histograms). |
+| A7 | KDE | smooth density of a sample | — | ✅ | `hist --datafile Scores -x Score --hue Class --hist_type kde` (T22.4, gallery A7): scipy `gaussian_kde`, Scott bandwidth or `--bw`, a band of the pointwise standard error; unit area, or counts per bin under `--data_hue` points. | — |
+| A8 | ECDF / cumulative | quantiles, comparing tails | — | ✅ | `hist --hist_type ecdf` (T22.4, gallery A8): steps from 0 to 1 with a binomial band; `--cumulative [reverse]` accumulates a histogram with Garwood errors. | — |
 | A9 | Box plot per category | distribution summaries side by side | — | ✅ | `line --binned --plot_type box --hue Sample` (P14): hues dodged per bin or per category of a non-numeric x, `--box_tick_labels ranges`, `--whis` (B16, fixed in T10). | — |
-| A10 | Violin / strip / box per category | distributions per category | F25 | ◐ | Per bin of a numeric x: `line --binned --plot_type violin` (or `box`; example-feedback round 4). `cat` still reduces each row to one number. | `cat --kind box\|violin\|strip`: array cells kept as distributions instead of being integrated. |
-| A11 | Ridgeline (joy plot) | many distributions, ordered | — | ✗ | — | `hist --ridge [OVERLAP]`: offset each hue vertically, label on the left. |
-| A12 | Rug | raw positions under a hist or KDE | — | ✗ | — | `hist --rug` (ticks along the x axis, alpha by density). |
+| A10 | Violin / strip / box per category | distributions per category | F25 | ✅ | Per category: `cat --datafile Showers -x Particle -y Response --kind violin` (or `box`, `strip`; T22.2, gallery A10b): the array cells of a category pooled as one distribution, hue values side by side, `--orient h`. Per bin of a numeric x: `line --binned --plot_type violin` (or `box`; example-feedback round 4). | — |
+| A11 | Ridgeline (joy plot) | many distributions, ordered | — | ✅ | `hist --hue Model --hist_type kde --ridge [OVERLAP]` (T22.4, gallery A11): each hue on its own baseline, the first on top, named on the y axis. | — |
+| A12 | Rug | raw positions under a hist or KDE | — | ✅ | `hist --hist_type kde --rug` (T22.4, gallery A12): a tick per value along the x axis, fainter the more there are. | — |
 
 ## B. Relationships (two or more variables)
 
@@ -105,10 +105,10 @@ about 12 of them to ✅.
 | D1 | Bar chart (integrated arrays) | totals per category | — | ✅ | `cat --datafile Distributions -x Distribution --hue Sample -y Counts --select Distribution -s Resonance --kind bar` (example `yields`): patch handles, legend clear of the bars, labels rotated only when they overlap (B07, fixed in T08). | — |
 | D2 | Bar chart of scalar cells | one metric per category | — | ✅ | `cat --datafile Importance -x Feature -y Importance --hue Model --kind bar` (P10): a scalar cell is one value already (B07, fixed in T08). | — |
 | D3 | Grouped bars | category × group | — | ✅ | `cat --kind bar --hue ...` dodges hues (example `yields`; B07 fixed in T08). | — |
-| D4 | Stacked bars per category | composition per category | F23 | ✗ | `cat` has no stacking. | `cat --kind bar --stacked`. |
-| D5 | Horizontal bars (sorted) | long labels, rankings | — | ✗ | `line --plot_type barh` fails on categorical x (exit 1); `cat` has no orientation. | `cat --orient h --sort`. |
-| D6 | Dot plot / Cleveland dot | many categories, precise values | — | ◐ | `cat --kind point` (P11), marker-only legend handles; vertical only. | `--orient h`. |
-| D7 | Lollipop | rankings with less ink | — | ✗ | — | `cat --kind lollipop` (stem + point). |
+| D4 | Stacked bars per category | composition per category | F23 | ✅ | `cat --datafile Yields -x Stage -y Counts --hue Particle --kind bar --stacked --errory` (gallery D4): one stack per category, the legend from the top, a hatched band of the total's error; `--data_hue` points on top. | — |
+| D5 | Horizontal bars (sorted) | long labels, rankings | — | ✅ | `cat --datafile Importance -x Feature -y Importance --hue Model --kind bar --orient h --sort desc --errory` (T22.1, gallery D5): categories down the y axis, the first on top, sorted by their total. | — |
+| D6 | Dot plot / Cleveland dot | many categories, precise values | — | ✅ | `cat --kind point --orient h --sort desc --errory` (T22.1, gallery D6): marker-only legend handles, series side by side within each category. | — |
+| D7 | Lollipop | rankings with less ink | — | ✅ | `cat --kind lollipop --orient h --sort desc --errory` (T22.1, gallery D7): a thin stem from zero and the value as a marker, its error bar capped. | — |
 | D8 | Heatmap of a category × category table | correlation / yields | F25 | ✅ | `map -x A -y B -z Value --annotate .2f --matrix` (T22.3): string x/y become one tick per name, cell values written dark on light and light on dark. | — |
 | D9 | Before/after (slope) chart | paired change | — | ✅ | `cat --datafile Spectra -x Stage -y Counts --integrate_over Energy --hue Sample --kind line` (legends avoid the data, B06 fixed in T15). | — |
 
@@ -136,7 +136,7 @@ All curves are precomputed by the analysis (plotipus does not fit or score).
 | F3 | Learning curve with band | over/under-fitting | — | ✅ | `line --datafile Learning -x TrainSize -y Score --hue Split --errory --errory_type bands --plot_type line --logx` (P09). | — |
 | F4 | Calibration (reliability) curve + counts | probability calibration | — | ✅ | `line -x Predicted -y Observed --line 0 0 1 1 --lower column:Count --lower_plot_type bar` (T22.12): numeric bars take 80% of the x spacing. | — |
 | F5 | Confusion matrix | per-class errors | — | ✅ | `map -x Predicted -y True -z Count --norm horizontal --annotate .0% --matrix` (T22.3). | — |
-| F6 | Feature importance | model explanation | — | ◐ | `cat -y Importance --kind bar` on scalar cells (B07, fixed in T08); no horizontal sorted bars. | D5 (`--orient h`, `--sort`). |
+| F6 | Feature importance | model explanation | — | ✅ | `cat --datafile Importance -x Feature -y Importance --hue Model --kind bar --orient h --sort desc --errory` (T22.1, gallery F6): scalar cells (B07, fixed in T08) as sorted horizontal bars with their spread. | — |
 | F7 | Score distributions per class | separation | — | ✅ | `hist -x Score --hue Class --density --logy` (as P13). | — |
 
 ## G. Uncertainty
@@ -189,7 +189,7 @@ All curves are precomputed by the analysis (plotipus does not fit or score).
 | J2 | Efficiency table with Clopper–Pearson intervals | bounded efficiencies | ✅ | `table ... --clopper_pearson COLUMN`. |
 | J3 | siunitx / booktabs output with caption and label | paper-ready | ✅ | `--siunitx --caption ... --label ...`. |
 | J4 | HTML twin of a table | reports | ✅ | `--html`. |
-| J5 | Cut flow (yields by selection stage, several samples) | event selection | ◐ | Works with `--integrate_over`-style sums done upstream; there is no cumulative/relative efficiency column. Add `--cutflow` (absolute, relative to previous, cumulative). |
+| J5 | Cut flow (yields by selection stage, several samples) | event selection | ✅ | `table --datafile Yields -y Counts --hue Particle --variable_name Stage --cutflow` (T22.11, gallery J5): events with their error, efficiencies relative to the previous and the first stage as Clopper–Pearson intervals. |
 | J6 | Summary statistics table (mean, std, correlation) | "same stats" (F25) | ✅ | `table -x X -y Y --row_name Dataset --stats mean var corr line` (T22.11); `--agg std\|median` for cells. |
 | J7 | Fit-parameter table from stored fits | publication | ✅ | `table --fit_params --row_name Dataset` (T22.11): one column per `ParamsLabel`, value ± error in `ParamsFormat`. |
 

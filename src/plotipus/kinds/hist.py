@@ -9,11 +9,18 @@ the loaded configs/names together with the config mappings. Every hue of a
 panel shares one set of bin edges, spanning all of them; entries outside
 (``--rangex``, ``--percentile``) are reported and, with ``--flow``, hinted at
 or added to the edge bins.
+
+``--hist_type kde`` draws a Gaussian kernel density estimate instead (a
+smooth line with a band of its pointwise standard error), ``ecdf`` the
+empirical cumulative distribution (a step with its binomial band);
+``--cumulative`` accumulates a histogram. ``--rug`` marks the values along
+the x axis, ``--ridge`` stacks the hue values on their own baselines.
 """
 
 import matplotlib
 import numpy as np
-from matplotlib.transforms import offset_copy
+from matplotlib.colors import to_rgba
+from matplotlib.transforms import blended_transform_factory, offset_copy
 from rich import print as rprint
 
 from .. import intervals, style
@@ -31,6 +38,9 @@ from . import _base
 KIND = "hist"
 COMBINE = ["sum", "mean", "subtract", "relative", "absolute_relative", "rms"]
 FLOW = ["none", "hint", "show"]
+HIST_TYPES = ["hist", "kde", "ecdf"]
+RUG_MAX = 5000  # values drawn by --rug (a sample of them past this)
+ECDF_POINTS = 2000  # an ECDF of more values is drawn on a grid of this many points
 
 
 def build_parser():
@@ -76,6 +86,23 @@ def build_parser():
     add("--overlay_gaussian", nargs="*", type=float, default=None, metavar=("MU", "SIGMA"),
         help="Draw a Gaussian over the histogram, scaled to the first series' entries: the unit normal (no "
         "values; for pull distributions) or MU SIGMA.")
+    add("--hist_type", type=str, default="hist", choices=HIST_TYPES,
+        help="hist: step histograms; kde: Gaussian kernel density estimates (smooth lines with a band of their "
+        "pointwise standard error) of unit area, or counts per bin when --data_hue points share the axes; "
+        "ecdf: empirical cumulative distributions (steps from 0 to 1 with a binomial band). --data_hue values "
+        "stay histogram points with kde.")
+    add("--bw", type=str, default="scott", metavar="WIDTH",
+        help="With --hist_type kde: the kernel width in units of x, or scott (default) or silverman for the "
+        "rules of thumb (from the sample's standard deviation and size).")
+    add("--cumulative", nargs="?", const="forward", default=None, choices=["forward", "reverse"],
+        help="Accumulate the histogram: forward (entries up to each bin's upper edge) or reverse (from each "
+        "bin's lower edge up: the survival above a cut); with --density, as fractions of the entries.")
+    add("--rug", action="store_true", default=False,
+        help="Mark every value with a short tick along the x axis, in the series colour, fainter the more there "
+        f"are (a sample of {RUG_MAX} when there are more).")
+    add("--ridge", nargs="?", type=float, const=0.5, default=None, metavar="OVERLAP",
+        help="Ridgeline: each hue value on its own baseline, the first on top, its name as the y tick label "
+        "(no legend); the curves are filled and scaled to reach OVERLAP (default 0.5) into the row above.")
     add_legend_args(parser)
     add_hue_cmap_args(parser)
     add_panel_line_args(parser, horizontal=False)
@@ -201,6 +228,76 @@ def _overlay_gaussian(ax, series, edges, density, args):
             zorder=4)
 
 
+def kde_curve(x, weights, grid, bw="scott"):
+    """(density, standard error) of a Gaussian KDE of ``x`` on ``grid``: unit area, and the pointwise
+    error sqrt(f R(K) / (n_eff h)) with R(K) = 1 / (2 sqrt(pi)) for a Gaussian kernel of width h and
+    n_eff = (sum w)^2 / sum w^2. ``bw`` is a width in x units, or 'scott' / 'silverman'."""
+    from scipy.stats import gaussian_kde
+
+    weights = None if weights is None else np.asarray(weights, dtype=float)
+    try:
+        width = float(bw)
+    except (TypeError, ValueError):
+        method = bw
+    else:
+        spread = np.sqrt(np.cov(x, aweights=weights)) if len(x) > 1 else 0.0
+        method = width / spread if spread > 0 else "scott"
+    kde = gaussian_kde(x, bw_method=method, weights=weights)
+    density = kde(grid)
+    h = float(np.sqrt(kde.covariance[0, 0]))
+    n_eff = float(kde.neff)
+    error = np.sqrt(np.clip(density, 0, None) / (2 * np.sqrt(np.pi)) / (n_eff * h))
+    return density, error
+
+
+def ecdf_curve(x, weights, grid=None):
+    """(points, F, standard error) of the empirical CDF of ``x``: F at every sorted value (or on
+    ``grid``), and the binomial error sqrt(F (1 - F) / n_eff)."""
+    weights = np.ones_like(x, dtype=float) if weights is None else np.asarray(weights, dtype=float)
+    order = np.argsort(x)
+    xs, cumulative = x[order], np.cumsum(weights[order])
+    total = cumulative[-1]
+    n_eff = total**2 / float(np.sum(weights**2))
+    if grid is None:
+        points, fraction = xs, cumulative / total
+    else:
+        points = grid
+        index = np.searchsorted(xs, grid, side="right")
+        fraction = np.where(index > 0, cumulative[np.maximum(index - 1, 0)], 0.0) / total
+    return points, fraction, np.sqrt(fraction * (1 - fraction) / n_eff)
+
+
+def cumulate(counts, variance, weighted, density, reverse=False, cl=intervals.ONE_SIGMA):
+    """--cumulative: the accumulated bin contents (``counts``, unnormalised) and their 2xN errors:
+    Garwood intervals of the accumulated counts, or sqrt of the accumulated sum of squared weights
+    (``variance``) when ``weighted``; with density, as fractions of the total."""
+    if reverse:
+        accumulate = lambda a: np.cumsum(np.asarray(a)[::-1])[::-1]  # noqa: E731
+    else:
+        accumulate = np.cumsum  # noqa: E731
+    values = accumulate(counts)
+    if weighted:
+        spread = np.sqrt(accumulate(variance))
+        errors = np.vstack([spread, spread])
+    else:
+        low, high = intervals.garwood(values, cl)
+        errors = np.vstack([values - low, high - values])
+    total = float(np.sum(counts))
+    if density and total > 0:
+        values, errors = values / total, errors / total
+    return values, errors
+
+
+def _draw_rug(ax, x, color):
+    """--rug: a tick per value along the bottom of the axes, fainter the more there are."""
+    if len(x) > RUG_MAX:
+        rprint(f"\t--rug: {RUG_MAX} of {len(x)} values drawn (a random sample).")
+        x = np.random.default_rng(0).choice(x, RUG_MAX, replace=False)
+    alpha = float(np.clip(10 / np.sqrt(max(len(x), 1)), 0.05, 0.8))
+    transform = blended_transform_factory(ax.transData, ax.transAxes)
+    ax.vlines(x, 0, 0.04, transform=transform, color=color, alpha=alpha, linewidth=0.8, rasterized=True)
+
+
 def _series_style(args, value, name):
     """(label, mapped colour or None, line style or None) of one hue value."""
     if args.iterable == "Config":
@@ -239,6 +336,11 @@ def draw_figure(df, args, kdx, config, name):
     colors.reserve([v for v in values if not is_data(v)],
                    lambda value: _series_style(args, value, name)[1] or (hue_cmap.color(value) if hue_cmap else None))
     density = args.density or args.labely == "Density"
+    if args.rug and args.ridge is not None:
+        rprint("[yellow]Warning:[/yellow] --rug is not drawn with --ridge.")
+    ridge_ticks = {}  # panel -> (baselines, labels) of --ridge
+    # A KDE is a density (unit area), unless histogram data points share its axes: then counts per bin.
+    kde_density = density or args.hist_type != "kde" or not args.data_hue
 
     for idx, variable in enumerate(variables):
         ax = axes[idx]
@@ -262,27 +364,71 @@ def draw_figure(df, args, kdx, config, name):
         ranges[idx] = _histogram_range([x for _, x, _ in series], args, idx)
         edges = np.histogram_bin_edges(ranges[idx], bins=args.bins, range=ranges[idx])  # the same edges for every hue
 
+        rows_of_ridge = []  # (kind, x values, y values, errors, colour, data?) for --ridge
         for value, x, weights in series:
-            counts, under, over, errors = histogram_with_errors(x, edges, weights, density=density, flow=args.flow)
             label, mapped, linestyle = _series_style(args, value, name)
             color = (mapped or style.role("ink")) if is_data(value) else colors.color_for(value, mapped)
-            outside = int(np.sum(x < edges[0]) + np.sum(x > edges[-1]))
-            if outside:
-                what = f"{args.iterable}={value}" if value is not None else "the sample"
-                rprint(f"[yellow]Warning:[/yellow] {outside} of {len(x)} entries of {what} (Variable={variable}) "
-                       f"fall outside [{edges[0]:g}, {edges[-1]:g}] (--flow {args.flow}).")
-            centres = 0.5 * (edges[1:] + edges[:-1])
-            if is_data(value) or args.errory_type == "poisson":
-                errors = bin_errors(x, edges, weights, density=density, flow=args.flow, cl=args.confidence_level)
-            if is_data(value):
-                ax.errorbar(centres, counts, yerr=errors, fmt="o", color=color, label=label, zorder=3)
+            curve_kind = "hist"
+            if args.hist_type == "ecdf":
+                curve_kind = "ecdf"
+            elif args.hist_type == "kde" and not is_data(value):
+                curve_kind = "kde"  # data stay points of a histogram
+            if curve_kind == "hist":
+                outside = int(np.sum(x < edges[0]) + np.sum(x > edges[-1]))
+                if outside:
+                    what = f"{args.iterable}={value}" if value is not None else "the sample"
+                    rprint(f"[yellow]Warning:[/yellow] {outside} of {len(x)} entries of {what} (Variable={variable}) "
+                           f"fall outside [{edges[0]:g}, {edges[-1]:g}] (--flow {args.flow}).")
+                counts, under, over, errors = histogram_with_errors(x, edges, weights, density=density, flow=args.flow)
+                centres = 0.5 * (edges[1:] + edges[:-1])
+                show_errors = is_data(value) or args.errory_type == "poisson"
+                if args.cumulative:
+                    raw, _, _, spread = histogram_with_errors(x, edges, weights, density=False, flow=args.flow)
+                    counts, errors = cumulate(raw, spread**2, weights is not None, density,
+                                              reverse=args.cumulative == "reverse", cl=args.confidence_level)
+                elif show_errors:
+                    errors = bin_errors(x, edges, weights, density=density, flow=args.flow, cl=args.confidence_level)
+                if args.ridge is not None:
+                    rows_of_ridge.append(("hist", edges, counts, errors if show_errors else None, color, is_data(value),
+                                          label))
+                elif is_data(value):
+                    ax.errorbar(centres, counts, yerr=errors, fmt="o", color=color, label=label, zorder=3)
+                else:
+                    ax.stairs(counts, edges, label=label, color=color, linestyle=_resolve_plot_style(linestyle) or "-",
+                              linewidth=style.default_linewidth)
+                    if show_errors:
+                        ax.errorbar(centres, counts, yerr=errors, fmt="none", color=color, linewidth=1)
+                if args.flow == "hint" and args.ridge is None and not args.cumulative:
+                    _draw_flow_hints(ax, counts, edges, under, over, color)
+            elif curve_kind == "kde":
+                grid = np.linspace(edges[0], edges[-1], 400)
+                ys, errors = kde_curve(x, weights, grid, args.bw)
+                if not kde_density:  # counts per bin, like the data points it is drawn with
+                    scale = (float(np.sum(weights)) if weights is not None else len(x)) * float(np.mean(np.diff(edges)))
+                    ys, errors = ys * scale, errors * scale
+                if args.ridge is not None:
+                    rows_of_ridge.append(("kde", grid, ys, errors, color, False, label))
+                else:
+                    ax.plot(grid, ys, color=color, linestyle=_resolve_plot_style(linestyle) or "-",
+                            linewidth=style.default_linewidth, label=label)
+                    ax.fill_between(grid, ys - errors, ys + errors, color=color, alpha=0.2, linewidth=0)
             else:
-                ax.stairs(counts, edges, label=label, color=color, linestyle=_resolve_plot_style(linestyle) or "-",
-                          linewidth=style.default_linewidth)
-                if args.errory_type == "poisson":
-                    ax.errorbar(centres, counts, yerr=errors, fmt="none", color=color, linewidth=1)
-            if args.flow == "hint":
-                _draw_flow_hints(ax, counts, edges, under, over, color)
+                grid = np.linspace(edges[0], edges[-1], ECDF_POINTS) if len(x) > ECDF_POINTS else None
+                points, ys, errors = ecdf_curve(x, weights, grid)
+                if grid is None:  # exact steps, from 0 at the left edge
+                    points = np.concatenate([[min(edges[0], points[0])], points])
+                    ys, errors = np.concatenate([[0.0], ys]), np.concatenate([[0.0], errors])
+                if args.ridge is not None:
+                    rows_of_ridge.append(("ecdf", points, ys, errors, color, is_data(value), label))
+                else:
+                    ax.step(points, ys, where="post", color=color, linewidth=style.default_linewidth, label=label,
+                            linestyle=_resolve_plot_style(linestyle) or "-", zorder=3 if is_data(value) else 2)
+                    ax.fill_between(points, ys - errors, ys + errors, step="post", color=color, alpha=0.2,
+                                    linewidth=0)
+            if args.rug and args.ridge is None:
+                _draw_rug(ax, x, color)
+        if rows_of_ridge:
+            ridge_ticks[idx] = _draw_ridges(ax, rows_of_ridge, args.ridge)
         if args.overlay_gaussian is not None:
             _overlay_gaussian(ax, series[0], edges, density, args)
 
@@ -296,10 +442,25 @@ def draw_figure(df, args, kdx, config, name):
             ax.set_title(title, fontsize=style.subtitlefontsize)
         default_x = args.labelx if args.labelx is not None else " ".join(args.x)
         ax.set_xlabel(args.panel_labelx[idx] if args.panel_labelx is not None else resolve_axis_label(default_x, None, df))
-        if idx == 0:
-            default_y = args.labely if args.labely is not None else ("Density" if density else "Counts")
+        if idx in ridge_ticks:
+            # Ridges: the hue values name the baselines; the height is only a shape.
+            baselines, labels = ridge_ticks[idx]
+            ax.set_yticks(baselines)
+            ax.set_yticklabels(labels)
+            ax.tick_params(axis="y", which="minor", left=False, right=False)
+            if idx == 0 and args.labely is not None:
+                ax.set_ylabel(args.labely)
+        elif idx == 0:
+            if args.hist_type == "ecdf":
+                default_y = "Cumulative fraction"
+            elif args.cumulative:
+                default_y = "Cumulative fraction" if density else "Cumulative counts"
+            else:
+                default_y = "Density" if density or (args.hist_type == "kde" and kde_density) else "Counts"
+            default_y = args.labely if args.labely is not None else default_y
             show = args.error_label if args.error_label is not None else style.error_label
-            if show and args.weight is None and (args.errory_type == "poisson" or args.data_hue):
+            if (show and args.weight is None and args.hist_type != "ecdf" and not args.cumulative
+                    and (args.errory_type == "poisson" or args.data_hue)):
                 default_y = f"{default_y}, {intervals.label('poisson', args.confidence_level)}"
             ax.set_ylabel(resolve_axis_label(default_y, None, df))
         rangex = panel_rangex(args, idx)
@@ -309,16 +470,16 @@ def draw_figure(df, args, kdx, config, name):
             ax.set_xlim(ranges.get(idx))
         else:
             ax.set_xlim(args.rangex[0], args.rangex[1])
-        if args.rangey is not None:
+        if args.rangey is not None and idx not in ridge_ticks:
             ax.set_ylim(args.rangey[0], args.rangey[1])
-        apply_tick_formatter(ax, axis="both")
+        apply_tick_formatter(ax, axis="x" if idx in ridge_ticks else "both")
         if args.logy:
             ax.semilogy()
         if args.logx:
             ax.semilogx()
         # A single series without --hue needs no legend (unless a Gaussian is drawn over it).
         if (idx == n_panels - 1 and (args.iterable is not None or args.overlay_gaussian is not None)
-                and not args.no_legend and args.draw_legend != "none" and hue_cmap is None):
+                and not args.no_legend and args.draw_legend != "none" and hue_cmap is None and not ridge_ticks):
             handles, labels = ax.get_legend_handles_labels()
             # matplotlib lists error bars after the steps: the data entries go first.
             order = sorted(range(len(labels)), key=lambda i: not is_data_label(labels[i]))
@@ -332,6 +493,41 @@ def draw_figure(df, args, kdx, config, name):
                           tick_labels=[str(_series_style(args, v, name)[0]) for v in hue_cmap.values])
     add_title_and_note(fig, args)
     return save(fig, args, kdx, suffix="hist.png")
+
+
+def _draw_ridges(ax, rows, overlap):
+    """--ridge: each row (kind, x, y, errors, colour, data?, label) on its own baseline, the first on
+    top, scaled so the tallest curve reaches ``overlap`` into the row above. Simulation is filled at
+    alpha 0.6 with its outline; data are ink points with their errors (an ink outline for an ECDF);
+    a KDE keeps its band. Returns (baselines, labels) for the y ticks."""
+    peak = max((float(np.nanmax(y)) for _, _, y, _, _, _, _ in rows), default=1.0)
+    scale = (1 + overlap) / peak if peak > 0 else 1.0
+    n = len(rows)
+    baselines, labels = [], []
+    for i, (kind, x, y, errors, color, data, label) in enumerate(rows):
+        base = float(n - 1 - i)
+        z = 2 + i * 0.01  # lower rows in front
+        baselines.append(base)
+        labels.append(label)
+        top = base + scale * y
+        if kind == "hist" and data:
+            centres = 0.5 * (x[1:] + x[:-1])
+            ax.errorbar(centres, top, yerr=None if errors is None else scale * errors, fmt="o", markersize=3,
+                        color=color, zorder=z + 0.005)
+            continue
+        if kind == "hist":
+            ax.stairs(top, x, baseline=base, fill=True, facecolor=to_rgba(color, 0.6), edgecolor=color,
+                      linewidth=style.default_linewidth, zorder=z)
+            continue
+        where = "post" if kind == "ecdf" else None
+        face = "none" if data else to_rgba(color, 0.6)
+        ax.fill_between(x, base, top, step=where, facecolor=face, edgecolor=color,
+                        linewidth=style.default_linewidth, zorder=z)
+        if errors is not None and kind == "kde":
+            ax.fill_between(x, top - scale * errors, top + scale * errors, color=color, alpha=0.2, linewidth=0,
+                            zorder=z + 0.005)
+    ax.set_ylim(-0.1, n - 1 + 1 + overlap + 0.1)
+    return baselines, labels
 
 
 def _project_relative(path):

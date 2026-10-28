@@ -64,12 +64,16 @@ FEATURES = ("Shower depth", "Track isolation", "E/p", "Hits", "Cluster width", "
 
 def importance(rng):
     base = np.array([0.30, 0.22, 0.18, 0.13, 0.10, 0.07])
+    # The spread over repeated permutations, from a generator of its own (the
+    # other datasets keep their draws).
+    spread = np.random.default_rng(65)
     rows = []
     for model in ("BDT", "DNN"):
         weights = base * rng.uniform(0.7, 1.3, base.size)
         weights /= weights.sum()
-        rows += [{"Model": model, "Feature": feature, "Importance": weight}
-                 for feature, weight in zip(FEATURES, weights)]
+        errors = weights * spread.uniform(0.05, 0.12, base.size)
+        rows += [{"Model": model, "Feature": feature, "Importance": weight, "ImportanceError": error}
+                 for feature, weight, error in zip(FEATURES, weights, errors)]
     return pd.DataFrame(rows)
 
 
