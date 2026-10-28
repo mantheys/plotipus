@@ -849,7 +849,13 @@ class _HideTickValue(Formatter):
         self.inner, self.value = inner, value
 
     def _hidden(self, x):
-        return math.isclose(x, self.value, rel_tol=1e-9, abs_tol=1e-12)
+        # Relative tolerance: tick values can be tiny (cross sections of
+        # 1e-45 cm^2), where an absolute one would match every tick. Only a
+        # tick at zero needs an absolute scale, taken from the axis range.
+        if self.value == 0:
+            low, high = self.axis.get_view_interval() if self.axis is not None else (0.0, 1.0)
+            return abs(x) <= 1e-9 * abs(high - low)
+        return math.isclose(x, self.value, rel_tol=1e-9, abs_tol=0.0)
 
     def __call__(self, x, pos=None):
         return "" if self._hidden(x) else self.inner(x, pos)

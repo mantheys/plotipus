@@ -1393,3 +1393,32 @@ def test_column_lower_panel_with_model_curves(make_project):
     assert len(_errorbars(lower)) == 1  # the data, as points
     curves = [l for l in lower.get_lines() if np.allclose(l.get_ydata(), -1.0) and len(l.get_ydata()) > 1]
     assert curves, "the Signal row's column is drawn as a line"
+
+
+def test_upper_tick_labels_kept_for_tiny_log_values(make_project, spectra):
+    """The upper panel hides only its lowest label where it meets the lower
+    panel, also for tiny values (cross sections of 1e-45 cm^2)."""
+    tiny = spectra.copy()
+    tiny["Counts"] = [counts * 1e-45 for counts in tiny["Counts"]]
+    figures = _capture()
+    run(make_project, tiny, "--hue", "Sample", "--select", "Stage", "-s", "Raw", "--plot_type", "line", "--logy",
+        "--lower", "ratio")
+    upper = figures[-1].axes[0]
+    locs = upper.yaxis.get_majorticklocs()
+    labels = upper.yaxis.get_major_formatter().format_ticks(locs)
+    assert sum(1 for label in labels if label) >= len(labels) - 1
+
+
+def test_hidden_tick_at_zero_uses_the_axis_scale():
+    import matplotlib.pyplot as plt
+    from matplotlib.ticker import ScalarFormatter
+    from plotipus.plot import _HideTickValue
+
+    fig, ax = plt.subplots()
+    ax.set_ylim(-1e-44, 1e-44)
+    formatter = _HideTickValue(ScalarFormatter(), 0.0)
+    ax.yaxis.set_major_formatter(formatter)
+    locs = [-1e-44, -5e-45, 0.0, 5e-45, 1e-44]
+    labels = formatter.format_ticks(locs)
+    assert labels[2] == "" and all(labels[i] for i in (0, 1, 3, 4))
+    plt.close(fig)
