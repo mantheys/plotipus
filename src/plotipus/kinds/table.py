@@ -919,6 +919,9 @@ def run(args):
         with open(path, "w") as handle:
             handle.write(tabular)
 
+    from ..selection import report_unmatched_removals
+
+    report_unmatched_removals(args)
     save_table_to_paths(write_latex, args.output, filename)
 
     if args.html:

@@ -196,8 +196,10 @@ COMMON_ARG_SPECS = {
             "nargs": "+",
             "action": "extend",
             "default": None,
-            "help": "Values used alongside --select to remove matching rows instead "
-            "of keeping them. Repeat the flag to add more values.",
+            "help": "Values to remove: COLUMN=VALUE removes the rows whose COLUMN "
+            "is VALUE; a plain VALUE pairs with the --select keys by position "
+            "(without --select, with the --hue column). Warns when a value "
+            "removes nothing. Repeat the flag to add more values.",
         },
     },
     "filename_select": {
