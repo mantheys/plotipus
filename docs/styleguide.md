@@ -84,9 +84,10 @@ enforceable version. Where the two differ, this guide is the target.
   - Their colours match the upper panel's.
   - Pull panels show ±1σ and ±2σ bands.
 - **L5. Facets of one quantity share their axes and colour scale** when
-  they are compared. ✅ `map` shares one colour scale and colorbar; `line`
-  grids share y along each row and x down each column (`--sharex`,
-  `--sharey`, `--panel_grid`, `--facet_row`/`--facet_col`).
+  they are compared. ✅ `map` shares one colour scale and colorbar; compact
+  `line` grids share y along each row and x down each column, with tick
+  and axis labels on the outer panels only (`--sharex`/`--sharey`, grids
+  from `--facet_row`/`--facet_col` or `--panel_grid`).
 - **L6. Titles.** ✅
   - Slides carry a title, given with `--title`.
   - Paper drops titles and fit subtitles, because the caption is the title;
@@ -142,7 +143,9 @@ enforceable version. Where the two differ, this guide is the target.
 - **U9. Statistical and systematic uncertainties are labelled apart** when
   both are drawn ("stat.", "stat. ⊕ syst."). ◐ plotipus draws one band
   for the stack total, labelled by the style's `stack_error.label` ("Sim.
-  unc." by default); set it to say what the band contains.
+  unc." by default); set it to say what the band contains. A series can
+  carry both as nested bands: `--errory_column Stat StatSyst --band_labels
+  'stat.' 'stat. ⊕ syst.'`.
 - **U10. Tables compute intervals the same way plots do.** ◐
   - A table that derives a number computes its error with the same method
     as the plot of that number: Clopper–Pearson for efficiencies, Garwood
@@ -188,7 +191,8 @@ enforceable version. Where the two differ, this guide is the target.
     theme.
   - Past 10 categories, colours repeat with a warning.
   - Ordered categories (runs, energies) should take a colour map with a
-    colorbar instead: `--hue_cmap` (`line`, `hist`).
+    colorbar instead: `--hue_cmap viridis` (`line`, `hist`) colours them by
+    value or order and draws the colorbar in place of the colour legend.
 - **C3. Data are ink.** ✅ Data points are black (white on dark), so they
   never compete with the simulation's colours.
 - **C4. Colour maps.** ✅
@@ -336,9 +340,9 @@ the authors got wrong. Both sides are recreations, not official results.
 
 | rule | gap | proposed change |
 |---|---|---|
-| U1 | Errors drawn only with `--errory`; no warning for series without errors | Draw errors by default when a column exists. When none exists, compute the U3 interval (integer counts: Garwood; with a count column: Clopper–Pearson) and warn; else warn "no uncertainty". `--no_errors` silences it, and exact series are exempt |
+| U1 | Errors drawn only with `--errory` (data from `--data_hue`/`--overlay` excepted: counts get Garwood intervals); no warning for series without errors | Draw errors by default when a column exists. When none exists, compute the U3 interval (integer counts: Garwood; with a count column: Clopper–Pearson) and warn; else warn "no uncertainty". `--no_errors` silences it, and exact series are exempt |
 | U10 | Tables: Clopper–Pearson is opt-in, there is no Poisson option, and `std`/`sem` are allowed for counts | Pick the interval from F3/F4 automatically, add `--poisson COLUMN`, and warn when a symmetric error crosses a bound |
 | U4 | Stored errors crossing 0 or 1 are drawn as given | Warn once per series, naming the bound |
 | L2 | Paper adds 30% height for a lower panel | `lower_panels: share` in `paper.json` too |
-| L3 | Facets narrow (main) or widen by 0.6 (round 4) | Facet width 1.0 × a single plot, wrapping at 2 columns on paper and slides |
+| L3 | Each facet widens the figure by 0.6 of a single plot (`facet_width`), so facets are narrower than single plots | Facet width 1.0 × a single plot, wrapping at 2 columns on paper and slides |
 | C1 | Colours follow value order unless a mapping pins them | A project-level colour registry that stores each new category's colour on first use |
