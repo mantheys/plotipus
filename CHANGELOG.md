@@ -2,6 +2,14 @@
 
 ## Unreleased
 
+### Upper-panel tick labels with tiny values (T22.18)
+
+- Where an upper panel meets a lower one, plotipus hides the upper panel's
+  lowest y label if it collides with the lower panel's top label. The match
+  used an absolute tolerance of 1e-12, so with tick values below that (e.g.
+  cross sections around 1e-45 cm^2) every label was hidden. The match is
+  now relative; a tick at zero uses the axis range.
+
 ### Lower panels compare series with gaps (T22.17)
 
 - Operations between series in a lower panel (`ratio`, `subtract`,
