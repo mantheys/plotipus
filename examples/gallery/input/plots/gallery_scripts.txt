@@ -135,7 +135,7 @@ cat --datafile Importance -x Feature -y Importance --select Model -s DNN --hue M
 map --datafile Correlation -x FeatureX -y FeatureY -z Correlation --annotate .2f --matrix --cmap RdBu_r --zmin -1 --labelz 'Correlation' --title 'Correlation of the input features' --output_suffix D8
 
 # D9 Before/after (slope) chart
-cat --datafile Yields -x Stage -y Counts --hue Particle --kind line --labely Events --title 'Yields before and after the selection' --output_suffix D9
+cat --datafile Yields -x Stage -y Counts --hue Particle --select Stage Stage -s Preselection 'Final selection' --kind line --labely Events --title 'Yields before and after the selection' --output_suffix D9
 
 # == E Ratios and significance
 

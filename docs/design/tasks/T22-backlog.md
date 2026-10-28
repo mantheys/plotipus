@@ -24,7 +24,7 @@ different kinds can run in parallel. Struck through: done.
 | ~~T22.8~~ | ~~`--text X Y 'TEXT' [--arrow X2 Y2]` (repeatable), `--region 'x,y x,y …' [--region_hatch]`, `--contour_labels`, `--direct_labels`~~ | ~~`plot.py`, `panel_lines.py`, `kinds/map.py`~~ | ~~I5, I6, I8, I9~~ | ~~M~~ |
 | T22.9 | `map --map_type hexbin`; `map --corner X1 X2 X3` (N×N grid, `hist` on the diagonal) | `kinds/map.py` | B5, B8 | M |
 | ~~T22.10~~ | ~~`--smooth N [--smooth_kind rolling\~~ | ~~savgol]`; datetime x with `ConciseDateFormatter`~~ | ~~`kinds/line.py`, `transforms.py`~~ | ~~C8, C9~~ | ~~S~~ |
-| T22.11 | ~~`table --agg std\|median\|corr`~~ (done as `--agg std\|median` and `--stats`), `--cutflow` (open), ~~`--fit_params`~~ | `kinds/table.py` | J5–J7 | M |
+| ~~T22.11~~ | ~~`table --agg std\|median\|corr`~~ (done as `--agg std\|median` and `--stats`), ~~`--cutflow`~~, ~~`--fit_params`~~ | ~~`kinds/table.py`~~ | ~~J5–J7~~ | ~~M~~ |
 | ~~T22.12~~ | ~~`--lower_plot_type bar` for `column:` lower panels (calibration counts)~~ | ~~`kinds/line.py`~~ | ~~F4~~ | ~~S~~ |
 | ~~T22.13~~ | ~~`hist --overlay_gaussian` (unit normal over a pull distribution)~~ | ~~`kinds/hist.py`~~ | ~~E8~~ | ~~S~~ |
 | ~~T22.14~~ | ~~`--lower residual:COMPONENT` (residual against one component of a stored fit)~~ | ~~`kinds/_fit.py`, `lower.py`~~ | ~~E6~~ | ~~S~~ |

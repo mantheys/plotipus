@@ -43,8 +43,8 @@ command lists.
 | G Uncertainty | 8 | 1 | 0 |
 | H Small multiples and layout | 6 | 0 | 2 |
 | I Annotations | 10 | 0 | 0 |
-| J Tables | 6 | 1 | 0 |
-| **Total (89)** | **82** | **3** | **4** |
+| J Tables | 7 | 0 | 0 |
+| **Total (89)** | **83** | **2** | **4** |
 
 Nearly half of the ◐ entries are partial only because of a bug in
 [bugs.md](bugs.md), not because an option is missing. Fixing B01–B13 moves
@@ -189,7 +189,7 @@ All curves are precomputed by the analysis (plotipus does not fit or score).
 | J2 | Efficiency table with Clopper–Pearson intervals | bounded efficiencies | ✅ | `table ... --clopper_pearson COLUMN`. |
 | J3 | siunitx / booktabs output with caption and label | paper-ready | ✅ | `--siunitx --caption ... --label ...`. |
 | J4 | HTML twin of a table | reports | ✅ | `--html`. |
-| J5 | Cut flow (yields by selection stage, several samples) | event selection | ◐ | Works with `--integrate_over`-style sums done upstream; there is no cumulative/relative efficiency column. Add `--cutflow` (absolute, relative to previous, cumulative). |
+| J5 | Cut flow (yields by selection stage, several samples) | event selection | ✅ | `table --datafile Yields -y Counts --hue Particle --variable_name Stage --cutflow` (T22.11, gallery J5): events with their error, efficiencies relative to the previous and the first stage as Clopper–Pearson intervals. |
 | J6 | Summary statistics table (mean, std, correlation) | "same stats" (F25) | ✅ | `table -x X -y Y --row_name Dataset --stats mean var corr line` (T22.11); `--agg std\|median` for cells. |
 | J7 | Fit-parameter table from stored fits | publication | ✅ | `table --fit_params --row_name Dataset` (T22.11): one column per `ParamsLabel`, value ± error in `ParamsFormat`. |
 

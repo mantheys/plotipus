@@ -174,7 +174,7 @@ Kinds follow the data relationship (as in seaborn/plotly), not the use case.
 | `hist` | 1D histograms of per-event arrays, KDEs, ECDFs | `--bins`, `--weight`, `--density`, `--hist_type kde\|ecdf`, `--ridge` ([options](docs/options.md#histograms)) |
 | `map` | 2D histograms, images of a grid, contours | `--norm`, `--logz`, `--contour` ([options](docs/options.md#contours)) |
 | `cat` | one value per category | `--integrate_over`, `--kind point\|line\|lollipop\|bar\|box\|violin\|strip`, `--orient h`, `--sort` ([options](docs/options.md#categories-and-scatter)) |
-| `table` | aggregated values as LaTeX (and HTML) tables | `--variables`, `--agg`, `--stats`, `--fit_params`, `--siunitx` |
+| `table` | aggregated values as LaTeX (and HTML) tables | `--variables`, `--agg`, `--stats`, `--fit_params`, `--cutflow`, `--siunitx` |
 
 Every kind also takes `--text X Y 'TEXT'` (with `--arrow X2 Y2`) and `--region 'x,y x,y ...'` annotations
 (see [Shared options](docs/options.md#shared-options)).

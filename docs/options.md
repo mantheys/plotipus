@@ -739,7 +739,7 @@ plotipus scatter --datafile Distributions -x Value -y Response --hue Distributio
 
 `table` aggregates `-y` into LaTeX (and `--html`) tables: rows are configs
 (or `--row_name` values), columns the `--variables`, each cell the `--agg`
-(`mean`, `sum`, `std`, `median`) of its values with an error. Two other
+(`mean`, `sum`, `std`, `median`) of its values with an error. Three other
 layouts read whole rows:
 
 * `--stats mean var std median corr line n`: one row per data row (labelled
@@ -754,3 +754,27 @@ plotipus table --datafile Anscombe -x X -y Y --select Type -s Data --row_name Da
 
 * `--fit_params`: one row per stored fit (`Params`, `ParamsError`,
   `ParamsLabel`, `ParamsFormat`), one column per parameter as value ± error.
+* `--cutflow`: the yields of a selection, one row per stage (the values of
+  `--variable_name`, in `--variables` order or as they appear), and per
+  `--hue` sample three columns: the events (the sum of the `-y` values, inside
+  `--rangex` of `-x`), with their `{y}Error` added in quadrature, or the
+  Garwood interval of the counts without one; the efficiency relative to the
+  previous stage; and the cumulative one relative to the first. The stages
+  must be nested (each a subset of the one before): the efficiencies are
+  Clopper–Pearson intervals of the counts (`--confidence_level`, in
+  `--efficiency_scale` units, percent by default), and a binomial error with
+  a warning when the yields are not integer counts.
+
+```bash
+plotipus table --datafile Yields -y Counts --hue Particle --variable_name Stage --cutflow
+```
+
+| Stage | electron: Events | Rel. eff. (%) | Cum. eff. (%) | … |
+|---|---|---|---|---|
+| Preselection | 52044 ± 228 | — | — | … |
+| Isolation | 50029 ± 224 | 96.13 +0.08 −0.09 | 96.13 +0.08 −0.09 | … |
+| Track quality | 47071 ± 217 | 94.1 ± 0.1 | 90.4 ± 0.1 | … |
+| Final selection | 42568 ± 206 | 90.4 ± 0.1 | 81.8 ± 0.2 | … |
+
+(the gallery's `Yields`, J5; the LaTeX writes the intervals as
+$x^{+a}_{-b}$.)
