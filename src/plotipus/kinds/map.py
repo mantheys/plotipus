@@ -499,13 +499,14 @@ def corner_edges(values, args):
 
 
 def corner_figure_size(n):
-    """One plot's size scaled to min(n, 2) plots wide (style guide L3: at
-    most two plots across); every panel keeps the proportions of one plot."""
+    """The medium's width for two facets side by side (one plot's width with
+    --layout panels, as on paper), at one plot's aspect: every panel keeps
+    the proportions of a single plot."""
     from ..plot import get_common_figsize
 
     width, height = get_common_figsize()
-    scale = 1 if style.figure_single_panel else min(n, 2)
-    return width * scale, height * scale
+    wide = get_common_figsize(ncols=min(n, 2))[0]
+    return wide, height * wide / width
 
 
 def draw_corner_diagonal(ax, values, edges):

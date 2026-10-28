@@ -577,9 +577,9 @@ integer-aligned bins for integer data), so the panels share x down each
 column and y along each row; tick and axis labels are on the outer panels
 only (the first diagonal panel carries the counts axis), and every 2D panel
 shares one colour scale and colorbar. `--corner_labels` names the axes,
-`--map_type hexbin` draws hexagons below the diagonal. The figure keeps the
-proportions of one plot, scaled to two plots wide, so each panel keeps a
-single plot's aspect. Narrow the data to one row with `--select` or
+`--map_type hexbin` draws hexagons below the diagonal. The figure is as wide as
+two facets of the medium (one column on paper, `--layout panels`) at one
+plot's aspect, so each panel keeps a single plot's proportions. Narrow the data to one row with `--select` or
 `--configs`/`--names`.
 
 ![Corner plot of the true and measured values of a log-normal sample and their ratio](images/options/corner.png)
