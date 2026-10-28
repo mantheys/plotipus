@@ -30,6 +30,7 @@ different kinds can run in parallel. Struck through: done.
 | ~~T22.14~~ | ~~`--lower residual:COMPONENT` (residual against one component of a stored fit)~~ | ~~`kinds/_fit.py`, `lower.py`~~ | ~~E6~~ | ~~S~~ |
 | ~~T22.15~~ | ~~`--reference` accepts a hue value as well as an index (the most common stumble)~~ | ~~`kinds/line.py`~~ | — | ~~S~~ |
 | ~~T22.16~~ | ~~Parquet data files: `--datafile` finds `.parquet` after `.pkl`; `save_frame`/`load_frame` (array and 2D cells round-trip); `plotipus[parquet]` extra~~ | ~~`io.py`, `__init__.py`~~ | — | ~~S~~ |
+| ~~T22.17~~ | ~~Lower panels compare series on their shared x values (series with gaps or different ranges were skipped)~~ | ~~`kinds/line.py`~~ | — | ~~S~~ |
 
 Postponed items (polar, geographic, flow, hybrid or broken axes, secondary
 axes) are in [../TODO.md](../TODO.md).
