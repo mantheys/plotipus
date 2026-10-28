@@ -206,6 +206,59 @@ def test_filter_dataframe_select_and_remove():
     assert list(filter_dataframe(df, ns(variables=["w"]))["A"]) == ["r"]
 
 
+def test_remove_value_names_its_column(capsys):
+    """COLUMN=VALUE removes from COLUMN whatever the --select order; a plain
+    value pairs by position, and a removal that matches nothing warns."""
+    from plotipus.selection import report_unmatched_removals
+
+    df = pd.DataFrame({"Model": ["m"] * 3, "Component": ["pp", "B8", "all"], "Rate": [1.0, 2.0, 3.0]})
+    args = ns(select=["Model"], save_values=["m"], remove_value=["Component=all"])
+    out = filter_dataframe(df, args)
+    report_unmatched_removals(args)
+    assert list(out["Component"]) == ["pp", "B8"]
+    assert "matched no row" not in capsys.readouterr().out
+
+    args = ns(select=["Model"], save_values=["m"], remove_value=["all"])   # paired with Model
+    out = filter_dataframe(df, args)
+    report_unmatched_removals(args)
+    report_unmatched_removals(args)                                        # once per command
+    assert len(out) == 3
+    warning = capsys.readouterr().out
+    assert warning.count("matched no row of Model") == 1 and "COLUMN=all" in warning
+
+    # a value containing '=' that names no column stays a plain value
+    df2 = pd.DataFrame({"Cut": ["E>5", "E=5"], "N": [1, 2]})
+    out = filter_dataframe(df2, ns(select=["Cut"], remove_value=["E=5"]))
+    assert list(out["Cut"]) == ["E>5"]
+
+
+def test_remove_value_without_select_warns_on_no_match(capsys):
+    from plotipus.selection import report_unmatched_removals
+
+    df = pd.DataFrame({"Sample": ["a", "b"], "Y": [1.0, 2.0]})
+    args = ns(iterable="Sample", remove_value=["c"])
+    out = filter_dataframe(df, args)
+    report_unmatched_removals(args)
+    assert len(out) == 2 and "matched no row of Sample" in capsys.readouterr().out
+    out = filter_dataframe(df, ns(iterable="Sample", remove_value=["Sample=a"]))
+    assert list(out["Sample"]) == ["b"]
+
+
+def test_removal_matched_in_any_call_does_not_warn(make_project, capsys):
+    """A command filters the whole data and then each series' rows: a value
+    removed by the first call is absent from the later ones, which is fine."""
+    from plotipus.kinds import line
+
+    x = np.arange(3.0)
+    frame = pd.DataFrame([{"X": x, "Y": x * k, "Sample": s} for k, s in ((1, "a"), (2, "b"), (3, "data"))])
+    make_project({"F": frame})
+    line.main(["--datafile", "F", "-x", "X", "-y", "Y", "--hue", "Sample", "--remove_value", "data"])
+    assert "matched no row" not in capsys.readouterr().out
+    line.main(["--datafile", "F", "-x", "X", "-y", "Y", "--hue", "Sample", "--remove_value", "Data",
+               "--output_suffix", "typo.png"])
+    assert capsys.readouterr().out.count("--remove_value Data matched no row of Sample") == 1
+
+
 def test_number_formatting():
     assert _format_value_with_paren_error("f", 1.234, 0.056) == "1.23(6)"
     assert _format_value_with_paren_error(".4g", 79.88, 3.006) == "80(3)"

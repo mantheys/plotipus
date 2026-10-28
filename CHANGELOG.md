@@ -2,6 +2,18 @@
 
 ## Unreleased
 
+### `--remove_value COLUMN=VALUE` and unmatched removals (T22.20)
+
+- `--remove_value COLUMN=VALUE` removes the rows whose COLUMN is VALUE,
+  whatever the order of the `--select` keys. A plain value still pairs with
+  the `--select` keys by position (or the `--hue` column without
+  `--select`); a value with `=` whose left part is not a column stays a
+  plain value.
+- A `--remove_value` that removes no row in any filtering step of a command
+  is reported once, naming the column it was paired with. Before, a value
+  paired with the wrong key (e.g. the first `--select` key) did nothing,
+  silently.
+
 ### `cat --kind point` markers (T22.19)
 
 - Without error bars, `cat --kind point` drew every hue value as a circle

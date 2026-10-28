@@ -433,7 +433,9 @@ def apply_figure_hooks(fig, args):
     from .annotations import draw_annotations
     from .header import draw as draw_header
     from .scales import apply_scales
+    from .selection import report_unmatched_removals
 
+    report_unmatched_removals(args)
     apply_scales(fig, args)  # before anything placed in data coordinates
     draw_header(fig, args)
     draw_annotations(fig, args)

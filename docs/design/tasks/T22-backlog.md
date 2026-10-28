@@ -33,6 +33,7 @@ different kinds can run in parallel. Struck through: done.
 | ~~T22.17~~ | ~~Lower panels compare series on their shared x values (series with gaps or different ranges were skipped)~~ | ~~`kinds/line.py`~~ | — | ~~S~~ |
 | ~~T22.18~~ | ~~Upper-panel y labels kept for tiny values (the hidden-label match was absolute, 1e-12)~~ | ~~`plot.py`~~ | — | ~~S~~ |
 | ~~T22.19~~ | ~~`cat --kind point` without errors draws each hue with its legend marker (all were circles)~~ | ~~`kinds/cat.py`~~ | — | ~~S~~ |
+| ~~T22.20~~ | ~~`--remove_value COLUMN=VALUE`; warn once per command when a removal matches nothing~~ | ~~`selection.py`, `panels.py`, `kinds/table.py`, `args.py`~~ | — | ~~S~~ |
 
 Postponed items (polar, geographic, flow, hybrid or broken axes, secondary
 axes) are in [../TODO.md](../TODO.md).

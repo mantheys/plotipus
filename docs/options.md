@@ -46,8 +46,10 @@ are the example list, `examples/input/plots/example_scripts.txt`;
 
 * **Data**: `--datafile` (files `{config}_{name}_{datafile}.pkl` when
   `--configs`/`--names` are given, else `{datafile}.pkl`), `--path` (relative
-  to the data root), `--select COL -s VALUE` / `--remove_value`,
-  `--variables` (values of the `Variable` column, one panel each).
+  to the data root), `--select COL -s VALUE` / `--remove_value`
+  (`--remove_value COL=VALUE` names the column; a plain value pairs with
+  the `--select` keys by position, and a value that removes nothing is
+  reported), `--variables` (values of the `Variable` column, one panel each).
   `--variable_column COL` takes the panels from another column. Panels side
   by side are facets: the figure widens by one plot with each one, wrapping
   at two columns on slides and paper (`--layout panels`, the paper default,

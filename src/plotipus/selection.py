@@ -188,44 +188,100 @@ def filter_dataframe(df, args):
 
         this_df = this_df[this_df[iterable].isin(save_values)]
 
-    # Filter out the unique value combinations for the selected columns
+    # Filter out the unique value combinations for the selected columns.
+    # COLUMN=VALUE names its column; other values pair with the --select keys
+    # by position (or, without --select, apply to the --hue column).
     remove_value = getattr(args, "remove_value", None)
-    if select is not None and remove_value is not None:
-        for remove_key, value_to_remove in selection_pairs(select, remove_value):
-            if remove_key not in this_df.columns:
-                rprint(
-                    f"Remove key {remove_key} not found in dataframe columns. Skipping..."
-                )
-                continue
-
-            if this_df.empty:
-                continue
-
-            if debug:
-                rprint(
-                    f"\tApplying remove_value filtering on {remove_key}={value_to_remove} with values {this_df[remove_key].unique().tolist()}"
-                )
-
-            matched_value, ok = _coerce_filter_value(
-                this_df[remove_key], value_to_remove, remove_key, debug
+    explicit, positional = _split_removals(remove_value, this_df.columns)
+    pairs = [(key, value, True) for key, value in explicit]
+    if select is not None:
+        pairs += [(key, value, False) for key, value in selection_pairs(select, positional)]
+    for remove_key, value_to_remove, named in pairs:
+        if remove_key not in this_df.columns:
+            rprint(
+                f"Remove key {remove_key} not found in dataframe columns. Skipping..."
             )
-            if not ok:
-                continue
+            continue
 
-            if matched_value is None:
-                if debug:
-                    rprint(f"\t\tRemoving missing values for {remove_key}")
-                this_df = this_df[~this_df[remove_key].isna()]
-            else:
-                this_df = this_df[this_df[remove_key] != matched_value]
+        if this_df.empty:
+            continue
 
+        if debug:
+            rprint(
+                f"\tApplying remove_value filtering on {remove_key}={value_to_remove} with values {this_df[remove_key].unique().tolist()}"
+            )
+
+        matched_value, ok = _coerce_filter_value(
+            this_df[remove_key], value_to_remove, remove_key, debug
+        )
+        if not ok:
+            continue
+
+        before = len(this_df)
+        if matched_value is None:
             if debug:
-                rprint(f"\tSize after filtering: {len(this_df)}")
+                rprint(f"\t\tRemoving missing values for {remove_key}")
+            this_df = this_df[~this_df[remove_key].isna()]
+        else:
+            this_df = this_df[this_df[remove_key] != matched_value]
+        _record_removal(args, remove_key, value_to_remove, named, len(this_df) < before)
 
-    elif remove_value is not None:
+        if debug:
+            rprint(f"\tSize after filtering: {len(this_df)}")
+
+    if select is None and positional:
         if debug:
             print(f"Applying remove_value filtering on {iterable}")
 
-        this_df = this_df[~this_df[iterable].isin(remove_value)]
+        present = set(this_df[iterable].astype(str))
+        for value in positional:
+            _record_removal(args, iterable, value, True, str(value) in present)
+        this_df = this_df[~this_df[iterable].isin(positional)]
 
     return this_df
+
+
+def _record_removal(args, key, value, named, matched):
+    """Note whether a --remove_value removed rows. A command filters several
+    frames (the whole data, then each series), so a value is only reported
+    as unmatched if no call matched it (:func:`report_unmatched_removals`)."""
+    record = getattr(args, "_removals", None)
+    if record is None:
+        record = {}
+        try:
+            args._removals = record
+        except AttributeError:
+            return
+    record[(key, str(value), named)] = record.get((key, str(value), named), False) or matched
+
+
+def report_unmatched_removals(args):
+    """Warn once per command for each --remove_value that removed nothing in
+    any filter call (e.g. paired by position with the wrong --select key)."""
+    record = getattr(args, "_removals", None) or {}
+    reported = getattr(args, "_removals_reported", set())
+    for (key, value, named), matched in record.items():
+        if matched or (key, value) in reported:
+            continue
+        hint = "" if named else (f" (paired with --select {key} by position; "
+                                 f"write COLUMN={value} to name the column)")
+        rprint(f"[yellow]Warning:[/yellow] --remove_value {value} matched no row of {key}{hint}.")
+        reported.add((key, value))
+    try:
+        args._removals_reported = reported
+    except AttributeError:
+        pass
+
+
+def _split_removals(remove_value, columns):
+    """(explicit [(column, value)], positional [values]) of --remove_value:
+    ``COLUMN=VALUE`` names its column when COLUMN is one; anything else
+    (including values that merely contain '=') pairs by position."""
+    explicit, positional = [], []
+    for value in remove_value or []:
+        key, sep, rest = str(value).partition("=")
+        if sep and key in columns:
+            explicit.append((key, rest))
+        else:
+            positional.append(value)
+    return explicit, positional
