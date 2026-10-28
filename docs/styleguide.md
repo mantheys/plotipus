@@ -61,22 +61,26 @@ enforceable version. Where the two differ, this guide is the target.
   - A figure is drawn at its printed size and never rescaled afterwards
     (no `bbox_inches="tight"`, no `\includegraphics[width=...]` resizing).
   - Choose another size with `--width single|onehalf|double|nature|slide|half-slide`.
-- **L2. A lower panel takes its height from the plot.** ◐
+- **L2. A lower panel takes its height from the plot.** ✅
   - Adding a ratio, pull or residual panel keeps the figure size; the upper
-    panel gets shorter (height ratio 3:1, or 3:1:1 for two lower panels).
-  - Status: done in slides (`lower_panels: share`). In paper, a lower panel
-    still adds 30% of the height.
-- **L3. Side-by-side panels look like single plots.** ✗
+    panel gets shorter (height ratio 1 : 0.3, or 1 : 0.3 : 0.3 for two
+    lower panels).
+  - Every medium (`lower_panels: share`); a style file can set `"add"` to
+    grow the figure instead.
+- **L3. Side-by-side panels look like single plots.** ✅
   - Each panel of a row keeps the proportions of a single plot, so the data
     and the text have the same size ratio. The figure gets wider, N plots
     wide for N panels.
   - When a row would be wider than the medium allows, panels wrap into more
     rows instead of shrinking: at most 2 columns on paper (2 × single =
-    double column) and on slides.
-  - Status: on main, panels share one figure width and get narrower.
-    `--single_panel_size` draws the whole grid at one plot's size. The
-    unmerged round-4 feedback adds `--layout facets`, which widens by 0.6
-    of a plot per facet; this rule asks for 1.0.
+    double column) and on slides (`facet_columns: 2`). A wrapped row still
+    behaves as one row: one shared y range, each panel its own x axis and
+    title. A grid you ask for (`--panel_grid`, `--facet_row` with
+    `--facet_col`) is kept and widens instead.
+  - Paper draws side-by-side panels as one plot split into touching panels
+    by default (`--layout panels`, one column wide); `--layout facets`
+    applies this rule there. `--single_panel_size` draws the whole grid at
+    one plot's size.
 - **L4. Lower panels are part of the plot.** ✅
   - They share x with no gap, and hide the upper x tick labels.
   - Each has a dashed reference line: 1 for a ratio, 0 for a difference or
@@ -349,6 +353,4 @@ the authors got wrong. Both sides are recreations, not official results.
 | rule | gap | proposed change |
 |---|---|---|
 | U1 | `hist` draws simulation without its statistical error | A √Σw² band (Garwood for unweighted counts) by default, `--no_error` to drop it |
-| L2 | Paper adds 30% height for a lower panel | `lower_panels: share` in `paper.json` too |
-| L3 | Each facet widens the figure by 0.6 of a single plot (`facet_width`), so facets are narrower than single plots | Facet width 1.0 × a single plot, wrapping at 2 columns on paper and slides |
 | C1 | Colours follow value order unless a mapping pins them | A project-level colour registry that stores each new category's colour on first use |

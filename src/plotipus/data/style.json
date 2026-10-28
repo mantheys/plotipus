@@ -11,7 +11,8 @@
     "half-slide": 4.0
   },
   "aspect": 0.75,
-  "facet_width": 0.6,
+  "facet_width": 1.0,
+  "lower_panels": "share",
   "font_sizes": {
     "titlefontsize": "xx-large",
     "subtitlefontsize": "x-large",

@@ -53,11 +53,13 @@ rcParams, to `<figure>.style.json`.
   aspect 0.73; web: `slide` at 0.5625; paper: `single`, 3.4 in at 0.75).
   Presets live in the style's `widths`; a preset is inches (height =
   `aspect` × width) or `{"width": 6.8, "height": 3.0}`. Lower panels share
-  the figure's height in slides (`"lower_panels": "share"`), so a plot with a
-  ratio panel has the size of one without; elsewhere each adds 30% of the
-  upper height (`"add"`). Several panels side by side are facets by
-  default: each adds `facet_width` (0.6) of one plot's width, at one plot's
-  height, so three slide facets are 14.4 × 5.84 in. `--layout panels` keeps
+  the figure's height (`"lower_panels": "share"`), so a plot with a ratio
+  panel has the size of one without (`"add"` makes each add 30% of the upper
+  height). Several panels side by side are facets by default: each adds
+  `facet_width` (1.0) of one plot's width, at one plot's height, so two
+  slide facets are 16 × 5.84 in. Past `facet_columns` (2 in slides and
+  paper) a row wraps: three slide facets are two rows of two, 16 × 11.7 in.
+  `--panel_grid` and `--facet_row` with `--facet_col` keep their grid. `--layout panels` keeps
   one plot's size and splits it into touching panels sharing the y axis;
   it is the paper default, since the page width is fixed. Text is never scaled for more
   panels (`panel_font_scale` only applies to `classic` and to style files

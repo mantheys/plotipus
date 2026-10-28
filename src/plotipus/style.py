@@ -215,7 +215,7 @@ def _publish():
     global capitalize_exceptions, redundant_legend_titles, title_short_forms
     global widths, figure_aspect, figure_width, figure_row_height, draw_titles
     global fit_color, zero_line_color, diverging_cmap, diverging_marker_cmap, header, figure_single_panel, text_scale
-    global figure_lower_panels, figure_facet_width, figure_layout_mode
+    global figure_lower_panels, figure_facet_width, figure_facet_columns, figure_layout_mode
 
     rcparams = _CONFIG.get("rcparams", {})
     plt.rcParams.update(rcparams)
@@ -279,11 +279,13 @@ def _publish():
     figure_single_panel = bool(geometry.get("single_panel", False))
     figure_width, figure_row_height = resolve_width(
         geometry.get("width", _CONFIG.get("width")), widths, figure_aspect, geometry.get("aspect"))
-    # Lower panels "add" height to the upper panel's, or "share" the figure's.
-    figure_lower_panels = str(_CONFIG.get("lower_panels", "add"))
+    # Lower panels "share" the figure's height (rule L2), or "add" to the upper panel's.
+    figure_lower_panels = str(_CONFIG.get("lower_panels", "share"))
     # Facets side by side: each adds facet_width (a share of one plot's
-    # width) to the figure; --layout panels keeps one plot's size instead.
-    figure_facet_width = float(_CONFIG.get("facet_width", 0.6))
+    # width, 1: a single plot, rule L3) to the figure, wrapping into rows
+    # past facet_columns; --layout panels keeps one plot's size instead.
+    figure_facet_width = float(_CONFIG.get("facet_width", 1.0))
+    figure_facet_columns = _CONFIG.get("facet_columns")
     figure_layout_mode = str(_CONFIG.get("layout", "facets"))
 
     layout = settings.get("figure_layout", {})

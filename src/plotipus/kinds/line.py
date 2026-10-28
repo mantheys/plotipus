@@ -1307,7 +1307,8 @@ def draw_figure(rows, args, kdx=None):
     """Draw (and save) one figure of hue/style series with optional lower panels."""
     variables, shape = _panel_layout(rows, args)
     specs = _lower_specs(args)
-    fig, upper, lower, (nrows, ncols) = create_panels(len(variables), n_lower=len(specs), shape=shape)
+    fig, upper, lower, (nrows, ncols) = create_panels(len(variables), n_lower=len(specs), shape=shape,
+                                                      wrap=not args.panel_grid)
     n_panels = len(variables)
 
     rows = rows[rows[args.iterable].notna()] if args.iterable is not None and args.iterable in rows.columns else rows
@@ -1932,6 +1933,8 @@ def _finish_lower(ax, spec, args, label, has_content):
 def _finish_upper(fig, upper, lower, drawn, rows, args, variables, last_x, hue_values, comparable,
                   style_map, alpha_map, iterable_style_map, extrapolated_axes, nrows, ncols):
     n_panels = len(variables)
+    # One row of facets wrapped into several (rule L3): one shared y, every panel titled.
+    wrapped = getattr(fig, "_plotipus_wrapped", False)
     label_map = json.loads(args.variable_label_map) if args.variable_label_map else None
     vertical_per_variable = json.loads(args.vertical_per_variable) if args.vertical_per_variable else None
     invert = args.invert_style
@@ -1944,8 +1947,8 @@ def _finish_upper(fig, upper, lower, drawn, rows, args, variables, last_x, hue_v
     rotated = categorical and args.plot_type != "barh"
     compact = (args.compact if args.compact is not None else ncols > 1 or nrows > 1) or style.figure_layout_mode == "panels"
     # Compact grids share y along each row and x down each column; inner panels drop their tick labels.
-    sharey = args.sharey or ("row" if compact and ncols > 1 else "none")
-    sharex = args.sharex or ("col" if compact and nrows > 1 else "none")
+    sharey = args.sharey or (("all" if wrapped else "row") if compact and ncols > 1 else "none")
+    sharex = args.sharex or ("col" if compact and nrows > 1 and not wrapped else "none")
     share_grid(upper[:n_panels], lower[:n_panels], (nrows, ncols), sharex=sharex, sharey=sharey)
     if sharey != "none" and ncols > 1:
         # Without inner y labels the panels move close (the layout widens the gap if x labels need it).
@@ -1970,7 +1973,7 @@ def _finish_upper(fig, upper, lower, drawn, rows, args, variables, last_x, hue_v
                     return label_map[str(value)]
                 return _title_case_words(value) if isinstance(value, str) else str(value)
 
-            if variable.col_value is not None and row == 0:
+            if variable.col_value is not None and (row == 0 or wrapped):
                 ax.set_title(name(variable.col_value), fontsize=style.subtitlefontsize)
             if variable.row_value is not None and (col == ncols - 1 or idx == n_panels - 1):
                 ax.annotate(name(variable.row_value), (1, 0.5), xycoords="axes fraction", xytext=(6, 0),

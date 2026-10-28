@@ -85,7 +85,7 @@ def test_paper_column_keeps_text_inside_and_panels_aligned(command, example_data
         for fig in _draw(command):
             width, height = fig.get_size_inches()
             assert width == pytest.approx(3.4)
-            assert height == pytest.approx(2.55) or height == pytest.approx(1.3 * 2.55)  # + a lower panel
+            assert height == pytest.approx(2.55)  # a lower panel takes its height from the plot (L2)
             assert _outside(fig) == []
             for ax in fig.axes:
                 for other in ax.get_shared_x_axes().get_siblings(ax):

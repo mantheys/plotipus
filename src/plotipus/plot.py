@@ -52,9 +52,10 @@ def lower_height_ratios(n_lower):
 def get_common_figsize(ncols=1, nrows=1, height_ratios=None):
     """Figure size (inches). At a --width (or the medium's), each row is one
     plot's height; facets side by side widen the figure, each adding the
-    style's ``facet_width`` share of one plot's width (``--layout panels``
-    keeps one plot's width instead). ``height_ratios`` (upper panel first)
-    add the lower panels' height, or share it (``lower_panels: share``).
+    style's ``facet_width`` share of one plot's width, a whole plot by
+    default (``--layout panels`` keeps one plot's width instead). Lower
+    panels (``height_ratios``, upper panel first) share the plot's height,
+    or add theirs with ``lower_panels: add``.
     Without a width, the old geometry: base width plus a panel width per
     extra column. With --single_panel_size every figure has the size of one
     panel."""
@@ -210,7 +211,15 @@ def _panel_overhangs(fig, panels, renderer):
         parents = getattr(cax, "_plotipus_colorbar_of", None)
         if parents and cax.get_visible():
             owner = max(parents, key=lambda a: a.get_position(original=True).x1)
-            extra.setdefault(owner, []).append(cax.get_tightbbox(renderer, for_layout_only=True))
+            box = cax.get_tightbbox(renderer, for_layout_only=True)
+            # Beside several rows (or columns) of panels a colorbar counts only its thickness: its length spans
+            # them all and is not the owner's overhang.
+            vertical = getattr(getattr(cax, "_colorbar", None), "orientation", "vertical") == "vertical"
+            if vertical and len({round(a.bbox.y0) for a in parents}) > 1:
+                box = Bbox([[box.x0, max(box.y0, owner.bbox.y0)], [box.x1, min(box.y1, owner.bbox.y1)]])
+            elif not vertical and len({round(a.bbox.x0) for a in parents}) > 1:
+                box = Bbox([[max(box.x0, owner.bbox.x0), box.y0], [min(box.x1, owner.bbox.x1), box.y1]])
+            extra.setdefault(owner, []).append(box)
     overhangs = {}
     for ax, _, _ in panels:
         # A legend above the axes takes room above them only: wider than its panel, it may reach over the gap
@@ -1095,6 +1104,47 @@ def stagger_above_legends(fig):
             box = legend.get_window_extent(renderer)
             moved = True
         settled.append(box)
+    return moved
+
+
+def stagger_stacked_ylabels(fig):
+    """On the final layout, a y label taller than its panel (a lower panel
+    sharing the plot's height, rule L2) that reaches over the label of the
+    panel above moves left of it, at its size; the layout then makes room.
+    Returns whether any moved."""
+    from matplotlib.transforms import offset_copy
+
+    panels = [ax for ax in fig.axes if ax.get_visible() and ax.get_subplotspec() is not None
+              and not hasattr(ax, "_colorbar") and ax.yaxis.label.get_visible() and ax.yaxis.label.get_text()]
+    if len(panels) < 2:
+        return False
+    fig.draw_without_rendering()
+    renderer = fig.canvas.get_renderer()
+    columns = {}
+    for ax in panels:
+        columns.setdefault(round(ax.bbox.x0), []).append(ax)
+    def pin(ax, shift=0.0):
+        # In points from the axes' left edge: the label keeps its place when the layout moves the axes.
+        label = ax.yaxis.label
+        x = label.get_transform().transform(label.get_position())[0] - shift
+        offset = (x - ax.bbox.x0) * 72.0 / fig.dpi
+        ax.yaxis.set_label_coords(0, 0.5, transform=offset_copy(ax.transAxes, fig=fig, x=offset, units="points"))
+
+    moved = False
+    for column in columns.values():
+        settled, shifts = [], {}
+        for ax in sorted(column, key=lambda a: -a.bbox.y1):
+            box = ax.yaxis.label.get_window_extent(renderer)
+            clashing = [b for b in settled if b.x0 < box.x1 and box.x0 < b.x1 and b.y0 < box.y1 and box.y0 < b.y1]
+            if clashing:
+                shifts[ax] = box.x1 - min(b.x0 for b in clashing) + 2 * fig.dpi / 72.0
+                box = Bbox([[box.x0 - shifts[ax], box.y0], [box.x1 - shifts[ax], box.y1]])
+            settled.append(box)
+        if shifts:
+            # The whole column is pinned, so a later re-alignment of the others cannot bring them back together.
+            for ax in column:
+                pin(ax, shifts.get(ax, 0.0))
+            moved = True
     return moved
 
 

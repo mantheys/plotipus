@@ -116,17 +116,19 @@ Widths are confirmed from the publishers' pages:
 | `slide` (default; `--medium slides`) | 8 in (1280 px wide) | 5.84 in (aspect 0.73 on slides) | 14 pt | talks; `half-slide` is 4 in wide, for two plots side by side |
 
 - **Facets and panels.** Plots side by side are facets by default: each
-  facet adds 0.6 of the preset's width (`facet_width`), at one plot's
-  height, so marker and text sizes stay those of a single plot; compact by
-  default (shared y, labels on the first). `--layout panels` instead keeps
+  facet adds one plot's width (`facet_width: 1.0`), at one plot's height,
+  so every facet has the proportions, marker and text sizes of a single
+  plot (rule L3); compact by default (shared y, labels on the first). A
+  row of more than `facet_columns` facets (2 on paper and slides) wraps
+  into rows; a grid given explicitly widens instead. `--layout panels` instead keeps
   the preset's size and splits it into touching panels, the paper default
   as the page width is fixed (decided 2026-10-27,
   after the example review; this replaces "a row keeps the preset's width").
   Text is never scaled to compensate; this replaces `panel_font_scale`.
-- **Ratio panels.** On paper, adding a lower panel adds 30% of the upper
-  height instead of squeezing the upper panel. On slides (8 in at aspect
-  0.73), the lower panel shares the figure's height, so every single plot
-  has one size (`lower_panels: share`; decided 2026-10-27).
+- **Ratio panels.** In every medium the lower panel shares the figure's
+  height, so every single plot has one size (`lower_panels: share`; slides
+  decided 2026-10-27, paper since rule L2). A style file can set `"add"`
+  to add 30% of the upper height per lower panel instead.
 - **Output.**
   - PDF (vector) for papers.
   - PNG at `savefig.dpi: 300`, or 600 for line art in APS journals.

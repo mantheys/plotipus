@@ -44,7 +44,30 @@ def grid_shape(n_panels):
     return math.ceil(n_panels / ncols), ncols
 
 
-def create_panels(n_panels=1, n_lower=0, grid=True, height_ratios=None, shape=None):
+def wrap_limit():
+    """Most facets side by side (the medium's ``facet_columns``), or None:
+    rule L3, facets keep a single plot's size, so a row wider than the medium
+    allows wraps instead of shrinking. --layout panels (one plot split in
+    parts) and --single_panel_size do not wrap."""
+    limit = style.figure_facet_columns
+    if not limit or style.figure_layout_mode == "panels" or style.figure_single_panel:
+        return None
+    return int(limit)
+
+
+def wrap_shape(n_panels, shape=None):
+    """The grid of ``n_panels``: ``shape`` (default :func:`grid_shape`), a
+    single row wrapped at :func:`wrap_limit` columns. A grid of several rows
+    given by the caller is kept."""
+    limit = wrap_limit()
+    if shape is None:
+        shape = (1, max(1, n_panels)) if limit else grid_shape(n_panels)
+    if limit and shape[0] == 1 and shape[1] > limit:
+        return math.ceil(n_panels / limit), limit
+    return tuple(shape)
+
+
+def create_panels(n_panels=1, n_lower=0, grid=True, height_ratios=None, shape=None, wrap=True):
     """Figure with ``n_panels`` upper panels and ``n_lower`` lower panels
     below each of them (sharing x).
 
@@ -52,7 +75,8 @@ def create_panels(n_panels=1, n_lower=0, grid=True, height_ratios=None, shape=No
     list of axes (row by row) and ``lower[i]`` the list of lower axes under
     ``upper[i]``. ``shape`` (nrows, ncols) fixes the grid; with lower panels
     and several rows each row of the grid is an upper panel and its lower
-    panels, with a narrow gap before the next row.
+    panels, with a narrow gap before the next row. With ``wrap``, a row
+    wider than the medium's ``facet_columns`` wraps (:func:`wrap_shape`).
     """
     from .inset import target
 
@@ -60,10 +84,21 @@ def create_panels(n_panels=1, n_lower=0, grid=True, height_ratios=None, shape=No
     if inset is not None:
         # An inset pass (plotipus.inset): every panel is the inset axes, without lower panels.
         return inset.figure, [inset] * max(1, n_panels), [[] for _ in range(max(1, n_panels))], (1, 1)
-    if shape is not None and n_lower > 0 and shape[0] > 1:
+    if shape is None and not (grid and n_lower <= 0):
+        shape = (1, max(1, n_panels))
+    given = shape
+    shape = wrap_shape(n_panels, shape) if wrap else shape or grid_shape(n_panels)
+    fig, upper, lower, shape = _create_panels(n_panels, n_lower, height_ratios, shape)
+    # A row wrapped into several rows: callers share y over all of them and title every panel.
+    fig._plotipus_wrapped = shape[0] > 1 and (given is None or given[0] == 1) and wrap_limit() is not None
+    return fig, upper, lower, shape
+
+
+def _create_panels(n_panels, n_lower, height_ratios, shape):
+    if n_lower > 0 and shape[0] > 1:
         return _grid_with_lower(n_panels, n_lower, shape, height_ratios)
     if n_lower <= 0:
-        nrows, ncols = shape if shape is not None else grid_shape(n_panels) if grid else (1, n_panels)
+        nrows, ncols = shape
         fig, ax = create_common_subplots(nrows=nrows, ncols=ncols)
         upper = list(np.asarray(ax).flatten())
         for extra in upper[n_panels:]:
