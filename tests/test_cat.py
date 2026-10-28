@@ -323,3 +323,111 @@ def test_orient_h_reference_lines_are_vertical(make_project):
               "--orient", "h", "--horizontal", "0.2"])
     ax = figures[0].axes[0]
     assert any(np.allclose(line.get_xdata(), [0.2, 0.2]) for line in ax.get_lines())
+
+
+# --- Distributions per category (T22.2) ---------------------------------------------------
+
+
+def _responses():
+    """Two rows per particle (the arrays of a category are pooled), and a Detector hue column."""
+    rng = np.random.default_rng(7)
+    rows = []
+    for particle, centre in (("electron", 1.0), ("pion", 0.85), ("muon", 0.2)):
+        for detector in ("barrel", "endcap"):
+            rows.append({"Particle": particle, "Detector": detector,
+                         "Response": rng.normal(centre, 0.05, 200)})
+    return pd.DataFrame(rows)
+
+
+def test_box_pools_the_rows_of_a_category(make_project):
+    """A10: --kind box keeps the arrays as distributions: one box per category, its median that of the
+    pooled rows; without --hue there is one series and no legend."""
+    figures = _capture()
+    frame = _responses()
+    make_project({"Showers": frame})
+    cat.main(["--datafile", "Showers", "-x", "Particle", "-y", "Response", "--kind", "box"])
+    ax = figures[0].axes[0]
+    medians = [line for line in ax.get_lines() if len(line.get_xdata()) == 2 and line.get_linewidth() == 2]
+    assert len(medians) == 3
+    for line, particle in zip(medians, ("electron", "pion", "muon")):
+        pooled = np.concatenate(frame[frame.Particle == particle]["Response"].tolist())
+        assert np.isclose(line.get_ydata()[0], np.median(pooled))
+        assert np.isclose(np.mean(line.get_xdata()), ["electron", "pion", "muon"].index(particle))
+    assert ax.get_legend() is None
+    assert ax.get_ylabel() == "Response"  # a distribution, not "Integrated Response"
+
+
+def test_violins_side_by_side_per_hue_and_horizontal(make_project):
+    """--kind violin --hue: the hue values share the category's width; --orient h lays them along x."""
+    from matplotlib.collections import PolyCollection
+
+    figures = _capture()
+    make_project({"Showers": _responses()})
+    cat.main(["--datafile", "Showers", "-x", "Particle", "-y", "Response", "--hue", "Detector", "--kind", "violin"])
+    cat.main(["--datafile", "Showers", "-x", "Particle", "-y", "Response", "--hue", "Detector", "--kind", "violin",
+              "--orient", "h", "--output_suffix", "h.png"])
+    vertical, horizontal = (fig.axes[0] for fig in figures)
+    bodies = [c for c in vertical.collections if isinstance(c, PolyCollection)]
+    assert len(bodies) == 6
+    centres = sorted(np.mean(b.get_paths()[0].vertices[:, 0]) for b in bodies)
+    assert np.allclose(centres, [-0.2, 0.2, 0.8, 1.2, 1.8, 2.2], atol=0.02)
+    assert [t.get_text() for t in vertical.get_legend().get_texts()] == ["barrel", "endcap"]
+    body = [c for c in horizontal.collections if isinstance(c, PolyCollection)][0]
+    values = body.get_paths()[0].vertices
+    assert 0.8 < np.mean(values[:, 0]) < 1.2 and abs(np.mean(values[:, 1]) + 0.2) < 0.02  # electron, on top
+
+
+def test_strip_draws_every_value_jittered_within_the_category(make_project):
+    from matplotlib.collections import PathCollection
+
+    figures = _capture()
+    make_project({"Showers": _responses()})
+    cat.main(["--datafile", "Showers", "-x", "Particle", "-y", "Response", "--kind", "strip"])
+    ax = figures[0].axes[0]
+    strips = [c for c in ax.collections if isinstance(c, PathCollection)]
+    assert len(strips) == 3
+    for position, strip in enumerate(strips):
+        offsets = strip.get_offsets()
+        assert len(offsets) == 400  # both rows of the category
+        assert np.all(np.abs(offsets[:, 0] - position) <= 0.35 * 0.8)
+        assert 0 < strip.get_alpha() < 1
+
+
+def test_sort_distributions_by_median(make_project):
+    figures = _capture()
+    make_project({"Showers": _responses()})
+    cat.main(["--datafile", "Showers", "-x", "Particle", "-y", "Response", "--kind", "box", "--sort", "asc"])
+    assert [t.get_text() for t in figures[0].axes[0].get_xticklabels()] == ["muon", "pion", "electron"]
+
+
+def test_bars_without_hue_are_one_series(make_project):
+    """--hue is optional for every kind: one series, no legend."""
+    figures = _capture()
+    frame = _importance(["pt", "eta"]).drop(columns="Model")
+    make_project({"Importance": frame})
+    cat.main(["--datafile", "Importance", "-x", "Feature", "-y", "Importance", "--kind", "bar"])
+    ax = figures[0].axes[0]
+    assert np.allclose([p.get_height() for p in ax.patches], frame["Importance"])
+    assert ax.get_legend() is None
+
+
+def test_data_violins_and_boxes_are_hollow_ink(make_project):
+    """--data_hue with box/violin: the data are an ink outline without a face, listed first."""
+    from matplotlib.collections import PolyCollection
+    from matplotlib.colors import to_hex
+
+    from plotipus import style
+
+    figures = _capture()
+    frame = _responses().replace({"Detector": {"barrel": "Data", "endcap": "Simulation"}})
+    make_project({"Showers": frame})
+    for kind in ("violin", "box"):
+        cat.main(["--datafile", "Showers", "-x", "Particle", "-y", "Response", "--hue", "Detector", "--kind", kind,
+                  "--data_hue", "Data", "--output_suffix", f"{kind}.png"])
+    violins, boxes = (fig.axes[0] for fig in figures)
+    bodies = [c for c in violins.collections if isinstance(c, PolyCollection)]
+    data = [b for b in bodies if to_hex(b.get_edgecolor()[0]) == to_hex(style.role("ink"))]
+    assert len(data) == 3 and all(len(b.get_facecolor()) == 0 or b.get_facecolor()[0][3] == 0 for b in data)
+    assert [t.get_text() for t in violins.get_legend().get_texts()] == ["Data", "Simulation"]
+    faces = [p.get_facecolor()[3] for p in boxes.patches]
+    assert sorted(faces) == [0, 0, 0, 0.6, 0.6, 0.6]

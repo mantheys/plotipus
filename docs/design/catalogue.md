@@ -34,7 +34,7 @@ command lists.
 
 | Group | ✅ | ◐ | ✗ |
 |---|---|---|---|
-| A Distributions | 7 | 1 | 4 |
+| A Distributions | 8 | 0 | 4 |
 | B Relationships | 6 | 1 | 2 |
 | C Trends and fits | 10 | 0 | 0 |
 | D Comparisons | 9 | 0 | 0 |
@@ -44,7 +44,7 @@ command lists.
 | H Small multiples and layout | 6 | 0 | 2 |
 | I Annotations | 10 | 0 | 0 |
 | J Tables | 6 | 1 | 0 |
-| **Total (89)** | **77** | **4** | **8** |
+| **Total (89)** | **78** | **3** | **8** |
 
 Nearly half of the ◐ entries are partial only because of a bug in
 [bugs.md](bugs.md), not because an option is missing. Fixing B01–B13 moves
@@ -65,7 +65,7 @@ about 12 of them to ✅.
 | A7 | KDE | smooth density of a sample | — | ✗ | — | `hist --hist_type kde` (scipy `gaussian_kde`, Scott bandwidth, `--bw`). |
 | A8 | ECDF / cumulative | quantiles, comparing tails | — | ✗ | — | `hist --hist_type ecdf` (and `--cumulative` for histograms). |
 | A9 | Box plot per category | distribution summaries side by side | — | ✅ | `line --binned --plot_type box --hue Sample` (P14): hues dodged per bin or per category of a non-numeric x, `--box_tick_labels ranges`, `--whis` (B16, fixed in T10). | — |
-| A10 | Violin / strip / box per category | distributions per category | F25 | ◐ | Per bin of a numeric x: `line --binned --plot_type violin` (or `box`; example-feedback round 4). `cat` still reduces each row to one number. | `cat --kind box\|violin\|strip`: array cells kept as distributions instead of being integrated. |
+| A10 | Violin / strip / box per category | distributions per category | F25 | ✅ | Per category: `cat --datafile Showers -x Particle -y Response --kind violin` (or `box`, `strip`; T22.2, gallery A10b): the array cells of a category pooled as one distribution, hue values side by side, `--orient h`. Per bin of a numeric x: `line --binned --plot_type violin` (or `box`; example-feedback round 4). | — |
 | A11 | Ridgeline (joy plot) | many distributions, ordered | — | ✗ | — | `hist --ridge [OVERLAP]`: offset each hue vertically, label on the left. |
 | A12 | Rug | raw positions under a hist or KDE | — | ✗ | — | `hist --rug` (ticks along the x axis, alpha by density). |
 

@@ -1490,8 +1490,9 @@ def plot_data(
         # paper dot on it; the legend shows the body.
         data = kwargs.pop("violin_data", y)
         positions = kwargs.pop("positions", x)
+        orientation = kwargs.pop("orientation", "vertical")
         parts = ax.violinplot(data, positions=positions, widths=kwargs.pop("widths", 0.8), showmeans=False,
-                              showmedians=False, showextrema=False)
+                              showmedians=False, showextrema=False, orientation=orientation)
         for body in parts["bodies"]:
             body.set_facecolor(to_rgba(color, 0.6) if color is not None else None)
             body.set_edgecolor(color)
@@ -1500,9 +1501,10 @@ def plot_data(
         if parts["bodies"]:
             parts["bodies"][0].set_label(label)
         q1, median, q3 = (np.array([np.percentile(d, q) for d in data]) for q in (25, 50, 75))
-        ax.vlines(positions, q1, q3, color=_style.role("ink"), linewidth=4, zorder=3)
-        ax.scatter(positions, median, s=12, color=_style.role("paper"), edgecolors=_style.role("ink"),
-                   linewidths=0.8, zorder=4)
+        horizontal = orientation == "horizontal"
+        (ax.hlines if horizontal else ax.vlines)(positions, q1, q3, color=_style.role("ink"), linewidth=4, zorder=3)
+        ax.scatter(*((median, positions) if horizontal else (positions, median)), s=12, color=_style.role("paper"),
+                   edgecolors=_style.role("ink"), linewidths=0.8, zorder=4)
         return parts
 
     if plot_type == "hist2d":

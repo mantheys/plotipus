@@ -671,6 +671,26 @@ first. Every kind works in both orientations, `--stacked` bars included.
 plotipus cat --datafile Moments -x Config --hue Sample -y Value --errory --select Variable Config Config Config Config Config Config Config -s Std Gaussian Poisson Binomial Exponential Uniform Log-normal Chi-squared --kind lollipop --orient h --sort desc --data_hue Data --labelx Distribution --labely 'Standard deviation' --title 'Ranked spreads: horizontal lollipops'
 ```
 
+`--kind box`, `violin` and `strip` keep each row's `-y` array as a
+distribution instead of summing it: the rows of a category (and hue value)
+are pooled, and the hue values present in a category share its width side
+by side. A box spans the quartiles with whiskers at `--whis` interquartile
+ranges (1.5; `--no_fliers` leaves out the points beyond); a violin is the
+density with the interquartile range as a bar and the median as a dot; a
+strip draws every value, jittered across the slot and fainter the more there
+are. `--data_hue` values are hollow ink outlines (ink points in a strip), so
+they do not read as one more simulation. They show the spread of the values,
+not the uncertainty of a summary: for a mean or a median with its error,
+use `line --binned --estimator`. `--sort` orders the categories by their
+median, `--orient h` lays them out across, and without `--hue` a single
+series needs no legend.
+
+![Data as hollow violins next to the simulation for four distributions](images/options/violins.png)
+
+```bash
+plotipus cat --datafile Distributions -x Distribution -y Value --hue Sample --select Distribution Distribution Distribution Distribution -s Gaussian Exponential Log-normal Chi-squared --data_hue Data --kind violin --labely Value --title 'Samples as distributions: violins'
+```
+
 ![True against measured values of exponential samples coloured by their residual](images/options/scatter.png)
 
 ```bash

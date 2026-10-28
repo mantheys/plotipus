@@ -48,7 +48,7 @@ line --datafile Showers -x TrueEnergy -y Residual --binned --plot_type box --hue
 line --datafile Showers -x TrueEnergy -y Residual --binned --plot_type violin --select Particle -s pion --bins 8 --rangex 5 75 --labelx 'Beam energy (GeV)' --labely '$(E_{reco}-E_{true})/E_{true}$' --title 'Pion energy residuals per beam-energy bin' --output_suffix A10
 
 # A10b Violin / strip / box per category
-# needs T22.2: cat --datafile Showers -x Particle -y Response --kind violin --labely 'Response' --title 'Response per particle' --output_suffix A10b
+cat --datafile Showers -x Particle -y Response --kind violin --labely 'Response' --title 'Response per particle' --output_suffix A10b
 
 # == B Relationships
 
