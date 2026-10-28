@@ -552,6 +552,42 @@ plotipus map --datafile Confusion -x Predicted -y True -z Count --norm horizonta
 plotipus map --datafile Distributions -x Value -y Smeared --select Distribution -s Exponential --iterable Sample --diagonal --logz --matchx --labelx True --labely Measured --title '2D histograms with a shared colorbar'
 ```
 
+## Hexbin and corner plots
+
+`map --map_type hexbin` bins raw points in hexagons instead of rectangles
+(`--bins` hexagons across x): a smoother look for a dense scatter. It takes
+the 2D histogram's colour options (`--logz`, `--rangez`, `--cmap`, `--zpower`,
+`--zmin`, `--colorbar`, one shared scale across `--iterable` panels), with
+empty hexagons blank; `--norm global` normalises the counts to unit sum and
+`--density` to a density per unit area. Row and column norms, `--annotate`,
+`--contour` and `-z` stay with the rectangular bins.
+
+![A correlated bivariate Gaussian in hexagonal bins on a log colour scale](images/options/hexbin.png)
+
+```bash
+plotipus map --datafile Distributions -x X -y Y --select Distribution Sample -s 'Bivariate Gaussian' Simulation --map_type hexbin --bins 30 --logz --title 'A bivariate Gaussian in hexagonal bins'
+```
+
+`map --corner X1 X2 ... XN` (instead of `-x`/`-y`) draws every pair of N
+array columns of one row: an N×N grid with the 2D histogram of (Xc, Xr)
+below the diagonal, the histogram of each variable on the diagonal (a step
+in ink over its 68.3% Garwood band) and the upper triangle empty. Each
+variable is binned once (`--bins` over its `--percentile` range,
+integer-aligned bins for integer data), so the panels share x down each
+column and y along each row; tick and axis labels are on the outer panels
+only (the first diagonal panel carries the counts axis), and every 2D panel
+shares one colour scale and colorbar. `--corner_labels` names the axes,
+`--map_type hexbin` draws hexagons below the diagonal. The figure is as wide as
+two facets of the medium (one column on paper, `--layout panels`) at one
+plot's aspect, so each panel keeps a single plot's proportions. Narrow the data to one row with `--select` or
+`--configs`/`--names`.
+
+![Corner plot of the true and measured values of a log-normal sample and their ratio](images/options/corner.png)
+
+```bash
+plotipus map --datafile Distributions --corner Value Smeared Response --select Distribution Sample -s Log-normal Simulation --corner_labels True Measured 'Measured / True' --bins 30 --percentile 0 99 --logz --title 'Corner plot: every pair of three variables'
+```
+
 ## Contours
 
 `map --contour -z DCHI2` draws confidence regions of Δχ² maps (or

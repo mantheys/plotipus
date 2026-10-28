@@ -67,6 +67,12 @@ line --datafile SupernovaHubble -x Redshift -y DistanceModulus --select Series -
 # B3 Scatter coloured / sized by a third variable
 scatter --datafile Showers -x TrueEnergy -y Response --colorby Hits --sizeby Hits --select Particle -s pion --marker_size 6 --labelx 'Beam energy (GeV)' --labely 'Response $E_{reco}/E_{true}$' --title 'Pion response, coloured and sized by the hits' --output_suffix B3
 
+# B5 Hexbin
+map --datafile Showers -x TrueEnergy -y RecoEnergy --select Particle -s pion --map_type hexbin --bins 40 --logz --labelx 'Beam energy (GeV)' --labely 'Reconstructed energy (GeV)' --title 'Pion energies in hexagonal bins' --output_suffix B5
+
+# B8 Corner plot
+map --datafile Showers --corner TrueEnergy RecoEnergy Hits --corner_labels '$E_{beam}$ (GeV)' '$E_{reco}$ (GeV)' 'Hits' --select Particle -s pion --bins 30 --logz --title 'Pion showers: every pair of variables' --output_suffix B8
+
 # B6 Gridded map (z on x×y)
 map --datafile GW150914Spectrogram -x Time -y FrequencyGrid -z Amplitude --iterable Name --cmap viridis --rangex 0.25 0.46 --labelx 'Time (s)' --labely 'Frequency (Hz)' --labelz 'Normalized amplitude' --title 'GW150914: time-frequency maps' --output_suffix B6
 

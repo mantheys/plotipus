@@ -172,7 +172,7 @@ Kinds follow the data relationship (as in seaborn/plotly), not the use case.
 | `line` | y against an ordered x, one series per `--hue` value | `--plot_type`, `--data_hue`, `--lower`, `--stacked`, `--fit`, `--binned`, `--facet_row`/`--facet_col`, `--inset` ([options](docs/options.md#data-and-simulation)) |
 | `scatter` | observations with colour/size/marker encodings, or pairs of metrics | `--colorby`, `--sizeby`, `--markerby` ([options](docs/options.md#categories-and-scatter)) |
 | `hist` | 1D histograms of per-event arrays, KDEs, ECDFs | `--bins`, `--weight`, `--density`, `--hist_type kde\|ecdf`, `--ridge` ([options](docs/options.md#histograms)) |
-| `map` | 2D histograms, images of a grid, contours | `--norm`, `--logz`, `--contour` ([options](docs/options.md#contours)) |
+| `map` | 2D histograms, hexbins, corner plots, images of a grid, contours | `--norm`, `--logz`, `--map_type hexbin`, `--corner`, `--contour` ([options](docs/options.md#hexbin-and-corner-plots)) |
 | `cat` | one value per category | `--integrate_over`, `--kind point\|line\|lollipop\|bar\|box\|violin\|strip`, `--orient h`, `--sort` ([options](docs/options.md#categories-and-scatter)) |
 | `table` | aggregated values as LaTeX (and HTML) tables | `--variables`, `--agg`, `--stats`, `--fit_params`, `--cutflow`, `--siunitx` |
 

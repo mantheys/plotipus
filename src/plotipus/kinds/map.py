@@ -96,8 +96,8 @@ def build_parser():
         ],
         overrides={
             "datafile": {"required": True},
-            "x": {"required": True},
-            "y": {"required": True},
+            "x": {"help": "Column of the x values (required unless --corner)"},
+            "y": {"help": "Column of the y values (required unless --corner)"},
             "bins": {"default": None, "help": "Number of bins of the 2D histogram (default: style nbins)"},
             "percentile": {"default": [0, 100], "help": "Percentile range of the histogram axes"},
             "density": {"help": "Normalise the histogram (or each contour map) to unit sum"},
@@ -106,6 +106,14 @@ def build_parser():
         },
     )
     add = parser.add_argument
+    add("--map_type", default="hist2d", choices=["hist2d", "hexbin"],
+        help="Binning of raw points: rectangular bins (hist2d) or hexagons (hexbin, --bins hexagons across x); "
+        "both take --logz, --rangez, --cmap, --zpower and the colorbar options.")
+    add("--corner", nargs="+", default=None, metavar="VARIABLE",
+        help="Corner plot of these array columns (instead of -x/-y): an N x N grid with the 2D histogram of each "
+        "pair below the diagonal, the histogram of each variable on the diagonal and the upper triangle empty.")
+    add("--corner_labels", nargs="+", type=parse_plot_label, default=None, metavar="LABEL",
+        help="Axis label of each --corner variable (default: the column names).")
     add("--diagonal", action="store_true", default=False, help="Draw the y = x line.")
     add("--cmap", type=str, default=None,
         help="Matplotlib colour map of -z images; 'diverging' is the style's map for signed values "
@@ -403,34 +411,19 @@ def draw_histogram_figure(rows, args, kdx):
             if args.matrix:
                 ax._plotipus_matrix = True
         else:
-            kwargs = {"range": (x_range, y_range), "bins": args.bins or style.nbins}
-            if is_integer_valued(x) and is_integer_valued(y):
-                kwargs["bins"] = [integer_bin_edges(*x_range), integer_bin_edges(*y_range)]
-            hist = plot_data(args, ax, x, y=y, plot_type="hist2d", **kwargs)
-            mesh = hist[3]
-            if args.norm is not None:
-                mesh.set_array(normalize_hist2d(hist[0], args.norm).T)
-            # Empty bins are blank on linear and log scales alike.
-            mesh.set_array(np.ma.masked_less_equal(mesh.get_array(), 0))
-            if args.logz:
-                mesh.autoscale()  # vmin at the smallest non-empty bin
-            else:
-                mesh.set_clim(0, mesh.get_array().max())
-            if args.rangez is not None:
-                mesh.set_clim(*args.rangez)
-            if args.cmap is not None:
-                mesh.set_cmap(args.cmap)
-            _colour_scale(mesh, args)
             label = args.labelz or (NORM_LABELS[args.norm] if args.norm else "Density" if args.density else "Counts")
-            colorbars.append((ax, mesh, label))
-            if args.annotate is not None:
-                centres = [0.5 * (edges[1:] + edges[:-1]) for edges in (hist[1], hist[2])]
-                annotate_cells(ax, mesh, *centres, np.ma.getdata(mesh.get_array()).reshape(len(centres[1]),
-                                                                                           len(centres[0])),
-                               args.annotate, skip_masked=np.ma.getmaskarray(mesh.get_array()).reshape(
-                                   len(centres[1]), len(centres[0])))
-            if args.contour:
-                regions[pdx] = draw_sample_regions(ax, hist[0], hist[1], hist[2], args)
+            if args.map_type == "hexbin":
+                colorbars.append((ax, draw_hexbin(ax, x, y, x_range, y_range, args), label))
+            else:
+                hist, mesh = draw_hist2d(ax, x, y, x_range, y_range, args)
+                colorbars.append((ax, mesh, label))
+                if args.annotate is not None:
+                    centres = [0.5 * (edges[1:] + edges[:-1]) for edges in (hist[1], hist[2])]
+                    shape = (len(centres[1]), len(centres[0]))
+                    annotate_cells(ax, mesh, *centres, np.ma.getdata(mesh.get_array()).reshape(shape), args.annotate,
+                                   skip_masked=np.ma.getmaskarray(mesh.get_array()).reshape(shape))
+                if args.contour:
+                    regions[pdx] = draw_sample_regions(ax, hist[0], hist[1], hist[2], args)
 
         if args.diagonal:
             _diagonal(ax, x_range, color=style.role("ink") if args.logz else style.role("paper"))
@@ -488,6 +481,200 @@ def draw_histogram_figure(rows, args, kdx):
 
     add_title_and_note(fig, args)
     return save(fig, args, kdx, suffix="hist2d.png")
+
+
+def corner_edges(values, args):
+    """Bin edges of one --corner variable over its --percentile range,
+    --bins wide (integer-aligned for integer-valued data, never narrower than
+    one unit)."""
+    low, high = np.percentile(values, args.percentile[0]), np.percentile(values, args.percentile[1])
+    nbins = args.bins or style.nbins
+    nbins = nbins[0] if isinstance(nbins, (list, tuple)) else int(nbins)
+    if is_integer_valued(values):
+        width = max(1, int(np.ceil((np.ceil(high) - np.floor(low) + 1) / nbins)))
+        return np.arange(np.floor(low), np.ceil(high) + width + 1, width) - 0.5
+    if high <= low:
+        low, high = low - 0.5, high + 0.5
+    return np.linspace(low, high, nbins + 1)
+
+
+def corner_figure_size(n):
+    """The medium's width for two facets side by side (one plot's width with
+    --layout panels, as on paper), at one plot's aspect: every panel keeps
+    the proportions of a single plot."""
+    from ..plot import get_common_figsize
+
+    width, height = get_common_figsize()
+    wide = get_common_figsize(ncols=min(n, 2))[0]
+    return wide, height * wide / width
+
+
+def draw_corner_diagonal(ax, values, edges):
+    """Histogram of one variable: a step outline in ink over its Garwood
+    (68.3%) band."""
+    from .. import intervals
+
+    counts, _ = np.histogram(values, bins=edges)
+    low, high = intervals.garwood(counts)
+    ink = style.role("ink")
+    ax.stairs(high, edges, baseline=low, fill=True, color=ink, alpha=0.2, linewidth=0)
+    ax.stairs(counts, edges, color=ink, linewidth=1.2)
+    ax.set_ylim(0, 1.1 * high.max())
+
+
+def draw_corner_figure(rows, args, kdx):
+    """--corner X1 ... XN: an N x N grid, the 2D histogram of (Xc, Xr) at row
+    r, column c below the diagonal, the histogram of Xr on the diagonal, the
+    upper triangle empty. Panels share x down each column and y along each
+    row (the diagonal keeps its counts axis); labels on the outer panels only;
+    one colour scale and colorbar for every 2D panel."""
+    from ..plot import apply_common_figure_margins, apply_panel_font_scale
+
+    variables = args.corner
+    subset = filter_dataframe(rows, args)
+    if len(subset) != 1:
+        rprint(f"[red]Error:[/red] --corner needs one row of arrays, found {len(subset)} "
+               f"(narrow it with --select or --configs/--names)")
+        return None
+    columns = [np.asarray(subset[v].values[0], dtype=float) for v in variables]
+    valid = np.logical_and.reduce([np.isfinite(c) for c in columns])
+    if not valid.all():
+        rprint(f"[yellow]Warning:[/yellow] Dropping {(~valid).sum()} non-finite entries out of {len(valid)}")
+    columns = [c[valid] for c in columns]
+    edges = [corner_edges(c, args) for c in columns]
+    labels = list(args.corner_labels or [])
+    labels = [labels[i] if i < len(labels) else resolve_axis_label(None, v, subset) for i, v in enumerate(variables)]
+
+    n = len(variables)
+    apply_panel_font_scale(1)
+    fig = plt.figure(figsize=corner_figure_size(n))
+    # Rows as far apart as the measured layout puts the columns (its pad), close enough to read as one figure.
+    rows_height = 0.75 * fig.get_figheight()
+    gap = style.figure_pad_inches / (rows_height / n) if style.compact_gap() else 0.0
+    grid = fig.add_gridspec(n, n, wspace=gap, hspace=gap)
+    apply_common_figure_margins(fig, hspace=gap)
+    axes = [[None] * n for _ in range(n)]
+    for r in range(n):
+        for c in range(r + 1):
+            sharex = axes[c][c] if r > c else None
+            sharey = axes[r][0] if 0 < c < r else None
+            axes[r][c] = fig.add_subplot(grid[r, c], sharex=sharex, sharey=sharey)
+
+    mappables = []
+    for r in range(n):
+        for c in range(r + 1):
+            ax = axes[r][c]
+            if r == c:
+                draw_corner_diagonal(ax, columns[r], edges[r])
+                continue
+            x_range, y_range = (edges[c][0], edges[c][-1]), (edges[r][0], edges[r][-1])
+            if args.map_type == "hexbin":
+                mappables.append(draw_hexbin(ax, columns[c], columns[r], x_range, y_range, args,
+                                             gridsize=len(edges[c]) - 1))
+            else:
+                mappables.append(draw_hist2d(ax, columns[c], columns[r], x_range, y_range, args,
+                                             bins=[edges[c], edges[r]])[1])
+    for r in range(n):
+        for c in range(r + 1):
+            ax = axes[r][c]
+            ax.set_xlim(edges[c][0], edges[c][-1])
+            if r != c:
+                ax.set_ylim(edges[r][0], edges[r][-1])
+            if r == n - 1:
+                ax.set_xlabel(labels[c])
+            else:
+                ax.tick_params(which="both", labelbottom=False)
+            if c == 0 and r > 0:
+                ax.set_ylabel(labels[r])
+            elif r == c:
+                # The counts of a diagonal panel are not the row's variable: unlabelled, except the first.
+                if r == 0 and n > 1:
+                    ax.set_ylabel("Counts")
+                else:
+                    ax.tick_params(which="both", labelleft=False)
+            else:
+                ax.tick_params(which="both", labelleft=False)
+            apply_tick_formatter(ax, axis="both")
+
+    if mappables and colorbar_mode(args) != "none":
+        for mappable in mappables:
+            mappable.autoscale_None()
+        norm = mappables[0].norm
+        norm = type(norm)(vmin=min(m.norm.vmin for m in mappables), vmax=max(m.norm.vmax for m in mappables)) \
+            if not args.rangez else norm
+        for mappable in mappables:
+            mappable.set_norm(norm)
+        label = args.labelz or (NORM_LABELS["global"] if args.norm else "Density" if args.density else "Counts")
+        # Right of the grid, beside the rows holding 2D panels.
+        add_colorbar(fig, mappables[0], [axes[r][c] for r in range(1, n) for c in range(r + 1)], label)
+        _power_ticks(mappables[0], args)
+
+    add_title_and_note(fig, args)
+    return save(fig, args, kdx, suffix="corner.png")
+
+
+def draw_hist2d(ax, x, y, x_range, y_range, args, bins=None):
+    """2D histogram of the points (one bin per integer when both are
+    integer-valued, unless ``bins`` gives the edges), empty bins blank, on
+    the --norm/--logz/--rangez/--cmap colour scale. Returns
+    (the hist2d tuple, its mesh)."""
+    if bins is None:
+        bins = args.bins or style.nbins
+        if is_integer_valued(x) and is_integer_valued(y):
+            bins = [integer_bin_edges(*x_range), integer_bin_edges(*y_range)]
+    hist = plot_data(args, ax, x, y=y, plot_type="hist2d", range=(x_range, y_range), bins=bins)
+    mesh = hist[3]
+    if args.norm is not None:
+        mesh.set_array(normalize_hist2d(hist[0], args.norm).T)
+    # Empty bins are blank on linear and log scales alike.
+    mesh.set_array(np.ma.masked_less_equal(mesh.get_array(), 0))
+    _finish_scale(mesh, args)
+    return hist, mesh
+
+
+def draw_hexbin(ax, x, y, x_range, y_range, args, gridsize=None):
+    """--map_type hexbin: hexagonal bins (``gridsize`` or --bins across x)
+    over the ranges, empty hexagons blank, counts normalised to unit sum by
+    --norm global and to a density (per unit area) by --density. Returns the
+    collection."""
+    gridsize = gridsize or args.bins or style.nbins
+    if isinstance(gridsize, (list, tuple)):
+        gridsize = gridsize[0]
+    inside = (x >= x_range[0]) & (x <= x_range[1]) & (y >= y_range[0]) & (y <= y_range[1])
+    x, y = x[inside], y[inside]
+    scales = {"xscale": "log" if args.logx else "linear", "yscale": "log" if args.logy else "linear"}
+    extent = [*x_range, *y_range]
+    if args.logx:
+        extent[:2] = np.log10(x_range)
+    if args.logy:
+        extent[2:] = np.log10(y_range)
+    hexes = ax.hexbin(x, y, gridsize=int(gridsize), extent=extent, mincnt=1, linewidths=0.2, edgecolors="face",
+                      norm=LogNorm() if args.logz else None, **scales)
+    counts = np.asarray(hexes.get_array(), dtype=float)
+    if args.norm == "global" and counts.sum() > 0:
+        hexes.set_array(counts / counts.sum())
+    elif args.density and counts.sum() > 0:
+        # Each hexagon covers half a cell of the two offset lattices.
+        nx = int(gridsize)
+        ny = max(1, int(nx / np.sqrt(3)))
+        area = (extent[1] - extent[0]) / nx * (extent[3] - extent[2]) / ny / 2
+        hexes.set_array(counts / (len(x) * area))
+    _finish_scale(hexes, args)
+    return hexes
+
+
+def _finish_scale(mappable, args):
+    """Colour scale of binned points: from 0 (linear) or the smallest
+    non-empty bin (--logz), then --rangez, --cmap, --zpower/--zmin/--zunder."""
+    if args.logz:
+        mappable.autoscale()  # vmin at the smallest non-empty bin
+    else:
+        mappable.set_clim(0, np.ma.max(mappable.get_array()))
+    if args.rangez is not None:
+        mappable.set_clim(*args.rangez)
+    if args.cmap is not None:
+        mappable.set_cmap(args.cmap)
+    _colour_scale(mappable, args)
 
 
 def sample_region_thresholds(density, fractions):
@@ -1431,6 +1618,23 @@ def run(args):
     if args.variables is not None and args.iterable is not None:
         rprint("[red]Error:[/red] Both --variables and --iterable were given; use only one.")
         return []
+    if args.corner is not None:
+        missing = [v for v in args.corner if v not in df.columns]
+        if len(args.corner) < 2 or missing:
+            rprint(f"[red]Error:[/red] --corner needs two or more columns of the data"
+                   + (f"; not found: {', '.join(missing)}" if missing else ""))
+            return []
+        if args.contour or args.z is not None or args.variables is not None or args.iterable is not None:
+            rprint("[red]Error:[/red] --corner draws raw points only; drop --contour, -z, --variables and --iterable.")
+            return []
+    elif args.x is None or args.y is None:
+        rprint("[red]Error:[/red] map needs -x and -y (or --corner X1 X2 ...).")
+        return []
+    if args.map_type == "hexbin" and (args.z is not None or args.contour or args.annotate is not None
+                                      or args.norm not in (None, "global")):
+        rprint("[red]Error:[/red] --map_type hexbin bins raw points: no -z, --contour or --annotate, "
+               "and only --norm global.")
+        return []
     if args.variables is not None and "None" in args.variables and "Variable" in df.columns:
         df["Variable"] = df["Variable"].fillna("None")
     if args.contour and args.z is None:
@@ -1445,7 +1649,7 @@ def run(args):
     outputs = []
     for kdx, config, name, rows in _base.figure_groups(df, args):
         print(f"Plotting for Config: {config}, Name: {name}")
-        outputs.append(draw_histogram_figure(rows, args, kdx))
+        outputs.append(draw_corner_figure(rows, args, kdx) if args.corner else draw_histogram_figure(rows, args, kdx))
     return outputs
 
 

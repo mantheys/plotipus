@@ -35,7 +35,7 @@ command lists.
 | Group | ✅ | ◐ | ✗ |
 |---|---|---|---|
 | A Distributions | 12 | 0 | 0 |
-| B Relationships | 6 | 1 | 2 |
+| B Relationships | 8 | 1 | 0 |
 | C Trends and fits | 10 | 0 | 0 |
 | D Comparisons | 9 | 0 | 0 |
 | E Ratios and significance | 8 | 0 | 0 |
@@ -44,7 +44,7 @@ command lists.
 | H Small multiples and layout | 6 | 0 | 2 |
 | I Annotations | 10 | 0 | 0 |
 | J Tables | 7 | 0 | 0 |
-| **Total (89)** | **83** | **2** | **4** |
+| **Total (89)** | **85** | **2** | **2** |
 
 Nearly half of the ◐ entries are partial only because of a bug in
 [bugs.md](bugs.md), not because an option is missing. Fixing B01–B13 moves
@@ -77,10 +77,10 @@ about 12 of them to ✅.
 | B2 | Scatter with error bars | measurements with uncertainties | F08, F09, F20 | ✅ | `line --plot_type errorbar --errory` (with `--errory_x`, or `--errorx_column LOW HIGH` for real bin edges, for x errors; P03, P04). Points are not joined unless `--connect` is given (B17, fixed in T07). | — |
 | B3 | Scatter coloured / sized by a third variable | 3–4 variables at once | F22 | ✅ | `scatter ... --colorby RecoEnergy --sizeby Hits` (example). | — |
 | B4 | 2D histogram | dense scatter | F22 | ◐ | `map --datafile Events -x TrueEnergy -y RecoEnergy --iterable Sample --logz` (example). One shared, labelled colorbar (B08, fixed in T09). Panels are tiny in the 3-wide layout (P15). | Panel size (P15). |
-| B5 | Hexbin | dense scatter, smoother look | F22 | ✗ | — | `map --map_type hexbin` (`ax.hexbin`, same norms). |
+| B5 | Hexbin | dense scatter, smoother look | F22 | ✅ | `map --map_type hexbin --bins 40 --logz` (gallery B5; T22.9): `ax.hexbin` with the 2D histogram's colour scale, shared colorbar, `--norm global` and `--density`. | — |
 | B6 | Gridded map (z on x×y) | functions, scans, images | F15 | ✅ | `map --datafile Contour -x XGrid -y YGrid -z ZGrid` (P17 for a 3×3 grid). | — |
 | B7 | Contour lines / filled contours | levels of a 2D function | F10 | ✅ | `map ... -z ZGrid --contour --contour_sigmas 1 2 3 [--fill_contours]` (example). 2-dof Δχ² levels labelled by coverage, graded fills from the best fit outwards, solid/dashed/dotted outlines, `+` at the minimum (B03, fixed in T02). | Non-σ levels with inline `clabel`: I9. |
-| B8 | Pair plot / corner plot | all pairs of N variables | — | ✗ | — | `map --corner X1 X2 X3`: N×N grid, 2D hists below the diagonal, `hist` on the diagonal. |
+| B8 | Pair plot / corner plot | all pairs of N variables | — | ✅ | `map --corner TrueEnergy RecoEnergy Hits` (gallery B8; T22.9): N×N grid, 2D histograms (or `--map_type hexbin`) below the diagonal, step histograms with Garwood bands on it, axes shared per column and row, outer labels only, one colorbar. | One sample per figure (no overlaid hues). |
 | B9 | Profile (mean y per x bin) | trend in a dense scatter | — | ✅ | `line --binned --estimator mean` (example 5): standard error of each bin's statistic, small bins dropped (B04, fixed in T03). | — |
 
 ## C. Trends, fits and time series

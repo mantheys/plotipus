@@ -3,6 +3,7 @@ import pandas as pd
 import pytest
 
 from plotipus import style
+from plotipus.intervals import garwood
 from plotipus.kinds import map as map_kind
 from plotipus.legacy import translate
 
@@ -538,3 +539,131 @@ def test_contour_labels_at_given_positions_with_leaders(make_project):
     leaders = [t for t in ax.texts if type(t).__name__ == "Annotation" and t.arrow_patch is not None]
     assert len(leaders) == 3 and ax.get_legend() is None or "68.3% CL" not in [
         t.get_text() for t in ax.get_legend().get_texts()]
+
+
+# --- Hexbin and corner plots (T22.9) ---------------------------------------------------
+
+
+def _hexbin(make_project, *argv, frame=None):
+    make_project({"Events": frame if frame is not None else _two_samples()})
+    figures = _capture()
+    map_kind.main(["--datafile", "Events", "-x", "X", "-y", "Y", "--map_type", "hexbin", *argv])
+    return figures
+
+
+def test_hexbin_counts_and_shared_log_colorbar(make_project):
+    from matplotlib.collections import PolyCollection
+    from matplotlib.colors import LogNorm
+
+    (fig,) = _hexbin(make_project, "--iterable", "Sample", "--logz", "--bins", "20")
+    panels = [ax for ax in fig.axes if not hasattr(ax, "_colorbar")]
+    hexes = [ax.collections[0] for ax in panels]
+    assert all(isinstance(h, PolyCollection) for h in hexes)
+    # Every point lands in one hexagon; empty hexagons are not drawn.
+    assert sorted(h.get_array().sum() for h in hexes) == [400, 4000]
+    assert all(h.get_array().min() >= 1 for h in hexes)
+    assert isinstance(hexes[0].norm, LogNorm) and hexes[0].norm is hexes[1].norm
+    (cbar,) = [ax for ax in fig.axes if hasattr(ax, "_colorbar")]
+    assert cbar.get_ylabel() == "Counts"
+
+
+def test_hexbin_global_norm_and_density(make_project):
+    frame = _two_samples().iloc[1:]
+    (fig,) = _hexbin(make_project, "--norm", "global", frame=frame)
+    assert np.isclose(fig.axes[0].collections[0].get_array().sum(), 1)
+    (fig,) = _hexbin(make_project, "--density", "--bins", "10", frame=frame)
+    hexes = fig.axes[0].collections[0]
+    x, y = frame["X"].iloc[0], frame["Y"].iloc[0]
+    # Hexagons of half a lattice cell: the density integrates to one.
+    area = (x.max() - x.min()) / 10 * (y.max() - y.min()) / int(10 / np.sqrt(3)) / 2
+    assert np.isclose(hexes.get_array().sum() * area, 1, rtol=0.02)
+    assert fig.axes[1].get_ylabel() == "Density"
+
+
+def test_hexbin_refuses_row_norms(make_project, capsys):
+    assert _hexbin(make_project, "--norm", "vertical") == []
+    assert "hexbin" in capsys.readouterr().out
+
+
+def _corner_frame():
+    rng = np.random.default_rng(5)
+    a = rng.normal(10, 2, 3000)
+    b = a + rng.normal(0, 1, 3000)
+    return pd.DataFrame([{"Sample": "s", "A": a, "B": b, "N": rng.poisson(np.clip(b, 0, None))}])
+
+
+def _corner(make_project, *argv):
+    make_project({"Events": _corner_frame()})
+    figures = _capture()
+    map_kind.main(["--datafile", "Events", "--corner", "A", "B", "N", *argv])
+    return figures
+
+
+def test_corner_grid_layout_and_labels(make_project):
+    (fig,) = _corner(make_project, "--corner_labels", "a (cm)", "b (cm)")
+    cbars = [ax for ax in fig.axes if hasattr(ax, "_colorbar")]
+    panels = [ax for ax in fig.axes if ax not in cbars]
+    assert len(panels) == 6 and len(cbars) == 1  # lower triangle and diagonal; upper triangle empty
+    grid = {(ax.get_subplotspec().rowspan.start, ax.get_subplotspec().colspan.start): ax for ax in panels}
+    assert set(grid) == {(r, c) for r in range(3) for c in range(r + 1)}
+    # Labels on the outer panels only; the missing label falls back to the column name.
+    assert [grid[2, c].get_xlabel() for c in range(3)] == ["a (cm)", "b (cm)", "N"]
+    assert [grid[r, 0].get_ylabel() for r in range(3)] == ["Counts", "b (cm)", "N"]
+    assert grid[1, 1].get_xlabel() == grid[2, 1].get_ylabel() == ""
+    assert not any(t.get_visible() and t.get_text() for t in grid[1, 0].get_xticklabels())
+    assert not any(t.get_visible() and t.get_text() for t in grid[2, 1].get_yticklabels())
+    # x shared down each column (with its diagonal), y along each row of 2D panels.
+    assert grid[0, 0].get_xlim() == grid[1, 0].get_xlim() == grid[2, 0].get_xlim()
+    assert grid[1, 1].get_xlim() == grid[2, 1].get_xlim()
+    assert grid[2, 0].get_ylim() == grid[2, 1].get_ylim() == grid[2, 2].get_xlim()
+    # Every panel keeps the proportions of one plot.
+    from plotipus.plot import get_common_figsize
+
+    width, height = get_common_figsize()
+    box = grid[1, 0].get_position()
+    fig_w, fig_h = fig.get_size_inches()
+    assert np.isclose(fig_w / fig_h, width / height)
+    assert np.isclose(box.width * fig_w / (box.height * fig_h), width / height, rtol=0.15)
+
+
+def test_corner_diagonal_counts_with_errors_and_shared_colour_scale(make_project):
+    (fig,) = _corner(make_project, "--logz", "--bins", "15")
+    panels = [ax for ax in fig.axes if not hasattr(ax, "_colorbar")]
+    grid = {(ax.get_subplotspec().rowspan.start, ax.get_subplotspec().colspan.start): ax for ax in panels}
+    values = _corner_frame()["A"].iloc[0]
+    band, step = grid[0, 0].patches[:2]
+    counts, _ = np.histogram(values, bins=map_kind.corner_edges(values, _args()))
+    assert np.allclose(step.get_data().values, counts)
+    low, high = garwood(counts)
+    assert np.allclose(band.get_data().baseline, low) and np.allclose(band.get_data().values, high)
+    meshes = [grid[r, c].collections[0] for r, c in grid if r > c]
+    assert len({id(m.norm) for m in meshes}) == 1 and type(meshes[0].norm).__name__ == "LogNorm"
+    (cbar,) = [ax for ax in fig.axes if hasattr(ax, "_colorbar")]
+    assert cbar.get_ylabel() == "Counts"
+
+
+def _args(**overrides):
+    args = map_kind.build_parser().parse_args(["--datafile", "x", "--bins", "15"])
+    vars(args).update(overrides)
+    return args
+
+
+def test_corner_edges_integer_aligned():
+    edges = map_kind.corner_edges(np.arange(0, 301), _args(bins=30))
+    assert np.allclose(np.diff(edges), 11) and edges[0] == -0.5 and edges[-1] >= 300
+    assert np.allclose(map_kind.corner_edges(np.arange(5), _args(bins=30)), np.arange(-0.5, 5.5))
+    assert len(map_kind.corner_edges(np.linspace(0, 1, 50), _args(bins=8))) == 9
+
+
+def test_corner_hexbin_and_errors(make_project, capsys):
+    from matplotlib.collections import PolyCollection
+
+    (fig,) = _corner(make_project, "--map_type", "hexbin")
+    lower = [ax for ax in fig.axes if ax.collections and isinstance(ax.collections[0], PolyCollection)]
+    assert len(lower) == 3
+    make_project({"Events": pd.concat([_corner_frame()] * 2)})
+    assert map_kind.main(["--datafile", "Events", "--corner", "A", "B"]) in ([None], [], None)
+    assert "one row" in capsys.readouterr().out
+    assert not map_kind.main(["--datafile", "Events", "--corner", "A"])
+    assert not map_kind.main(["--datafile", "Events", "-x", "A"])
+    assert "-x and -y" in capsys.readouterr().out
