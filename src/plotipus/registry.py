@@ -32,6 +32,10 @@ table_columns = {}
 # Extra plot kinds: name -> module exposing ``main(argv)``.
 kinds = {}
 
+# Unit conversions for --secondary_x/--secondary_y: name -> (forward,
+# inverse, axis label or None); forward and inverse take and return arrays.
+conversions = {}
+
 # Extra command-line options: (flags, kwargs) pairs passed to
 # ``parser.add_argument`` for every plot kind, e.g. a watermark switch read
 # back by a figure hook.
@@ -67,6 +71,10 @@ def add_label_hook(column, func):
 
 def add_color_hook(column, func):
     color_hooks[column] = func
+
+
+def add_conversion(name, forward, inverse, label=None):
+    conversions[name] = (forward, inverse, label)
 
 
 def add_kind(name, module):

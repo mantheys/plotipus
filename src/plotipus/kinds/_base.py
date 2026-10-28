@@ -12,6 +12,7 @@ import matplotlib
 from .. import registry
 from .. import style
 from ..annotations import add_annotation_args
+from ..scales import add_scale_args
 from ..args import add_common_args, add_header_args, add_media_args, parse_media_args, with_medium
 from ..encodings import setup_legend_frame
 from ..io import prepare_import
@@ -83,6 +84,7 @@ def add_output_args(parser):
     add_media_args(parser)
     add_header_args(parser)
     add_annotation_args(parser)
+    add_scale_args(parser)
     add("--sci_in_label", action="store_true", default=None,
         help="Put a common power of ten in the axis label, e.g. 'Density (x10^-2)' (default: the style's "
         "plot_settings.sci_in_label, true).")

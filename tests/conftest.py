@@ -34,4 +34,5 @@ def make_project(tmp_path, monkeypatch):
         hooks.clear()
     registry.label_hooks.clear()
     registry.color_hooks.clear()
+    registry.conversions.clear()
     registry.config_label = None
