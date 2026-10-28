@@ -421,6 +421,11 @@ plotipus line --datafile Distributions -x Bin -y Counts --select Distribution Sa
 plotipus line --datafile Distributions -x Bin -y Counts --hue Sample --select Distribution -s Poisson --data_hue Data --errory --lower column:Pull --labelx k --lower_labely Pull --title 'Lower panel from a stored column'
 ```
 
+Operations between series (`ratio`, `subtract`, `group`, ...) compare them
+on the x values they share: a series with gaps (NaN points, a table that
+starts later) is compared where it has values, with a warning naming how many
+points were left out. A series sharing no x value with the first is skipped.
+
 The lower panel is styled with the upper-panel options prefixed by `lower_`:
 `--lower_plot_type errorbar`, `--lower_labely`, `--lower_rangey`,
 `--lower_logy`, `--lower_horizontal`, ... `--lower_zero_line` draws a

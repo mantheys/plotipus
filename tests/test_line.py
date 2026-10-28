@@ -56,6 +56,33 @@ def test_lower_ratio_with_empty_reference_bin(make_project, spectra):
     assert steps and all(np.isnan(patch.get_data().values[3]) for patch in steps)
     assert all(np.isfinite(np.delete(patch.get_data().values, 3)).all() for patch in steps)
 
+def test_lower_compares_series_with_gaps_on_shared_x(make_project, spectra):
+    """A series with NaN points (dropped on extraction) is compared on the x
+    values it shares with the others, not skipped."""
+    counts = spectra["Counts"].iloc[2].copy()  # B, Raw
+    counts[:3] = np.nan
+    spectra.at[2, "Counts"] = counts
+    figures = _capture()
+    run(make_project, spectra, "--hue", "Sample", "--select", "Stage", "-s", "Raw", "--plot_type", "line",
+        "--lower", "ratio", "--lower_plot_type", "line")
+    lower = figures[-1].axes[1]
+    curves = [line for line in lower.get_lines() if len(line.get_xdata()) > 2]
+    x = np.arange(0.5, 10, 1.0)[3:]
+    ratios = sorted(np.round(np.asarray(line.get_ydata(), dtype=float), 12).tolist() for line in curves)
+    assert all(np.allclose(line.get_xdata(), x) for line in curves)
+    assert [r[0] for r in ratios] == [0.5, 2.0] and all(len(set(r)) == 1 for r in ratios)
+
+
+def test_lower_skips_series_sharing_no_x(make_project, spectra):
+    shifted = spectra.copy()
+    shifted["Energy"] = [e + (100.0 if sample == "C" else 0.0) for e, sample in zip(shifted["Energy"], shifted["Sample"])]
+    figures = _capture()
+    run(make_project, shifted, "--hue", "Sample", "--select", "Stage", "-s", "Raw", "--plot_type", "line",
+        "--lower", "ratio", "--lower_plot_type", "line")
+    curves = [line for line in figures[-1].axes[1].get_lines() if len(line.get_xdata()) > 2]
+    assert len(curves) == 1 and np.allclose(curves[0].get_ydata(), 2.0)
+
+
 def test_group_significance(make_project, spectra):
     out, outputs = run(make_project, spectra, "--hue", "Sample", "--select", "Stage", "-s", "Raw", "--lower", "group",
                        "--reference_group", "A", "--other_group", "B", "C", "--group_significance", "--stacked")

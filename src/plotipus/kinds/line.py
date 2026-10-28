@@ -1654,18 +1654,49 @@ def _lower_label(spec, args):
     return spec.label if spec.kind == "operation" else spec.name
 
 
+def _same_x(a, b):
+    return len(a) == len(b) and np.allclose(a, b, equal_nan=True)
+
+
+def _on_x(s, x):
+    """A copy of ``s`` keeping only its points at the values of ``x``."""
+    keep = np.array([np.isclose(value, x).any() for value in s.x], dtype=bool)
+    out = copy.copy(s)
+    out.x, out.y = s.x[keep], s.y[keep]
+    out.error = None if s.error is None else s.error[..., keep]
+    out.extrapolated = s.extrapolated[keep]
+    out.bands = [band[..., keep] for band in s.bands]
+    return out
+
+
 def _aligned(series):
-    """Series sharing the x values of the first one (others are skipped)."""
-    reference, out = None, []
-    for s in series:
-        if s.categorical:
-            continue
-        if reference is None:
-            reference = s.x
-        elif len(s.x) != len(reference) or not np.allclose(s.x, reference, equal_nan=True):
-            rprint(f"[yellow]Warning:[/yellow] Skipping {s.hue_label} in the lower panel: x values are not aligned.")
-            continue
-        out.append(s)
+    """The x values the lower panel compares on and the series restricted to
+    them: the x values every series shares (a series with gaps, e.g. NaN
+    points dropped, is compared where it has values). Series sharing none
+    with the first are skipped."""
+    candidates = [s for s in series if not s.categorical]
+    if not candidates:
+        return None, []
+    reference = candidates[0].x
+    if all(_same_x(s.x, reference) for s in candidates[1:]):
+        return reference, candidates
+
+    common = reference
+    for s in candidates[1:]:
+        common = common[[np.isclose(value, s.x).any() for value in common]]
+    if len(common):
+        dropped = sum(len(s.x) - len(common) for s in candidates)
+        rprint(f"[yellow]Warning:[/yellow] Lower panel compares the {len(common)} x values shared by every "
+               f"series ({dropped} point(s) without a partner left out).")
+        return common, [_on_x(s, common) for s in candidates]
+
+    out = [candidates[0]]
+    for s in candidates[1:]:
+        if _same_x(s.x, reference):
+            out.append(s)
+        else:
+            rprint(f"[yellow]Warning:[/yellow] Skipping {s.hue_label} in the lower panel: it shares no x values "
+                   f"with {candidates[0].hue_label}.")
     return reference, out
 
 

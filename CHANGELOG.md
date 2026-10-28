@@ -2,6 +2,15 @@
 
 ## Unreleased
 
+### Lower panels compare series with gaps (T22.17)
+
+- Operations between series in a lower panel (`ratio`, `subtract`,
+  `group`, ...) compare them on the x values they all share. A series with
+  NaN points (dropped on extraction) or a different x range used to be
+  skipped with "x values are not aligned"; it is now compared where it has
+  values, and a warning says how many points were left out. Only a series
+  sharing no x value with the first is still skipped.
+
 ### Parquet input (T22.16)
 
 - `--datafile NAME` also finds `NAME.parquet` (and the `{config}_{name}_`
