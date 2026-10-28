@@ -305,8 +305,13 @@ set:
 
 ## Histograms
 
-`hist` bins per-event arrays, every hue over the same edges. `--weight COL`
-weights the entries (here the simulation down to the data total), `--density`
+`hist` bins per-event arrays, every hue over the same edges. Each step
+histogram carries its statistical error as a band, from its first to its
+last filled bin: the Garwood (Poisson) interval of the counts, or √Σw² with
+`--weight COL`, which weights the entries (here the simulation down to the
+data total). `--data_hue` values are points with error bars instead;
+`--errory_type poisson` puts bars on the steps too, in place of the band,
+and `--no_error` draws neither. `--density`
 normalises each histogram to unit area, and `--flow` handles the entries
 outside the range: `none` drops them, `hint` marks them beyond the outer
 edge, `show` adds them to the first/last bin. Their number is printed in

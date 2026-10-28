@@ -115,15 +115,17 @@ enforceable version. Where the two differ, this guide is the target.
     integer counts get Garwood intervals and `--count_column` efficiencies
     Clopper–Pearson, each with a warning; other series warn that they have
     none. `--no_error` draws no errors and silences the warnings. `hist`
-    draws data with Garwood intervals; simulation histograms carry no band,
-    and `scatter` shows single observations without errors.
+    draws data with Garwood intervals and every step histogram with a band
+    of them (√Σw² with `--weight`) from its first to its last filled bin;
+    `--no_error` drops both. `scatter` shows single observations without
+    errors.
 - **U2. 68.3% (one σ) unless stated.** ✅ `--confidence_level` changes it,
   and the label then says so.
 - **U3. The interval suits the quantity**:
 
   | quantity | interval | why not the simple one | plotipus |
   |---|---|---|---|
-  | unweighted counts n | Garwood (exact Poisson), asymmetric | √n is 0 at n = 0, and goes below 0 for small n | ✅ the default for counts without an error column (`line`, `cat`, `hist` data, tables); `--errory_type poisson` forces it |
+  | unweighted counts n | Garwood (exact Poisson), asymmetric | √n is 0 at n = 0, and goes below 0 for small n | ✅ the default for counts without an error column (`line`, `cat`, `hist`, tables); `--errory_type poisson` forces it |
   | weighted counts | √Σw² | — | ✅ `hist --weight`, stack totals |
   | efficiency k/N | Clopper–Pearson, asymmetric, inside [0, 1] | the binomial √(ε(1−ε)/N) is 0 at ε = 0 and 1, and leaves [0, 1] | ✅ plots: `--count_column N` (forced by `--errory_type clopper_pearson`); tables: `Passed`/`Total` columns, or `--clopper_pearson` |
   | binned mean / median | standard error of the statistic | the spread (std) is not the uncertainty of the mean | ✅ `--binned --estimator mean` |
@@ -352,5 +354,4 @@ the authors got wrong. Both sides are recreations, not official results.
 
 | rule | gap | proposed change |
 |---|---|---|
-| U1 | `hist` draws simulation without its statistical error | A √Σw² band (Garwood for unweighted counts) by default, `--no_error` to drop it |
 | C1 | Colours follow value order unless a mapping pins them | A project-level colour registry that stores each new category's colour on first use |

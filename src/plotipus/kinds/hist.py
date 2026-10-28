@@ -55,7 +55,7 @@ def build_parser():
             "vertical", "vertical_label", "vertical_style", "vertical_color", "point", "point_label",
             "vertical_band", "vertical_band_label", "vertical_band_color", "horizontal_band",
             "horizontal_band_label", "horizontal_band_color",
-            "note", "debug", "density", "confidence_level", "error_label",
+            "note", "debug", "density", "confidence_level", "error_label", "no_error",
         ],
         overrides={
             "datafile": {"required": True},
@@ -81,8 +81,8 @@ def build_parser():
         "sqrt(sum of squared weights) with --weight, in the ink colour, first in the legend. The other hue "
         "values stay step histograms.")
     add("--errory_type", type=str, default=None, choices=["poisson"],
-        help="Error bars on every histogram: Poisson (Garwood) intervals of the bin counts, or sqrt(sum of "
-        "squared weights) with --weight (data points always have them).")
+        help="Error bars instead of bands on every histogram: Poisson (Garwood) intervals of the bin counts, or "
+        "sqrt(sum of squared weights) with --weight (data points always have them).")
     add("--overlay_gaussian", nargs="*", type=float, default=None, metavar=("MU", "SIGMA"),
         help="Draw a Gaussian over the histogram, scaled to the first series' entries: the unit normal (no "
         "values; for pull distributions) or MU SIGMA.")
@@ -198,6 +198,20 @@ def bin_errors(x, edges, weights=None, density=False, flow="none", cl=intervals.
         total = np.sum(raw)  # the same factor as histogram(density=True)
         errors = errors / (total * np.diff(edges)) if total > 0 else errors * 0
     return errors
+
+
+def _draw_band(ax, counts, errors, edges, color, zorder=None, offset=0.0):
+    """The 2xN (below, above) ``errors`` of a step histogram as a band at
+    20% opacity behind its steps (rule U7), from its first to its last
+    filled bin: empty bins beyond the sample would only show the upper limit
+    of observing nothing. ``offset`` lifts it (a --ridge row's baseline)."""
+    filled = np.flatnonzero(counts > 0)
+    if not len(filled):
+        return
+    span = slice(filled[0], filled[-1] + 1)
+    counts, errors = offset + np.asarray(counts)[span], np.asarray(errors)[:, span]
+    ax.stairs(counts + errors[1], edges[span.start:span.stop + 1], baseline=counts - errors[0], fill=True,
+              color=color, alpha=0.2, linewidth=0, **({} if zorder is None else {"zorder": zorder}))
 
 
 def _draw_flow_hints(ax, counts, edges, under, over, color):
@@ -381,7 +395,7 @@ def draw_figure(df, args, kdx, config, name):
                            f"fall outside [{edges[0]:g}, {edges[-1]:g}] (--flow {args.flow}).")
                 counts, under, over, errors = histogram_with_errors(x, edges, weights, density=density, flow=args.flow)
                 centres = 0.5 * (edges[1:] + edges[:-1])
-                show_errors = is_data(value) or args.errory_type == "poisson"
+                show_errors = not args.no_error  # rule U1: a band on step histograms, bars on points
                 if args.cumulative:
                     raw, _, _, spread = histogram_with_errors(x, edges, weights, density=False, flow=args.flow)
                     counts, errors = cumulate(raw, spread**2, weights is not None, density,
@@ -392,12 +406,15 @@ def draw_figure(df, args, kdx, config, name):
                     rows_of_ridge.append(("hist", edges, counts, errors if show_errors else None, color, is_data(value),
                                           label))
                 elif is_data(value):
-                    ax.errorbar(centres, counts, yerr=errors, fmt="o", color=color, label=label, zorder=3)
+                    ax.errorbar(centres, counts, yerr=errors if show_errors else None, fmt="o", color=color,
+                                label=label, zorder=3)
                 else:
                     ax.stairs(counts, edges, label=label, color=color, linestyle=_resolve_plot_style(linestyle) or "-",
                               linewidth=style.default_linewidth)
-                    if show_errors:
+                    if show_errors and args.errory_type == "poisson":
                         ax.errorbar(centres, counts, yerr=errors, fmt="none", color=color, linewidth=1)
+                    elif show_errors:
+                        _draw_band(ax, counts, errors, edges, color)
                 if args.flow == "hint" and args.ridge is None and not args.cumulative:
                     _draw_flow_hints(ax, counts, edges, under, over, color)
             elif curve_kind == "kde":
@@ -407,11 +424,12 @@ def draw_figure(df, args, kdx, config, name):
                     scale = (float(np.sum(weights)) if weights is not None else len(x)) * float(np.mean(np.diff(edges)))
                     ys, errors = ys * scale, errors * scale
                 if args.ridge is not None:
-                    rows_of_ridge.append(("kde", grid, ys, errors, color, False, label))
+                    rows_of_ridge.append(("kde", grid, ys, None if args.no_error else errors, color, False, label))
                 else:
                     ax.plot(grid, ys, color=color, linestyle=_resolve_plot_style(linestyle) or "-",
                             linewidth=style.default_linewidth, label=label)
-                    ax.fill_between(grid, ys - errors, ys + errors, color=color, alpha=0.2, linewidth=0)
+                    if not args.no_error:
+                        ax.fill_between(grid, ys - errors, ys + errors, color=color, alpha=0.2, linewidth=0)
             else:
                 grid = np.linspace(edges[0], edges[-1], ECDF_POINTS) if len(x) > ECDF_POINTS else None
                 points, ys, errors = ecdf_curve(x, weights, grid)
@@ -419,12 +437,14 @@ def draw_figure(df, args, kdx, config, name):
                     points = np.concatenate([[min(edges[0], points[0])], points])
                     ys, errors = np.concatenate([[0.0], ys]), np.concatenate([[0.0], errors])
                 if args.ridge is not None:
-                    rows_of_ridge.append(("ecdf", points, ys, errors, color, is_data(value), label))
+                    rows_of_ridge.append(("ecdf", points, ys, None if args.no_error else errors, color, is_data(value),
+                                          label))
                 else:
                     ax.step(points, ys, where="post", color=color, linewidth=style.default_linewidth, label=label,
                             linestyle=_resolve_plot_style(linestyle) or "-", zorder=3 if is_data(value) else 2)
-                    ax.fill_between(points, ys - errors, ys + errors, step="post", color=color, alpha=0.2,
-                                    linewidth=0)
+                    if not args.no_error:
+                        ax.fill_between(points, ys - errors, ys + errors, step="post", color=color, alpha=0.2,
+                                        linewidth=0)
             if args.rug and args.ridge is None:
                 _draw_rug(ax, x, color)
         if rows_of_ridge:
@@ -459,8 +479,9 @@ def draw_figure(df, args, kdx, config, name):
                 default_y = "Density" if density or (args.hist_type == "kde" and kde_density) else "Counts"
             default_y = args.labely if args.labely is not None else default_y
             show = args.error_label if args.error_label is not None else style.error_label
+            # The Garwood intervals of unweighted counts: on every histogram, or the data points over a KDE.
             if (show and args.weight is None and args.hist_type != "ecdf" and not args.cumulative
-                    and (args.errory_type == "poisson" or args.data_hue)):
+                    and not args.no_error and (args.hist_type == "hist" or args.data_hue)):
                 default_y = f"{default_y}, {intervals.label('poisson', args.confidence_level)}"
             ax.set_ylabel(resolve_axis_label(default_y, None, df))
         rangex = panel_rangex(args, idx)
@@ -518,6 +539,8 @@ def _draw_ridges(ax, rows, overlap):
         if kind == "hist":
             ax.stairs(top, x, baseline=base, fill=True, facecolor=to_rgba(color, 0.6), edgecolor=color,
                       linewidth=style.default_linewidth, zorder=z)
+            if errors is not None:
+                _draw_band(ax, scale * y, scale * errors, x, color, zorder=z + 0.005, offset=base)
             continue
         where = "post" if kind == "ecdf" else None
         face = "none" if data else to_rgba(color, 0.6)

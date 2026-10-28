@@ -69,9 +69,16 @@ def _capture():
 
 
 def _stairs(ax):
+    """The step outlines (the filled step patches are error bands)."""
     from matplotlib.patches import StepPatch
 
-    return [p for p in ax.patches if isinstance(p, StepPatch)]
+    return [p for p in ax.patches if isinstance(p, StepPatch) and not p.get_fill()]
+
+
+def _bands(ax):
+    from matplotlib.patches import StepPatch
+
+    return [p for p in ax.patches if isinstance(p, StepPatch) and p.get_fill()]
 
 
 def test_hist_flat_outline_spans_all_edges(make_project):
@@ -154,7 +161,7 @@ def test_hist_data_hue_points(tmp_path, monkeypatch):
         registry.figure_hooks.clear()
     ax = figures[0].axes[0]
     points = [c for c in ax.containers if isinstance(c, ErrorbarContainer)]
-    assert len(points) == 1 and len([p for p in ax.patches if type(p).__name__ == "StepPatch"]) == 1
+    assert len(points) == 1 and len(_stairs(ax)) == 1
     errors = points[0].lines[2][0].get_segments()
     counts = points[0].lines[0].get_ydata()
     from plotipus.intervals import garwood
@@ -338,3 +345,77 @@ def test_ridge_stacks_hues_first_on_top(make_project):
     tops = [b.get_paths()[0].vertices[:, 1].max() for b in bodies]
     bases = [2.0, 1.0, 0.0]
     assert np.isclose(max(t - b for t, b in zip(tops, bases)), 1.8, atol=0.05)
+
+
+def test_hist_draws_a_garwood_band_by_default(make_project):
+    """Rule U1: a step histogram carries its statistical error as a band (U7),
+    the Garwood interval of unweighted counts, named in the y label (U6)."""
+    from plotipus.intervals import garwood
+
+    x = np.random.default_rng(3).exponential(1.0, 300)
+    make_project({"Ev": pd.DataFrame({"E": [x]})})
+    figures = _capture()
+    hist.main(["--datafile", "Ev", "-x", "E", "--bins", "12"])
+    ax = figures[0].axes[0]
+    (step,), (band,) = _stairs(ax), _bands(ax)
+    counts = step.get_data().values
+    low, high = garwood(counts)
+    assert np.allclose(band.get_data().values, high) and np.allclose(band.get_data().baseline, low)
+    assert band not in ax.get_legend_handles_labels()[0]
+    assert "68% CL (Poisson)" in ax.get_ylabel()
+
+
+def test_hist_weighted_band_is_sqrt_sum_of_squared_weights(make_project):
+    rng = np.random.default_rng(4)
+    x, w = rng.uniform(0, 1, 500), rng.uniform(0.5, 2.0, 500)
+    make_project({"Ev": pd.DataFrame({"E": [x], "W": [w]})})
+    figures = _capture()
+    hist.main(["--datafile", "Ev", "-x", "E", "--weight", "W", "--bins", "5", "--rangex", "0", "1"])
+    ax = figures[0].axes[0]
+    (step,), (band,) = _stairs(ax), _bands(ax)
+    sumw2 = np.sqrt(np.histogram(x, bins=step.get_data().edges, weights=w**2)[0])
+    assert np.allclose(band.get_data().values - step.get_data().values, sumw2)
+    assert "CL" not in ax.get_ylabel()
+
+
+def test_hist_no_error_draws_no_band_and_no_bars(tmp_path, monkeypatch):
+    from matplotlib.container import ErrorbarContainer
+
+    from plotipus import registry
+
+    make_project(tmp_path, monkeypatch, {"Energies": _frame()})
+    figures = []
+    registry.add_figure_hook(lambda fig, args: figures.append(fig))
+    try:
+        hist.main(["--datafile", "Energies", "-x", "True", "--hue", "Sample", "--data_hue", "a", "--bins", "20",
+                   "--no_error"])
+    finally:
+        registry.figure_hooks.clear()
+    ax = figures[0].axes[0]
+    assert _bands(ax) == []
+    (points,) = [c for c in ax.containers if isinstance(c, ErrorbarContainer)]
+    assert not points.has_yerr
+    assert "CL" not in ax.get_ylabel()
+
+
+def test_hist_errory_type_poisson_keeps_bars_instead_of_the_band(make_project):
+    from matplotlib.container import ErrorbarContainer
+
+    make_project({"Ev": pd.DataFrame({"E": [np.random.default_rng(5).normal(0, 1, 200)]})})
+    figures = _capture()
+    hist.main(["--datafile", "Ev", "-x", "E", "--bins", "8", "--errory_type", "poisson"])
+    ax = figures[0].axes[0]
+    assert _bands(ax) == []
+    assert len([c for c in ax.containers if isinstance(c, ErrorbarContainer)]) == 1
+
+
+def test_hist_band_spans_the_filled_bins_only(make_project):
+    """No band over the empty bins beyond a sample (the upper limit of seeing
+    nothing); an empty bin inside it keeps its band."""
+    x = np.concatenate([np.full(5, 2.5), np.full(3, 4.5)])
+    make_project({"Ev": pd.DataFrame({"E": [x]})})
+    figures = _capture()
+    hist.main(["--datafile", "Ev", "-x", "E", "--bins", "8", "--rangex", "0", "8"])
+    (band,) = _bands(figures[0].axes[0])
+    assert band.get_data().edges.tolist() == [2.0, 3.0, 4.0, 5.0]
+    assert band.get_data().values[1] > 1.8  # the empty bin between: up to Garwood's 1.84
