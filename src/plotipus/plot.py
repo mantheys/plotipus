@@ -212,10 +212,12 @@ def _panel_overhangs(fig, panels, renderer):
         if parents and cax.get_visible():
             owner = max(parents, key=lambda a: a.get_position(original=True).x1)
             box = cax.get_tightbbox(renderer, for_layout_only=True)
-            # Only its thickness: a colorbar beside a wrapped grid spans every row, not the owner's overhang.
-            if getattr(getattr(cax, "_colorbar", None), "orientation", "vertical") == "vertical":
+            # Beside several rows (or columns) of panels a colorbar counts only its thickness: its length spans
+            # them all and is not the owner's overhang.
+            vertical = getattr(getattr(cax, "_colorbar", None), "orientation", "vertical") == "vertical"
+            if vertical and len({round(a.bbox.y0) for a in parents}) > 1:
                 box = Bbox([[box.x0, max(box.y0, owner.bbox.y0)], [box.x1, min(box.y1, owner.bbox.y1)]])
-            else:
+            elif not vertical and len({round(a.bbox.x0) for a in parents}) > 1:
                 box = Bbox([[max(box.x0, owner.bbox.x0), box.y0], [min(box.x1, owner.bbox.x1), box.y1]])
             extra.setdefault(owner, []).append(box)
     overhangs = {}
