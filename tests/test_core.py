@@ -360,14 +360,14 @@ def test_density_ticks_without_e_notation(make_project, tmp_path):
     ax = _density_hist(make_project, tmp_path)
     texts = _tick_texts(ax.yaxis)
     assert texts and not any("e-" in t for t in texts)
-    assert ax.get_ylabel() == "Density"  # 0.04 prints as 0.04 within the default limits
+    assert ax.get_ylabel() == "Density, 68% CL (Poisson)"  # 0.04 prints as 0.04 within the default limits
 
 
 def test_power_of_ten_moves_into_the_label(make_project, tmp_path):
     limits = {"rcparams": {"axes.formatter.limits": [-2, 4]}}
     ax = _density_hist(make_project, tmp_path, style_json=limits)
     assert not any("e-" in t for t in _tick_texts(ax.yaxis))
-    assert ax.get_ylabel().replace("\u2212", "-").endswith(r"($\times\mathdefault{10^{-2}}$)")
+    assert ax.get_ylabel().replace("\u2212", "-") == r"Density ($\times\mathdefault{10^{-2}}$), 68% CL (Poisson)"
     assert not ax.yaxis.offsetText.get_visible()
 
 
@@ -377,6 +377,9 @@ def test_power_of_ten_goes_inside_a_unit():
     assert _label_with_offset("Rate (Hz)", "$x$") == "Rate ($x$ Hz)"
     assert _label_with_offset("Energy [MeV]", "$x$") == "Energy [$x$ MeV]"
     assert _label_with_offset("Density", "$x$") == "Density ($x$)"
+    # The interval's name (U6) is not a unit: the power of ten goes before it.
+    assert _label_with_offset("Rate (Hz), 68% CL (Poisson)", "$x$") == "Rate ($x$ Hz), 68% CL (Poisson)"
+    assert _label_with_offset("Density, 95% CL (Clopper–Pearson)", "$x$") == "Density ($x$), 95% CL (Clopper–Pearson)"
 
 
 def test_default_formatter_axes_get_mathtext_multiplier():
@@ -393,14 +396,14 @@ def test_default_formatter_axes_get_mathtext_multiplier():
 def test_sci_in_label_off_keeps_offset_text(make_project, tmp_path):
     limits = {"rcparams": {"axes.formatter.limits": [-2, 4]}}
     ax = _density_hist(make_project, tmp_path, "--no-sci_in_label", style_json=limits)
-    assert ax.get_ylabel() == "Density"
+    assert ax.get_ylabel() == "Density, 68% CL (Poisson)"
     assert ax.yaxis.offsetText.get_visible() and ax.yaxis.get_major_formatter().get_offset()
 
 
 def test_sci_in_label_style_setting(make_project, tmp_path):
     style_json = {"rcparams": {"axes.formatter.limits": [-2, 4]}, "plot_settings": {"sci_in_label": False}}
     ax = _density_hist(make_project, tmp_path, style_json=style_json)
-    assert ax.get_ylabel() == "Density"
+    assert ax.get_ylabel() == "Density, 68% CL (Poisson)"
 
 
 def test_log_axes_keep_decade_labels():

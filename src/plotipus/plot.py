@@ -459,7 +459,12 @@ def _offset_label(formatter):
 
 def _label_with_offset(label, offset):
     """``label`` with ``offset`` inside its trailing unit, "Rate (Hz)" ->
-    "Rate ($\\times10^{-5}$ Hz)", else appended, "Density ($\\times10^{-2}$)"."""
+    "Rate ($\\times10^{-5}$ Hz)", else appended, "Density ($\\times10^{-2}$)";
+    before the interval named after the quantity (rule U6), "Density
+    ($\\times10^{-2}$), 68% CL (Poisson)"."""
+    interval = re.match(r"^(.*\S)(, [\d.]+% CL \([^()]*\))$", label)
+    if interval:
+        return _label_with_offset(interval.group(1), offset) + interval.group(2)
     unit = re.match(r"^(.*?)\s*([(\[])([^()\[\]]*)([)\]])\s*$", label)
     if unit and unit.group(3).strip():
         head, opening, inner, closing = unit.groups()
