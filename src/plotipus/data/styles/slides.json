@@ -1,9 +1,10 @@
 {
-  "_comment": "slides medium (style_spec 2.1, 2.11): 8 in wide at aspect 0.73, a lower panel shares that height; titles allowed.",
+  "_comment": "slides medium (style_spec 2.1, 2.11): 8 in wide at aspect 0.73, a lower panel shares that height, facets wrap at 2 columns; titles allowed.",
   "mplstyle": "slides.mplstyle",
   "width": "slide",
   "aspect": 0.73,
   "lower_panels": "share",
+  "facet_columns": 2,
   "font_sizes": {
     "titlefontsize": "x-large", "subtitlefontsize": "large",
     "legendtitlefontsize": "medium", "legendfontsize": "medium",

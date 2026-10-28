@@ -1146,6 +1146,35 @@ def test_variables_grid_shares_outer_labels(make_project, quartet):
     assert a.get_xlabel() == "" and c.get_xlabel() == "X" and b.get_ylabel() == ""
 
 
+def test_a_wrapped_row_of_facets_stays_one_row(make_project, quartet):
+    """Rule L3: three facets wrap at two columns on slides; like the row
+    they come from, they share one y range, keep their own x and are each
+    titled; the y labels move to the first column."""
+    frame = quartet.assign(X=lambda f: [x * {"I": 1, "II": 2, "III": 3, "IV": 4}[v] for x, v in zip(f["X"], f["Variable"])])
+    fig = _grid(make_project, frame, "--select", "Weighting", "Detector", "Variable", "-s", "Raw", "H1",
+                "I", "II", "III", "--facet_col", "Variable")
+    a, b, c = [ax for ax in fig.axes if ax.get_visible()][:3]
+    fig.canvas.draw()
+    assert [ax.get_subplotspec().colspan.start for ax in (a, b, c)] == [0, 1, 0]
+    assert [ax.get_title() for ax in (a, b, c)] == ["I", "II", "III"]
+    assert a.get_shared_y_axes().joined(a, c) and a.get_shared_y_axes().joined(a, b)
+    assert not a.get_shared_x_axes().joined(a, c) and a.get_xlim() != c.get_xlim()
+    assert _labels_shown(a, "x") and _labels_shown(c, "y") and not _labels_shown(b, "y")
+
+
+def test_a_colorbar_beside_wrapped_facets_keeps_the_rows_close(make_project, quartet):
+    """The --hue_cmap colorbar spans both rows; the gap between them stays a
+    gap (it once counted the colorbar's height as the upper row's overhang)."""
+    frame = quartet[quartet["Weighting"] == "Raw"]
+    fig = _grid(make_project, frame, "--hue", "Detector", "--hue_cmap", "viridis", "--no_legend", "--select",
+                "Variable", "-s", "I", "II", "III", "--facet_col", "Variable", "--medium", "paper", "--layout",
+                "facets")
+    panels = [ax for ax in fig.axes if ax.get_visible() and not hasattr(ax, "_colorbar")
+              and not getattr(ax, "_plotipus_colorbar_of", None)][:3]
+    for ax in panels:
+        assert ax.get_position().height > 0.3
+
+
 def test_facet_rows_with_lower_panels_and_per_row_settings(make_project, quartet):
     fig = _grid(make_project, quartet, "--select", "Variable", "Detector", "-s", "I", "H1", "--facet_row",
                 "Weighting", "--lower", "column:Ratio", "--panel_labely", "Events", "Weights", "--panel_rangey",

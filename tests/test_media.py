@@ -49,12 +49,20 @@ def test_panels_share_the_width(make_project, spectra):
     assert sizes[-1] == pytest.approx((6.8, 3.0))
 
 
-def test_lower_panel_adds_thirty_percent(make_project, spectra):
+def test_lower_panel_takes_its_height_from_the_plot(make_project, spectra):
+    """Rule L2: a lower panel keeps the figure size in every medium (paper included)."""
     make_project({"Spectra": spectra})
-    (width, height), = _sizes("--medium", "paper")
-    (width_lower, height_lower), = _sizes("--medium", "paper", "--lower", "ratio")
-    assert width_lower == pytest.approx(width)
-    assert height_lower == pytest.approx(1.3 * height)
+    for medium in ("paper", "slides", "web"):
+        plain, = _sizes("--medium", medium)
+        with_lower, = _sizes("--medium", medium, "--lower", "ratio")
+        assert with_lower == pytest.approx(plain), medium
+
+
+def test_lower_panels_add_height_when_the_style_says_so(make_project, spectra, tmp_path):
+    make_project({"Spectra": spectra}, 'style = ["add.json"]\n')
+    (tmp_path / "add.json").write_text('{"lower_panels": "add"}')
+    (width, height), = _sizes()
+    assert _sizes("--lower", "ratio")[0] == pytest.approx((width, 1.3 * height))
 
 
 def test_project_media_write_one_file_per_medium(make_project, spectra, monkeypatch):
@@ -166,13 +174,27 @@ def test_slides_lower_panel_shares_the_height(make_project, spectra):
 
 
 def test_facets_widen_and_panels_keep_one_plot(make_project, spectra):
-    """Facets add 0.6 of the width each at one plot's height; --layout panels
-    keeps one plot's size."""
+    """Rule L3: each facet adds one plot's width at one plot's height;
+    --layout panels keeps one plot's size."""
     make_project({"Spectra": spectra})
     single = _sizes("--select", "Variable", "-s", "E")[-1]
     two = ["--select", "Variable", "-s", "E", "F", "--variables", "E", "F"]
-    assert _sizes(*two)[-1] == pytest.approx((2 * 0.6 * 8, single[1]))
+    assert _sizes(*two)[-1] == pytest.approx((2 * single[0], single[1]))
     assert _sizes(*two, "--layout", "panels")[-1] == pytest.approx(single)
+
+
+def test_facets_wrap_at_two_columns(make_project, spectra):
+    """Rule L3: three facets on slides wrap into two rows of single plots,
+    and so does paper with --layout facets (a double column); paper's default
+    --layout panels splits one column."""
+    make_project({"Spectra": pd.concat([spectra, spectra[spectra["Variable"] == "E"].assign(Variable="G")])})
+    three = ["--select", "Variable", "-s", "E", "F", "G", "--variables", "E", "F", "G"]
+    single = _sizes("--select", "Variable", "-s", "E")[-1]
+    assert _sizes(*three)[-1] == pytest.approx((2 * single[0], 2 * single[1]))
+    assert _sizes(*three, "--medium", "paper", "--layout", "facets")[-1] == pytest.approx((6.8, 2 * 2.55))
+    assert _sizes(*three, "--medium", "paper")[-1] == pytest.approx((3.4, 2.55))
+    # A grid asked for is kept: one row of three single plots.
+    assert _sizes(*three, "--panel_grid", "1", "3")[-1] == pytest.approx((3 * single[0], single[1]))
 
 
 def test_cmr10_draws_less_and_greater_than(make_project, spectra):

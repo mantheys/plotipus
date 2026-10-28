@@ -978,7 +978,8 @@ def add_common_args(parser, arg_names, overrides=None):
             choices=["facets", "panels"],
             default=None,
             help="Several panels side by side: 'facets' (default) widen the figure, each facet adding the "
-            "style's facet_width share of one plot's width, at one plot's height; 'panels' split one plot's "
+            "style's facet_width share of one plot's width (a whole plot), at one plot's height, wrapping past "
+            "facet_columns (2 on slides and paper); 'panels' (paper's default) split one plot's "
             "area into touching panels that share the y axis. Facets are compact by default (--no-compact "
             "shows every y axis).",
         )

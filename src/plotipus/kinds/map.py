@@ -540,13 +540,20 @@ def compact(args, ncols):
     return args.compact if args.compact is not None else ncols > 1
 
 
+def first_column(ax):
+    """Whether ``ax`` is in the first column of its grid (an inset is)."""
+    spec = ax.get_subplotspec()
+    return spec is None or spec.colspan.start == 0
+
+
 def share_rows(axes, args):
     """--compact: the panels share the first one's y range and drop the inner
     y labels; they move close unless each has its own colorbar between them."""
     for ax in axes[1:]:
         ax.sharey(axes[0])
-        ax.set_ylabel("")
-        ax.tick_params(which="both", labelleft=False)  # minor labels too (log axes label some)
+        if not first_column(ax):  # a wrapped row keeps the labels of its first panel
+            ax.set_ylabel("")
+            ax.tick_params(which="both", labelleft=False)  # minor labels too (log axes label some)
     if colorbar_mode(args) in ("shared", "none"):
         axes[0].get_gridspec().update(wspace=style.compact_gap())
 
@@ -1382,7 +1389,7 @@ def draw_contour_figure(df, args):
             if ncols > 1:
                 ax.set_title(make_subtitle_from_args(args, hues, plot_type="hist2d", idx=hdx), fontsize=style.subtitlefontsize)
             ax.set_xlabel(resolve_axis_label(args.labelx, args.x, subset))
-            if panel_idx == 0:
+            if first_column(ax):
                 ax.set_ylabel(resolve_axis_label(args.labely, args.y, subset))
             else:
                 ax.set_ylabel("")

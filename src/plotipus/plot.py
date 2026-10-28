@@ -52,9 +52,10 @@ def lower_height_ratios(n_lower):
 def get_common_figsize(ncols=1, nrows=1, height_ratios=None):
     """Figure size (inches). At a --width (or the medium's), each row is one
     plot's height; facets side by side widen the figure, each adding the
-    style's ``facet_width`` share of one plot's width (``--layout panels``
-    keeps one plot's width instead). ``height_ratios`` (upper panel first)
-    add the lower panels' height, or share it (``lower_panels: share``).
+    style's ``facet_width`` share of one plot's width, a whole plot by
+    default (``--layout panels`` keeps one plot's width instead). Lower
+    panels (``height_ratios``, upper panel first) share the plot's height,
+    or add theirs with ``lower_panels: add``.
     Without a width, the old geometry: base width plus a panel width per
     extra column. With --single_panel_size every figure has the size of one
     panel."""
@@ -210,7 +211,13 @@ def _panel_overhangs(fig, panels, renderer):
         parents = getattr(cax, "_plotipus_colorbar_of", None)
         if parents and cax.get_visible():
             owner = max(parents, key=lambda a: a.get_position(original=True).x1)
-            extra.setdefault(owner, []).append(cax.get_tightbbox(renderer, for_layout_only=True))
+            box = cax.get_tightbbox(renderer, for_layout_only=True)
+            # Only its thickness: a colorbar beside a wrapped grid spans every row, not the owner's overhang.
+            if getattr(getattr(cax, "_colorbar", None), "orientation", "vertical") == "vertical":
+                box = Bbox([[box.x0, max(box.y0, owner.bbox.y0)], [box.x1, min(box.y1, owner.bbox.y1)]])
+            else:
+                box = Bbox([[max(box.x0, owner.bbox.x0), box.y0], [min(box.x1, owner.bbox.x1), box.y1]])
+            extra.setdefault(owner, []).append(box)
     overhangs = {}
     for ax, _, _ in panels:
         # A legend above the axes takes room above them only: wider than its panel, it may reach over the gap

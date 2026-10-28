@@ -421,6 +421,19 @@ def test_panels_compact_by_default(make_project):
     assert figures[1].axes[1].get_ylabel() != ""
 
 
+def test_wrapped_panels_keep_y_labels_in_the_first_column(make_project):
+    """Three panels wrap at two columns on slides (rule L3): the panel that
+    starts the second row keeps its y label and tick labels."""
+    make_project({"Points": pd.concat([_points().assign(Sample=s) for s in "abc"])})
+    figures = _capture()
+    map_kind.main(["--datafile", "Points", "-x", "X", "-y", "Y", "--iterable", "Sample"])
+    a, b, c = [ax for ax in figures[0].axes if ax.get_visible() and ax.get_label() != "<colorbar>"][:3]
+    assert c.get_subplotspec().rowspan.start == 1 and c.get_subplotspec().colspan.start == 0
+    assert a.get_ylim() == b.get_ylim() == c.get_ylim()
+    assert c.get_ylabel() != "" and b.get_ylabel() == ""
+    assert c.yaxis.get_tick_params(which="major")["labelleft"] is not False
+
+
 def test_diagonal_spans_the_matched_axes(make_project):
     """--diagonal crosses the whole panel, also where --matchx widens it past
     this panel's data."""

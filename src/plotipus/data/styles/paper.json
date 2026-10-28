@@ -1,9 +1,11 @@
 {
-  "_comment": "paper medium (style_spec 2.1, 2.2): a journal column; no titles (the caption is the title). Save as PDF.",
+  "_comment": "paper medium (style_spec 2.1, 2.2): a journal column split into touching panels (--layout facets: up to 2 single plots side by side, double column), a lower panel shares its height; no titles (the caption is the title). Save as PDF.",
   "mplstyle": "paper.mplstyle",
   "width": "single",
   "aspect": 0.75,
   "layout": "panels",
+  "lower_panels": "share",
+  "facet_columns": 2,
   "font_sizes": {
     "titlefontsize": "large", "subtitlefontsize": "medium",
     "legendtitlefontsize": "medium", "legendfontsize": "medium",

@@ -49,7 +49,8 @@ are the example list, `examples/input/plots/example_scripts.txt`;
   to the data root), `--select COL -s VALUE` / `--remove_value`,
   `--variables` (values of the `Variable` column, one panel each).
   `--variable_column COL` takes the panels from another column. Panels side
-  by side are facets: the figure widens with each one (`--layout panels`
+  by side are facets: the figure widens by one plot with each one, wrapping
+  at two columns on slides and paper (`--layout panels`, the paper default,
   keeps one plot's size, split in touching panels). They share their y range
   and only the first shows the y label and tick labels (`--no-compact` gives
   each its own axis).
@@ -57,7 +58,8 @@ are the example list, `examples/input/plots/example_scripts.txt`;
   grid (`--panel_grid ROWS COLS` fixes it); `--facet_row COL` and
   `--facet_col COL` give one row or column of panels per value of a column
   (with `--variables`, the variables take the other dimension), each with its
-  own `--lower` panels. Compact grids share y along each row and x down each
+  own `--lower` panels. A wrapped row of panels shares one y range and keeps
+  each panel's x axis and title. Compact grids share y along each row and x down each
   column, with tick labels and axis labels on the outer panels only;
   `--sharex none|col|all` and `--sharey none|row|all` choose. Column values
   title the top row and row values are written right of the last column
