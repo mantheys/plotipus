@@ -811,11 +811,11 @@ COMMON_ARG_SPECS = {
     "exact": {
         "flags": ["--exact"],
         "kwargs": {
-            "nargs": "+",
+            "nargs": "*",
             "default": None,
             "metavar": "VALUE",
             "help": "Hue values that are exact (a model, fit or theory curve): drawn without "
-            "errors and without the 'no uncertainty' warning",
+            "errors and without the 'no uncertainty' warning; without values, every series",
         },
     },
     "errory_type": {

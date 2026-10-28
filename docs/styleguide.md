@@ -96,7 +96,7 @@ enforceable version. Where the two differ, this guide is the target.
 
 ## U. Uncertainties
 
-- **U1. Every plotted value carries an uncertainty.** ✗
+- **U1. Every plotted value carries an uncertainty.** ✅
   - If the dataframe has an error column, it is drawn (F2).
   - If not, plotipus computes the standard interval for the quantity (U3)
     and prints a warning naming it, for example: *"Counts has no error
@@ -104,27 +104,34 @@ enforceable version. Where the two differ, this guide is the target.
   - If no standard interval applies, it draws the values without errors and
     warns that they have none.
   - Exact quantities (a model curve, a fit, a theory line) are exempt and
-    print no warning.
-  - Status: errors are drawn only with `--errory`. Data overlays of counts
-    and `hist` data get Poisson intervals by default. Nothing warns when a
-    series has no errors.
+    print no warning: `--exact VALUE...` names them (`--exact` alone: every
+    series), and closed shapes (`--plot_type fill`) are exempt.
+  - Status: `line` and `cat` draw the stored errors without `--errory`
+    (still accepted; it only names the file). Without an error column,
+    integer counts get Garwood intervals and `--count_column` efficiencies
+    Clopper–Pearson, each with a warning; other series warn that they have
+    none. `--no_error` draws no errors and silences the warnings. `hist`
+    draws data with Garwood intervals; simulation histograms carry no band,
+    and `scatter` shows single observations without errors.
 - **U2. 68.3% (one σ) unless stated.** ✅ `--confidence_level` changes it,
   and the label then says so.
 - **U3. The interval suits the quantity**:
 
   | quantity | interval | why not the simple one | plotipus |
   |---|---|---|---|
-  | unweighted counts n | Garwood (exact Poisson), asymmetric | √n is 0 at n = 0, and goes below 0 for small n | ✅ `--errory_type poisson`; the default for count data overlays and `hist` data |
+  | unweighted counts n | Garwood (exact Poisson), asymmetric | √n is 0 at n = 0, and goes below 0 for small n | ✅ the default for counts without an error column (`line`, `cat`, `hist` data, tables); `--errory_type poisson` forces it |
   | weighted counts | √Σw² | — | ✅ `hist --weight`, stack totals |
-  | efficiency k/N | Clopper–Pearson, asymmetric, inside [0, 1] | the binomial √(ε(1−ε)/N) is 0 at ε = 0 and 1, and leaves [0, 1] | ✅ plots: `--errory_type clopper_pearson --count_column N`; ◐ tables: `--clopper_pearson` only |
+  | efficiency k/N | Clopper–Pearson, asymmetric, inside [0, 1] | the binomial √(ε(1−ε)/N) is 0 at ε = 0 and 1, and leaves [0, 1] | ✅ plots: `--count_column N` (forced by `--errory_type clopper_pearson`); tables: `Passed`/`Total` columns, or `--clopper_pearson` |
   | binned mean / median | standard error of the statistic | the spread (std) is not the uncertainty of the mean | ✅ `--binned --estimator mean` |
   | stack total | the stacked errors in quadrature, or a stored total (with systematics) | — | ✅ `--stack_total_error[_column]` |
   | 2D confidence region | Δχ² for 2 degrees of freedom: 2.30, 6.18, 11.83 | the 1-dof values (1, 4, 9) undercover | ✅ `--contour_sigmas` |
 
-- **U4. Intervals respect physical bounds.** ◐ Computed intervals do:
+- **U4. Intervals respect physical bounds.** ✅ Computed intervals do:
   Garwood never goes below 0, and Clopper–Pearson stays inside [0, 1].
-  Stored symmetric errors that cross a bound are drawn as given, without a
-  warning.
+  Stored errors that cross a bound are drawn as given, with one warning per
+  series naming the bound: below 0 when every value is non-negative, above
+  1 (or `--efficiency_scale`) for an efficiency (`--count_column`, or every
+  value between 0 and 1). Tables warn the same way, per variable.
 - **U5. Ratios handle empty bins physically.** ✅
   - 0 / 0 (nothing seen, nothing expected) is an open marker at the
     reference: the bin agrees and carries no information.
@@ -146,16 +153,17 @@ enforceable version. Where the two differ, this guide is the target.
   unc." by default); set it to say what the band contains. A series can
   carry both as nested bands: `--errory_column Stat StatSyst --band_labels
   'stat.' 'stat. ⊕ syst.'`.
-- **U10. Tables compute intervals the same way plots do.** ◐
+- **U10. Tables compute intervals the same way plots do.** ✅
   - A table that derives a number computes its error with the same method
     as the plot of that number: Clopper–Pearson for efficiencies, Garwood
     for small counts.
   - It prints asymmetric intervals as $x^{+a}_{-b}$.
   - It never falls back to a symmetric standard deviation that crosses a
     bound: no "0.98 ± 0.05" for an efficiency.
-  - Status: Clopper–Pearson needs `--clopper_pearson`. There is no Poisson
-    option for counts, and `--error_mode std|sem` is accepted for small
-    counts without a warning.
+  - Status: without an error column, `Passed`/`Total` frames get
+    Clopper–Pearson and integer counts Garwood, with a warning naming the
+    interval; `--poisson COLUMN` and `--clopper_pearson PASS [TOTAL]` ask
+    for them; `--error_mode std|sem` on counts warns.
 
 ## N. Numbers and text
 
@@ -340,9 +348,7 @@ the authors got wrong. Both sides are recreations, not official results.
 
 | rule | gap | proposed change |
 |---|---|---|
-| U1 | Errors drawn only with `--errory` (data from `--data_hue`/`--overlay` excepted: counts get Garwood intervals); no warning for series without errors | Draw errors by default when a column exists. When none exists, compute the U3 interval (integer counts: Garwood; with a count column: Clopper–Pearson) and warn; else warn "no uncertainty". `--no_errors` silences it, and exact series are exempt |
-| U10 | Tables: Clopper–Pearson is opt-in, there is no Poisson option, and `std`/`sem` are allowed for counts | Pick the interval from F3/F4 automatically, add `--poisson COLUMN`, and warn when a symmetric error crosses a bound |
-| U4 | Stored errors crossing 0 or 1 are drawn as given | Warn once per series, naming the bound |
+| U1 | `hist` draws simulation without its statistical error | A √Σw² band (Garwood for unweighted counts) by default, `--no_error` to drop it |
 | L2 | Paper adds 30% height for a lower panel | `lower_panels: share` in `paper.json` too |
 | L3 | Each facet widens the figure by 0.6 of a single plot (`facet_width`), so facets are narrower than single plots | Facet width 1.0 × a single plot, wrapping at 2 columns on paper and slides |
 | C1 | Colours follow value order unless a mapping pins them | A project-level colour registry that stores each new category's colour on first use |

@@ -73,10 +73,10 @@ line --datafile Showers -x TrueEnergy -y Response --binned --estimator mean --hu
 # == C Trends and fits
 
 # C1 Lines, colour by hue, style by a second variable
-line --datafile RotationCurves -x Radius -y Velocity --hue Galaxy --style Type --plot_type line --no_legend --rangex 0 125 --rangey 0 350 --labelx 'R (kpc)' --labely 'V (km/s)' --title 'Rotation curves of 21 galaxies, style by type' --output_suffix C1
+line --datafile RotationCurves -x Radius -y Velocity --hue Galaxy --style Type --plot_type line --no_legend --rangex 0 125 --rangey 0 350 --labelx 'R (kpc)' --labely 'V (km/s)' --title 'Rotation curves of 21 galaxies, style by type' --output_suffix C1 --exact Keplerian
 
 # C2 Line with uncertainty band
-line --datafile HockeyStick -x Year -y Anomaly --hue Series --style Series --iterable_color_mapping mbh_colors --iterable_mapping mbh_labels --comparable_linestyles solid solid solid dashdot --linewidth_column Width --plot_type line --errory --errory_type bands --horizontal 0 --rangex 1000 2000 --rangey -1.5 1 --labelx 'Year' --labely 'Temperature anomaly ($^\circ$C)' --title 'Northern-hemisphere temperatures with a 2σ band' --output_suffix C2
+line --datafile HockeyStick -x Year -y Anomaly --hue Series --style Series --iterable_color_mapping mbh_colors --iterable_mapping mbh_labels --comparable_linestyles solid solid solid dashdot --linewidth_column Width --plot_type line --errory --errory_type bands --horizontal 0 --rangex 1000 2000 --rangey -1.5 1 --labelx 'Year' --labely 'Temperature anomaly ($^\circ$C)' --title 'Northern-hemisphere temperatures with a 2σ band' --output_suffix C2 --exact '40-year smoothed' 'Linear trend'
 
 # C3 Stored fit over data with parameter box
 line --datafile Moseley -x AtomicNumber -y SqrtFrequency --hue Series --select Type Series -s Data 'K$\alpha$' --fit --errory --labelx 'Atomic number Z' --labely '$\sqrt{\nu}$ ($10^{8}$ Hz$^{1/2}$)' --title "Moseley's law: the stored Kα fit" --output_suffix C3
@@ -88,7 +88,7 @@ line --datafile HiggsDiphoton -x Mass -y Events --select Component -s Data --sel
 line --datafile Distributions -x Bin -y Counts --select Distribution Sample -s Resonance Data --fit --data_hue Data --lower pull --chi2 --max_fit_params 3 --labelx 'Mass (GeV)' --labely 'Events / 2 GeV' --title 'A resonance fit with pulls' --output_suffix C5
 
 # C6 G9 Several model curves over data, the tiny errors magnified
-line --datafile ZLineshape -x Energy -y CrossSection --hue Model --series_type Data=errorbar --plot_type line --errory --error_scale 10 --labelx '$E_{cm}$ [GeV]' --labely '$\sigma_{had}$ [nb]' --title 'Z line shape and the number of neutrinos' --output_suffix C6
+line --datafile ZLineshape -x Energy -y CrossSection --hue Model --series_type Data=errorbar --plot_type line --errory --error_scale 10 --labelx '$E_{cm}$ [GeV]' --labely '$\sigma_{had}$ [nb]' --title 'Z line shape and the number of neutrinos' --output_suffix C6 --exact '2$\nu$' '3$\nu$' '4$\nu$'
 
 # C7 Stacked area
 line --datafile Distributions -x Bin -y Counts --hue Sample --select Distribution Sample -s Resonance Background Signal --stacked --plot_type line --labelx 'Mass (GeV)' --labely 'Events / 2 GeV' --title 'Signal on background as a stacked area' --output_suffix C7
@@ -100,7 +100,7 @@ line --datafile Monitoring -x Day -y Gain --hue Channel --plot_type line --error
 line --datafile Monitoring -x Day -y Gain --hue Channel --plot_type line --smooth 15 --vertical_band 2025-07-15 2025-07-25 --vertical_band_label 'Recalibration' --labely 'Relative gain' --title 'Gain drift, smoothed over 15 days' --output_suffix C9
 
 # C10 Many series with a sequential colour
-line --datafile RotationCurves -x Radius -y Velocity --hue Galaxy --hue_cmap viridis --plot_type line --rangex 0 125 --rangey 0 350 --labelx 'R (kpc)' --labely 'V (km/s)' --title 'Rotation curves on a colour map' --output_suffix C10
+line --datafile RotationCurves -x Radius -y Velocity --hue Galaxy --hue_cmap viridis --plot_type line --rangex 0 125 --rangey 0 350 --labelx 'R (kpc)' --labely 'V (km/s)' --title 'Rotation curves on a colour map' --output_suffix C10 --exact Keplerian
 
 # == D Comparisons
 
@@ -140,7 +140,7 @@ line --datafile Distributions -x Bin -y Counts --hue Sample --select Distributio
 line --datafile HiggsDiphoton -x Mass -y Events --select Weighting -s Unweighted --select Component -s Data 'Sig+Bkg Fit' --fit --data_hue Data --errory --lower 'residual:Bkg (4th order polynomial)' --lower_labely 'Data $-$ Bkg' --no-fit_type_subtitle --max_fit_params 3 --labelx '$m_{\gamma\gamma}$ [GeV]' --labely 'Events / 2 GeV' --title 'H→γγ: data minus the background fit' --output_suffix E6
 
 # E7 Local p0 scan with σ reference lines
-line --datafile HiggsLocalP0 -x Mass -y P0 --hue Hypothesis --iterable_mapping p0_labels --linewidth_column Width --plot_type line --errory --errory_type bands --band_colors '#66ccff' --logy --rangex 110 150 --rangey 1e-12 10 --legend_loc 'lower left' --sigma_lines 1 2 3 4 5 --labelx '$m_H$ [GeV]' --labely 'Local $p_0$' --title 'Local $p_0$ with $\sigma$ lines' --output_suffix E7
+line --datafile HiggsLocalP0 -x Mass -y P0 --hue Hypothesis --iterable_mapping p0_labels --linewidth_column Width --plot_type line --errory --errory_type bands --band_colors '#66ccff' --logy --rangex 110 150 --rangey 1e-12 10 --legend_loc 'lower left' --sigma_lines 1 2 3 4 5 --labelx '$m_H$ [GeV]' --labely 'Local $p_0$' --title 'Local $p_0$ with $\sigma$ lines' --output_suffix E7 --exact Expected
 
 # E8 Pull distribution
 hist --datafile Distributions -x Pull --select Sample -s Data --bins 16 --rangex -4 4 --overlay_gaussian --labelx 'Pull (data $-$ expected)/$\sigma$' --title 'Pulls of every data histogram' --output_suffix E8
@@ -183,24 +183,24 @@ line --datafile TriggerEfficiency -x Energy -y Efficiency --hue Particle --selec
 line --datafile HiggsLimit -x Mass -y MuLimit --hue Limit --style Limit --exclude_iterable 'Expected +-1 sigma' 'Expected +-2 sigma' --plot_type line --errory --errory_column MuLimit1Sigma MuLimit2Sigma --band_colors brazil --band_labels '$\pm1\sigma$' '$\pm2\sigma$' --logy --logx --rangex 110 600 --horizontal 1 --labelx '$m_H$ [GeV]' --labely '95% CL limit on $\mu$' --title 'Brazil plot' --output_suffix G5
 
 # G7 1D likelihood scan with Δχ² = 1, 4 lines
-line --datafile EnergyScale -x Scale -y DeltaNLL --plot_type line --delta_chi2_lines 1 4 --rangey 0 9 --labelx 'Electron energy scale' --labely '$-2\,\Delta\ln L$' --no_legend --title 'Profile-likelihood scan of the energy scale' --output_suffix G7
+line --datafile EnergyScale -x Scale -y DeltaNLL --plot_type line --delta_chi2_lines 1 4 --rangey 0 9 --labelx 'Electron energy scale' --labely '$-2\,\Delta\ln L$' --no_legend --title 'Profile-likelihood scan of the energy scale' --output_suffix G7 --exact
 
 # == H Small multiples and layout
 
 # H1 Facets by a column (wrapped grid)
-line --datafile Anscombe -x X -y Y --hue Type --data_hue Data --variables I II III IV --plot_type line --no_legend --rangex 2 20 --rangey 2 14 --labelx 'x' --labely 'y' --single_panel_size --title "Anscombe's quartet, one panel per dataset" --output_suffix H1
+line --datafile Anscombe -x X -y Y --hue Type --data_hue Data --variables I II III IV --plot_type line --no_legend --rangex 2 20 --rangey 2 14 --labelx 'x' --labely 'y' --single_panel_size --title "Anscombe's quartet, one panel per dataset" --output_suffix H1 --exact Fit
 
 # H2 Shared axes and colour scales across facets
-line --datafile Anscombe -x X -y Y --hue Type --data_hue Data --variables I II III IV --plot_type line --sharex all --sharey all --no_legend --labelx 'x' --labely 'y' --title "Anscombe's quartet on shared axes" --output_suffix H2
+line --datafile Anscombe -x X -y Y --hue Type --data_hue Data --variables I II III IV --plot_type line --sharex all --sharey all --no_legend --labelx 'x' --labely 'y' --title "Anscombe's quartet on shared axes" --output_suffix H2 --exact Fit
 
 # H3 Facet grid (rows × columns by two columns)
 line --datafile TriggerEfficiency -x Energy -y Efficiency --facet_row Config --facet_col Particle --plot_type errorbar --errory --logx --horizontal 100 --labelx 'Energy (GeV)' --labely 'Efficiency (%)' --no_legend --title 'Turn-on per trigger level and particle' --output_suffix H3
 
 # H4 Upper + lower panels
-line --datafile SupernovaHubble -x Redshift -y DistanceModulus --hue Series --style Series --data_hue 'Union2.1 SNe' --iterable_color_mapping sn_colors --comparable_linestyles solid solid dotted dashed --plot_type line --errory --logx --rangex 0.008 1.6 --rangey 32.5 46.5 --lower column:DeltaMu --lower_labely '$\Delta$(m-M) (mag)' --lower_rangey -0.9 0.9 --no_lower_legend --labelx 'z' --labely 'm-M (mag)' --title 'Supernovae and three cosmologies, residuals below' --output_suffix H4
+line --datafile SupernovaHubble -x Redshift -y DistanceModulus --hue Series --style Series --data_hue 'Union2.1 SNe' --iterable_color_mapping sn_colors --comparable_linestyles solid solid dotted dashed --plot_type line --errory --logx --rangex 0.008 1.6 --rangey 32.5 46.5 --lower column:DeltaMu --lower_labely '$\Delta$(m-M) (mag)' --lower_rangey -0.9 0.9 --no_lower_legend --labelx 'z' --labely 'm-M (mag)' --title 'Supernovae and three cosmologies, residuals below' --output_suffix H4 --exact '$\Omega_M$=0.20, $\Omega_\Lambda$=0' '$\Omega_M$=0.24, $\Omega_\Lambda$=0.76' '$\Omega_M$=1.00, $\Omega_\Lambda$=0'
 
 # H5 Inset axes
-line --datafile Keeling -x DecimalDate -y CO2 --hue Series --plot_type line --inset 2015 2020 396 418 --inset_pos 0.08 0.5 0.4 0.35 --legend_loc 'lower right' --labelx 'Year' --labely 'CO$_2$ (ppm)' --title 'Keeling curve with a zoom' --output_suffix H5
+line --datafile Keeling -x DecimalDate -y CO2 --hue Series --plot_type line --inset 2015 2020 396 418 --inset_pos 0.08 0.5 0.4 0.35 --legend_loc 'lower right' --labelx 'Year' --labely 'CO$_2$ (ppm)' --title 'Keeling curve with a zoom' --output_suffix H5 --exact Deseasonalized
 
 # H8 Figure sized for a journal column
 line --datafile ROC -x FPR -y TPR --hue Model --plot_type line --medium paper --width single --rangex 0 1 --rangey 0 1 --labelx 'False-positive rate' --labely 'True-positive rate' --title 'ROC curves at a single journal column' --output_suffix H8
@@ -208,7 +208,7 @@ line --datafile ROC -x FPR -y TPR --hue Model --plot_type line --medium paper --
 # == I Annotations
 
 # I1 Reference lines (h/v/diagonal) with labels
-line --datafile Moseley -x AtomicNumber -y SqrtFrequency --hue Series --data_hue 'K$\alpha$' 'L$\alpha$' --iterable_color_mapping moseley_colors --plot_type line --rangex 10 82 --rangey 4 24 --vertical 43 61 75 --vertical_label 'Z=43' 'Z=61' 'Z=75' --vertical_style dotted dotted dotted --labelx 'Atomic number Z' --labely '$\sqrt{\nu}$ ($10^{8}$ Hz$^{1/2}$)' --title "Moseley's missing elements" --output_suffix I1
+line --datafile Moseley -x AtomicNumber -y SqrtFrequency --hue Series --data_hue 'K$\alpha$' 'L$\alpha$' --iterable_color_mapping moseley_colors --plot_type line --rangex 10 82 --rangey 4 24 --vertical 43 61 75 --vertical_label 'Z=43' 'Z=61' 'Z=75' --vertical_style dotted dotted dotted --labelx 'Atomic number Z' --labely '$\sqrt{\nu}$ ($10^{8}$ Hz$^{1/2}$)' --title "Moseley's missing elements" --output_suffix I1 --exact 'K$\alpha$ fit' 'L$\alpha$ fit'
 
 # I2 Highlighted points and regions
 line --datafile Distributions -x Bin -y Counts --hue Sample --select Distribution -s Breit-Wigner --data_hue Data --errory --square 89.94 0 92.44 125 --square_label 'FWHM' --point 91.19 262 --point_label '$m_Z$' --labelx 'Mass (GeV)' --title 'The Z peak: a marked point and a region' --output_suffix I2
@@ -226,10 +226,10 @@ line --datafile FourLepton -x Mass -y Events --hue Sample --data_hue Data --iter
 line --datafile Distributions -x Bin -y Counts --hue Sample --select Distribution -s Resonance --data_hue Data --stacked --errory --text 136 300 'signal' --text_coords data --arrow 126.5 265 --labelx 'Mass (GeV)' --labely 'Events / 2 GeV' --title 'A labelled excess' --output_suffix I5
 
 # I6 Direct labels (no legend)
-line --datafile ZLineshape -x Energy -y CrossSection --hue Model --data_hue Data --plot_type line --errory --error_scale 10 --direct_labels max --labelx '$E_{cm}$ [GeV]' --labely '$\sigma_{had}$ [nb]' --title 'Z line shape, curves named at their peaks' --output_suffix I6
+line --datafile ZLineshape -x Energy -y CrossSection --hue Model --data_hue Data --plot_type line --errory --error_scale 10 --direct_labels max --labelx '$E_{cm}$ [GeV]' --labely '$\sigma_{had}$ [nb]' --title 'Z line shape, curves named at their peaks' --output_suffix I6 --exact '2$\nu$' '3$\nu$' '4$\nu$'
 
 # I7 Inverted axis
-line --datafile Leavitt -x LogPeriod -y Magnitude --hue Brightness --data_hue Maximum Minimum --iterable_color_mapping leavitt_colors --plot_type line --rangex 0 2.2 --rangey 17 10.5 --labelx 'log P (days)' --labely 'Apparent magnitude' --title "Leavitt's period-luminosity relation, magnitudes inverted" --output_suffix I7
+line --datafile Leavitt -x LogPeriod -y Magnitude --hue Brightness --data_hue Maximum Minimum --iterable_color_mapping leavitt_colors --plot_type line --rangex 0 2.2 --rangey 17 10.5 --labelx 'log P (days)' --labely 'Apparent magnitude' --title "Leavitt's period-luminosity relation, magnitudes inverted" --output_suffix I7 --exact 'Maximum fit' 'Minimum fit'
 
 # I8 Shaded excluded region (polygon)
 map --datafile OmegaContours --configs SN CMB --names Riess1998 Riess1998 -x OmegaM -y OmegaLambda -z DeltaChi2 --contour --contour_sigmas 1 2 3 --fill_contours --background none --region '0,0.9 0,1.6 0.35,1.6' --region_hatch '//' --region_label 'No Big Bang' --rangex 0 1.4 --rangey -0.4 1.6 --labelx '$\Omega_M$' --labely '$\Omega_\Lambda$' --title 'An excluded region' --output_suffix I8

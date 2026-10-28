@@ -2515,8 +2515,9 @@ def run_by_config(df, args):
 
 def run(args):
     _check_args(args, build_parser())
-    # U1: errors are drawn by default; --errory only still names the file.
-    args.errory_given = args.errory
+    # U1: errors are drawn by default; --errory (or an interval, which always
+    # implied it) only still names the file.
+    args.errory_given = args.errory or args.errory_type in ("poisson", "clopper_pearson")
     args.errory = not args.no_error
     df = load(args)
     if df.empty:

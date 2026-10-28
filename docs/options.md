@@ -132,24 +132,39 @@ plotipus line --datafile Keeling -x DecimalDate -y CO2 --hue Series --plot_type 
   (`--no_hue_colorbar` drops it); values with an `--iterable_color_mapping`
   colour keep it and stay off the colour map, and the `--style` legend is
   still drawn.
-* **Errors**: `--errory` draws the `{y}Error` (or `{y}Error+/-`) column as
-  a band for `--plot_type line|step` and as bars on points;
+* **Errors** (style guide U1): every series is drawn with its uncertainty.
+  The `{y}Error` (or `{y}Error+/-`) column is drawn without asking, as a
+  band for `--plot_type line|step` and as bars on points;
   `--errory_type bars|bands` picks either for any plot type. The band takes
   the series colour at `plot_settings.band_alpha` (default 0.2). Points
-  with error bars are not joined unless `--connect` is given.
-  `--errory_type poisson` computes the errors instead: the exact (Garwood)
-  Poisson interval of y as counts, asymmetric and never below 0 (in `hist`,
-  of the bin counts, or √Σw² with `--weight`); it is also what data drawn
-  with `--overlay`/`--data_hue` get when there is no error column and y are
-  counts (non-negative integers; measurements such as magnitudes keep no
-  errors).
-  `--errory_type clopper_pearson --count_column N` takes y as an efficiency
-  of N trials (`--efficiency_scale 100` for percent) and draws the
-  Clopper–Pearson interval, which never crosses 0 or 100%, as in `table
-  --clopper_pearson`. Both use `--confidence_level` (default 0.6827) and are
-  drawn as bars or bands by the plot type's default; `--error_label` names
-  the interval in the y label ("Counts, 68% CL (Poisson)"; on by default in
-  the slides style, `plot_settings.error_label`).
+  with error bars are not joined unless `--connect` is given. A series
+  without an error column gets the standard interval of its quantity, and a
+  warning naming it ("mc: Counts has no error column; drawing Garwood
+  (Poisson) 68% intervals."): the exact (Garwood) Poisson interval when y are
+  counts (non-negative integers), asymmetric and never below 0, or the
+  Clopper–Pearson interval of an efficiency with `--count_column N`
+  (below). Any other series is drawn without errors and warns that it has
+  no uncertainty.
+  - `--exact VALUE...` marks hue values as exact (a model, fit or theory
+    curve): drawn without errors and without the warning. `--exact` alone
+    marks every series. Closed shapes (`--plot_type fill`) are exempt.
+  - `--no_error` draws no errors at all and prints none of these warnings.
+  - `--errory` is no longer needed. It is still accepted, and still adds
+    `error` to the file name, so old command lists keep their file names.
+  - Stored errors that cross a physical bound are drawn as given, with one
+    warning per series (U4): below 0 for a quantity that is never negative,
+    above 1 (`--efficiency_scale`) for an efficiency, i.e. with
+    `--count_column` or every value between 0 and 1.
+  - `--errory_type poisson` forces the Garwood interval, even over a stored
+    column (in `hist`, of the bin counts, or √Σw² with `--weight`).
+    `--errory_type clopper_pearson --count_column N` forces the
+    Clopper–Pearson interval of y as an efficiency of N trials
+    (`--efficiency_scale 100` for percent), which never crosses 0 or 100%,
+    as in `table --clopper_pearson`. Both use `--confidence_level` (default
+    0.6827) and are drawn as bars or bands by the plot type's default;
+    `--error_label` names the interval in the y label ("Counts, 68% CL
+    (Poisson)"; on by default in the slides style,
+    `plot_settings.error_label`).
 * **Nested bands** (expected limits, "Brazil" plots): `--errory_column C1
   C2 ...` draws one band per column around the line, innermost first (a
   column `C`, or a `C+`/`C-` pair of upper/lower sizes). The bands are
@@ -361,12 +376,12 @@ for the old red line); `--fit_color` sets the fit line (default `ink`).
 HEP comparison: points with error bars in the style's `ink` colour, first
 in the legend and above the rest, never stacked and not taking a palette
 colour. The other series are the simulation: steps (filled and stacked
-with `--stacked`), with error bands with `--errory`. `--stacked` stacks in
+with `--stacked`), with their error bands. `--stacked` stacks in
 data space, each series from the running total up: filled steps by default,
 outlines with `--plot_type step`, filled steps with a darker edge with
 `fill`, a stacked area with `line`, bars with `bar` (`--stack_reverse` puts
-the first series on top). Stacked, `--errory` with data, or
-`--stack_total_error`, draws a hatched band of the total's error (the
+the first series on top). Stacked with data, or with
+`--stack_total_error`, it draws a hatched band of the total's error (the
 stacked errors in quadrature, or a precomputed array column with
 `--stack_total_error_column COL`, e.g. with systematics); its label, hatch
 and colour come from the style file's `plot_settings.stack_error`, default
@@ -397,7 +412,7 @@ series-by-series comparison.
 `--series_type VALUE=TYPE [VALUE=TYPE ...]` gives single hue values their
 own plot type (any `--plot_type` value); the others keep `--plot_type`.
 With `--plot_type line --series_type data=errorbar`, measurements are
-points with error bars (whatever `--errory` says) over model curves: drawn
+points with error bars over model curves: drawn
 on top, in their palette colour, or in `ink` when the value is also in
 `--overlay`. A style file can set the types once, as a mapping addressed
 with `--series_type_mapping NAME` (e.g. `"mappings": {"series_types":
@@ -564,8 +579,8 @@ open steps with error bands:
 * **Errors** (`--estimator_error`): `sem` (default) is the standard error
   of the statistic: mean σ/√n, median 1.2533·σ/√n, std σ/√(2(n−1)), rms by
   the delta method, sum √Σy² (√n for counts, √Σw² for weights), none for
-  max/min (σ is the bin's sample standard deviation). With `--errory`, the
-  stored per-event errors are propagated instead (mean √Σe²/n, sum √Σe²,
+  max/min (σ is the bin's sample standard deviation). With a stored
+  `{y}Error` column, its per-event errors are propagated instead (mean √Σe²/n, sum √Σe²,
   median 1.2533·√Σe²/n, std/rms to first order, max/min the selected
   event's error). `std` draws the bin's spread σ; `none` the bare values.
 * **Small bins**: bins with fewer than `--min_count` entries (default 5)
@@ -611,8 +626,10 @@ bins, or with `--integrate_over COL` the integral Σ y·Δx over that column
 value already. Category labels are rotated only when they would overlap
 (`--xtick_rotation DEG` forces an angle). `--data_hue VALUE...` draws
 those hue values as data: ink points with their errors at the category
-centre, first in the legend, over the bars (or lines) of the others. With
-`--errory`, bar errors are a hatched band around the bar top (the style's
+centre, first in the legend, over the bars (or lines) of the others. The
+errors are drawn by default (U1): the summed `{y}Error` column, else Garwood
+intervals when the totals are counts (`--no_error`, `--exact VALUE...` as in
+`line`). Bar errors are a hatched band around the bar top (the style's
 `plot_settings.stack_error`), not error bars. `--kind bar --stacked` stacks
 the hue values in one bar per category (the legend lists the stack from the
 top), with a band of the total's error, the errors added in quadrature.
@@ -675,8 +692,23 @@ plotipus scatter --datafile Distributions -x Value -y Response --hue Distributio
 
 `table` aggregates `-y` into LaTeX (and `--html`) tables: rows are configs
 (or `--row_name` values), columns the `--variables`, each cell the `--agg`
-(`mean`, `sum`, `std`, `median`) of its values with an error. Two other
-layouts read whole rows:
+(`mean`, `sum`, `std`, `median`) of its values with an error. The error
+follows the quantity, as in the plots (style guide U10):
+
+* the `{y}Error` column, combined by `--error_mode` (quadrature by default;
+  `std`/`sem` use the spread of the values, and warn when they are counts,
+  whose spread is not their uncertainty);
+* without an error column, a frame with `Passed` and `Total` columns (F4)
+  gets the pooled efficiency and its Clopper–Pearson interval,
+  $\varepsilon^{+a}_{-b}$, in the scale of `-y` (a fraction or percent);
+  integer counts summed per cell (`--agg sum`, or one row per cell) get
+  their Garwood interval, $n^{+a}_{-b}$. A warning names the interval;
+* `--poisson COLUMN` prints the summed counts of COLUMN with their Garwood
+  interval, `--clopper_pearson PASS [TOTAL]` the efficiency of explicit
+  columns, and `--no_error` the bare values;
+* stored symmetric errors that cross 0 or 100% warn once per variable (U4).
+
+Two other layouts read whole rows:
 
 * `--stats mean var std median corr line n`: one row per data row (labelled
   by `--row_name`, else `--hue`), its columns the statistics of the row's

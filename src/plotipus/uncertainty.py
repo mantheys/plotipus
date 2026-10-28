@@ -27,9 +27,12 @@ def is_counts(values):
 
 def is_exact(args, hue):
     """Whether hue value ``hue`` is exact (--exact): a model, fit or theory
-    curve, drawn without errors and without a warning."""
+    curve, drawn without errors and without a warning. --exact without
+    values makes every series exact."""
     exact = getattr(args, "exact", None)
-    return bool(exact) and hue is not None and str(hue) in {str(v) for v in exact}
+    if exact is None:
+        return False
+    return not exact or (hue is not None and str(hue) in {str(v) for v in exact})
 
 
 def warn_once(args, key, message):
