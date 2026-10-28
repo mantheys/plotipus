@@ -89,6 +89,8 @@ def create_panels(n_panels=1, n_lower=0, grid=True, height_ratios=None, shape=No
     given = shape
     shape = wrap_shape(n_panels, shape) if wrap else shape or grid_shape(n_panels)
     fig, upper, lower, shape = _create_panels(n_panels, n_lower, height_ratios, shape)
+    for ax in (a for axes in lower for a in axes):
+        ax._plotipus_lower = True  # a ratio or residual panel: --yscale and --secondary_y leave it alone
     # A row wrapped into several rows: callers share y over all of them and title every panel.
     fig._plotipus_wrapped = shape[0] > 1 and (given is None or given[0] == 1) and wrap_limit() is not None
     return fig, upper, lower, shape
@@ -423,12 +425,16 @@ def add_title_and_note(fig, args, tight_rows=1):
 
 
 def apply_figure_hooks(fig, args):
-    """Draw the experiment header and watermark (:mod:`plotipus.header`) and
-    the --text/--region annotations (:mod:`plotipus.annotations`), then run
-    the plugin figure hooks (logos, ...) on ``fig``."""
+    """Set the --xscale/--yscale scales and --secondary_x/y axes
+    (:mod:`plotipus.scales`), draw the experiment header and watermark
+    (:mod:`plotipus.header`) and the --text/--region annotations
+    (:mod:`plotipus.annotations`), then run the plugin figure hooks (logos,
+    ...) on ``fig``."""
     from .annotations import draw_annotations
     from .header import draw as draw_header
+    from .scales import apply_scales
 
+    apply_scales(fig, args)  # before anything placed in data coordinates
     draw_header(fig, args)
     draw_annotations(fig, args)
     for hook in registry.figure_hooks:

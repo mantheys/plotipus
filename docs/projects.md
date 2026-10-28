@@ -188,6 +188,7 @@ defines `setup(registry)` and can register:
 * `registry.add_resolver(f)`: extra lookup locations for data files;
 * `registry.add_post_load(f)` / `add_post_concat(f)`: decorate or check loaded frames;
 * `registry.add_label_hook(column, f)` / `add_color_hook(column, f)`: labels and colours of a column's values;
+* `registry.add_conversion(name, forward, inverse, label)`: unit conversions for `--secondary_x`/`--secondary_y`;
 * `registry.config_label = f`: legend labels of config/name series;
 * `registry.table_columns[name] = f`: derived table columns;
 * `registry.add_argument(*flags, **kwargs)`: extra options for every kind

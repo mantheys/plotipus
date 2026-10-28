@@ -27,10 +27,10 @@ can be picked up later.
 
 ## Related features also postponed
 
-- **Hybrid log/linear or broken axes** (Planck TT, F07; ATLAS limit plot,
-  F05). Catalogue H7, roadmap 4.16.
-- **Secondary axis with unit conversion** (COBE FIRAS in GHz vs cm⁻¹, F06).
-  Catalogue H6, roadmap 4.16.
+- **Broken axes with a gap** (ATLAS limit plot, F05): two ranges of one
+  axis side by side with the break drawn. The hybrid log/linear axis
+  (Planck TT, F07) and the secondary axis (COBE FIRAS, F06) are done:
+  `--xscale 'log<B<linear'` and `--secondary_x` (catalogue H6, H7).
 - **Downloading public datasets** (NOAA Mauna Loa, Union2.1, Gaia,
   HEPData). Decision D6: synthetic data for now. The famous-plots dataset
   (tasks/T24) will synthesise realistic data first.

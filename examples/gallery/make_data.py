@@ -44,8 +44,9 @@ def main(out=None):
     mappings = json.loads((FAMOUS / "style.json").read_text()).get("mappings", {})
     (HERE / "input" / "famous_mappings.json").write_text(json.dumps({"mappings": mappings}, indent=1) + "\n")
 
-    written = ["Probes"]
+    written = ["Probes", "PowerSpectrum"]
     _probes(out)
+    _power_spectrum(out, np.random.default_rng(2018))
     for theme, generators in THEMES.items():
         rng = np.random.default_rng(sum(map(ord, theme)))
         for generator in generators.values():
@@ -69,6 +70,31 @@ def _probes(out):
     bao = ((om - 0.3 - 0.05 * (ol - 0.7)) / 0.03) ** 2 + ((ol - 0.7) / 0.6) ** 2
     frames.append(frames[0].assign(Probe="BAO", DeltaChi2=[bao.astype(np.float32)]))
     pd.concat(frames, ignore_index=True).assign(Config="Probes").to_pickle(out / "Probes.pkl")
+
+
+def _power_spectrum(out, rng):
+    """H7: a synthetic CMB temperature power spectrum D_l (muK^2) over
+    l = 2..2500, shaped like Planck's (a plateau, then acoustic peaks near
+    l = 220, 540, 810, ... damped at high l) but not fitted to it: the
+    points scatter by cosmic variance, sqrt(2/(2l+1)) D_l, unbinned below
+    l = 30 and in bins of 30 above (errors / sqrt(30)). Rows: ``Series``
+    (Data, Model)."""
+    import pandas as pd
+
+    def model(ell):
+        peaks = sum(a * np.exp(-0.5 * ((ell - c) / w) ** 2)
+                    for a, c, w in ((4700, 220, 75), (1900, 540, 90), (1850, 810, 95), (900, 1130, 110),
+                                    (650, 1430, 120), (300, 1740, 130)))
+        return (1000 * np.exp(-ell / 400) + 600 + peaks) * np.exp(-(ell / 2100) ** 2)
+
+    low = np.arange(2, 30, dtype=float)
+    high = np.arange(30, 2500, 30, dtype=float) + 15
+    ell = np.concatenate([low, high])
+    sigma = model(ell) * np.sqrt(2 / (2 * ell + 1)) / np.where(ell < 30, 1, np.sqrt(30))
+    data = model(ell) + rng.normal(0, sigma)
+    curve = np.unique(np.concatenate([np.geomspace(2, 30, 60), np.linspace(30, 2500, 500)]))
+    pd.DataFrame([{"Series": "Data", "Multipole": ell, "Dl": data, "DlError": sigma},
+                  {"Series": "Model", "Multipole": curve, "Dl": model(curve)}]).to_pickle(out / "PowerSpectrum.pkl")
 
 
 if __name__ == "__main__":

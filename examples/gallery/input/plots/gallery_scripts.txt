@@ -232,6 +232,12 @@ line --datafile SupernovaHubble -x Redshift -y DistanceModulus --hue Series --st
 # H5 Inset axes
 line --datafile Keeling -x DecimalDate -y CO2 --hue Series --plot_type line --inset 2015 2020 396 418 --inset_pos 0.08 0.5 0.4 0.35 --legend_loc 'lower right' --labelx 'Year' --labely 'CO$_2$ (ppm)' --title 'Keeling curve with a zoom' --output_suffix H5 --exact Deseasonalized
 
+# H6 Secondary axis: the same x in other units (FIRAS: wavenumber below, GHz above)
+line --datafile FIRAS -x Wavenumber -y Intensity --hue Component --data_hue 'FIRAS data' --iterable_mapping firas_labels --plot_type line --errory --error_scale 400 --rangex 1 23 --rangey 0 420 --secondary_x 'cm-1->GHz' --labelx 'Wavenumber (cm$^{-1}$)' --labely 'Intensity (MJy/sr)' --title 'CMB spectrum, wavenumber and frequency' --output_suffix H6 --exact Blackbody
+
+# H7 Hybrid axis: logarithmic below l = 30, linear above (a CMB power spectrum)
+line --datafile PowerSpectrum -x Multipole -y Dl --hue Series --data_hue Data --exact Model --plot_type line --errory --xscale 'log<30<linear' --rangex 2 2500 --rangey 0 6500 --no_legend --labelx 'Multipole $\ell$' --labely '$\mathcal{D}_\ell$ ($\mu$K$^2$)' --title 'Temperature power spectrum (synthetic)' --output_suffix H7
+
 # H8 Figure sized for a journal column
 line --datafile ROC -x FPR -y TPR --hue Model --plot_type line --medium paper --width single --rangex 0 1 --rangey 0 1 --labelx 'False-positive rate' --labely 'True-positive rate' --title 'ROC curves at a single journal column' --output_suffix H8
 

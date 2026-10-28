@@ -284,6 +284,25 @@ in the style's muted colour (`--vertical_band_color`), with an optional
 plotipus line --datafile Distributions -x Bin -y Counts --hue Sample --select Distribution -s Breit-Wigner --data_hue Data --errory --vertical_band 89.94 92.44 --horizontal 128 --horizontal_label 'FWHM = 2.50 GeV' --labelx 'Mass (GeV)' --title 'A shaded region and a line label'
 ```
 
+Axis scales and secondary axes also work in every kind, set once the
+ranges are known:
+
+* `--secondary_x SPEC` (`--secondary_y`) draws the same axis in other units
+  along the top (right) edge of the outer panels: a built-in conversion
+  (`cm-1->GHz`, `GHz->cm-1`, `eV->nm`, `nm->eV`, `C->F`, `F->C`), one of the
+  style file's `mappings.conversions` (`{"name": "FORWARD;INVERSE"}`, or
+  `{"forward": ..., "inverse": ..., "label": ...}`), one a plugin registers
+  (`registry.add_conversion`), or an inline pair of expressions in `x`,
+  `'x*29.9792458;x/29.9792458'` (numpy functions such as `sqrt` and `log10`
+  allowed). `--secondary_labelx`/`--secondary_labely` label it (default:
+  the conversion's label).
+* `--xscale`/`--yscale` set the scales `--logx` cannot: `symlog`
+  (`symlog:LINTHRESH`: linear within ±LINTHRESH, logarithmic beyond, for
+  signed values over many decades) and `'log<B<linear'`, logarithmic below
+  B and linear above, the logarithmic part taking `--scale_split` (0.3) of
+  the axis, with a dotted line at the break (the low multipoles of a CMB
+  power spectrum). `--yscale` leaves lower panels alone.
+
 Free annotations work in every kind and are drawn after the axis ranges are
 set:
 

@@ -41,10 +41,10 @@ command lists.
 | E Ratios and significance | 8 | 0 | 0 |
 | F ML diagnostics | 7 | 0 | 0 |
 | G Uncertainty | 9 | 0 | 0 |
-| H Small multiples and layout | 6 | 0 | 2 |
+| H Small multiples and layout | 8 | 0 | 0 |
 | I Annotations | 10 | 0 | 0 |
 | J Tables | 7 | 0 | 0 |
-| **Total (89)** | **87** | **0** | **2** |
+| **Total (89)** | **89** | **0** | **0** |
 
 Nearly half of the ◐ entries are partial only because of a bug in
 [bugs.md](bugs.md), not because an option is missing. Fixing B01–B13 moves
@@ -162,8 +162,8 @@ All curves are precomputed by the analysis (plotipus does not fit or score).
 | H3 | Facet grid (rows × columns by two columns) | two-factor comparison | F15 | ✅ | `line --facet_row COL --facet_col COL` (or one of them with `--variables`; T22.6), each cell with its own `--lower` panels and per-row `--panel_labely`/`--panel_rangey`. | — |
 | H4 | Upper + lower panels | ratios, residuals | F01, F07 | ✅ | `--lower` (repeatable). | — |
 | H5 | Inset axes | zoom, second view | F02, F13, F18 | ✅ | `line --inset X0 X1 [Y0 Y1]` (a zoom with connectors) or `--inset_args 'OPTIONS'` (another selection or x/y, `--binned` too), placed by `--inset_pos x y w h` (T22.7). | — |
-| H6 | Secondary axis (unit conversion) | GHz vs cm⁻¹, energy vs wavelength | F06 | ✗ | — | `--secondary_x 'FORWARD;INVERSE'`, from a named mapping in style.json. |
-| H7 | Broken or hybrid log/linear axis | wide dynamic range | F05, F07 | ✗ | — | `--xscale symlog` / `--xscale 'log<30<linear'` (custom matplotlib scale). Low priority. |
+| H6 | Secondary axis (unit conversion) | GHz vs cm⁻¹, energy vs wavelength | F06 | ✅ | `--secondary_x cm-1->GHz` (built-in, style `mappings.conversions`, plugin, or inline `'FORWARD;INVERSE'`; gallery H6). | — |
+| H7 | Broken or hybrid log/linear axis | wide dynamic range | F05, F07 | ✅ | `--xscale 'log<30<linear'` (log below 30, linear above, `--scale_split`; gallery H7) or `--xscale symlog[:LINTHRESH]`. | — |
 | H8 | Figure sized for a journal column | publication | all | ✅ | `--medium paper --width single\|onehalf\|double\|nature\|INCHES`, `--aspect H/W` (T14). | — |
 
 ## I. Annotations
