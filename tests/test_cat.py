@@ -114,6 +114,24 @@ def test_point_and_line_legend_handles(make_project):
     assert all(h.get_linestyle() == "-" and h.get_marker() not in (None, "None", "") for h in line)
 
 
+def test_point_markers_match_the_legend(make_project):
+    """--kind point without errors draws each hue value with the marker its legend entry shows
+    (they were all drawn as circles)."""
+    from matplotlib.colors import to_hex
+
+    figures = _capture()
+    frame = pd.concat([_importance(["pt", "eta", "phi"]).assign(Model=model) for model in ("BDT", "DNN", "cut")])
+    make_project({"Importance": frame})
+    cat.main(["--datafile", "Importance", "-x", "Feature", "-y", "Importance", "--hue", "Model", "--kind", "point",
+              "--no_error"])
+    ax = figures[-1].axes[0]
+    legend = {(to_hex(h.get_color()), h.get_marker()) for h in ax.get_legend().legend_handles}
+    drawn = {(to_hex(line.get_color()), line.get_marker()) for line in ax.get_lines()
+             if line.get_marker() not in (None, "None", "")}
+    assert len(legend) == 3 and len({marker for _, marker in legend}) == 3
+    assert drawn == legend
+
+
 def test_tick_labels_rotate_only_when_they_overlap(make_project):
     figures = _capture()
     long = [f"a rather long feature name {i}" for i in range(12)]
