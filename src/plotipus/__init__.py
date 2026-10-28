@@ -11,7 +11,7 @@ __version__ = "0.1.0"
 
 from . import registry, style
 from .format import format_value, format_with_band, format_with_error
-from .io import import_data, read_pickle_frame as load_frame, save_figure_to_paths
+from .io import import_data, read_frame as load_frame, save_figure_to_paths, write_parquet_frame as save_frame
 from .plot import (
     add_centered_suptitle,
     apply_legend_style,
@@ -54,5 +54,6 @@ __all__ = [
     "plot_data",
     "registry",
     "save_figure_to_paths",
+    "save_frame",
     "style",
 ]

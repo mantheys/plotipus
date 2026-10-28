@@ -1,12 +1,13 @@
-"""Loading pickled DataFrames and saving figures/tables.
+"""Loading DataFrames and saving figures/tables.
 
 Input files are pickles of a DataFrame (or of anything ``pd.DataFrame`` can
-build: a dict of DataFrames, a dict of scalars, a list of records). A
-``--datafile`` entry is looked up as ``{config}_{name}_{entry}.pkl`` (or with
-just one of the two prefixes) under the project's data root, or under
-``--path`` (relative to the data root, or absolute). Plugins can add lookup
-locations (``registry.resolvers``) and decorate loaded frames
-(``registry.post_load_hooks``).
+build: a dict of DataFrames, a dict of scalars, a list of records) or Parquet
+files (list cells read back as arrays; needs pyarrow). A ``--datafile``
+entry is looked up as ``{config}_{name}_{entry}.pkl`` (or with just one of
+the two prefixes; ``.parquet`` when no ``.pkl`` exists) under the project's
+data root, or under ``--path`` (relative to the data root, or absolute).
+Plugins can add lookup locations (``registry.resolvers``) and decorate
+loaded frames (``registry.post_load_hooks``).
 """
 
 import os
@@ -16,6 +17,7 @@ from itertools import product
 from pathlib import Path
 from typing import Optional
 
+import numpy as np
 import pandas as pd
 from rich import print as rprint
 
@@ -84,9 +86,13 @@ def pair_paths_with_datafiles(path, datafiles):
     return None
 
 
+# Data file formats, tried in this order for every lookup.
+DATA_SUFFIXES = (".pkl", ".parquet")
+
+
 def datafile_candidates(input_dir, prefix, entry, is_default=True):
-    """Ordered candidate paths for ``{prefix}{entry}.pkl`` under ``input_dir``:
-    plugin resolver candidates first, then the plain file."""
+    """Ordered candidate paths for ``{prefix}{entry}.pkl`` (then ``.parquet``)
+    under ``input_dir``: plugin resolver candidates first, then the plain files."""
     input_dir = Path(input_dir)
     candidates = []
 
@@ -98,7 +104,8 @@ def datafile_candidates(input_dir, prefix, entry, is_default=True):
     for resolver in registry.resolvers:
         for path in resolver(entry, input_dir, prefix, is_default) or []:
             add(path)
-    add(input_dir / f"{prefix}{entry}.pkl")
+    for suffix in DATA_SUFFIXES:
+        add(input_dir / f"{prefix}{entry}{suffix}")
     return candidates
 
 
@@ -107,7 +114,7 @@ def bare_datafile_candidates(datafile, input_dir, is_default=True):
     entry as a path, then the lookups under ``input_dir``."""
     candidate = Path(datafile).expanduser()
     candidates = [candidate]
-    if candidate.suffix == ".pkl":
+    if candidate.suffix in DATA_SUFFIXES:
         entry = candidate.stem
         candidates.append(Path(input_dir) / candidate.name)
     else:
@@ -143,8 +150,54 @@ def read_pickle_frame(path):
     return frame.dropna(axis=1, how="all")
 
 
+_PYARROW_MISSING = "Parquet data files need pyarrow: pip install 'plotipus[parquet]'"
+
+
+def _array_cell(value):
+    # Parquet stores a 2D array cell as a list of rows; pyarrow returns it as
+    # an object array of 1D arrays.
+    if isinstance(value, np.ndarray) and value.dtype == object and len(value) and isinstance(value[0], np.ndarray):
+        return np.stack(value)
+    return value
+
+
+def read_parquet_frame(path):
+    """Load one Parquet file as a DataFrame (all-NaN columns dropped). List
+    cells come back as numpy arrays, lists of lists as 2D arrays."""
+    try:
+        frame = pd.read_parquet(path)
+    except ImportError as error:
+        raise ImportError(_PYARROW_MISSING) from error
+    for column in frame.columns:
+        if frame[column].dtype == object:
+            frame[column] = frame[column].map(_array_cell)
+    return frame.dropna(axis=1, how="all")
+
+
+def write_parquet_frame(frame, path):
+    """Write a DataFrame in the plotipus convention (one row per series,
+    arrays in the cells) as Parquet. Unlike a pickle, the file holds only
+    data, so it is safe to share and to load from others."""
+    frame = frame.copy()
+    for column in frame.columns:
+        if frame[column].dtype == object:
+            frame[column] = frame[column].map(
+                lambda value: list(value) if isinstance(value, np.ndarray) and value.ndim == 2 else value)
+    try:
+        frame.to_parquet(path, index=False)
+    except ImportError as error:
+        raise ImportError(_PYARROW_MISSING) from error
+
+
+def read_frame(path):
+    """Load one data file (``.pkl`` or ``.parquet``) as a DataFrame."""
+    if Path(path).suffix == ".parquet":
+        return read_parquet_frame(path)
+    return read_pickle_frame(path)
+
+
 def _load_datafile(datafile, datafile_entry, input_dir):
-    loaded_df = read_pickle_frame(datafile)
+    loaded_df = read_frame(datafile)
     if loaded_df.empty:
         return loaded_df
 
