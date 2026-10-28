@@ -34,7 +34,7 @@ command lists.
 
 | Group | ✅ | ◐ | ✗ |
 |---|---|---|---|
-| A Distributions | 8 | 0 | 4 |
+| A Distributions | 12 | 0 | 0 |
 | B Relationships | 6 | 1 | 2 |
 | C Trends and fits | 10 | 0 | 0 |
 | D Comparisons | 9 | 0 | 0 |
@@ -44,7 +44,7 @@ command lists.
 | H Small multiples and layout | 6 | 0 | 2 |
 | I Annotations | 10 | 0 | 0 |
 | J Tables | 6 | 1 | 0 |
-| **Total (89)** | **78** | **3** | **8** |
+| **Total (89)** | **82** | **3** | **4** |
 
 Nearly half of the ◐ entries are partial only because of a bug in
 [bugs.md](bugs.md), not because an option is missing. Fixing B01–B13 moves
@@ -62,12 +62,12 @@ about 12 of them to ✅.
 | A4 | Normalised / density histogram | shapes at different statistics | — | ✅ | `hist --datafile Ev -x Xv --hue Group --bins 40 --density --logy` (P13). | — |
 | A5 | Weighted histogram | event weights | — | ✅ | `hist ... --weight Yv` (Q4). Errors not drawn: see G2. | — |
 | A6 | Histogram with Poisson errors | counts with statistical uncertainty | F01, F03 | ✅ | `hist ... --errory_type poisson` (Garwood from the bin counts, √Σw² with `--weight`); `line ... --errory_type poisson` on pre-binned counts (T19). | — |
-| A7 | KDE | smooth density of a sample | — | ✗ | — | `hist --hist_type kde` (scipy `gaussian_kde`, Scott bandwidth, `--bw`). |
-| A8 | ECDF / cumulative | quantiles, comparing tails | — | ✗ | — | `hist --hist_type ecdf` (and `--cumulative` for histograms). |
+| A7 | KDE | smooth density of a sample | — | ✅ | `hist --datafile Scores -x Score --hue Class --hist_type kde` (T22.4, gallery A7): scipy `gaussian_kde`, Scott bandwidth or `--bw`, a band of the pointwise standard error; unit area, or counts per bin under `--data_hue` points. | — |
+| A8 | ECDF / cumulative | quantiles, comparing tails | — | ✅ | `hist --hist_type ecdf` (T22.4, gallery A8): steps from 0 to 1 with a binomial band; `--cumulative [reverse]` accumulates a histogram with Garwood errors. | — |
 | A9 | Box plot per category | distribution summaries side by side | — | ✅ | `line --binned --plot_type box --hue Sample` (P14): hues dodged per bin or per category of a non-numeric x, `--box_tick_labels ranges`, `--whis` (B16, fixed in T10). | — |
 | A10 | Violin / strip / box per category | distributions per category | F25 | ✅ | Per category: `cat --datafile Showers -x Particle -y Response --kind violin` (or `box`, `strip`; T22.2, gallery A10b): the array cells of a category pooled as one distribution, hue values side by side, `--orient h`. Per bin of a numeric x: `line --binned --plot_type violin` (or `box`; example-feedback round 4). | — |
-| A11 | Ridgeline (joy plot) | many distributions, ordered | — | ✗ | — | `hist --ridge [OVERLAP]`: offset each hue vertically, label on the left. |
-| A12 | Rug | raw positions under a hist or KDE | — | ✗ | — | `hist --rug` (ticks along the x axis, alpha by density). |
+| A11 | Ridgeline (joy plot) | many distributions, ordered | — | ✅ | `hist --hue Model --hist_type kde --ridge [OVERLAP]` (T22.4, gallery A11): each hue on its own baseline, the first on top, named on the y axis. | — |
+| A12 | Rug | raw positions under a hist or KDE | — | ✅ | `hist --hist_type kde --rug` (T22.4, gallery A12): a tick per value along the x axis, fainter the more there are. | — |
 
 ## B. Relationships (two or more variables)
 

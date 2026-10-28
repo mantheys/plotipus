@@ -17,7 +17,7 @@ different kinds can run in parallel. Struck through: done.
 | ~~T22.1~~ | ~~`cat --orient h`, `--sort asc\|desc`, `--stacked`, `--kind lollipop`~~ | ~~`kinds/cat.py`~~ | ~~D4–D7, F6~~ | ~~M~~ |
 | ~~T22.2~~ | ~~`cat --kind box\|violin\|strip`: array cells kept as distributions (not integrated)~~ | ~~`kinds/cat.py`~~ | ~~A10~~ | ~~M~~ |
 | ~~T22.3~~ | ~~`map --annotate [FMT]`; string x/y become categorical ticks; `--norm` for `-z` grids; y inverted for matrices (`--matrix`)~~ | ~~`kinds/map.py`~~ | ~~D8, F5~~ | ~~S~~ |
-| T22.4 | `hist --hist_type kde\|ecdf` (`--bw`), `--cumulative`, `--rug`, `--ridge [OVERLAP]` | `kinds/hist.py` | A7, A8, A11, A12 | M |
+| ~~T22.4~~ | ~~`hist --hist_type kde\|ecdf` (`--bw`), `--cumulative`, `--rug`, `--ridge [OVERLAP]`~~ | ~~`kinds/hist.py`~~ | ~~A7, A8, A11, A12~~ | ~~M~~ |
 | ~~T22.5~~ | ~~`--hue_cmap CMAP` for numeric or ordered hues: a colorbar instead of a legend (the T01 overflow warning points here)~~ | ~~`encodings.py`, `kinds/line.py`, `kinds/hist.py`~~ | ~~C10~~ | ~~S~~ |
 | ~~T22.6~~ | ~~`--sharex/--sharey` for every kind; `--facet_row COL --facet_col COL`~~ | ~~`panels.py`, every kind's panel loop~~ | ~~H2, H3~~ | ~~M~~ |
 | ~~T22.7~~ | ~~`--inset X0 X1 [Y0 Y1] --inset_pos x y w h`: zoom of the same series, with a connector box~~ | ~~`panels.py`, `plot.py`~~ | ~~H5~~ | ~~M~~ |

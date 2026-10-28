@@ -304,6 +304,35 @@ map (see [Shared options](#shared-options)).
 plotipus hist --datafile Distributions -x Value --hue Sample --weight Weight --select Distribution -s Breit-Wigner --data_hue Data --bins 40 --rangex 81 101 --flow show --labelx 'Mass (GeV)' --title 'Histogram of samples with under/overflow'
 ```
 
+Other estimates of the same distribution (`--hist_type`):
+
+* `kde`: a Gaussian kernel density estimate, a smooth line with a band of
+  its pointwise standard error, √(f·R(K)/(n·h)) with R(K) = 1/(2√π), n the
+  effective number of entries (Σw)²/Σw² and h the kernel width (`--bw`:
+  a width in x units, or `scott`, the default, or `silverman`). It has unit
+  area ("Density"), unless `--data_hue` values share the axes: those stay
+  histogram points with their Poisson errors, and the KDE is scaled to
+  counts per bin to be read against them. A KDE spills past hard edges
+  (a score in [0, 1]): read it as a shape there.
+* `ecdf`: the empirical cumulative distribution, a step from 0 to 1 at every
+  value (on a 2000-point grid past 2000 values) with the binomial band
+  √(F(1−F)/n), for quantiles and tails.
+
+`--cumulative` accumulates a histogram (`reverse`: from each bin up, the
+fraction above a cut), with the Garwood interval of the accumulated counts
+(√ of the accumulated Σw² with weights); with `--density` it ends at 1.
+`--rug` marks every value with a short tick along the x axis, fainter the
+more there are (a random 5000 past that), for small samples under a KDE.
+`--ridge [OVERLAP]` puts each hue value on its own baseline, the first on
+top, its name as the y tick label instead of a legend, the curves filled
+and scaled to reach OVERLAP (0.5) into the row above.
+
+![Data points with Poisson errors over the kernel density estimate of the simulation, weighted to the data](images/options/kde.png)
+
+```bash
+plotipus hist --datafile Distributions -x Value --hue Sample --weight Weight --select Distribution -s Log-normal --data_hue Data --hist_type kde --bins 40 --rangex 0 6 --labelx x --title 'Data points over a kernel density estimate'
+```
+
 ## Lower panels
 
 A lower panel is the same kind of panel as the upper one; it plots a column

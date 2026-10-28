@@ -36,10 +36,10 @@ hist --datafile Showers -x TrueEnergy --hue Particle --select Particle -s electr
 hist --datafile Showers -x RecoEnergy --select Particle -s muon --bins 40 --rangex 0 6 --errory_type poisson --labelx 'Deposited energy (GeV)' --title 'Muon deposits with Poisson intervals' --output_suffix A6
 
 # A7 KDE
-# needs T22.4: hist --datafile Scores -x Score --hue Class --select Model -s BDT --hist_type kde --labelx 'BDT score' --title 'Score densities' --output_suffix A7
+hist --datafile Scores -x Score --hue Class --select Model -s BDT --hist_type kde --labelx 'BDT score' --title 'Score densities' --output_suffix A7
 
 # A8 ECDF / cumulative
-# needs T22.4: hist --datafile Scores -x Score --hue Class --select Model -s BDT --hist_type ecdf --labelx 'BDT score' --title 'Cumulative score distributions' --output_suffix A8
+hist --datafile Scores -x Score --hue Class --select Model -s BDT --hist_type ecdf --labelx 'BDT score' --title 'Cumulative score distributions' --output_suffix A8
 
 # A9 Box plot per category
 line --datafile Showers -x TrueEnergy -y Residual --binned --plot_type box --hue Particle --select Particle -s electron pion --bins 8 --rangex 5 75 --no_fliers --labelx 'Beam energy (GeV)' --labely '$(E_{reco}-E_{true})/E_{true}$' --title 'Energy residuals per beam-energy bin' --output_suffix A9
@@ -49,6 +49,12 @@ line --datafile Showers -x TrueEnergy -y Residual --binned --plot_type violin --
 
 # A10b Violin / strip / box per category
 cat --datafile Showers -x Particle -y Response --kind violin --labely 'Response' --title 'Response per particle' --output_suffix A10b
+
+# A11 Ridgeline (joy plot)
+hist --datafile Scores -x Score --hue Model --select Class -s Background --hist_type kde --ridge --rangex 0 1 --labelx 'Background score' --title 'Background scores of three classifiers' --output_suffix A11
+
+# A12 Rug
+hist --datafile Hubble1929 -x Distance --select Sample -s 'Individual nebulae' --hist_type kde --rug --rangex 0 2.5 --labelx 'Distance (Mpc)' --title "Distances of Hubble's 24 nebulae" --output_suffix A12
 
 # == B Relationships
 
