@@ -16,10 +16,10 @@ import numpy as np
 import pandas as pd
 from rich import print as rprint
 
-from .. import registry, style
+from .. import registry, style, uncertainty
 from ..args import add_common_args
 from ..format import format_value, format_with_band, format_with_error, format_with_interval
-from ..intervals import clopper_pearson
+from ..intervals import clopper_pearson, garwood
 from ..io import import_data, make_name_from_args, save_table_to_paths
 from ..project import load_project
 from ..selection import filter_dataframe
@@ -104,6 +104,10 @@ def build_parser():
     add("--clopper_pearson", nargs="+", default=None, metavar="COLUMN",
         help="PASS [TOTAL] count columns: each cell is the pooled efficiency PASS/TOTAL with its "
         "Clopper-Pearson interval, $value^{+up}_{-down}$ (TOTAL defaults to PASS / (--y / --efficiency_scale))")
+    add("--poisson", default=None, metavar="COLUMN",
+        help="Count column: each cell is the summed count of COLUMN with its Garwood (Poisson) interval, "
+        "$n^{+up}_{-down}$. Without an error column this is automatic for integer counts summed per cell (or one "
+        "per cell), and Clopper-Pearson for frames with Passed and Total columns.")
     add("--efficiency_scale", type=float, default=100.0,
         help="Value of --y at 100%% efficiency, with --clopper_pearson (default 100: --y in percent)")
     add("--confidence_level", type=float, default=0.6827, help="Coverage of the --clopper_pearson interval")
@@ -234,6 +238,25 @@ def _error_aggregator(args):
     return lambda x: np.sqrt(np.sum(x**2)) / len(x)
 
 
+def _one_row_per_cell(points, row_index, args):
+    """Whether every table cell holds a single row (so its mean is its sum)."""
+    keys = [c for c in [*row_index, args.variable_name] if c in points.columns]
+    return not keys or int(points.groupby(keys).size().max()) == 1
+
+
+def _check_bounds(points, y, y_error, args):
+    """U4: warn, per variable, when stored symmetric errors cross 0 for a
+    quantity that is never negative, or 100% for an efficiency (every
+    value at most 1, or at most --efficiency_scale)."""
+    for variable, part in points.groupby(args.variable_name):
+        values = part[y].astype(float).to_numpy()
+        errors = part[y_error].astype(float).to_numpy()
+        finite = values[np.isfinite(values)]
+        scale = 1.0 if finite.size and np.all(finite <= 1) else args.efficiency_scale
+        name = str(variable) if str(variable) else y
+        uncertainty.check_bounds(args, name, y_error, values, errors, errors, scale)
+
+
 def _row_label(x, group, show_group, show_config):
     """Row label of a (group, Config) index entry: group, config or both."""
     if not group:
@@ -289,10 +312,23 @@ def build_table(df, args):
     if args.count_column:
         cols.append(args.count_column)
     binomial = bool(args.clopper_pearson) and not args.no_error
+    efficiency_scale = args.efficiency_scale
+    # U10: without an error column the interval follows the quantity (F3, F4):
+    # efficiencies with their Passed/Total trials, integer counts (below).
+    automatic = (not args.no_error and not args.error_band and not binomial and not args.poisson
+                 and y_error not in subset.columns and args.error_mode not in ("std", "sem")
+                 and args.stats is None and not args.fit_params)
+    auto_binomial = automatic and {"Passed", "Total"} <= set(subset.columns) and y not in ("Passed", "Total")
+    if auto_binomial:
+        binomial = True
+        args.clopper_pearson = ["Passed", "Total"]
     if binomial:
         pass_column = args.clopper_pearson[0]
         total_column = args.clopper_pearson[1] if len(args.clopper_pearson) > 1 else None
         cols.extend(c for c in (pass_column, total_column) if c is not None and c not in cols)
+    poisson = args.poisson if not args.no_error else None
+    if poisson and poisson not in cols:
+        cols.append(poisson)
 
     lead = [group] if group else []
     row_index = ([args.row_name] if args.row_name else []) if args.drop_config else lead + ["Config"] + ([args.row_name] if args.row_name else [])
@@ -326,6 +362,23 @@ def build_table(df, args):
         total_column = f"{pass_column}Total"
         passed, efficiency = points[pass_column].astype(float), points[y].astype(float)
         points[total_column] = (passed * args.efficiency_scale / efficiency).round()
+
+    if auto_binomial:
+        # The cells keep the stored efficiency's scale (a fraction or percent).
+        efficiency = points[y].astype(float) * points[total_column].astype(float) / points[pass_column].astype(float)
+        efficiency = efficiency[np.isfinite(efficiency)]
+        efficiency_scale = 100.0 if len(efficiency) and float(np.median(efficiency)) > 2 else 1.0
+        uncertainty.warn_interval(args, y, y, "clopper_pearson", f"{pass_column}/{total_column}")
+    if automatic and not auto_binomial and len(points) and uncertainty.is_counts(points[y]):
+        if args.operation == "sum" or _one_row_per_cell(points, row_index, args):
+            poisson = y
+            uncertainty.warn_interval(args, y, y, "poisson")
+    if args.error_mode in ("std", "sem") and not args.no_error and len(points) and uncertainty.is_counts(points[y]):
+        rprint(f"[yellow]Warning:[/yellow] {y} holds counts: --error_mode {args.error_mode} gives their spread, "
+               f"not their uncertainty (style guide U10); --poisson {y} prints Garwood intervals.")
+    if poisson:
+        # The counts as stored, before --multiply rescales --y.
+        points["_PoissonCount"] = points[poisson].astype(float)
 
     variable_column = args.variable_name if args.variable_name in points.columns else "Variable"
     for item in args.multiply_variable or []:
@@ -371,7 +424,7 @@ def build_table(df, args):
     elif binomial:
         # Counts pool over the cell's rows: value and interval are those of sum(PASS)/sum(TOTAL).
         counts = points.groupby(keys)[[pass_column, total_column]].sum()
-        scale = args.efficiency_scale * (args.multiply if args.multiply is not None else 1)
+        scale = efficiency_scale * (args.multiply if args.multiply is not None else 1)
         cells = []
         for passed, total in zip(counts[pass_column], counts[total_column]):
             if not total > 0:
@@ -380,7 +433,18 @@ def build_table(df, args):
             low, high = clopper_pearson(passed, total, args.confidence_level)
             cells.append(format_with_interval(scale * passed / total, scale * low, scale * high, args=args))
         table = pd.DataFrame({(y, op): cells}, index=counts.index)
+    elif poisson:
+        # Counts pool over the cell's rows: value and interval are those of the summed count.
+        counts = points.groupby(keys)["_PoissonCount"].sum()
+        factor = args.multiply if args.multiply is not None else 1
+        cells = []
+        for n in counts:
+            low, high = garwood(n, args.confidence_level)
+            cells.append(format_with_interval(factor * n, factor * float(low), factor * float(high), args=args))
+        table = pd.DataFrame({(y, op): cells}, index=counts.index)
     elif has_error:
+        if not from_spread:
+            _check_bounds(points, y, y_error, args)
         if from_spread:
             # The error comes from the spread of --y itself.
             points[y_error] = points[y]

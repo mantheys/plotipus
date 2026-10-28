@@ -701,8 +701,10 @@ def test_series_type_rejects_unknown_type():
 def test_error_scale_multiplies_drawn_errors_only(make_project, models):
     figures = _capture()
     make_project({"Hubble": models})
+    # The models are exact: their stored errors are not drawn, so only data says "×10".
     line.main(["--datafile", "Hubble", "-x", "Z", "-y", "Mu", "--hue", "Model", "--plot_type", "line",
-               "--series_type", "data=errorbar", "--error_scale", "10", "--lower", "ratio"])
+               "--series_type", "data=errorbar", "--error_scale", "10", "--lower", "ratio",
+               "--exact", "LCDM", "Empty", "EdS"])
     ax = figures[0].axes[0]
     (data,), _ = _series_artists(ax)
     segments = data.lines[2][0].get_segments()

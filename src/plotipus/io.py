@@ -381,7 +381,9 @@ def make_name_from_args(
         if value and isinstance(value, str):
             add(value, protected=filename_selected(axis))
 
-    if getattr(args, "errory", False):
+    # The --errory typed on the command line, not the default it now is (U1),
+    # so file names stay as they were.
+    if getattr(args, "errory_given", getattr(args, "errory", False)):
         add("error")
 
     if getattr(args, "variables", None):

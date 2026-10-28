@@ -20,7 +20,7 @@ import matplotlib.pyplot as plt
 import numpy as np
 from rich import print as rprint
 
-from .. import style
+from .. import intervals, style, uncertainty
 from ..args import add_common_args, map_iterable_color, map_iterable_label, resolve_axis_label
 from ..encodings import LINESTYLES
 from ..io import import_data, prepare_import
@@ -43,13 +43,15 @@ def build_parser():
             "remove_value", "filename_select", "filename_suffix", "x", "y", "labelx", "labely", "logy",
             "rangey", "title", "output", "subfolder", "horizontal", "horizontal_label",
             "horizontal_style", "horizontal_color", "horizontal_label_pos", "note", "multiply", "debug", "errory",
+            "no_error", "exact", "confidence_level",
         ],
         overrides={
             "datafile": {"required": True},
             "x": {"required": True, "help": "Categorical column (one position per value)"},
             "y": {"required": True, "help": "Array column reduced to one value per row (or a scalar per row)"},
             "iterable": {"required": True, "help": "Column whose values become separate series (colour)"},
-            "errory": {"help": "Propagate the {y}Error column (in quadrature) as error bars"},
+            "errory": {"help": "Errors are drawn by default (the {y}Error column, in quadrature, else Garwood "
+                       "intervals of integer counts); kept for old command lists"},
         },
     )
     add = parser.add_argument
@@ -133,10 +135,28 @@ def _ordered_unique(values, explicit=None):
     return seen
 
 
-def _category_totals(subset, categories, positions, args, with_errors=None):
+def _counted(row, args):
+    """Whether the integrated value of ``row`` is itself a count: integer
+    counts summed bin by bin (or one integer per row), not rescaled."""
+    if args.multiply is not None or not uncertainty.is_counts(row[args.y]):
+        return False
+    if np.ndim(row[args.y]) == 0 or args.integral_mode == "sum":
+        return True
+    grid = row[args.integrate_over] if args.integrate_over and args.integrate_over in row.index else None
+    return grid is None or np.ndim(grid) == 0 or bool(np.allclose(np.gradient(np.asarray(grid, dtype=float)), 1))
+
+
+def _category_totals(subset, categories, positions, args, with_errors=None, name=None, hue=None):
     """(positions, totals, errors) of the categories present in ``subset``:
-    rows of a category summed, errors in quadrature (NaN without errors)."""
+    rows of a category summed, errors (2xN, below and above) in quadrature,
+    NaN without errors. Following the style guide's U1, a series without
+    stored errors whose totals are counts gets Garwood intervals; ``counted``
+    on the returned errors says so. Warnings name the series ``name``."""
+    with_errors = args.errory if with_errors is None else with_errors
+    if args.no_error or uncertainty.is_exact(args, hue):
+        with_errors = False
     xs, ys, es = [], [], []
+    stored, counted = False, True
     for position, category in zip(positions, categories):
         category_rows = subset[subset[args.x] == category]
         if category_rows.empty:
@@ -145,8 +165,35 @@ def _category_totals(subset, categories, positions, args, with_errors=None):
         errors = [e for _, e in totals if e is not None]
         xs.append(position)
         ys.append(sum(v for v, _ in totals))
-        es.append(float(np.sqrt(np.sum(np.square(errors)))) if errors else np.nan)
-    return np.asarray(xs), np.asarray(ys), np.asarray(es)
+        error = float(np.sqrt(np.sum(np.square(errors)))) if errors else np.nan
+        es.append((error, error))
+        stored = stored or bool(errors)
+        counted = counted and all(_counted(row, args) for _, row in category_rows.iterrows())
+    xs, ys = np.asarray(xs), np.asarray(ys, dtype=float)
+    es = np.asarray(es, dtype=float).T.reshape(2, len(xs))
+    label = str(name) if name is not None else args.y
+    counted = counted and with_errors and not stored and len(xs) > 0
+    if counted:
+        low, high = intervals.garwood(ys, args.confidence_level)
+        es = np.vstack([np.clip(ys - low, 0, None), np.clip(high - ys, 0, None)])
+        uncertainty.warn_interval(args, label, args.y, "poisson")
+    elif with_errors and stored:
+        uncertainty.check_bounds(args, label, f"{args.y}Error", ys, es[0], es[1])
+    elif with_errors and len(xs):
+        uncertainty.warn_none(args, label, args.y)
+    return xs, ys, _Errors(es, counted)
+
+
+class _Errors(np.ndarray):
+    """2xN errors that remember whether they are Garwood intervals of counts."""
+
+    def __new__(cls, values, counted=False):
+        array = np.asarray(values, dtype=float).view(cls)
+        array.counted = counted
+        return array
+
+    def __array_finalize__(self, other):
+        self.counted = getattr(other, "counted", False)
 
 
 def draw_figure(rows, args, kdx, comparable):
@@ -175,7 +222,8 @@ def draw_figure(rows, args, kdx, comparable):
     for ddx, hue in enumerate(data_hues):
         # Data: ink points with their errors at the category centre, first in the legend.
         subset = rows[rows[args.iterable] == hue]
-        xs, ys, es = _category_totals(subset, categories, positions, args, with_errors=True)
+        xs, ys, es = _category_totals(subset, categories, positions, args, with_errors=True,
+                                      name=map_iterable_label(hue, args.iterable, args.iterable_mapping), hue=hue)
         if not len(xs):
             continue
         ax.errorbar(xs + offset(ddx), ys, yerr=np.nan_to_num(es) if np.isfinite(es).any() else None, fmt="o",
@@ -183,8 +231,8 @@ def draw_figure(rows, args, kdx, comparable):
         data_handles.append(mlines.Line2D([], [], color=style.role("ink"), linestyle="none", marker="o",
                                           label=map_iterable_label(hue, args.iterable, args.iterable_mapping)))
     stack_bottom = np.zeros(len(categories))
-    stack_variance = np.zeros(len(categories))
-    stack_has_errors = True
+    stack_variance = np.zeros((2, len(categories)))
+    stack_has_errors, stack_counted = True, True
     for idx, hue in enumerate(models):
         # Hue values past the palette repeat a colour but keep their own marker.
         color = colors.color_for(hue)
@@ -203,7 +251,7 @@ def draw_figure(rows, args, kdx, comparable):
             if subset.empty:
                 continue
             linestyle = linestyles[cdx % len(linestyles)]
-            xs, ys, es = _category_totals(subset, categories, positions, args)
+            xs, ys, es = _category_totals(subset, categories, positions, args, name=hue_label, hue=hue)
             if not len(xs):
                 continue
             rprint(f"\tValues for {args.iterable}={hue}" + (f", {comparable}={value}" if value is not None else "") + ": "
@@ -213,7 +261,8 @@ def draw_figure(rows, args, kdx, comparable):
                 ax.bar(xs, ys, width=0.8, bottom=stack_bottom[slots], color=color, alpha=0.9 if cdx == 0 else 0.5)
                 stack_bottom[slots] += ys
                 if args.errory and np.isfinite(es).all():
-                    stack_variance[slots] += es**2
+                    stack_variance[:, slots] += np.square(es)
+                    stack_counted = stack_counted and es.counted
                 else:
                     stack_has_errors = False
             elif args.kind == "bar":
@@ -243,8 +292,13 @@ def draw_figure(rows, args, kdx, comparable):
     if stacked and models and args.errory:
         if stack_has_errors:
             filled = stack_bottom > 0
-            band_handles = [_error_band(ax, positions[filled], stack_bottom[filled], np.sqrt(stack_variance[filled]),
-                                        0.8)]
+            total = stack_bottom[filled]
+            if stack_counted:  # a sum of counts is a count: its own Garwood interval
+                low, high = intervals.garwood(total, args.confidence_level)
+                errors = np.vstack([total - low, high - total])
+            else:
+                errors = np.sqrt(stack_variance[:, filled])
+            band_handles = [_error_band(ax, positions[filled], total, errors, 0.8)]
         else:
             rprint("[yellow]Warning:[/yellow] The stack total error needs an error for every stacked value; "
                    "no band drawn.")
@@ -286,13 +340,15 @@ def draw_figure(rows, args, kdx, comparable):
 
 
 def _error_band(ax, centres, values, errors, width):
-    """Hatched boxes of ``values`` ± ``errors`` over bars of ``width`` at
+    """Hatched boxes of ``values`` ± ``errors`` (N, or 2xN below and above) over bars of ``width`` at
     ``centres`` (the style's stack_error look); returns the legend handle."""
     band = style.role_colors(style.stack_error)
     hatch = band["hatch"] or None
-    for centre, value, error in zip(centres, values, errors):
-        if error > 0:
-            ax.add_patch(mpatches.Rectangle((centre - width / 2, value - error), width, 2 * error, fill=False,
+    errors = np.asarray(errors, dtype=float)
+    low, high = (errors, errors) if errors.ndim == 1 else (errors[0], errors[1])
+    for centre, value, below, above in zip(centres, values, low, high):
+        if below + above > 0:
+            ax.add_patch(mpatches.Rectangle((centre - width / 2, value - below), width, below + above, fill=False,
                                             hatch=hatch, edgecolor=band["color"], linewidth=0, zorder=2.5))
     return mpatches.Patch(fill=False, hatch=hatch, edgecolor=band["color"], linewidth=0, label=band["label"])
 
@@ -327,6 +383,9 @@ def _rotate_tick_labels(fig, ax, rotation=None, pad_px=4):
 
 
 def run(args):
+    # U1: errors are drawn by default; --errory only still names the file.
+    args.errory_given = args.errory
+    args.errory = not args.no_error
     df = import_data(args)
     if df.empty:
         rprint("[yellow]Warning:[/yellow] No datafiles found. Exiting...")

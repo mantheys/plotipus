@@ -58,7 +58,8 @@ def test_bar_legend_shows_patches(make_project):
     make_project({"Spectra": frame})
     cat.main(["--datafile", "Spectra", "-x", "Stage", "-y", "Counts", "--hue", "Sample", "--kind", "bar"])
     handles = figures[-1].axes[0].get_legend().legend_handles
-    assert len(handles) == 2 and all(isinstance(h, Patch) for h in handles)
+    # A and B, then the hatched band of their Garwood errors (integer counts, U1).
+    assert len(handles) == 3 and all(isinstance(h, Patch) for h in handles)
 
 
 # --- Scalar cells, handles and tick labels (T08) -----------------------------------------
@@ -147,7 +148,8 @@ def test_data_hue_points_over_bars(make_project):
     assert [p.get_x() + p.get_width() / 2 for p in bars[0]] == [0.0, 1.0, 2.0]  # one model: bars centred
     assert to_hex(points[0].lines[0].get_color()) == to_hex(style.role("ink"))
     assert points[0].has_yerr  # data shows its errors without --errory
-    assert [t.get_text() for t in ax.get_legend().get_texts()] == ["data", "background"]
+    # The background's stored errors are drawn by default (U1): its band comes last.
+    assert [t.get_text() for t in ax.get_legend().get_texts()] == ["data", "background", "Sim. unc."]
 
 
 def _yields():

@@ -795,8 +795,27 @@ COMMON_ARG_SPECS = {
         "kwargs": {
             "action": "store_true",
             "default": False,
-            "help": "Plot y-axis error bars/bands (requires an {y}Error or "
-            "{y}Error+/{y}Error- column)",
+            "help": "Errors are drawn by default (style guide U1); the flag is kept for old "
+            "command lists and still adds 'error' to the file name",
+        },
+    },
+    "no_error": {
+        "flags": ["--no_error"],
+        "kwargs": {
+            "action": "store_true",
+            "default": False,
+            "help": "Draw no errors: neither the stored {y}Error columns nor the computed "
+            "intervals, and no warnings about them",
+        },
+    },
+    "exact": {
+        "flags": ["--exact"],
+        "kwargs": {
+            "nargs": "+",
+            "default": None,
+            "metavar": "VALUE",
+            "help": "Hue values that are exact (a model, fit or theory curve): drawn without "
+            "errors and without the 'no uncertainty' warning",
         },
     },
     "errory_type": {
