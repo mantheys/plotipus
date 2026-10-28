@@ -90,7 +90,9 @@ plotipus line --datafile Keeling -x DecimalDate -y CO2 --hue Series --plot_type 
   `--select Distribution -s Gaussian Poisson` keeps both distributions.
 * **Encodings**: `--hue` (alias `--iterable`), `--style` (alias
   `--comparable`), `--iterable_mapping`/`--iterable_color_mapping` and
-  `--comparable_mapping` (named mappings from the style file),
+  `--comparable_mapping` (named mappings from the style file; the
+  project's `colors.json`, written by `plotipus colors`, gives each hue
+  value one colour in every figure, see [Colours](projects.md#colours)),
   `--invert_style`, `--comparable_fill_strength`. `--hue X --style X` draws
   one legend whose entries carry both the colour and the line style.
 * **Legends** never cover data. Each goes to the emptiest corner (or free

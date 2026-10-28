@@ -195,11 +195,15 @@ enforceable version. Where the two differ, this guide is the target.
 
 ## C. Colour
 
-- **C1. A colour belongs to a category.** ◐
+- **C1. A colour belongs to a category.** ✅
   - The same hue value keeps its colour across panels, lower panels and
     files.
-  - Pin colours per project with a mapping (`iterable_color_mapping`).
-    Without one, colours follow the order of the values.
+  - `plotipus colors` gives every hue value of the project a colour of its
+    own in `colors.json`, next to `plotipus.toml`; every figure then draws
+    it in that colour, whichever values share the figure. Commit the file.
+  - A mapping (`iterable_color_mapping`) still wins, data stay in ink and
+    `--hue_cmap` keeps its colour map. Without a registry, colours follow
+    the order of the values in each figure.
 - **C2. Palette.** ✅
   - Petroff-10 (colour-vision tested), the same order in every medium and
     theme.
@@ -352,6 +356,7 @@ the authors got wrong. Both sides are recreations, not official results.
 
 ## What plotipus does not do yet
 
+Every rule above is in place. New gaps go in this table:
+
 | rule | gap | proposed change |
 |---|---|---|
-| C1 | Colours follow value order unless a mapping pins them | A project-level colour registry that stores each new category's colour on first use |

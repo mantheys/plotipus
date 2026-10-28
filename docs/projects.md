@@ -153,6 +153,32 @@ label/colour dictionaries used by the `*_mapping` options).
  "mappings": {"config_color": {"total": "role:ink"}}}
 ```
 
+## Colours
+
+A hue value keeps one colour in every figure of the project (style guide
+C1) when the project has a colour registry, `colors.json` next to
+`plotipus.toml`:
+
+```json
+{"Sample": {"Simulation": "C0", "Background": "C1", "Signal": "C2"}}
+```
+
+`plotipus colors` writes it: for the `--hue` columns of the plot command
+lists (or the columns given, `plotipus colors Sample Particle`), every value
+in the data files gets the next free palette colour (`Cn`, so a `--palette`
+or medium change keeps them apart), in the order of the sorted data files.
+Values already registered keep their colour, so run it again after adding
+data and commit the file; `--dry_run` prints the new colours only. Edit an
+entry to any colour a mapping takes (`Cn`, a name, hex, `rgb(r,g,b)`,
+`role:name`).
+
+Plots only read the registry. A `--iterable_color_mapping` (or a plugin
+colour hook) wins over it; `--data_hue` values stay in ink and are left out;
+columns drawn with `--hue_cmap` keep the colour map. A value missing from a
+registered column takes a palette colour no registered value has, with a
+warning that `plotipus colors` adds it. Past the palette's length the
+colours repeat, with a warning.
+
 ## Plugins
 
 Plugins adapt plotipus to a project without changing it. A plugin module

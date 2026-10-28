@@ -28,6 +28,7 @@ from ..args import add_common_args, map_iterable_color, map_iterable_label, reso
 from ..encodings import HueColormap, add_hue_cmap_args, add_legend_args
 from ..format import make_config_color_and_style_from_args, make_config_label_from_args, make_subtitle_from_args
 from ..io import import_data, prepare_import
+from ..hue_colors import avoid_registered, registered_color
 from ..palettes import ColorAllocator
 from ..panel_lines import add_panel_line_args, draw_panel_lines, panel_rangex, resolve_panel_lines
 from ..panels import add_title_and_note, create_panels, draw_overlays, save
@@ -348,7 +349,9 @@ def draw_figure(df, args, kdx, config, name):
     unmapped = [v for v in values if not is_data(v) and v is not None and _series_style(args, v, name)[1] is None]
     hue_cmap = HueColormap(unmapped, args.hue_cmap, args.hue_cmap_range) if args.hue_cmap and unmapped else None
     colors.reserve([v for v in values if not is_data(v)],
-                   lambda value: _series_style(args, value, name)[1] or (hue_cmap.color(value) if hue_cmap else None))
+                   lambda value: _series_style(args, value, name)[1] or registered_color(args, args.iterable, value)
+                   or (hue_cmap.color(value) if hue_cmap else None))
+    avoid_registered(colors, args, args.iterable)
     density = args.density or args.labely == "Density"
     if args.rug and args.ridge is not None:
         rprint("[yellow]Warning:[/yellow] --rug is not drawn with --ridge.")

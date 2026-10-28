@@ -6,6 +6,8 @@
                                        --medium slides|paper|web|all, --theme light|dark)
     plotipus translate <command...>    show the plotipus form of a legacy command
     plotipus init [directory]          create a project skeleton
+    plotipus colors [COLUMN ...]       give every hue value of the project a colour of its own, kept in
+                                       colors.json for every figure (--dry_run)
 """
 
 import argparse
@@ -91,6 +93,18 @@ def main(argv=None):
         return 0
     if command == "init":
         return _init(rest[0] if rest else ".")
+    if command == "colors":
+        parser = argparse.ArgumentParser(prog="plotipus colors", description=(
+            "Give every hue value of the project's data a colour of its own in colors.json (rule C1): every "
+            "figure then draws it in that colour. Values already there keep theirs."))
+        parser.add_argument("columns", nargs="*", metavar="COLUMN",
+                            help="Hue columns to register (default: the --hue columns of the plot command lists)")
+        parser.add_argument("--dry_run", "--dry-run", action="store_true", help="Print the new colours only")
+        options = parser.parse_args(rest)
+        from .hue_colors import update
+
+        update(options.columns, options.dry_run)
+        return 0
     if command.endswith(".py"):
         kind, rest = translate(argv)
         command = kind

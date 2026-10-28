@@ -27,9 +27,10 @@ from matplotlib.colors import to_rgba
 from rich import print as rprint
 
 from .. import intervals, style, uncertainty
-from ..args import add_common_args, map_iterable_color, map_iterable_label, resolve_axis_label
+from ..args import add_common_args, map_iterable_label, resolve_axis_label
 from ..encodings import LINESTYLES
 from ..io import import_data, prepare_import
+from ..hue_colors import avoid_registered, hue_color
 from ..palettes import ColorAllocator
 from ..panels import add_title_and_note, create_panels, draw_horizontal_overlay, save
 from ..plot import apply_legend_style, apply_legend_style_clear_of_data, draw_vertical_lines, plot_data
@@ -290,7 +291,8 @@ def draw_figure(rows, args, kdx, comparable):
     data_hues = [hue for hue in hues if str(hue) in data_values]
     models = [hue for hue in hues if str(hue) not in data_values]
     colors = ColorAllocator()
-    colors.reserve(models, lambda hue: map_iterable_color(hue, args.iterable_color_mapping, args.iterable))
+    colors.reserve(models, lambda hue: hue_color(hue, args, args.iterable))
+    avoid_registered(colors, args, args.iterable)
     hue_handles, style_handles, data_handles, band_handles = [], [], [], []
     stacked = args.stacked and args.kind == "bar"
     # Points and lollipops side by side: each series its own slot within the category (data first).
