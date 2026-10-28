@@ -1105,6 +1105,47 @@ def stagger_above_legends(fig):
     return moved
 
 
+def stagger_stacked_ylabels(fig):
+    """On the final layout, a y label taller than its panel (a lower panel
+    sharing the plot's height, rule L2) that reaches over the label of the
+    panel above moves left of it, at its size; the layout then makes room.
+    Returns whether any moved."""
+    from matplotlib.transforms import offset_copy
+
+    panels = [ax for ax in fig.axes if ax.get_visible() and ax.get_subplotspec() is not None
+              and not hasattr(ax, "_colorbar") and ax.yaxis.label.get_visible() and ax.yaxis.label.get_text()]
+    if len(panels) < 2:
+        return False
+    fig.draw_without_rendering()
+    renderer = fig.canvas.get_renderer()
+    columns = {}
+    for ax in panels:
+        columns.setdefault(round(ax.bbox.x0), []).append(ax)
+    def pin(ax, shift=0.0):
+        # In points from the axes' left edge: the label keeps its place when the layout moves the axes.
+        label = ax.yaxis.label
+        x = label.get_transform().transform(label.get_position())[0] - shift
+        offset = (x - ax.bbox.x0) * 72.0 / fig.dpi
+        ax.yaxis.set_label_coords(0, 0.5, transform=offset_copy(ax.transAxes, fig=fig, x=offset, units="points"))
+
+    moved = False
+    for column in columns.values():
+        settled, shifts = [], {}
+        for ax in sorted(column, key=lambda a: -a.bbox.y1):
+            box = ax.yaxis.label.get_window_extent(renderer)
+            clashing = [b for b in settled if b.x0 < box.x1 and box.x0 < b.x1 and b.y0 < box.y1 and box.y0 < b.y1]
+            if clashing:
+                shifts[ax] = box.x1 - min(b.x0 for b in clashing) + 2 * fig.dpi / 72.0
+                box = Bbox([[box.x0 - shifts[ax], box.y0], [box.x1 - shifts[ax], box.y1]])
+            settled.append(box)
+        if shifts:
+            # The whole column is pinned, so a later re-alignment of the others cannot bring them back together.
+            for ax in column:
+                pin(ax, shifts.get(ax, 0.0))
+            moved = True
+    return moved
+
+
 def _place_beside(ax, legend, renderer, side):
     """Below the axes (under the lowest panel sharing x and its tick and
     axis labels), in as many columns as fit the figure, or right of the axes, aligned

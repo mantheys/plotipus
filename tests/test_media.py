@@ -4,6 +4,7 @@ paper and web, each at its printed size and in its own output folder."""
 import numpy as np
 import pandas as pd
 import pytest
+from matplotlib.backends.backend_agg import FigureCanvasAgg
 
 from plotipus import registry, style
 from plotipus.cli import main as cli_main
@@ -56,6 +57,26 @@ def test_lower_panel_takes_its_height_from_the_plot(make_project, spectra):
         plain, = _sizes("--medium", medium)
         with_lower, = _sizes("--medium", medium, "--lower", "ratio")
         assert with_lower == pytest.approx(plain), medium
+
+
+def test_labels_of_short_lower_panels_do_not_overlap(make_project, spectra):
+    """Rule L2 on paper: two lower panels share a column's height, so their y
+    labels are taller than the panels; the lower one moves beside the other."""
+    make_project({"Spectra": spectra})
+    figures = []
+    registry.add_figure_hook(lambda fig, args: figures.append(fig))
+    line.main(["--datafile", "Spectra", "-x", "Energy", "-y", "Counts", "--hue", "Sample", "--select", "Variable",
+               "-s", "E", "--data_hue", "A", "--lower", "ratio", "--lower", "subtract", "--medium", "paper"])
+    fig = figures[-1]
+    FigureCanvasAgg(fig)  # closed after saving
+    fig.draw_without_rendering()
+    renderer = fig.canvas.get_renderer()
+    boxes = [ax.yaxis.label.get_window_extent(renderer) for ax in fig.axes if ax.yaxis.label.get_text()]
+    assert len(boxes) == 3
+    for i, a in enumerate(boxes):
+        for b in boxes[i + 1:]:
+            assert not (a.x0 < b.x1 and b.x0 < a.x1 and a.y0 < b.y1 and b.y0 < a.y1)
+        assert a.x0 >= 0  # the layout made room
 
 
 def test_lower_panels_add_height_when_the_style_says_so(make_project, spectra, tmp_path):

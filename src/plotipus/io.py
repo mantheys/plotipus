@@ -578,7 +578,8 @@ def save_figure_to_paths(fig, output_arg, output_file, default_output_dir=None, 
     directory when none is given); ``sci_in_label`` and ``log_labels`` as in
     :func:`plotipus.plot.finish_tick_labels`."""
     from .plot import (_shorten_title_to_fit, apply_measured_layout, attach_legends, finish_tick_labels, place_legends,
-                       fix_cmr10_glyphs, separate_panel_tick_labels, settle_text_backgrounds, stagger_above_legends)
+                       fix_cmr10_glyphs, separate_panel_tick_labels, settle_text_backgrounds, stagger_above_legends,
+                       stagger_stacked_ylabels)
 
     fix_cmr10_glyphs(fig)  # '<' and '>' in the paper style's Computer Modern
     finish_tick_labels(fig, sci_in_label, log_labels)
@@ -594,6 +595,8 @@ def save_figure_to_paths(fig, output_arg, output_file, default_output_dir=None, 
         if make_room(fig):
             apply_measured_layout(fig)
     if stagger_above_legends(fig):  # wide legends above neighbouring panels, one above the other
+        apply_measured_layout(fig)
+    if stagger_stacked_ylabels(fig):  # y labels taller than their short lower panels, side by side
         apply_measured_layout(fig)
     attach_legends(fig)  # legends kept next to another one, on the final layout
     settle_text_backgrounds(fig)  # note/label backgrounds only over data
