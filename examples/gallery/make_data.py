@@ -44,7 +44,8 @@ def main(out=None):
     mappings = json.loads((FAMOUS / "style.json").read_text()).get("mappings", {})
     (HERE / "input" / "famous_mappings.json").write_text(json.dumps({"mappings": mappings}, indent=1) + "\n")
 
-    written = []
+    written = ["Probes"]
+    _probes(out)
     for theme, generators in THEMES.items():
         rng = np.random.default_rng(sum(map(ord, theme)))
         for generator in generators.values():
@@ -52,6 +53,22 @@ def main(out=None):
                 frame.to_pickle(out / f"{name}.pkl")
                 written.append(name)
     print(f"Gallery data written to {out} ({len(written)} gallery datasets) in {time.perf_counter() - start:.1f} s")
+
+
+def _probes(out):
+    """G8: several datasets in one file, told apart by the ``Probe`` column.
+    The SN and CMB Delta chi^2 maps of the famous F10 (``SN``/``CMB``
+    ``_Riess1998_OmegaContours``), and a synthetic BAO map: an illustrative
+    ellipse tight in Omega_M (0.3 +- 0.03), loose along Omega_Lambda."""
+    import pandas as pd
+
+    frames = [pd.read_pickle(out / f"{probe}_Riess1998_OmegaContours.pkl").assign(Probe=probe)
+              for probe in ("SN", "CMB")]
+    omega_m, omega_lambda = frames[0]["OmegaM"].iloc[0], frames[0]["OmegaLambda"].iloc[0]
+    om, ol = np.meshgrid(omega_m, omega_lambda)
+    bao = ((om - 0.3 - 0.05 * (ol - 0.7)) / 0.03) ** 2 + ((ol - 0.7) / 0.6) ** 2
+    frames.append(frames[0].assign(Probe="BAO", DeltaChi2=[bao.astype(np.float32)]))
+    pd.concat(frames, ignore_index=True).assign(Config="Probes").to_pickle(out / "Probes.pkl")
 
 
 if __name__ == "__main__":

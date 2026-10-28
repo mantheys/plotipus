@@ -138,9 +138,9 @@ def build_parser():
         "(default with several panels; --no-compact gives each panel its own y axis).")
     add("--no-compact", dest="compact", action="store_false")
     add("--iterable_mapping", type=str, default=None,
-        help="Mapping renaming the datafile of each overlaid contour variant in the legend.")
+        help="Mapping renaming each overlaid contour variant in the legend (its datafile, or its --contour_hue value).")
     add("--iterable_color_mapping", type=str, default=None,
-        help="Mapping giving the colour of each overlaid contour variant (by datafile).")
+        help="Mapping giving the colour of each overlaid contour variant (by datafile, or by --contour_hue value).")
     add("--iterable_label_map", type=str, default=None, help="JSON {hue value: label} applied to the panel values.")
 
     group = parser.add_argument_group("contours")
@@ -148,6 +148,9 @@ def build_parser():
     add("--contour", action="store_true", default=False,
         help="Contour mode: sigma contours of each config/name map (-z) over a background image; without -z, "
         "the regions holding the sigma fractions of the points over their 2D histogram.")
+    add("--contour_hue", type=str, default=None, metavar="COLUMN",
+        help="With -z: overlay the map of each value of COLUMN in every panel, one colour and legend entry each "
+        "(several datasets in one file, as several --configs would be); --combine_op adds them up.")
     add("--contour_sigmas", nargs="+", type=float, default=[1.0, 2.0, 3.0], help="Sigma levels drawn.")
     add("--contour_level_mode", default="sigma_probability", choices=["z_values", "sigma_probability"],
         help="z_values: maps are significances, contours at the sigmas; sigma_probability: maps are "
@@ -1321,7 +1324,8 @@ def _item_label(args, config, name, hue):
 
 
 def _items(subset, projected, args, configs, names):
-    """(index, config, name, datafile, rows, projected) per contour."""
+    """(index, config, name, variant, rows, projected) per contour; the
+    variant is ("datafile", label), ("hue", --contour_hue value) or None."""
     items = []
     for cdx, (config, name) in enumerate(zip(configs, names)):
         rows = subset
@@ -1333,12 +1337,14 @@ def _items(subset, projected, args, configs, names):
             rows = rows[rows["_Occurrence"] == cdx]
         if rows.empty:
             continue
-        # Several --datafile variants of one config: one contour each.
-        if "_Datafile" in rows.columns and rows["_Datafile"].nunique() > 1:
-            groups = list(rows.groupby("_Datafile", sort=False))
+        # Several datasets of one config (--contour_hue values, or --datafile variants): one contour each.
+        if args.contour_hue is not None:
+            groups = [(("hue", value), group) for value, group in rows.groupby(args.contour_hue, sort=False)]
+        elif "_Datafile" in rows.columns and rows["_Datafile"].nunique() > 1:
+            groups = [(("datafile", label), group) for label, group in rows.groupby("_Datafile", sort=False)]
         else:
             groups = [(None, rows)]
-        items += [(cdx, config, name, label, group, False) for label, group in groups]
+        items += [(cdx, config, name, variant, group, False) for variant, group in groups]
     if not projected.empty:
         for pdx, config in enumerate(args.project):
             rows = projected[projected["Config"] == config]
@@ -1357,7 +1363,7 @@ def draw_contour_panel(ax, fig, panel_idx, subset, projected, args, configs, nam
     config_line = style.get_mapping_dict("config_line") or {}
     payloads, reference, background, combined = [], None, None, None
     needs_shared = args.background in ("all", "combined") or args.combine_op == "squared_sum"
-    for cdx, config, name, datafile, rows, is_projected in _items(subset, projected, args, configs, names):
+    for cdx, config, name, variant, rows, is_projected in _items(subset, projected, args, configs, names):
         try:
             grid, exposure = project_grid(rows, args) if is_projected else (aggregate_grid(rows, args), None)
         except ValueError as error:
@@ -1380,7 +1386,16 @@ def draw_contour_panel(ax, fig, panel_idx, subset, projected, args, configs, nam
             linestyle = None
             suffix = args.project_label or (f"Projected, {exposure:g} yr" if exposure is not None else "Projected")
             label = f"{_item_label(args, config, name, hue)} ({suffix})"
-        elif datafile is not None:
+        elif variant is not None and variant[0] == "hue":
+            value = variant[1]
+            color = colors.color_for(("contour_hue", value),
+                                     map_iterable_color(value, args.iterable_color_mapping, args.contour_hue))
+            linestyle = None
+            label = map_iterable_label(value, args.contour_hue, args.iterable_mapping)
+            if len(configs) > 1 or len(names) > 1:  # the datasets of several configs: say which config
+                label = f"{_item_label(args, config, name, hue)}, {label}"
+        elif variant is not None:
+            datafile = variant[1]
             color = colors.color_for(("datafile", cdx, datafile), map_iterable_color(datafile, args.iterable_color_mapping))
             linestyle = None
             label = f"{_item_label(args, config, name, hue)}, {map_iterable_label(datafile, '_Datafile', args.iterable_mapping)}"
@@ -1644,6 +1659,12 @@ def run(args):
         return []
     if args.variables is not None and "None" in args.variables and "Variable" in df.columns:
         df["Variable"] = df["Variable"].fillna("None")
+    if args.contour_hue is not None and not (args.contour and args.z is not None):
+        rprint("[red]Error:[/red] --contour_hue overlays -z maps: it needs --contour and -z.")
+        return []
+    if args.contour_hue is not None and args.contour_hue not in df.columns:
+        rprint(f"[red]Error:[/red] --contour_hue: no column '{args.contour_hue}' in the data.")
+        return []
     if args.contour and args.z is None:
         # Without a map: the sigma regions of the sampled points, over their 2D histogram.
         resolve_contour_options(args)

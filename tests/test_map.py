@@ -680,3 +680,40 @@ def test_corner_hexbin_and_errors(make_project, capsys):
     assert not map_kind.main(["--datafile", "Events", "--corner", "A"])
     assert not map_kind.main(["--datafile", "Events", "-x", "A"])
     assert "-x and -y" in capsys.readouterr().out
+
+
+def _datasets():
+    """Two datasets of one config in one file, told apart by a column (G8)."""
+    frame = _maps().copy()
+    frame["Dataset"] = ["SN", "CMB"]
+    frame["Config"] = "joint"
+    return frame
+
+
+def test_contour_hue_overlays_datasets_of_one_file(make_project):
+    ax = _contour(make_project, "--contour_hue", "Dataset", "--contour_sigmas", "1", "2",
+                  frames={"Maps": _datasets()})
+    lines = [c for c in ax.collections if type(c).__name__ == "QuadContourSet" and not c.filled]
+    assert len(lines) == 2  # one contour set per dataset, in one panel
+    assert len(ax.figure.axes) == 1
+    colors = [tuple(np.round(c.get_edgecolor()[0], 3)) for c in lines]
+    assert colors[0] != colors[1]
+    texts, _ = _legend(ax)
+    assert "SN" in texts and "CMB" in texts
+
+
+def test_contour_hue_combines_the_datasets(make_project):
+    ax = _contour(make_project, "--contour_hue", "Dataset", "--combine_op", "squared_sum", "--combined_contours_only",
+                  frames={"Maps": _datasets()})
+    (combined,) = [c for c in ax.collections if type(c).__name__ == "QuadContourSet" and not c.filled]
+    assert len(combined.allsegs[0]) >= 1  # the joint region of both maps
+
+
+def test_contour_hue_needs_maps(make_project, capsys):
+    make_project({"Maps": _datasets()})
+    assert map_kind.main(["--datafile", "Maps", "-x", "XGrid", "-y", "YGrid", "--contour_hue", "Dataset"]) == []
+    assert "--contour_hue overlays -z maps" in capsys.readouterr().out
+    make_project({"Maps": _datasets()})
+    assert map_kind.main(["--datafile", "Maps", "-x", "XGrid", "-y", "YGrid", "-z", "ZGrid", "--contour",
+                          "--contour_hue", "Nope"]) == []
+    assert "no column 'Nope'" in capsys.readouterr().out
