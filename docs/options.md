@@ -579,8 +579,8 @@ open steps with error bands:
 * **Errors** (`--estimator_error`): `sem` (default) is the standard error
   of the statistic: mean σ/√n, median 1.2533·σ/√n, std σ/√(2(n−1)), rms by
   the delta method, sum √Σy² (√n for counts, √Σw² for weights), none for
-  max/min (σ is the bin's sample standard deviation). With a stored
-  `{y}Error` column, its per-event errors are propagated instead (mean √Σe²/n, sum √Σe²,
+  max/min (σ is the bin's sample standard deviation). With a typed
+  `--errory`, the stored per-event errors are propagated instead (mean √Σe²/n, sum √Σe²,
   median 1.2533·√Σe²/n, std/rms to first order, max/min the selected
   event's error). `std` draws the bin's spread σ; `none` the bare values.
 * **Small bins**: bins with fewer than `--min_count` entries (default 5)

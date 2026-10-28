@@ -232,8 +232,10 @@ def _panel_figure(df, args, kdx, config, name):
             x_col = args.panels[idx] if args.panels is not None else args.x
             row = _first_row_with(subset, x_col)
             x, y = subset[x_col].values[row], subset[args.y].values[row]
-            # 'Error' is {y}Error as loaded (and rescaled by --multiply).
-            error = subset["Error"].values[row] if args.errory and "Error" in subset.columns else None
+            # 'Error' is {y}Error as loaded (and rescaled by --multiply). A binned
+            # statistic's error is its standard error (U3); a typed --errory
+            # propagates the stored per-point errors instead.
+            error = subset["Error"].values[row] if _propagate(args) and "Error" in subset.columns else None
             if isinstance(x, list):
                 continue
 
@@ -436,7 +438,7 @@ def _compact_figure(df, args, kdx, config, name):
                 continue
             row = _first_row_with(subset, x_col)
             x, y = subset[x_col].values[row], subset[args.y].values[row]
-            error = subset["Error"].values[row] if args.errory and "Error" in subset.columns else None
+            error = subset["Error"].values[row] if _propagate(args) and "Error" in subset.columns else None
             if isinstance(x, list):
                 continue
             if integer is None and np.ndim(x) != 0:
@@ -518,3 +520,8 @@ def _compact_figure(df, args, kdx, config, name):
         add_centered_suptitle(fig, title, fontsize=style.titlefontsize)
     apply_note_to_figure(fig, args.note)
     return save(fig, args, kdx, suffix=_suffix(args))
+
+
+def _propagate(args):
+    """Whether the stored per-point errors are propagated (a typed --errory)."""
+    return getattr(args, "errory_given", args.errory)
