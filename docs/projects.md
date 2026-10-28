@@ -171,7 +171,10 @@ apart), in the order of the sorted data files.
 Values already registered keep their colour, so run it again after adding
 data and commit the file; `--dry_run` prints the new colours only. Edit an
 entry to any colour a mapping takes (`Cn`, a name, hex, `rgb(r,g,b)`,
-`role:name`).
+`role:name`). Curating it pays: give the values drawn together the first
+slots, and let values that never share a figure share a colour.
+`examples/colors.json` does both (Simulation and Background are both
+blue, and the late grey slots go to distributions no hue figure draws).
 
 Plots only read the registry. A `--iterable_color_mapping` (or a plugin
 colour hook) wins over it; `--data_hue` values stay in ink and are left out;

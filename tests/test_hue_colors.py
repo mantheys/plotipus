@@ -109,3 +109,14 @@ def test_update_includes_contour_hue_columns(make_project, tmp_path):
     plots.mkdir(parents=True, exist_ok=True)
     (plots / "main_scripts.txt").write_text("map --datafile Maps -x X -y Y -z Y --contour --contour_hue Probe\n")
     assert hue_colors.update(dry_run=True) == {"Probe": ["SN"]}
+
+
+def test_data_values_are_never_looked_up(make_project, capsys):
+    """A --data_hue value is ink: no registry colour and no 'has no colour' warning."""
+    from types import SimpleNamespace
+
+    make_project({"Spectrum": _frame(["A"])})
+    args = SimpleNamespace(hue_cmap=None, data_hue=["Data"], iterable_color_mapping=None)
+    (hue_colors.registry_path()).write_text(json.dumps({"Sample": {"A": "C0"}}))
+    assert hue_colors.registered_color(args, "Sample", "Data") is None
+    assert "has no colour" not in capsys.readouterr().out

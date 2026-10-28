@@ -49,10 +49,12 @@ def load(path=None):
 
 def registered_color(args, column, value):
     """Colour of ``value`` of ``column`` in the registry, or None (no
-    registry entry for the column, or --hue_cmap). A value missing from a
-    registered column warns once."""
+    registry entry for the column, --hue_cmap, or a --data_hue value). A
+    value missing from a registered column warns once."""
     if column is None or value is None or getattr(args, "hue_cmap", None):
         return None
+    if str(value) in {str(v) for v in getattr(args, "data_hue", None) or []}:
+        return None  # data are drawn in ink, not in a category colour
     entries = load().get(str(column))
     if entries is None:
         return None
