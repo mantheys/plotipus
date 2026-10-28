@@ -717,3 +717,20 @@ def test_contour_hue_needs_maps(make_project, capsys):
     assert map_kind.main(["--datafile", "Maps", "-x", "XGrid", "-y", "YGrid", "-z", "ZGrid", "--contour",
                           "--contour_hue", "Nope"]) == []
     assert "no column 'Nope'" in capsys.readouterr().out
+
+
+def test_contour_hue_takes_the_registered_colours(make_project, tmp_path):
+    """C1: a --contour_hue dataset keeps its colors.json colour."""
+    import json
+
+    from matplotlib.colors import to_hex
+
+    from plotipus.palettes import current_colors
+
+    make_project({"Maps": _datasets()})
+    (tmp_path / "colors.json").write_text(json.dumps({"Dataset": {"SN": "C3", "CMB": "C5"}}))
+    figures = _capture()
+    map_kind.main(["--datafile", "Maps", "-x", "XGrid", "-y", "YGrid", "-z", "ZGrid", "--contour",
+                   "--contour_hue", "Dataset", "--contour_sigmas", "1"])
+    lines = [c for c in figures[0].axes[0].collections if type(c).__name__ == "QuadContourSet" and not c.filled]
+    assert [to_hex(c.get_edgecolor()[0]) for c in lines] == [to_hex(current_colors()[3]), to_hex(current_colors()[5])]

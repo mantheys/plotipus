@@ -38,6 +38,7 @@ from .. import style
 from ..args import add_common_args, map_iterable_color, map_iterable_label, parse_plot_label, resolve_axis_label
 from ..format import _title_case_words, make_config_label_from_args, make_subtitle_from_args
 from ..io import import_data, normalize_datafiles, prepare_import
+from ..hue_colors import hue_color
 from ..palettes import ColorAllocator
 from ..panels import add_colorbar, add_title_and_note, create_panels, draw_overlays, save
 from ..plot import (
@@ -1389,7 +1390,7 @@ def draw_contour_panel(ax, fig, panel_idx, subset, projected, args, configs, nam
         elif variant is not None and variant[0] == "hue":
             value = variant[1]
             color = colors.color_for(("contour_hue", value),
-                                     map_iterable_color(value, args.iterable_color_mapping, args.contour_hue))
+                                     hue_color(value, args, args.contour_hue))
             linestyle = None
             label = map_iterable_label(value, args.contour_hue, args.iterable_mapping)
             if len(configs) > 1 or len(names) > 1:  # the datasets of several configs: say which config

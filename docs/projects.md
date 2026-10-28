@@ -163,10 +163,11 @@ C1) when the project has a colour registry, `colors.json` next to
 {"Sample": {"Simulation": "C0", "Background": "C1", "Signal": "C2"}}
 ```
 
-`plotipus colors` writes it: for the `--hue` columns of the plot command
-lists (or the columns given, `plotipus colors Sample Particle`), every value
-in the data files gets the next free palette colour (`Cn`, so a `--palette`
-or medium change keeps them apart), in the order of the sorted data files.
+`plotipus colors` writes it: for the `--hue` (and `--contour_hue`)
+columns of the plot command lists (or the columns given, `plotipus colors
+Sample Particle`), every value in the data files gets the next free
+palette colour (`Cn`, so a `--palette` or medium change keeps them
+apart), in the order of the sorted data files.
 Values already registered keep their colour, so run it again after adding
 data and commit the file; `--dry_run` prints the new colours only. Edit an
 entry to any colour a mapping takes (`Cn`, a name, hex, `rgb(r,g,b)`,
