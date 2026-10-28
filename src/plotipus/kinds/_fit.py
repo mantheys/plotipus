@@ -18,7 +18,7 @@ import numpy as np
 import pandas as pd
 from rich import print as rprint
 
-from .. import style
+from .. import intervals, style, uncertainty
 from ..args import resolve_axis_label
 from ..fits import get_function
 from ..format import _format_value_with_paren_error
@@ -116,8 +116,29 @@ def lower_model_series(spec, series, args, label):
     return out
 
 
-def _data_style(args):
-    plot_type = args.plot_type if args.plot_type is not None else ("errorbar" if args.errory else "plot")
+def _data_error(rows, args, y, label_value):
+    """Errors of the fitted data by the style guide's U1: the stored
+    {y}Error column (warning when it crosses a bound, U4), else Garwood
+    intervals of integer counts as 2xN distances, else none (with a warning
+    unless the series is --exact)."""
+    if args.no_error or uncertainty.is_exact(args, label_value):
+        return None
+    name, column = str(label_value), f"{args.y}Error"
+    stored = rows[column].values[0] if column in rows.columns else None
+    if stored is not None and np.ndim(stored) > 0:
+        error = np.asarray(stored, dtype=float)
+        uncertainty.check_bounds(args, name, column, y, error, error)
+        return error
+    if uncertainty.is_counts(y):
+        uncertainty.warn_interval(args, name, args.y, "poisson")
+        low, high = intervals.garwood(y, args.confidence_level)
+        return np.vstack([np.clip(y - low, 0, None), np.clip(high - y, 0, None)])
+    uncertainty.warn_none(args, name, args.y)
+    return None
+
+
+def _data_style(args, error=None):
+    plot_type = args.plot_type if args.plot_type is not None else ("errorbar" if error is not None else "plot")
     if plot_type == "step":
         return "plot", {"drawstyle": "steps-mid"}
     if plot_type == "plot":
@@ -186,16 +207,15 @@ def _draw_fit_rows(ax_top, lowers, rows, args, kind):
     function = resolve_function(rows)
     fit = function(x, *params)
 
-    plot_type, style_kwargs = _data_style(args)
-    error = rows[f"{args.y}Error"].values[0] if args.errory else None
+    error = _data_error(rows, args, y, label_value)
+    plot_type, style_kwargs = _data_style(args, error)
     is_data = bool(args.data_hue) and str(label_value) in {str(v) for v in args.data_hue}
     if is_data:
         # As with --data_hue in plain line plots: ink points with their error bars, above the fit.
-        stored = rows[f"{args.y}Error"].values[0] if f"{args.y}Error" in rows.columns else None
         xerr = None
         if args.errory_x and len(x) > 1:
             xerr = np.diff(edges_from_centers(x)) / 2
-        plot_data(args, ax_top, x, y=y, plot_type="errorbar", yerr=stored, xerr=xerr, fmt="o", zorder=3,
+        plot_data(args, ax_top, x, y=y, plot_type="errorbar", yerr=error, xerr=xerr, fmt="o", zorder=3,
                   label=label_value, color=style.role("ink"))
     else:
         plot_data(args, ax_top, x, y=y, errory=error, label=label_value, plot_type=plot_type, **style_kwargs)
@@ -236,7 +256,9 @@ def _draw_fit_rows(ax_top, lowers, rows, args, kind):
         limits.append(limit)
         if values is None:
             continue
-        plot_data(args, ax_bottom, x, y=values, errory=errors if args.errory else None,
+        # A pull is in units of its error: its bars (all 1) only with a typed --errory.
+        show = getattr(args, "errory_given", args.errory) if spec.name == "pull" else args.errory
+        plot_data(args, ax_bottom, x, y=values, errory=errors if show else None,
                   color=style.role("ink"), plot_type=plot_type, **style_kwargs)
         ax_bottom.set_ylim(-limit, limit)
 

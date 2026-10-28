@@ -25,7 +25,7 @@ import numpy as np
 import pandas as pd
 from rich import print as rprint
 
-from .. import intervals, style
+from .. import intervals, style, uncertainty
 from ..args import (
     add_common_args,
     add_panel_args,
@@ -117,7 +117,7 @@ def build_parser():
             "xtick", "xtick_label", "xtick_height", "xtick_side", "xtick_edge", "ytick",
             "ytick_label", "ytick_height", "ytick_side", "ytick_edge", "square", "square_label",
             "square_style", "square_color", "line", "line_label", "line_style", "line_color",
-            "point", "point_label", "note", "multiply", "debug", "errory", "errory_type",
+            "point", "point_label", "note", "multiply", "debug", "errory", "no_error", "exact", "errory_type",
             "confidence_level", "error_label",
         ],
         overrides={
@@ -759,15 +759,37 @@ def _to_peak(s, args):
 
 
 def _interval_errors(s, args):
-    """Replace the errors of ``s`` by an interval: --errory_type poisson
-    (Garwood, y as counts; also the default for --overlay data without an
-    error column whose y are counts) or clopper_pearson (y an efficiency of
-    --count_column trials). Stored as 2xN (below, above) distances, never
-    crossing 0 (or 100% for efficiencies)."""
+    """The errors of ``s`` by the style guide's rules U1 and U4.
+
+    --no_error and --exact series get none. --errory_type poisson (Garwood,
+    y as counts) or clopper_pearson (y an efficiency of --count_column
+    trials) replace the stored errors. Without stored errors, the interval
+    of the quantity is computed and named in a warning: Clopper-Pearson with
+    --count_column, Garwood for integer counts; any other series warns that
+    it has no uncertainty. Stored errors crossing a physical bound warn.
+    Intervals are stored as 2xN (below, above) distances, never crossing 0
+    (or 100% for efficiencies). Closed shapes (--plot_type fill) are exempt."""
+    if args.no_error or uncertainty.is_exact(args, s.hue) or _shapes(args):
+        s.error = None
+        return
+    name = _series_name(s, args)
     kind = args.errory_type if args.errory_type in ("poisson", "clopper_pearson") else None
-    if kind is None and s.is_data and s.error is None and not s.categorical and _counts(s.y):
-        kind = "poisson"
+    if kind is None and s.error is not None:
+        if not s.categorical:
+            low, high = (s.error, s.error) if np.ndim(s.error) == 1 else (s.error[0], s.error[1])
+            efficiency = True if args.count_column else None
+            uncertainty.check_bounds(args, name, f"{args.y}Error", s.y, low, high, args.efficiency_scale, efficiency)
+        return
+    if kind is None and s.error is None and not s.categorical:
+        if args.count_column and s.rows is not None and args.count_column in s.rows.columns:
+            kind = "clopper_pearson"
+        elif _counts(s.y):
+            kind = "poisson"
+        if kind is not None:
+            uncertainty.warn_interval(args, name, args.y, kind, args.count_column if kind == "clopper_pearson" else None)
     if kind is None:
+        if s.error is None:
+            uncertainty.warn_none(args, name, args.y)
         return
     y = np.asarray(s.y, dtype=float)
     if kind == "poisson":
@@ -789,15 +811,41 @@ def _interval_errors(s, args):
     s.interval = kind
 
 
+def _config_errors(args, label, config, name, iterable, y, error):
+    """U1 and U4 for one --by_config series: ``error`` (stored, symmetric or
+    [low, high]) checked against the bounds, else Garwood intervals of
+    integer counts, else none with a warning; --exact values get none."""
+    if any(uncertainty.is_exact(args, value) for value in (config, name, iterable) if value is not None):
+        return None
+    if error is not None:
+        low, high = error if isinstance(error, list) else (error, error)
+        uncertainty.check_bounds(args, label, f"{args.y}Error", y, low, high, args.efficiency_scale)
+        return error
+    if _counts(y):
+        uncertainty.warn_interval(args, label, args.y, "poisson")
+        low, high = intervals.garwood(y, args.confidence_level)
+        return [np.clip(y - low, 0, None), np.clip(high - y, 0, None)]
+    uncertainty.warn_none(args, label, args.y)
+    return None
+
+
+def _shapes(args):
+    """Whether the series are closed shapes (--plot_type fill unstacked, or a
+    --plot_type_column): drawings, not measurements, so U1 does not apply.
+    Stacked, fill is filled steps of counts."""
+    return (args.plot_type == "fill" and not args.stacked) or bool(getattr(args, "plot_type_column", None))
+
+
+def _series_name(s, args):
+    """The series' name in warnings: its legend label, else -y."""
+    if s.hue is None or isinstance(s.hue, _SumSlot):
+        return args.y
+    return str(map_iterable_label(s.hue, args.iterable, args.iterable_mapping))
+
+
 def _counts(y):
-    """Whether ``y`` reads as event counts: finite values, non-negative
-    integers (a measurement such as a magnitude or a ratio is not)."""
-    try:
-        y = np.asarray(y, dtype=float)
-    except (TypeError, ValueError):
-        return False
-    y = y[np.isfinite(y)]
-    return y.size > 0 and bool(np.all(y >= 0)) and bool(np.all(y == np.round(y)))
+    """Whether ``y`` reads as event counts (non-negative integers)."""
+    return uncertainty.is_counts(y)
 
 
 def _per_series(hue, entries, mapping):
@@ -2364,6 +2412,7 @@ def run_by_config(df, args):
                         error = [_rebin_error(e) for e in error] if all(e is not None for e in error) else None
                     elif error is not None:
                         error = _rebin_error(error)
+                error = _config_errors(args, label, config, name, iterable, y, error) if with_errors else None
                 if len(x) < 2:
                     rprint("[red]Error:[/red] Only found one x value. Skipping...")
                     continue
@@ -2466,8 +2515,10 @@ def run_by_config(df, args):
 
 def run(args):
     _check_args(args, build_parser())
-    if args.errory_type in ("poisson", "clopper_pearson"):
-        args.errory = True  # an interval is an error to draw
+    # U1: errors are drawn by default; --errory (or an interval, which always
+    # implied it) only still names the file.
+    args.errory_given = args.errory or args.errory_type in ("poisson", "clopper_pearson")
+    args.errory = not args.no_error
     df = load(args)
     if df.empty:
         rprint("[yellow]Warning:[/yellow] No datafiles found. Exiting...")
