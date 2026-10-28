@@ -13,6 +13,7 @@ line --datafile Histogram --configs data simulation --names landau -x Bin -y Cou
 
 # Histograms of samples
 hist --datafile Distributions -x Value --hue Sample --weight Weight --select Distribution -s Breit-Wigner --data_hue Data --bins 40 --rangex 81 101 --flow show --labelx 'Mass (GeV)' --title 'Histogram of samples with under/overflow' --output_suffix flow
+hist --datafile Distributions -x Value --hue Sample --weight Weight --select Distribution -s Log-normal --data_hue Data --hist_type kde --bins 40 --rangex 0 6 --labelx x --title 'Data points over a kernel density estimate' --output_suffix kde
 
 # Lower panels
 line --datafile Distributions -x Bin -y Counts --hue Distribution --select Sample Distribution -s Simulation Exponential Landau Log-normal --errory --peak --shift peak --lower ratio --reference_value Landau --labelx x --lower_labely 'Ratio to Landau' --title 'Peak-aligned shapes and their ratio' --output_suffix ratio
@@ -40,5 +41,7 @@ line --datafile Distributions -x Value -y Residual --binned --plot_type violin -
 # Other kinds: categories and scatter
 cat --datafile Yields -x Region --hue Sample -y Counts --errory --kind bar --stacked --data_hue Data --labely Events --title 'Yields per mass region' --output_suffix yields
 cat --datafile Moments -x Config --hue Sample -y Value --errory --select Variable Config Config Config Config Config Config Config -s Std Gaussian Poisson Binomial Exponential Uniform Log-normal Chi-squared --kind bar --data_hue Data --labelx Distribution --labely 'Standard deviation' --title 'One scalar per row: spread of each sample' --output_suffix moments
+cat --datafile Moments -x Config --hue Sample -y Value --errory --select Variable Config Config Config Config Config Config Config -s Std Gaussian Poisson Binomial Exponential Uniform Log-normal Chi-squared --kind lollipop --orient h --sort desc --data_hue Data --labelx Distribution --labely 'Standard deviation' --title 'Ranked spreads: horizontal lollipops' --output_suffix ranking
+cat --datafile Distributions -x Distribution -y Value --hue Sample --select Distribution Distribution Distribution Distribution -s Gaussian Exponential Log-normal Chi-squared --data_hue Data --kind violin --labely Value --title 'Samples as distributions: violins' --output_suffix violins
 scatter --datafile Distributions -x Value -y Response --colorby Residual --select Distribution Sample -s Exponential Data --marker_size 4 --rangey 0.5 1.5 --labelx True --labely 'Measured / True' --title 'Points coloured by a third column' --output_suffix scatter
 scatter --datafile Distributions -x Value -y Response --hue Distribution --select Sample Distribution Distribution Distribution -s Data Gaussian Exponential Log-normal --marker_size 4 --rangey 0.5 1.5 --legend_loc 'lower right' --labelx True --labely 'Measured / True' --title 'Points coloured by group (--hue)' --output_suffix scatter_hue

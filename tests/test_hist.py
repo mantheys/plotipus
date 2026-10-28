@@ -206,3 +206,135 @@ def test_overlay_gaussian_scaled_to_entries(make_project):
     (curve,) = [l for l in figures[0].axes[0].lines if l.get_label().startswith("$\\mathcal{N}")]
     assert np.isclose(curve.get_ydata().max(), norm.pdf(0, 0, 2), rtol=0.01)
     assert curve.get_label() == "$\\mathcal{N}(0.5, 2)$"
+
+
+# --- KDE, ECDF, cumulative histograms, rugs and ridgelines (T22.4) ------------------------
+
+
+def test_kde_curve_unit_area_and_error():
+    """A7: the KDE has unit area, and its band is sqrt(f R(K) / (n h)) for a Gaussian kernel."""
+    x = np.random.default_rng(2).normal(0, 1, 2000)
+    grid = np.linspace(-6, 6, 2001)
+    density, error = hist.kde_curve(x, None, grid)
+    assert np.isclose(np.trapezoid(density, grid), 1.0, atol=1e-3)
+    h = 1.0 * len(x) ** (-1 / 5) * np.std(x, ddof=1)  # Scott's rule in one dimension
+    assert np.allclose(error, np.sqrt(density / (2 * np.sqrt(np.pi)) / (len(x) * h)), rtol=1e-2)
+    narrow, _ = hist.kde_curve(x, None, grid, bw="0.05")
+    assert narrow.max() > density.max()  # --bw in x units: a narrower kernel, a rougher curve
+
+
+def test_kde_weights_use_the_effective_count():
+    x = np.random.default_rng(3).normal(0, 1, 1000)
+    grid = np.linspace(-3, 3, 7)
+    _, plain = hist.kde_curve(x, None, grid)
+    _, weighted = hist.kde_curve(x, np.r_[np.full(500, 3.0), np.ones(500)], grid)
+    assert np.all(weighted > plain)  # unequal weights: fewer effective entries, a wider band
+
+
+def test_ecdf_curve_and_binomial_error():
+    points, fraction, error = hist.ecdf_curve(np.array([3.0, 1.0, 2.0, 2.0]), None)
+    assert np.allclose(points, [1, 2, 2, 3]) and np.allclose(fraction, [0.25, 0.5, 0.75, 1.0])
+    assert np.allclose(error, np.sqrt(fraction * (1 - fraction) / 4))
+    _, on_grid, _ = hist.ecdf_curve(np.array([3.0, 1.0, 2.0, 2.0]), None, grid=np.array([0.0, 2.0, 5.0]))
+    assert np.allclose(on_grid, [0.0, 0.75, 1.0])
+
+
+def test_cumulate_forward_reverse_and_errors():
+    from plotipus.intervals import garwood
+
+    counts = np.array([1.0, 2.0, 3.0])
+    values, errors = hist.cumulate(counts, counts, weighted=False, density=False)
+    low, high = garwood([1, 3, 6])
+    assert np.allclose(values, [1, 3, 6]) and np.allclose(errors, [[1, 3, 6] - low, high - [1, 3, 6]])
+    values, errors = hist.cumulate(counts, np.array([1.0, 4.0, 9.0]), weighted=True, density=True, reverse=True)
+    assert np.allclose(values, [1.0, 5 / 6, 0.5]) and np.allclose(errors[0], np.sqrt([14, 13, 9]) / 6)
+
+
+def test_hist_type_kde_draws_a_density_with_a_band_and_data_points(make_project):
+    from matplotlib.collections import FillBetweenPolyCollection
+    from matplotlib.container import ErrorbarContainer
+
+    make_project({"Energies": _frame()})
+    figures = _capture()
+    hist.main(["--datafile", "Energies", "-x", "True", "--hue", "Sample", "--hist_type", "kde"])
+    hist.main(["--datafile", "Energies", "-x", "True", "--hue", "Sample", "--hist_type", "kde", "--data_hue", "a",
+               "--bins", "20", "--output_suffix", "data.png"])
+    density_ax, data_ax = (fig.axes[0] for fig in figures)
+    lines = [l for l in density_ax.lines if l.get_label() in ("a", "b")]
+    assert len(lines) == 2 and density_ax.get_ylabel() == "Density"
+    for line in lines:
+        assert np.isclose(np.trapezoid(line.get_ydata(), line.get_xdata()), 1.0, atol=0.05)  # most of the area
+    assert len([c for c in density_ax.collections if isinstance(c, FillBetweenPolyCollection)]) == 2
+    assert not _stairs(density_ax)
+    # With data points: the data stay a histogram with Poisson errors; the KDE is scaled to counts per bin.
+    assert len([c for c in data_ax.containers if isinstance(c, ErrorbarContainer)]) == 1
+    (curve,) = [l for l in data_ax.lines if l.get_label() == "b"]
+    width = (12 + 4 - (10 - 4)) / 20  # roughly: the edges span both samples
+    assert curve.get_ydata().max() > 50 * width
+    assert data_ax.get_ylabel().startswith("Counts") and "Poisson" in data_ax.get_ylabel()
+    assert [t.get_text() for t in data_ax.get_legend().get_texts()] == ["a", "b"]  # data first
+
+
+def test_hist_type_ecdf_steps_from_zero_to_one(make_project):
+    make_project({"Energies": _frame()})
+    figures = _capture()
+    hist.main(["--datafile", "Energies", "-x", "True", "--hue", "Sample", "--hist_type", "ecdf"])
+    ax = figures[0].axes[0]
+    steps = [l for l in ax.lines if l.get_label() in ("a", "b")]
+    assert len(steps) == 2 and ax.get_ylabel() == "Cumulative fraction"
+    for line in steps:
+        y = line.get_ydata()
+        assert y[0] == 0.0 and np.isclose(y[-1], 1.0) and np.all(np.diff(y) >= 0)
+        assert line.get_drawstyle() == "steps-post"
+
+
+def test_cumulative_histogram_with_density_ends_at_one(make_project):
+    make_project({"Energies": _frame()})
+    figures = _capture()
+    hist.main(["--datafile", "Energies", "-x", "True", "--hue", "Sample", "--cumulative", "--density"])
+    hist.main(["--datafile", "Energies", "-x", "True", "--hue", "Sample", "--cumulative", "reverse",
+               "--output_suffix", "reverse.png"])
+    forward, reverse = (fig.axes[0] for fig in figures)
+    for step in _stairs(forward):
+        values = step.get_data().values
+        assert np.isclose(values[-1], 1.0) and np.all(np.diff(values) >= 0)
+    assert forward.get_ylabel() == "Cumulative fraction"
+    for step in _stairs(reverse):
+        values = step.get_data().values
+        assert np.isclose(values[0], 500) and np.all(np.diff(values) <= 0)
+    assert reverse.get_ylabel() == "Cumulative counts"
+
+
+def test_rug_marks_every_value(make_project):
+    from matplotlib.collections import LineCollection
+
+    rng = np.random.default_rng(4)
+    make_project({"Small": pd.DataFrame([{"X": rng.normal(0, 1, 30)}])})
+    figures = _capture()
+    hist.main(["--datafile", "Small", "-x", "X", "--hist_type", "kde", "--rug"])
+    ax = figures[0].axes[0]
+    (rug,) = [c for c in ax.collections if isinstance(c, LineCollection)]
+    segments = rug.get_segments()
+    assert len(segments) == 30
+    assert all(s[0][1] == 0 and np.isclose(s[1][1], 0.04) for s in segments)  # axes fraction, at the bottom
+
+
+def test_ridge_stacks_hues_first_on_top(make_project):
+    """A11: --ridge puts each hue on its own baseline (the first on top), names them on the y axis
+    and draws no legend; the tallest curve reaches OVERLAP into the row above."""
+    from matplotlib.collections import FillBetweenPolyCollection
+
+    rng = np.random.default_rng(6)
+    frame = pd.DataFrame({"Run": ["r1", "r2", "r3"], "X": [rng.normal(m, 1, 400) for m in (0, 1, 2)]})
+    make_project({"Runs": frame})
+    figures = _capture()
+    hist.main(["--datafile", "Runs", "-x", "X", "--hue", "Run", "--hist_type", "kde", "--ridge", "0.8"])
+    ax = figures[0].axes[0]
+    assert [t.get_text() for t in ax.get_yticklabels()] == ["r1", "r2", "r3"]
+    assert list(ax.get_yticks()) == [2.0, 1.0, 0.0]
+    assert ax.get_legend() is None
+    bodies = [c for c in ax.collections if isinstance(c, FillBetweenPolyCollection) and c.get_facecolor()[0][3] > 0.5]
+    assert len(bodies) == 3
+    tops = [b.get_paths()[0].vertices[:, 1].max() for b in bodies]
+    bases = [2.0, 1.0, 0.0]
+    assert np.isclose(max(t - b for t, b in zip(tops, bases)), 1.8, atol=0.05)

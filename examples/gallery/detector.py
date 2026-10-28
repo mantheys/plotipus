@@ -83,15 +83,26 @@ def trigger_efficiency(rng):
 
 
 def yields(rng):
+    """Counts per 5 GeV bin of a selection, stage by stage: each stage keeps a binomial share of the
+    previous one (a cut flow); its Poisson error as CountsError."""
     edges = np.linspace(0, 100, 21)
     centres = 0.5 * (edges[1:] + edges[:-1])
+    # The intermediate cuts draw from a generator of their own: the shared one keeps its sequence.
+    cuts = np.random.default_rng(85)
     rows = []
     for particle, total, kept in (("electron", 52000, 0.82), ("pion", 61000, 0.35), ("muon", 9000, 0.12)):
         shape = np.exp(-centres / (35 if particle != "muon" else 8))
         shape /= shape.sum()
-        for stage, fraction in (("Preselection", 1.0), ("Final selection", kept)):
-            rows.append({"Particle": particle, "Stage": stage, "Energy": centres,
-                         "Counts": rng.poisson(total * fraction * shape).astype(float)})
+        counts = rng.poisson(total * shape).astype(float)
+        rng.poisson(total * kept * shape)  # the old final-selection draw, kept for the sequence
+        # Efficiencies of the isolation, track-quality and final cuts, multiplying to ``kept``.
+        steps = (kept ** 0.2, kept ** 0.3, kept ** 0.5)
+        for stage, efficiency in zip(("Preselection", "Isolation", "Track quality", "Final selection"),
+                                     (1.0, *steps)):
+            if efficiency < 1.0:
+                counts = cuts.binomial(counts.astype(int), efficiency).astype(float)
+            rows.append({"Particle": particle, "Stage": stage, "Energy": centres, "Counts": counts,
+                         "CountsError": np.sqrt(counts)})
     return {"Yields": pd.DataFrame(rows)}
 
 

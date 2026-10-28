@@ -6,6 +6,9 @@ values of ``--variable_name`` (default ``Variable``) listed in
 ``--variables``, optionally grouped by ``--column_group``. Each cell is the
 ``--agg`` (mean/sum) of --y over its rows, formatted with its propagated
 error (``{y}Error``), a percentile band (``--error_band``) or alone.
+``--stats``, ``--fit_params`` and ``--cutflow`` build other layouts from
+whole rows: statistics of arrays, stored fits, and the yields of a
+selection stage by stage with their efficiencies.
 """
 
 import html
@@ -19,7 +22,7 @@ from rich import print as rprint
 from .. import registry, style
 from ..args import add_common_args
 from ..format import format_value, format_with_band, format_with_error, format_with_interval
-from ..intervals import clopper_pearson
+from ..intervals import clopper_pearson, garwood
 from ..io import import_data, make_name_from_args, save_table_to_paths
 from ..project import load_project
 from ..selection import filter_dataframe
@@ -93,6 +96,11 @@ def build_parser():
         help="Statistics table instead: one row per data row (labelled by --row_name, else --hue), columns the "
         "statistics of its -x/-y arrays: mean, var, std, median (of x and y), corr (Pearson r), line (least-squares "
         "y = a + b x), n (points).")
+    add("--cutflow", action="store_true",
+        help="Cut flow instead: one row per selection stage (the --variable_name values, in --variables order or "
+        "as they appear), and per --hue sample the events (sum of -y with its {y}Error, else the Garwood interval "
+        "of the counts), the efficiency relative to the previous stage and the cumulative one relative to the "
+        "first (Clopper-Pearson intervals of the counts, in --efficiency_scale units: percent).")
     add("--fit_params", action="store_true",
         help="Table of stored fits instead: one row per fit row (Params/ParamsError/ParamsLabel), one column per "
         "parameter.")
@@ -592,6 +600,89 @@ def build_fit_params_table(df, args):
     return pd.DataFrame(records)
 
 
+def _stage_total(rows, args):
+    """(events, error or None, integer?) of the rows of one stage and sample: the sum of their -y values
+    (inside --rangex of -x), the error from {y}Error in quadrature."""
+    total, variance, has_error, integer = 0.0, 0.0, True, True
+    error_column = f"{args.y}Error"
+    for _, row in rows.iterrows():
+        y = np.atleast_1d(np.asarray(row[args.y], dtype=float))
+        keep = np.isfinite(y)
+        if args.x and args.rangex is not None and args.x in row.index:
+            x = np.atleast_1d(np.asarray(row[args.x], dtype=float))
+            keep &= (x >= args.rangex[0]) & (x <= args.rangex[1])
+        total += float(np.sum(y[keep]))
+        integer &= bool(np.all(np.isclose(y[keep], np.round(y[keep]))))
+        if error_column in row.index and row[error_column] is not None and np.size(row[error_column]):
+            error = np.atleast_1d(np.asarray(row[error_column], dtype=float))
+            variance += float(np.sum(error[keep] ** 2)) if error.size == y.size else np.nan
+        else:
+            has_error = False
+    error = np.sqrt(variance) if has_error and np.isfinite(variance) else None
+    return total, error, integer
+
+
+def _efficiency(passed, total, integer, args):
+    """An efficiency cell: Clopper-Pearson for counts, a binomial error otherwise; '---' without entries."""
+    if not total > 0:
+        return "---"
+    scale = args.efficiency_scale
+    if integer:
+        low, high = clopper_pearson(round(passed), round(total), args.confidence_level)
+        return format_with_interval(scale * passed / total, scale * low, scale * high, args=args)
+    efficiency = min(max(passed / total, 0.0), 1.0)
+    error = np.sqrt(efficiency * (1 - efficiency) / total)
+    return format_with_interval(scale * efficiency, scale * (efficiency - error), scale * (efficiency + error), args=args)
+
+
+def build_cutflow_table(df, args):
+    """--cutflow: one row per stage, per sample the events with their error and the relative and
+    cumulative efficiencies (columns under the sample name when there are several)."""
+    rows = filter_dataframe(df, args)
+    stage_column = args.variable_name
+    if stage_column not in rows.columns:
+        raise KeyError(f"--cutflow: no stage column '{stage_column}' (set --variable_name)")
+    present = list(dict.fromkeys(rows[stage_column].tolist()))
+    stages = [v for v in args.variables if v in present] if args.variables not in (None, [""]) else present
+    samples = list(dict.fromkeys(rows[args.iterable].tolist())) if args.iterable else [None]
+    unit = r" (\%)" if args.efficiency_scale == 100 else ""  # escaped: the header is LaTeX
+    stage_title = args.first_header or stage_column
+    columns = {(stage_title, ""): [str(stage) for stage in stages]}
+    warned = False
+    for sample in samples:
+        subset = rows if sample is None else rows[rows[args.iterable] == sample]
+        totals = [_stage_total(subset[subset[stage_column] == stage], args) for stage in stages]
+        events, relative, cumulative = [], [], []
+        for i, (total, error, integer) in enumerate(totals):
+            if error is not None:
+                events.append(format_with_error({(args.y, args.operation): total, (f"{args.y}Error", "<lambda>"): error},
+                                                args=args))
+            elif integer:
+                low, high = garwood(total, args.confidence_level)
+                events.append(format_with_interval(total, float(low), float(high), args=args))
+            else:
+                events.append(format_value({(args.y, args.operation): total}, args=args))
+            if not integer and not warned:
+                rprint("[yellow]Warning:[/yellow] --cutflow: the yields are not integer counts; the efficiencies get "
+                       "a binomial error instead of the Clopper-Pearson interval.")
+                warned = True
+            if i == 0:
+                relative.append("---")
+                cumulative.append("---")
+                continue
+            both_integer = integer and totals[i - 1][2]
+            relative.append(_efficiency(total, totals[i - 1][0], both_integer, args))
+            cumulative.append(_efficiency(total, totals[0][0], integer and totals[0][2], args))
+        group = "" if sample is None else str(sample)
+        columns[(group, "Events")] = events
+        columns[(group, f"Rel. eff.{unit}")] = relative
+        columns[(group, f"Cum. eff.{unit}")] = cumulative
+    table = pd.DataFrame(columns)
+    if samples == [None]:
+        table.columns = [c[1] or c[0] for c in table.columns]
+    return table
+
+
 def blocked_tabular(table, args, label_mapping, n_group):
     """Booktabs tabular with one block of rows per configuration; the first
     ``n_group`` columns form the block label (shown on its first row)."""
@@ -673,7 +764,8 @@ def run(args):
     if args.bare:
         args.table_env = "none"
     # The formatters read the aggregation as ``operation``.
-    args.operation = "stats" if args.stats else "fit_params" if args.fit_params else args.agg
+    args.operation = ("stats" if args.stats else "fit_params" if args.fit_params else "cutflow" if args.cutflow
+                      else args.agg)
     if args.variable_name is None:
         args.variable_name = "Particle" if args.name_columns else "Variable"
 
@@ -705,7 +797,9 @@ def run(args):
                 df[column] = _scale(df[column], factors)
     df = derive_columns(df, args.derive_column)
 
-    if args.stats or args.fit_params:
+    if args.cutflow:
+        table = build_cutflow_table(df, args)
+    elif args.stats or args.fit_params:
         table = build_stats_table(df, args) if args.stats else build_fit_params_table(df, args)
     else:
         table = build_table(df, args)
