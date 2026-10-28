@@ -1,0 +1,20 @@
+{
+ "Sample": {
+  "Simulation": "C0",
+  "Background": "C0",
+  "Signal": "C1"
+ },
+ "Distribution": {
+  "Exponential": "C0",
+  "Landau": "C1",
+  "Chi-squared": "C2",
+  "Log-normal": "C4",
+  "Gaussian": "C5",
+  "Poisson": "C6",
+  "Binomial": "C7",
+  "Uniform": "C9",
+  "Breit-Wigner": "C3",
+  "Resonance": "C8",
+  "Bivariate Gaussian": "C3"
+ }
+}

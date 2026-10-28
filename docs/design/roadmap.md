@@ -193,6 +193,7 @@ They are implemented by the briefs in [tasks/](tasks/).
 - **D5 Compatibility.** Accepted. Defaults change in one release, and a
   `classic` style pins the current look. Brief: T16.
 - **D6 Data.** Synthetic data only for now. A custom dataset for reproducing
-  famous plots will follow. Briefs: T23, T24.
+  famous plots will follow. Briefs: T23, T24. *Superseded (T24): the famous
+  plots use real and figure-extracted data; only F19–F21 stay synthetic.*
 - **D7 Scope.** Polar, geographic and flow charts are out of scope for now,
   recorded in [TODO.md](TODO.md).
