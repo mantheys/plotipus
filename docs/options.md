@@ -612,6 +612,12 @@ significance maps with `--contour_level_mode z_values`):
   profile), in ink for one map and in its colour for several, listed as
   "Best fit"; a significance map (`z_values`) marks its minimum with a `+`
   (`--no_best_fit` hides either).
+* Several maps share a panel, one colour and legend entry each: one per
+  `--configs` entry, or, for several datasets in one file, one per value of
+  a column with `--contour_hue COLUMN` (colours and labels from
+  `--iterable_color_mapping`/`--iterable_mapping`). `--combine_op
+  squared_sum` adds them up into a joint region ("Combined", in ink), and
+  `--combined_contours_only` draws that alone.
 * `--background none` (default); with `all`/`combined`/`first`, a Δχ²
   background is blank beyond the outermost level and its colorbar reads Δχ².
 * `--horizontal`, `--vertical`, `--line`, `--square` and `--point` are drawn

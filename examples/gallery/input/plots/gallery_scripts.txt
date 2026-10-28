@@ -209,6 +209,9 @@ line --datafile HiggsLimit -x Mass -y MuLimit --hue Limit --style Limit --exclud
 # G7 1D likelihood scan with Δχ² = 1, 4 lines
 line --datafile EnergyScale -x Scale -y DeltaNLL --plot_type line --delta_chi2_lines 1 4 --rangey 0 9 --labelx 'Electron energy scale' --labely '$-2\,\Delta\ln L$' --no_legend --title 'Profile-likelihood scan of the energy scale' --output_suffix G7 --exact
 
+# G8 2D Δχ² contours of several datasets in one file, and their combination
+map --datafile Probes -x OmegaM -y OmegaLambda -z DeltaChi2 --contour --contour_hue Probe --contour_sigmas 1 2 --fill_contours --combine_op squared_sum --background none --no_best_fit --rangex 0 1.2 --rangey 0 1.4 --labelx '$\Omega_M$' --labely '$\Omega_\Lambda$' --title 'Supernovae, CMB and BAO: one file, one colour each' --output_suffix G8
+
 # == H Small multiples and layout
 
 # H1 Facets by a column (wrapped grid)
