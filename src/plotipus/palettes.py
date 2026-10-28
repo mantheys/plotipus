@@ -121,6 +121,11 @@ class ColorAllocator:
             if color is not None:
                 self.color_for(category, color)
 
+    def avoid(self, colors):
+        """Keep ``colors`` (e.g. the project's registered ones) off the
+        categories without a colour of their own, while others are free."""
+        self._mapped.update(_key(c) for c in colors if c is not None)
+
     def color_for(self, category, mapping=None):
         """Colour of ``category``: ``mapping`` (the user's colour) when
         given, else its colour so far, else the next free slot."""

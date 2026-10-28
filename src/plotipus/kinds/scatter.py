@@ -25,10 +25,11 @@ from matplotlib.ticker import MaxNLocator
 from rich import print as rprint
 
 from .. import style
-from ..args import add_common_args, map_iterable_color, map_iterable_label, resolve_axis_label
+from ..args import add_common_args, map_iterable_label, resolve_axis_label
 from ..encodings import add_legend_args
 from ..format import make_config_color_and_style_from_args, make_config_label_from_args
 from ..io import import_data, prepare_import
+from ..hue_colors import avoid_registered, hue_color
 from ..palettes import ColorAllocator
 from ..panels import add_colorbar, add_title_and_note, create_panels, save
 from ..plot import add_centered_suptitle, apply_legend_style, apply_note_to_figure
@@ -264,7 +265,7 @@ def run_paired(df, args):
         explicit = []
         for u in units:
             if u["hue"] is not None:
-                explicit.append((map_iterable_color(u["hue"], args.iterable_color_mapping, args.iterable), None))
+                explicit.append((hue_color(u["hue"], args, args.iterable), None))
             else:
                 explicit.append(make_config_color_and_style_from_args(args, config=u["config"], name=u["name"]))
         unit_colors = _fill_colors(explicit)
@@ -542,7 +543,8 @@ def draw_points(rows, args, kdx):
         # Sorted, so the same value set always gets the same colours.
         values = sorted(rows[args.iterable].unique().tolist(), key=str)
         colors = ColorAllocator()
-        colors.reserve(values, lambda hue: map_iterable_color(hue, args.iterable_color_mapping, args.iterable))
+        colors.reserve(values, lambda hue: hue_color(hue, args, args.iterable))
+        avoid_registered(colors, args, args.iterable)
         handles, labels = [], []
         for hue in values:
             group = rows[rows[args.iterable] == hue]

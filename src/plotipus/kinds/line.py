@@ -60,6 +60,7 @@ from ..lower import (
     pairwise,
     parse_lower,
 )
+from ..hue_colors import avoid_registered, hue_color
 from ..palettes import ColorAllocator
 from ..panels import (
     share_grid,
@@ -1567,15 +1568,17 @@ def _allocate_colors(hue_values, comparable_values, args, invert):
     --iterable_reverse/--comparable_reverse), the sum series after them."""
     colors = ColorAllocator()
     if invert and comparable_values:
-        values, reverse = list(comparable_values), args.comparable_reverse
+        values, reverse, column = list(comparable_values), args.comparable_reverse, args.comparable
     else:
         values, reverse = [v for v in hue_values if not isinstance(v, _SumSlot)], args.iterable_reverse
-    # Values with a mapped colour keep it and stay off the colour map.
-    unmapped = [v for v in values if map_iterable_color(v, args.iterable_color_mapping) is None]
+        column = args.iterable
+    # Values with a mapped (or registered, C1) colour keep it and stay off the colour map.
+    unmapped = [v for v in values if hue_color(v, args, column) is None]
     colors.hue_cmap = HueColormap(unmapped[::-1] if reverse else unmapped, args.hue_cmap,
                                   args.hue_cmap_range) if args.hue_cmap and unmapped else None
-    colors.reserve(values, lambda value: map_iterable_color(value, args.iterable_color_mapping)
+    colors.reserve(values, lambda value: hue_color(value, args, column)
                    or (colors.hue_cmap.color(value) if colors.hue_cmap else None))
+    avoid_registered(colors, args, column)
     for value in values[::-1] if reverse else values:
         colors.color_for(value)
     if args.sum_iterables and not (invert and comparable_values):
@@ -2350,7 +2353,7 @@ def run_by_config(df, args):
     def mapped_color(iterable, config, name):
         mapped, linestyle = make_config_color_and_style_from_args(args, config=config, name=name)
         if by_hue:
-            mapped = map_iterable_color(iterable, args.iterable_color_mapping)
+            mapped = hue_color(iterable, args, args.iterable)
         return mapped, linestyle
 
     if args.combine != "prefix":

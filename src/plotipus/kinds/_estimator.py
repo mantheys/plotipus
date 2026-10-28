@@ -20,10 +20,11 @@ from matplotlib.ticker import FixedFormatter, FixedLocator, MaxNLocator, NullLoc
 from rich import print as rprint
 
 from .. import style
-from ..args import map_iterable_color, map_iterable_label, resolve_axis_label, resolve_plot_kwargs
+from ..args import map_iterable_label, resolve_axis_label, resolve_plot_kwargs
 from ..format import make_subtitle_from_args, make_title_from_args
 from ..io import prepare_import
 from ..panel_lines import add_panel_line_args, draw_panel_lines, panel_rangex, resolve_panel_lines
+from ..hue_colors import avoid_registered, hue_color
 from ..palettes import ColorAllocator
 from ..panels import add_title_and_note, create_panels, draw_overlays, save
 from ..plot import (
@@ -212,7 +213,8 @@ def _panel_figure(df, args, kdx, config, name):
     first_subset = {}
     errors_drawn = propagated = False
     box_colors = ColorAllocator()
-    box_colors.reserve(hues, lambda hue: map_iterable_color(hue, args.iterable_color_mapping))
+    box_colors.reserve(hues, lambda hue: hue_color(hue, args, args.iterable))
+    avoid_registered(box_colors, args, args.iterable)
     box_ticks = {}  # panel -> (centres, edges, categories) of the boxes
 
     for idx, variable in enumerate(variables):
@@ -288,7 +290,7 @@ def _panel_figure(df, args, kdx, config, name):
                     plot_data(args, ax, centres, x_edges=edges_from_centers(centres), y=values, errory=errors,
                               label=label, color=box_colors.color_for(hue), plot_type="step", step_open=True)
                 continue
-            color = map_iterable_color(hue, args.iterable_color_mapping) if args.iterable is not None else None
+            color = hue_color(hue, args, args.iterable) if args.iterable is not None else None
             plot_data(args, ax, centres, y=values, errory=errors, label=label, color=color,
                       **_marker_kwargs(args, plot_type), **resolve_plot_kwargs(plot_type))
 
@@ -423,7 +425,7 @@ def _compact_figure(df, args, kdx, config, name):
     group = _group_rows(df, args, config, name)
     # Hue values left by --select and friends: the boxes dodge over these only.
     hues = filter_dataframe(group, args)[args.iterable].unique() if args.iterable is not None else [None]
-    colors = {hue: map_iterable_color(hue, args.iterable_color_mapping) or cycle[j % len(cycle)] for j, hue in enumerate(hues)}
+    colors = {hue: hue_color(hue, args, args.iterable) or cycle[j % len(cycle)] for j, hue in enumerate(hues)}
     tick_positions, tick_labels = [], []
     errors_drawn = propagated = False
 
