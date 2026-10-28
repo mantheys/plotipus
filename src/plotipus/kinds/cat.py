@@ -368,7 +368,8 @@ def draw_figure(rows, args, kdx, comparable):
                 draw.errorbar(xs, ys, errors, color=color, marker=marker, linestyle="none", capsize=3, zorder=3)
             else:
                 plot_type = "line" if args.kind == "line" else "scatter"
-                kwargs = {"marker": marker} if args.kind == "line" else {}
+                # The series marker, as in the legend (points are drawn with fmt, default "o").
+                kwargs = {"marker": marker} if args.kind == "line" else {"fmt": marker}
                 xs = xs + offset(len(data_hues) + idx)
                 if args.errory and np.isfinite(es).any():
                     draw.errorbar(xs, ys, np.nan_to_num(es), color=color, marker=marker,

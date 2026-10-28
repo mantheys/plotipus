@@ -2,6 +2,12 @@
 
 ## Unreleased
 
+### `cat --kind point` markers (T22.19)
+
+- Without error bars, `cat --kind point` drew every hue value as a circle
+  while the legend showed each value's own marker (square, triangle, ...).
+  The points now use the legend's marker.
+
 ### Upper-panel tick labels with tiny values (T22.18)
 
 - Where an upper panel meets a lower one, plotipus hides the upper panel's
