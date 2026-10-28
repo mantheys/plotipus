@@ -256,7 +256,9 @@ def _draw_fit_rows(ax_top, lowers, rows, args, kind):
         limits.append(limit)
         if values is None:
             continue
-        plot_data(args, ax_bottom, x, y=values, errory=errors if args.errory else None,
+        # A pull is in units of its error: its bars (all 1) only with a typed --errory.
+        show = getattr(args, "errory_given", args.errory) if spec.name == "pull" else args.errory
+        plot_data(args, ax_bottom, x, y=values, errory=errors if show else None,
                   color=style.role("ink"), plot_type=plot_type, **style_kwargs)
         ax_bottom.set_ylim(-limit, limit)
 
