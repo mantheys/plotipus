@@ -97,7 +97,7 @@ line --datafile Distributions -x Bin -y Counts --hue Sample --select Distributio
 line --datafile Monitoring -x Day -y Gain --hue Channel --plot_type line --errory --labely 'Relative gain' --title 'Daily gain of two calorimeter channels' --output_suffix C8
 
 # C9 Smoothed / rolling line
-line --datafile Monitoring -x Day -y Gain --hue Channel --plot_type line --smooth 15 --labely 'Relative gain' --title 'Gain drift, smoothed over 15 days' --output_suffix C9
+line --datafile Monitoring -x Day -y Gain --hue Channel --plot_type line --smooth 15 --vertical_band 2025-07-15 2025-07-25 --vertical_band_label 'Recalibration' --labely 'Relative gain' --title 'Gain drift, smoothed over 15 days' --output_suffix C9
 
 # C10 Many series with a sequential colour
 line --datafile RotationCurves -x Radius -y Velocity --hue Galaxy --hue_cmap viridis --plot_type line --rangex 0 125 --rangey 0 350 --labelx 'R (kpc)' --labely 'V (km/s)' --title 'Rotation curves on a colour map' --output_suffix C10

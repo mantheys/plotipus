@@ -8,6 +8,8 @@ lists, matched by position (the last value repeats). ``--arrow X2 Y2``
 arrow from the text to (X2, Y2). Named sizes follow the medium's
 ``font.size``, shrunk by its ``style.text_scale`` (0.75 in paper).
 
+Coordinates may be ISO dates (2025-07-15) on a date axis.
+
 ``--region X,Y X,Y ...`` (repeatable) shades a polygon in data coordinates
 under the data, in ``--region_color`` (default the muted role) with
 ``--region_alpha``, an optional ``--region_hatch`` and a ``--region_label``
@@ -24,6 +26,7 @@ from matplotlib.transforms import Bbox
 from rich import print as rprint
 
 from . import style
+from .args import parse_coordinate
 
 TEXT_OPTIONS = {
     "coords": "Coordinates of each --text: 'axes' (fractions, default) or 'data'.",
@@ -44,7 +47,7 @@ def add_annotation_args(parser):
         help="Text at (X, Y): axes fractions, or data coordinates with --text_coords data; repeat for more.")
     for name, text in TEXT_OPTIONS.items():
         add(f"--text_{name}", nargs="+", default=None, help=text)
-    add("--arrow", nargs=2, action="append", type=float, default=None, metavar=("X2", "Y2"),
+    add("--arrow", nargs=2, action="append", type=parse_coordinate, default=None, metavar=("X2", "Y2"),
         help="Arrow from the matching --text (the first --arrow goes with the first --text) to (X2, Y2), in "
         "the text's coordinates; 'nan nan' skips a text.")
     add("--region", nargs="+", action="append", default=None, metavar="X,Y",
@@ -92,12 +95,13 @@ def draw_annotations(fig, args):
                       ha=_pick(args.text_ha, i, "left"), va="center", zorder=10)
         arrow = arrows[i] if i < len(arrows) else None
         if arrow is not None and np.all(np.isfinite(arrow)):
-            ax.annotate(text, xy=tuple(arrow), xycoords=transform, xytext=(float(x), float(y)), textcoords=transform,
+            ax.annotate(text, xy=tuple(arrow), xycoords=transform, xytext=(parse_coordinate(x), parse_coordinate(y)),
+                        textcoords=transform,
                         arrowprops=dict(arrowstyle="->", color=kwargs["color"], linewidth=style.default_linewidth * 0.75,
                                         shrinkA=2, shrinkB=2),
                         annotation_clip=False, **kwargs)
         else:
-            ax.text(float(x), float(y), text, transform=transform, **kwargs)
+            ax.text(parse_coordinate(x), parse_coordinate(y), text, transform=transform, **kwargs)
 
 
 def parse_region(points):
@@ -107,7 +111,7 @@ def parse_region(points):
         x, sep, y = token.partition(",")
         if not sep:
             raise ValueError(f"--region point '{token}' is not X,Y")
-        vertices.append((float(x), float(y)))
+        vertices.append((parse_coordinate(x), parse_coordinate(y)))
     if len(vertices) < 3:
         raise ValueError("--region needs at least three X,Y points")
     return np.array(vertices)

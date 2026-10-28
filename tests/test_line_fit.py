@@ -204,3 +204,19 @@ def test_parse_residual_component():
     spec = parse_lower("residual:Bkg (4th order polynomial)")
     assert (spec.kind, spec.name, spec.component) == ("operation", "residual", "Bkg (4th order polynomial)")
     assert parse_lower("residual").component is None
+
+
+def test_lower_pull_of_data_is_points(make_project):
+    """--lower pull without --fit on --data_hue data: points with unit error bars, not a line."""
+    from matplotlib.container import ErrorbarContainer
+
+    frame = _signal_background_frame()
+    make_project({"Fits": frame})
+    figures = _capture()
+    line.main(["--datafile", "Fits", "-x", "Mass", "-y", "Counts", "--hue", "Sample", "--data_hue", "Data",
+               "--errory", "--plot_type", "line", "--lower", "pull"])
+    lower = figures[-1].axes[1]
+    (points,) = [c for c in lower.containers if isinstance(c, ErrorbarContainer)]
+    assert points.lines[0].get_linestyle() == "None"
+    segments = points.lines[2][0].get_segments()
+    assert np.allclose([s[1][1] - s[0][1] for s in segments], 2.0)  # +-1

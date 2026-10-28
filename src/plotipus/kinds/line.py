@@ -374,6 +374,9 @@ def build_parser():
     add("--no_lower_plot", action="store_true", default=False, help="Ignore --lower.")
     add("--no_lower_name", action="store_true", default=False,
         help="Leave the lower operation/column out of the output name.")
+    add("--lower_column_models", action="store_true", default=False,
+        help="With --data_hue, a --lower column:NAME panel also draws the other series' NAME column (model curves "
+        "stored next to the data's residual) as lines; by default only the data's column is drawn.")
     add("--lower_series_donor", nargs=2, metavar=("FROM", "TO"), default=None,
         help="Copy the lower column (column:NAME) from the rows of hue FROM onto those of hue TO.")
     add_panel_args(parser, "lower_")
@@ -910,15 +913,19 @@ def _is_data(hue, args):
     return bool(args.data_hue) and not isinstance(hue, _SumSlot) and str(hue) in {str(v) for v in args.data_hue}
 
 
-def _nested_bands(s, args, plot_type, stacking):
-    """Whether series ``s`` draws its errors as opaque nested bands (several
-    --errory_column columns, or --band_colors): errors shown as bands
-    around a line, step or markers."""
-    if s.error is None or not (s.bands or args.band_colors) or stacking:
+def _shows_bands(s, args, plot_type, stacking):
+    """Whether series ``s`` draws its errors as bands around a line, step or markers."""
+    if s.error is None or stacking:
         return False
     if not (args.errory or getattr(s, "show_error", False)) or plot_type not in (None, "line", "step", "stepmid", "plot"):
         return False
     return errory_type(args, plot_type or "errorbar") == "bands"
+
+
+def _nested_bands(s, args, plot_type, stacking):
+    """Whether series ``s`` draws its errors as opaque nested bands (several
+    --errory_column columns, or --band_colors)."""
+    return bool(s.bands or args.band_colors) and _shows_bands(s, args, plot_type, stacking)
 
 
 def _draw_nested_bands(ax, s, args, plot_type):
@@ -951,6 +958,19 @@ def draw_series(ax, s, args, plot_type=None, stack_bottom=None, dodge_shift=0.0)
     if (args.smooth and not stacking and not s.categorical and not s.is_data
             and plot_type not in ("bar", "barh", "fill", "band", "empty", "beyond", "scatter")):
         _draw_smoothed(ax, s, args, plot_type, dodge_shift)
+        return
+    if s.linewidth == 0 and not _nested_bands(s, args, plot_type, stacking) and _shows_bands(s, args, plot_type,
+                                                                                             stacking):
+        # A band-only series: its band carries the legend entry (the line has no width).
+        before = set(ax.collections)
+        label, s.label = s.label, None
+        try:
+            _draw_series(ax, s, args, plot_type, stack_bottom, dodge_shift, stacking)
+        finally:
+            s.label = label
+        new = [c for c in ax.collections if c not in before]
+        if new:
+            new[0].set_label(label)
         return
     if _nested_bands(s, args, plot_type, stacking):
         _draw_nested_bands(ax, s, args, plot_type)
@@ -1650,9 +1670,11 @@ def _draw_lower(ax, spec, series, args, comparable, comparable_values, colors):
             ax.axhline(1.0 if "ratio" in spec.name.lower() else 0.0, color=style.role("muted"), linestyle="--",
                        linewidth=1, zorder=1)
         first = True
-        # With data, the stored column is the data's (a pull, a residual): other series' copies are left out.
+        # With data, the stored column is the data's (a pull, a residual): other series' copies are left out,
+        # unless --lower_column_models asks for the model rows' own curves (F01's signal, F09's cosmologies).
         with_data = [s for s in regular if s.is_data and s.rows is not None and spec.name in s.rows.columns]
-        for s in with_data or regular:
+        drawn_series = regular if args.lower_column_models or not with_data else with_data
+        for s in drawn_series:
             if s.rows is None or spec.name not in s.rows.columns:
                 continue
             rows = s.rows[s.rows[spec.name].notna()]

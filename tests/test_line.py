@@ -1230,3 +1230,74 @@ def test_inset_of_a_binned_estimator(make_project, selections):
                "--estimator mean --bins 13"])
     _, (inset,) = _main_and_inset(figures[0])
     assert inset.get_lines() and inset.get_xlim()[1] <= 13.5
+
+
+def test_band_only_series_has_a_band_in_the_legend(make_project):
+    """A series drawn without a line (width 0) shows its band in the legend, with or without --band_colors."""
+    from plotipus import style
+
+    x = np.linspace(110, 150, 9)
+    frame = pd.DataFrame([
+        {"Mass": x, "P0": 1e-3 * np.ones_like(x), "Hypothesis": "Expected"},
+        {"Mass": x, "P0": 1e-3 * np.ones_like(x), "Hypothesis": "Band", "Width": 0.0,
+         "P0Error+": 5e-4 * np.ones_like(x), "P0Error-": 5e-4 * np.ones_like(x)},
+    ])
+    make_project({"P0": frame})
+    figures = _capture()
+    line.main(["--datafile", "P0", "-x", "Mass", "-y", "P0", "--hue", "Hypothesis", "--linewidth_column", "Width",
+               "--plot_type", "line", "--errory", "--errory_type", "bands"])
+    legend = figures[0].axes[0].get_legend()
+    handles = dict(zip([t.get_text() for t in legend.get_texts()], legend.legend_handles))
+    band = handles["Band"]
+    assert not hasattr(band, "get_linewidth") or type(band).__name__ != "Line2D"
+    alpha = band.get_alpha() if band.get_alpha() is not None else band.get_facecolor()[3]
+    assert alpha == pytest.approx(style.band_alpha)  # the translucent band, as drawn
+
+
+def test_tick_labels_where_upper_and_lower_panels_meet_do_not_overlap(make_project):
+    """README 'Your own data': the upper panel's '0' and the ratio panel's '2' met at the shared edge."""
+    x = np.arange(0.25, 10, 0.5)
+    expected = 200 * np.exp(-x / 3)
+    observed = np.random.default_rng(1).poisson(expected)
+    make_project({"Spectrum": pd.DataFrame([
+        {"Sample": "Simulation", "Energy": x, "Counts": expected, "CountsError": 0.05 * expected},
+        {"Sample": "Data", "Energy": x, "Counts": observed}])})
+    figures = _capture()
+    line.main(["--datafile", "Spectrum", "-x", "Energy", "-y", "Counts", "--hue", "Sample", "--data_hue", "Data",
+               "--errory", "--lower", "ratio"])
+    from matplotlib.backends.backend_agg import FigureCanvasAgg
+
+    fig = figures[0]
+    upper, lower = fig.axes[:2]
+    FigureCanvasAgg(fig)  # the saved figure was closed
+    fig.canvas.draw()
+    renderer = fig.canvas.get_renderer()
+
+    def shown(ax):
+        """The y tick labels drawn next to the axes (centred on a tick within its range)."""
+        labels = []
+        for t in ax.get_yticklabels():
+            box = t.get_window_extent(renderer)
+            if t.get_visible() and t.get_text() and ax.bbox.y0 - box.height / 2 <= (box.y0 + box.y1) / 2 <= ax.bbox.y1 + box.height / 2:
+                labels.append(t)
+        return labels
+
+    bottom = min(shown(upper), key=lambda t: t.get_window_extent(renderer).y0)
+    top = max(shown(lower), key=lambda t: t.get_window_extent(renderer).y1)
+    assert bottom.get_window_extent(renderer).y0 >= top.get_window_extent(renderer).y1  # no overlap
+    assert "2" in top.get_text()  # the ratio panel keeps its labels
+
+
+def test_column_lower_panel_with_model_curves(make_project):
+    """--lower_column_models: the model rows' stored column (F01's signal, F09's cosmologies) joins the data's."""
+    x = np.arange(0.5, 6, 1.0)
+    frame = pd.DataFrame([{"X": x, "Y": np.full_like(x, 5.0), "YError": np.ones_like(x), "Pull": np.full_like(x, p),
+                           "Sample": s} for s, p in (("Data", 1.0), ("Signal", -1.0))])
+    make_project({"C": frame})
+    figures = _capture()
+    line.main(["--datafile", "C", "-x", "X", "-y", "Y", "--hue", "Sample", "--data_hue", "Data", "--errory",
+               "--plot_type", "line", "--lower", "column:Pull", "--lower_column_models"])
+    lower = figures[0].axes[1]
+    assert len(_errorbars(lower)) == 1  # the data, as points
+    curves = [l for l in lower.get_lines() if np.allclose(l.get_ydata(), -1.0) and len(l.get_ydata()) > 1]
+    assert curves, "the Signal row's column is drawn as a line"

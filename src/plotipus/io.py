@@ -576,8 +576,9 @@ def save_figure_to_paths(fig, output_arg, output_file, default_output_dir=None, 
     directory when none is given); ``sci_in_label`` and ``log_labels`` as in
     :func:`plotipus.plot.finish_tick_labels`."""
     from .plot import (_shorten_title_to_fit, apply_measured_layout, attach_legends, finish_tick_labels, place_legends,
-                       settle_text_backgrounds)
+                       fix_cmr10_glyphs, separate_panel_tick_labels, settle_text_backgrounds, stagger_above_legends)
 
+    fix_cmr10_glyphs(fig)  # '<' and '>' in the paper style's Computer Modern
     finish_tick_labels(fig, sci_in_label, log_labels)
     apply_measured_layout(fig)
     # Legends go where they cover no data on the finished axes; a legend
@@ -590,8 +591,11 @@ def save_figure_to_paths(fig, output_arg, output_file, default_output_dir=None, 
         # That layout may have shrunk the axes under an inside header.
         if make_room(fig):
             apply_measured_layout(fig)
+    if stagger_above_legends(fig):  # wide legends above neighbouring panels, one above the other
+        apply_measured_layout(fig)
     attach_legends(fig)  # legends kept next to another one, on the final layout
     settle_text_backgrounds(fig)  # note/label backgrounds only over data
+    separate_panel_tick_labels(fig)  # no "0" over the lower panel's top label
 
     # Layout may have narrowed the title since it was set; re-check it fits.
     _shorten_title_to_fit(fig, getattr(fig, "_suptitle", None))

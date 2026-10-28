@@ -269,3 +269,35 @@ def test_legend_inside_keeps_a_long_legend_on_the_axes(make_project, inside):
         assert box.y1 <= ax.bbox.y1 + 1 and box.x1 <= ax.bbox.x1 + 1
     else:
         assert box.y0 >= ax.bbox.y1 - 1  # past 6 entries: above the axes
+
+
+def test_legends_above_panels_do_not_squeeze_them(make_project):
+    """--legend_panel all with legends wider than their panels (GW150914 H1): the panels keep their width."""
+    import numpy as np
+    import pandas as pd
+
+    from plotipus import registry
+    from plotipus.kinds import line
+
+    x = np.linspace(0, 1, 50)
+    rows = []
+    for variable, names in (("Whitened", ["H1 observed"]), ("Reconstructed", [
+            "Numerical relativity", "Reconstructed (wavelet)", "Reconstructed (template)"]), ("Residual", ["Residual"])):
+        for k, name in enumerate(names):
+            rows.append({"T": x, "S": np.sin(10 * x + k), "Component": name, "Variable": variable})
+    make_project({"GW": pd.DataFrame(rows)})
+    figures = []
+    registry.add_figure_hook(lambda fig, args: figures.append(fig))
+    line.main(["--datafile", "GW", "-x", "T", "-y", "S", "--hue", "Component", "--variables", "Whitened",
+               "Reconstructed", "Residual", "--legend_panel", "all", "--plot_type", "line", "--medium", "paper"])
+    fig = figures[0]
+    widths = [ax.get_position().width for ax in fig.axes[:3]]
+    assert min(widths) > 0.18, widths  # three panels share the width, not slivers
+    FigureCanvasAgg(fig)
+    fig.canvas.draw()
+    renderer = fig.canvas.get_renderer()
+    boxes = [lg.get_window_extent(renderer) for ax in fig.axes[:3] for lg in [ax.get_legend()] if lg is not None]
+    assert len(boxes) == 3
+    for i, a in enumerate(boxes):
+        for b in boxes[i + 1:]:
+            assert not (a.x0 < b.x1 and b.x0 < a.x1 and a.y0 < b.y1 and b.y0 < a.y1)  # legends do not overlap

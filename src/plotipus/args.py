@@ -46,6 +46,29 @@ def _auto_wrap_mathtext(value):
     return f"${value}$"
 
 
+
+class CoordinateError(argparse.ArgumentTypeError, ValueError):
+    """Neither a number nor an ISO date (argparse shows its message)."""
+
+
+def parse_coordinate(value):
+    """A number, or an ISO date (2025-07-15, 2025-07-15T12:00) as a matplotlib
+    date number: positions on a date x axis (--vertical, --vertical_band,
+    --region, --text, --arrow)."""
+    try:
+        return float(value)
+    except ValueError:
+        pass
+    import datetime
+
+    import matplotlib.dates as mdates
+
+    try:
+        return float(mdates.date2num(datetime.datetime.fromisoformat(str(value))))
+    except ValueError:
+        raise CoordinateError(f"invalid number or ISO date: '{value}'") from None
+
+
 def parse_plot_label(value):
     """Parse CLI label values, including raw-literal-like terminal input.
 
@@ -418,7 +441,7 @@ COMMON_ARG_SPECS = {
     "vertical": {
         "flags": ["--vertical"],
         "kwargs": {
-            "type": float,
+            "type": parse_coordinate,
             "nargs": "+",
             "default": None,
             "help": "Draw vertical line(s) at specified x value(s)",
@@ -454,7 +477,7 @@ COMMON_ARG_SPECS = {
     "vertical_band": {
         "flags": ["--vertical_band"],
         "kwargs": {
-            "type": float,
+            "type": parse_coordinate,
             "nargs": "+",
             "default": None,
             "metavar": "X",

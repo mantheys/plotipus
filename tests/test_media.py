@@ -173,3 +173,23 @@ def test_facets_widen_and_panels_keep_one_plot(make_project, spectra):
     two = ["--select", "Variable", "-s", "E", "F", "--variables", "E", "F"]
     assert _sizes(*two)[-1] == pytest.approx((2 * 0.6 * 8, single[1]))
     assert _sizes(*two, "--layout", "panels")[-1] == pytest.approx(single)
+
+
+def test_cmr10_draws_less_and_greater_than(make_project, spectra):
+    """cmr10 (paper) has '¡' and '¿' where '<' and '>' should be: they are drawn in math."""
+    make_project({"Spectra": spectra})
+    figures = []
+    registry.add_figure_hook(lambda fig, args: figures.append(fig))
+    line.main(["--datafile", "Spectra", "-x", "Energy", "-y", "Counts", "--hue", "Sample", "--select", "Variable",
+               "-s", "E", "--medium", "paper", "--labelx", "radius < 12 and > 3, $a<b$"])
+    label = figures[0].axes[0].xaxis.label
+    assert label.get_text() == "radius $<$ 12 and $>$ 3, $a<b$"
+
+
+def test_other_fonts_keep_their_text(make_project, spectra):
+    make_project({"Spectra": spectra})
+    figures = []
+    registry.add_figure_hook(lambda fig, args: figures.append(fig))
+    line.main(["--datafile", "Spectra", "-x", "Energy", "-y", "Counts", "--hue", "Sample", "--select", "Variable",
+               "-s", "E", "--labelx", "radius < 12"])
+    assert figures[0].axes[0].xaxis.label.get_text() == "radius < 12"

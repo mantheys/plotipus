@@ -500,3 +500,12 @@ def test_line_kind_does_not_import_scipy_stats():
             "print(int('scipy.stats' in sys.modules), int('scipy.special' in sys.modules))")
     out = subprocess.run([sys.executable, "-c", code], capture_output=True, text=True, check=True).stdout.split()
     assert out == ["0", "0"]
+
+
+def test_title_case_keeps_units_after_numbers():
+    from plotipus.format import _title_case_words
+
+    assert _title_case_words("R < 12 kpc") == "R < 12 kpc"
+    assert _title_case_words("12 - 35 kpc") == "12 - 35 kpc"
+    assert _title_case_words("whitened strain") == "Whitened Strain"
+    assert _title_case_words("energy above 2 GeV only") == "Energy Above 2 GeV Only"

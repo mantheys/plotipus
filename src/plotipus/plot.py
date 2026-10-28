@@ -213,7 +213,23 @@ def _panel_overhangs(fig, panels, renderer):
             extra.setdefault(owner, []).append(cax.get_tightbbox(renderer, for_layout_only=True))
     overhangs = {}
     for ax, _, _ in panels:
-        boxes = [ax.get_tightbbox(renderer, for_layout_only=True), *extra.get(ax, [])]
+        # A legend above the axes takes room above them only: wider than its panel, it may reach over the gap
+        # (counting its width would widen the gaps and shrink every panel to a sliver).
+        above = [lg for lg in _axes_legends(ax) if lg.get_visible() and lg.get_in_layout()
+                 and getattr(lg, "_plotipus_placement", {}).get("above")]
+        # So does the centred panel title.
+        above += [t for t in (ax.title,) if t.get_visible() and t.get_text() and t.get_in_layout()]
+        for lg in above:
+            lg.set_in_layout(False)
+        try:
+            tight = ax.get_tightbbox(renderer, for_layout_only=True)
+        finally:
+            for lg in above:
+                lg.set_in_layout(True)
+        boxes = [tight, *extra.get(ax, [])]
+        for lg in above:
+            box = lg.get_window_extent(renderer)
+            boxes.append(Bbox([[ax.bbox.x0, box.y0], [ax.bbox.x1, box.y1]]))
         box = Bbox.union([b for b in boxes if b is not None and b.width > 0])
         slot = ax.get_position(original=True)
         overhangs[ax] = (
@@ -283,11 +299,11 @@ def _break_label(text):
 
 
 def _wrap_long_labels(panels, renderer):
-    """Break an axis label longer than its axes onto two lines (once).
-    Returns whether any label changed."""
+    """Break an axis label or panel title longer than its axes onto two
+    lines (once). Returns whether any label changed."""
     changed = False
     for ax, _, _ in panels:
-        for label, length in ((ax.yaxis.label, ax.bbox.height), (ax.xaxis.label, ax.bbox.width)):
+        for label, length in ((ax.yaxis.label, ax.bbox.height), (ax.xaxis.label, ax.bbox.width), (ax.title, ax.bbox.width)):
             text = label.get_text()
             if not text or not label.get_visible():
                 continue
@@ -309,10 +325,14 @@ def _measured_layout(fig, iterations):
     minimum = _minimum_margins(fig)
     width, height = fig.get_size_inches()
     params = fig.subplotpars
-    min_wspace = gridspec.wspace if gridspec.wspace is not None else params.wspace
-    min_hspace = gridspec.hspace if gridspec.hspace is not None else params.hspace
+    # The configured spacing is the minimum of every pass: the current one may come from an earlier pass
+    # (a legend not yet placed spilling out of its panel) and would only ever grow.
+    if not hasattr(gridspec, "_plotipus_spacing"):
+        gridspec._plotipus_spacing = (gridspec.wspace if gridspec.wspace is not None else params.wspace,
+                                      gridspec.hspace if gridspec.hspace is not None else params.hspace,
+                                      gridspec.hspace is not None)
+    min_wspace, min_hspace, fixed_hspace = gridspec._plotipus_spacing
     # Upper/lower stacks keep their configured gap; grids of panels are measured.
-    fixed_hspace = gridspec.hspace is not None
     fig.align_ylabels([ax for ax, _, _ in panels])
 
     for _ in range(iterations):
@@ -396,7 +416,7 @@ def _apply_plot_style(kwargs, plot_style):
     kwargs["ls"] = plot_style
 
 from matplotlib.colors import LogNorm, to_rgba
-from matplotlib.ticker import LogFormatter, LogFormatterMathtext, LogFormatterSciNotation, ScalarFormatter
+from matplotlib.ticker import Formatter, LogFormatter, LogFormatterMathtext, LogFormatterSciNotation, ScalarFormatter
 
 
 def apply_tick_formatter(ax, axis="both"):
@@ -807,6 +827,101 @@ def axes_occupancy(ax, renderer=None, extra_boxes=(), exclude=()):
     return mask, (x0, y0)
 
 
+class _HideTickValue(Formatter):
+    """A y formatter that leaves the label at one tick ``value`` empty and
+    otherwise formats like ``inner`` (offsets and all)."""
+
+    def __init__(self, inner, value):
+        self.inner, self.value = inner, value
+
+    def _hidden(self, x):
+        return math.isclose(x, self.value, rel_tol=1e-9, abs_tol=1e-12)
+
+    def __call__(self, x, pos=None):
+        return "" if self._hidden(x) else self.inner(x, pos)
+
+    def format_ticks(self, values):
+        labels = self.inner.format_ticks(values)
+        return ["" if self._hidden(v) else label for v, label in zip(values, labels)]
+
+    def set_axis(self, axis):
+        super().set_axis(axis)
+        self.inner.set_axis(axis)
+
+    def set_locs(self, locs):
+        self.inner.set_locs(locs)
+
+    def get_offset(self):
+        return self.inner.get_offset()
+
+
+def _edge_tick(ax, renderer, lowest):
+    """(value, label box) of the lowest (or highest) labelled y tick drawn
+    next to ``ax`` (centred within half a label of its range), or None."""
+    found = []
+    for tick in ax.yaxis.get_major_ticks():
+        label = tick.label1
+        if not (label.get_visible() and label.get_text() and tick.get_visible()):
+            continue
+        box = label.get_window_extent(renderer)
+        if ax.bbox.y0 - box.height / 2 <= (box.y0 + box.y1) / 2 <= ax.bbox.y1 + box.height / 2:
+            found.append((tick.get_loc(), box))
+    if not found:
+        return None
+    return min(found, key=lambda f: f[1].y0) if lowest else max(found, key=lambda f: f[1].y1)
+
+
+def separate_panel_tick_labels(fig, pad_px=1.0):
+    """Where an upper panel sits on a lower one, the upper panel's lowest y
+    tick label and the lower panel's highest can overlap ("0" over "2"):
+    the upper one is left empty (the lower panel keeps its scale)."""
+    panels = [ax for ax in fig.axes if ax.get_visible() and not hasattr(ax, "_colorbar") and ax.get_subplotspec()]
+    if len(panels) < 2:
+        return
+    fig.draw_without_rendering()
+    renderer = fig.canvas.get_renderer()
+    for upper in panels:
+        top = upper.get_position()
+        for lower in panels:
+            bottom = lower.get_position()
+            touching = (lower is not upper and abs(top.x0 - bottom.x0) < 1e-3 and abs(top.x1 - bottom.x1) < 1e-3
+                        and 0 <= top.y0 - bottom.y1 < 0.02)
+            if not touching:
+                continue
+            low, high = _edge_tick(upper, renderer, lowest=True), _edge_tick(lower, renderer, lowest=False)
+            if low is not None and high is not None and low[1].y0 < high[1].y1 + pad_px:
+                upper.yaxis.set_major_formatter(_HideTickValue(upper.yaxis.get_major_formatter(), low[0]))
+
+
+# cmr10 (the paper style's Computer Modern) is a TeX font in the old OT1
+# encoding: its '<' and '>' slots hold '¡' and '¿'. Outside math they are
+# drawn as math, in the same Computer Modern.
+_CMR10_MATH = {"<": "$<$", ">": "$>$"}
+
+
+def _cmr10_text(text):
+    """``text`` with < and > outside $...$ math written as math."""
+    parts = re.split(r"(?<!\\)\$", text)
+    if len(parts) % 2 == 0:  # an unclosed $: leave the text alone
+        return text
+    for i in range(0, len(parts), 2):
+        parts[i] = "".join(_CMR10_MATH.get(char, char) for char in parts[i])
+    return "$".join(parts)
+
+
+def fix_cmr10_glyphs(fig):
+    """Rewrite < and > of every text drawn in cmr10 (see _CMR10_MATH)."""
+    from matplotlib import font_manager
+    from matplotlib.text import Text
+
+    for artist in fig.findobj(Text):
+        text = artist.get_text()
+        if not text or ("<" not in text and ">" not in text):
+            continue
+        if font_manager.findfont(artist.get_fontproperties()).endswith("cmr10.ttf"):
+            artist.set_text(_cmr10_text(text))
+
+
 def settle_text_backgrounds(fig):
     """Keep the translucent background of notes and reference-line labels
     only where they sit on data; on empty space they are bare text. Run on
@@ -948,7 +1063,39 @@ def _place_outside(ax, legend, renderer):
                                                     bbox_transform=anchor, borderaxespad=0.2))
         if rebuilt.get_window_extent(renderer).width <= ax.bbox.width or ncol == 1:
             break
+    rebuilt._plotipus_placement["above"] = True
     return rebuilt
+
+
+def stagger_above_legends(fig):
+    """On the final layout, a legend above its panel that reaches over a
+    neighbouring panel's legend (both wider than their panels) goes above
+    it; the larger legend stays. Returns whether any moved."""
+    from matplotlib.transforms import offset_copy
+
+    above = [(ax, lg) for ax in fig.axes for lg in _axes_legends(ax)
+             if lg.get_visible() and getattr(lg, "_plotipus_placement", {}).get("above")]
+    if len(above) < 2:
+        return False
+    fig.draw_without_rendering()
+    renderer = fig.canvas.get_renderer()
+    above.sort(key=lambda item: -_area(item[1].get_window_extent(renderer)))
+    settled, moved = [], False
+    for ax, legend in above:
+        box = legend.get_window_extent(renderer)
+        clashing = [b for b in settled if b.x0 < box.x1 and box.x0 < b.x1 and b.y0 < box.y1 and box.y0 < b.y1]
+        if clashing:
+            rise = (max(b.y1 for b in clashing) - ax.bbox.y1) * 72.0 / fig.dpi + 2
+            anchor = offset_copy(ax.transAxes, fig=fig, y=rise, units="points")
+            info = legend._plotipus_placement
+            legend = _rebuild_legend(ax, legend, dict(info["style"], loc="lower center", ncol=legend._ncols,
+                                                      bbox_to_anchor=(0.5, 1.0), bbox_transform=anchor,
+                                                      borderaxespad=0.2))
+            legend._plotipus_placement["above"] = True
+            box = legend.get_window_extent(renderer)
+            moved = True
+        settled.append(box)
+    return moved
 
 
 def _place_beside(ax, legend, renderer, side):
