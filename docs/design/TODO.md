@@ -27,10 +27,18 @@ can be picked up later.
 
 ## Related features also postponed
 
-- **Broken axes with a gap** (ATLAS limit plot, F05): two ranges of one
-  axis side by side with the break drawn. The hybrid log/linear axis
-  (Planck TT, F07) and the secondary axis (COBE FIRAS, F06) are done:
-  `--xscale 'log<B<linear'` and `--secondary_x` (catalogue H6, H7).
-- **Downloading public datasets** (NOAA Mauna Loa, Union2.1, Gaia,
-  HEPData). Decision D6: synthetic data for now. The famous-plots dataset
-  (tasks/T24) will synthesise realistic data first.
+- **Broken axes with a gap** (the ATLAS Brazil plot, F05).
+  - Two ranges of one axis side by side, with the break drawn as slanted
+    marks on both frames.
+  - Likely shape: `--xbreak LOW HIGH`: two panels sharing y, sized by the
+    ranges they show, their facing spines hidden.
+  - The hybrid log/linear axis (Planck TT, F07) and the secondary axis
+    (COBE FIRAS, F06) are done: `--xscale 'log<B<linear'` and
+    `--secondary_x` (catalogue H6, H7).
+
+The famous plots no longer wait on public datasets (decision D6 is
+superseded): `examples/famous/fetch_data.py` and `fetch_gaia.py` download
+FIRAS, Union2.1, SPARC, NOAA Mauna Loa, Mann et al. 1999, GWOSC and Gaia
+DR2 data into `examples/famous/data/`, and `examples/famous/extract/`
+reads the Higgs, KamLAND and LEP values from the published vector figures.
+Only F19–F21 (1912–1913 tables, kept as scans) stay synthetic.
