@@ -92,6 +92,13 @@ plotipus line --datafile Spectrum -x Energy -y Counts --hue Sample --data_hue Da
 Scalar rows, file prefixes and what else a pickle may hold are in the
 [style guide](docs/styleguide.md#f-data-conventions).
 
+**Parquet.** The same frame can be stored as Parquet instead
+(`pip install 'plotipus[parquet]'`): `plotipus.save_frame(frame,
+"input/data/Spectrum.parquet")`, and `--datafile Spectrum` finds it when no
+`Spectrum.pkl` exists. Array cells (also 2D grids for `map -z`) come back
+as numpy arrays. Use Parquet for data you share or receive: loading a
+pickle runs code, loading Parquet does not.
+
 ## Media and styles
 
 One command list renders for every medium at the size it is shown at:

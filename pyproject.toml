@@ -22,7 +22,8 @@ dependencies = [
 
 [project.optional-dependencies]
 yaml = ["pyyaml"]
-dev = ["pytest", "pytest-xdist", "pyyaml"]
+parquet = ["pyarrow"]
+dev = ["pytest", "pytest-xdist", "pyyaml", "pyarrow"]
 
 [project.scripts]
 plotipus = "plotipus.cli:main"

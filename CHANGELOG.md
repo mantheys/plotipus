@@ -1,5 +1,19 @@
 # Changelog
 
+## Unreleased
+
+### Parquet input (T22.16)
+
+- `--datafile NAME` also finds `NAME.parquet` (and the `{config}_{name}_`
+  forms) when no `NAME.pkl` exists; a full path to a `.parquet` file works
+  too. List cells are read back as numpy arrays and lists of lists as 2D
+  arrays, so every kind draws from Parquet exactly as from a pickle.
+- `plotipus.save_frame(frame, path)` writes a frame in the plotipus
+  convention (2D array cells included); `plotipus.load_frame` reads both
+  formats.
+- Needs pyarrow: `pip install 'plotipus[parquet]'`. Pickle-only projects
+  are unaffected; a pickle wins over a Parquet file of the same name.
+
 ## The redesign (T01–T19)
 
 This is the breaking release: plotipus now draws in the `slides` style by

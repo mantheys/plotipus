@@ -6,8 +6,9 @@ module once the project is loaded. Everything here is optional.
 """
 
 # resolver(entry, input_dir, prefix) -> list of candidate Paths for the
-# datafile ``{prefix}{entry}.pkl`` under ``input_dir``. Plugin candidates are
-# tried before the plain ``input_dir / f"{prefix}{entry}.pkl"``.
+# datafile ``{prefix}{entry}.pkl`` (or ``.parquet``) under ``input_dir``.
+# Plugin candidates are tried before the plain ``input_dir / f"{prefix}{entry}.pkl"``
+# and ``.parquet``.
 resolvers = []
 
 # post_load(df, path, input_dir) -> df, applied to every loaded file.
