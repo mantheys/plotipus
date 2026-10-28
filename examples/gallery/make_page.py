@@ -19,12 +19,11 @@ import shlex
 import shutil
 import subprocess
 import sys
-from concurrent.futures import ThreadPoolExecutor
 from dataclasses import dataclass, field
 from pathlib import Path
 
 from plotipus.args import with_medium
-from plotipus.runner import build_command
+from plotipus.runner import build_command, run_commands
 
 try:
     import tomllib
@@ -96,19 +95,28 @@ def read_entries(kinds=("plots", "tables")):
     return entries
 
 
-def render(entry, out_dir, medium=None):
-    """Run one entry's command (for ``medium``, when given) with its outputs
-    in ``out_dir`` (emptied first); stores and returns the :class:`Render`."""
+def _argv(entry, out_dir, medium=None):
+    """The command of one entry (for ``medium``) with its outputs in
+    ``out_dir`` (emptied first)."""
     out_dir = Path(out_dir)
     shutil.rmtree(out_dir, ignore_errors=True)
     out_dir.mkdir(parents=True)
     argv = build_command(entry.command, [str(out_dir)], root=HERE)
-    if medium is not None:
-        argv = with_medium(argv, medium)
+    return with_medium(argv, medium) if medium is not None else argv
+
+
+def _store(entry, out_dir, medium, code, log):
+    entry.renders[medium] = Render(code, log, sorted(f for f in Path(out_dir).rglob("*") if f.is_file()))
+    return entry.renders[medium]
+
+
+def render(entry, out_dir, medium=None):
+    """Run one entry's command (for ``medium``, when given) with its outputs
+    in ``out_dir`` (emptied first); stores and returns the :class:`Render`."""
+    argv = _argv(entry, out_dir, medium)
     proc = subprocess.run([sys.executable, "-m", "plotipus", *argv], cwd=HERE, stdout=subprocess.PIPE,
                           stderr=subprocess.STDOUT, text=True)
-    entry.renders[medium] = Render(proc.returncode, proc.stdout, sorted(f for f in out_dir.rglob("*") if f.is_file()))
-    return entry.renders[medium]
+    return _store(entry, out_dir, medium, proc.returncode, proc.stdout)
 
 
 def render_all(entries, out_dir, jobs=None, media=MEDIA):
@@ -123,8 +131,10 @@ def render_all(entries, out_dir, jobs=None, media=MEDIA):
             runs.append((entry, Path(out_dir) / "tables" / name, None))
         else:
             runs += [(entry, Path(out_dir) / medium / name, medium) for medium in entry.media(media)]
-    with ThreadPoolExecutor(jobs or os.cpu_count()) as pool:
-        list(pool.map(lambda run: render(*run), runs))
+    # plotipus run's command server: every command forked from one preloaded process.
+    argvs = [_argv(*run) for run in runs]
+    for (entry, out_dir, medium), (code, log) in zip(runs, run_commands(argvs, HERE, jobs=jobs or os.cpu_count())):
+        _store(entry, out_dir, medium, code, log)
     return todo
 
 

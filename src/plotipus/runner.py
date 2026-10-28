@@ -9,11 +9,13 @@ output directories configured for the list in ``plotipus.toml``.
 ``--medium`` (or ``[project] media``) runs every plot command once per
 medium, each writing to its own output folder (see :mod:`plotipus.project`).
 
-Plot commands run in forked children of the runner (``--isolate fork``, the
-default where ``os.fork`` exists): the runner imports plotipus, matplotlib and
-every kind and warms up the text layout once, then each command runs in a
-fresh copy of that state, so no command sees another's style, plugins or
-figures and none pays the imports again. ``--isolate subprocess`` (and
+Plot commands run in forks of a server process (``--isolate fork``, the
+default where multiprocessing's forkserver exists): the server imports
+plotipus, matplotlib and every kind and warms up the text layout once, then
+each command runs in a new process forked from it, so no command sees
+another's style, plugins or figures and none pays the imports again. The
+server is single-threaded, so forking is safe even from threaded hosts
+(pytest-xdist workers). ``--isolate subprocess`` (and
 ``--show``, scripts, systems without fork) starts a new Python per command.
 ``--jobs N`` runs up to N commands at a time.
 """
@@ -90,7 +92,10 @@ def _run_one(argv, cwd, env=None):
 
 
 def fork_available():
-    return hasattr(os, "fork") and hasattr(os, "waitstatus_to_exitcode")
+    """Whether commands can run in forks of a preloaded server process."""
+    import multiprocessing
+
+    return "forkserver" in multiprocessing.get_all_start_methods()
 
 
 def preload():
@@ -110,14 +115,16 @@ def preload():
     fig.canvas.draw()
 
 
-def _child(argv, cwd, env, fd):
-    """Run one command in this forked child, its output to ``fd``; never returns."""
+def _forked_command(task):
+    """Run one command (``(argv, cwd, env)``) in this fresh pool worker, its
+    output captured from the file descriptors; returns (exit code, output)."""
+    argv, cwd, env = task
+    fd, path = tempfile.mkstemp(prefix="plotipus-run-", suffix=".log")
+    saved = os.dup(1), os.dup(2)
     code = 1
     try:
         os.dup2(fd, 1)
         os.dup2(fd, 2)
-        os.close(fd)
-        # Fresh stream objects on the redirected descriptors (the parent's may be replaced, e.g. under pytest).
         sys.stdout = open(1, "w", buffering=1, closefd=False)
         sys.stderr = open(2, "w", buffering=1, closefd=False)
         os.chdir(cwd)
@@ -131,60 +138,66 @@ def _child(argv, cwd, env, fd):
         traceback.print_exc()
         code = 1
     finally:
-        try:
-            sys.stdout.flush()
-            sys.stderr.flush()
-        finally:
-            os._exit(code)
+        sys.stdout.flush()
+        sys.stderr.flush()
+        os.dup2(saved[0], 1)
+        os.dup2(saved[1], 2)
+        os.close(fd)
+        with open(path, encoding="utf-8", errors="replace") as handle:
+            output = handle.read()
+        os.unlink(path)
+    return code, output
 
 
-def _run_forked(planned, cwd, env, jobs):
-    """Yield (code, output) of each planned (line, argv) in order, running up
-    to ``jobs`` forked children at a time (scripts run as subprocesses)."""
-    pending = list(enumerate(planned))
-    running = {}  # pid -> (index, output path)
-    results = {}
-    shown = 0
-    try:
-        while pending or running:
-            while pending and len(running) < max(1, jobs):
-                index, (_, argv) = pending.pop(0)
-                if argv[0] == SCRIPT:
-                    results[index] = _run_one(argv, cwd, dict(os.environ, **env))
-                    continue
-                fd, path = tempfile.mkstemp(prefix="plotipus-run-", suffix=".log")
-                sys.stdout.flush()
-                sys.stderr.flush()
-                pid = os.fork()
-                if pid == 0:
-                    _child(argv, cwd, env, fd)
-                os.close(fd)
-                running[pid] = (index, path)
-            while shown in results:
-                yield results.pop(shown)
-                shown += 1
-            if not running:
-                continue
-            pid, status = os.wait()
-            if pid not in running:
-                continue
-            index, path = running.pop(pid)
-            with open(path, encoding="utf-8", errors="replace") as handle:
-                output = handle.read()
-            os.unlink(path)
-            results[index] = (os.waitstatus_to_exitcode(status), output)
-            while shown in results:
-                yield results.pop(shown)
-                shown += 1
-    finally:
-        for pid, (_, path) in running.items():
-            try:
-                os.kill(pid, 9)
-                os.waitpid(pid, 0)
-            except OSError:
-                pass
-            if os.path.exists(path):
-                os.unlink(path)
+def run_commands(argvs, cwd, env=None, jobs=1, isolate="fork"):
+    """Run translated commands (``[kind, ...]``, or ``[SCRIPT, path, ...]``)
+    from ``cwd``, up to ``jobs`` at a time; yields their (exit code, output)
+    in order, as they finish. With ``fork`` each plot command runs in a new
+    process forked from a server that imported plotipus once (a fresh state
+    per command, without the imports); ``subprocess`` starts a new Python per
+    command. Scripts always run in a new Python, after the commands before
+    them and before those after them."""
+    env = dict(env or {})
+    full = dict(os.environ, **env)
+    if isolate != "fork" or not fork_available():
+        with ThreadPoolExecutor(max_workers=max(1, jobs)) as pool:
+            yield from pool.map(lambda argv: _run_one(argv, cwd, full), argvs)
+        return
+    _start_server(cwd)
+    segment = []
+    for argv in argvs:
+        if argv[0] == SCRIPT:
+            yield from _forked_segment(segment, cwd, env, jobs)
+            segment = []
+            yield _run_one(argv, cwd, full)
+        else:
+            segment.append(argv)
+    yield from _forked_segment(segment, cwd, env, jobs)
+
+
+def _start_server(root):
+    """(Re)start multiprocessing's fork server with the project at ``root``
+    loaded (its style and plugins) and plotipus warmed up, so the commands
+    forked from it skip all of that; one server per run, as runs may use
+    different projects (the tests do)."""
+    import multiprocessing
+    from multiprocessing import forkserver
+
+    server = forkserver._forkserver
+    if hasattr(server, "_stop"):
+        server._stop()
+    os.environ["PLOTIPUS_PRELOAD_ROOT"] = str(root)
+    multiprocessing.get_context("forkserver").set_forkserver_preload(["plotipus._preload"])
+
+
+def _forked_segment(argvs, cwd, env, jobs):
+    if not argvs:
+        return
+    import multiprocessing
+
+    context = multiprocessing.get_context("forkserver")
+    with context.Pool(processes=max(1, min(jobs, len(argvs))), maxtasksperchild=1) as pool:
+        yield from pool.imap(_forked_command, [(argv, str(cwd), env) for argv in argvs])
 
 
 def check_command(argv):
@@ -286,23 +299,14 @@ def run_list(name, tables=False, show=False, debug=False, jobs=1, dry_run=False,
 
     # One-off notices (e.g. map's 2-dof levels) are printed once per list, not once per command.
     notices = tempfile.TemporaryDirectory(prefix="plotipus-notices-")
-    env = dict(os.environ, PLOTIPUS_NOTICE_DIR=notices.name)
     isolate = isolate or os.environ.get("PLOTIPUS_ISOLATE") or "fork"
-    forked = isolate == "fork" and fork_available() and not show
+    if show:
+        isolate = "subprocess"  # figures shown on screen need their own Python
 
-    def _task(item):
-        line, argv = item
-        code, output = _run_one(argv, project.root, env)
-        return code, output
-
-    def _results(pool):
-        if forked:
-            preload()
-            return _run_forked(planned, project.root, {"PLOTIPUS_NOTICE_DIR": notices.name}, jobs)
-        return pool.map(_task, planned)
-
-    with notices, ThreadPoolExecutor(max_workers=max(1, jobs)) as pool:
-        for (line, argv), (code, output) in zip(planned, _results(pool)):
+    with notices:
+        results = run_commands([argv for _, argv in planned], project.root, {"PLOTIPUS_NOTICE_DIR": notices.name},
+                               jobs, isolate)
+        for (line, argv), (code, output) in zip(planned, results):
             shown = shlex.join(["python", *argv[1:]]) if argv[0] == SCRIPT else "plotipus " + shlex.join(argv)
             rprint(f"\n[cyan]Running[/cyan] {shown}")
             sys.stdout.write(output)
