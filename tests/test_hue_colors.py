@@ -100,3 +100,12 @@ def test_update_warns_when_the_palette_runs_out(make_project, tmp_path, capsys):
     registered = json.loads((tmp_path / "colors.json").read_text())["Sample"]
     assert len(registered) == 12 and registered["S0"] == "C0"
     assert "colours repeat" in capsys.readouterr().out
+
+
+def test_update_includes_contour_hue_columns(make_project, tmp_path):
+    frame = _frame(["A"]).assign(Probe="SN")
+    make_project({"Maps": frame})
+    plots = tmp_path / "input" / "plots"
+    plots.mkdir(parents=True, exist_ok=True)
+    (plots / "main_scripts.txt").write_text("map --datafile Maps -x X -y Y -z Y --contour --contour_hue Probe\n")
+    assert hue_colors.update(dry_run=True) == {"Probe": ["SN"]}

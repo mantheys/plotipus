@@ -21,7 +21,7 @@ import pandas as pd
 from rich import print as rprint
 
 REGISTRY_NAME = "colors.json"
-HUE_FLAGS = ("--hue", "--iterable", "--i", "-i")
+HUE_FLAGS = ("--hue", "--iterable", "--i", "-i", "--contour_hue")
 DATA_FLAGS = ("--data_hue", "--overlay")
 
 _cache = {}  # path -> (mtime, registry)
