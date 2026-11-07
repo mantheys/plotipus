@@ -1,0 +1,20 @@
+cff-version: 1.2.0
+message: "If you use plotipus, please cite the archived release you used (its Zenodo DOI)."
+title: "plotipus: publication plots and tables from pandas DataFrames, driven by command lists"
+type: software
+authors:
+  - family-names: Manthey
+    given-names: Sergio
+    email: sergio.manthey@gmail.com
+    orcid: "https://orcid.org/0000-0002-9368-9120"
+repository-code: "https://github.com/mantheys/plotipus"
+license: MIT
+version: 0.1.0
+date-released: "2026-11-07"
+# doi: 10.5281/zenodo.XXXXXXX (the version DOI Zenodo mints for the tag; add after the release)
+keywords:
+  - plotting
+  - matplotlib
+  - pandas
+  - publication figures
+  - reproducible plots

@@ -1,0 +1,14 @@
+{
+  "title": "plotipus: publication plots and tables from pandas DataFrames, driven by command lists",
+  "upload_type": "software",
+  "description": "Publication-quality plots and tables from pickled or parquet pandas DataFrames, driven by plain-text command lists, so every figure of a project is reproducible from its data and one script.",
+  "creators": [
+    {"name": "Manthey, Sergio", "orcid": "0000-0002-9368-9120"}
+  ],
+  "license": "MIT",
+  "version": "0.1.0",
+  "keywords": ["plotting", "matplotlib", "pandas", "publication figures", "reproducible plots"],
+  "related_identifiers": [
+    {"identifier": "https://github.com/mantheys/plotipus", "relation": "isSupplementTo", "scheme": "url"}
+  ]
+}

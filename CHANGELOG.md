@@ -1,6 +1,8 @@
 # Changelog
 
-## Unreleased
+## 0.1.0 (2026-11-07)
+
+First tagged release, archived on Zenodo.
 
 ### `--remove_value COLUMN=VALUE` and unmatched removals (T22.20)
 
