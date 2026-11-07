@@ -213,7 +213,7 @@ def make_room(fig):
     """Give an inside header headroom when data runs under it: extend the
     top of the y range (log axes by whole decades), unless the range is
     fixed. Returns whether any range changed."""
-    from .plot import _Occupancy, axes_occupancy
+    from .plot import axes_occupancy
 
     changed = False
     renderer = fig.canvas.get_renderer()

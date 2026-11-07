@@ -90,7 +90,7 @@ def lower_model_series(spec, series, args, label):
     from .line import _lower_series
 
     out = []
-    for i, s in enumerate(series):
+    for s in series:
         if s.rows is None or s.categorical or "Params" not in s.rows.columns:
             continue
         try:

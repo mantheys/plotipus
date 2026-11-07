@@ -3,7 +3,6 @@
 import sys
 
 import numpy as np
-import pymupdf
 
 import vecx
 
@@ -56,7 +55,6 @@ def kamland(out):
         p_hi = max(b[2] for b in probability_bars) if probability_bars else x
         le_lo = min(b[1] for b in le_bars) if le_bars else y
         le_hi = max(b[2] for b in le_bars) if le_bars else y
-        errors = sorted([abs(float(f_p(p_lo)) - p), abs(float(f_p(p_hi)) - p)])
         widths = sorted([float(f_le(le_lo)), float(f_le(le_hi))])
         rows.append((le, p, abs(float(f_p(p_hi)) - p), abs(float(f_p(p_lo)) - p), widths[0], widths[1]))
     rows.sort()

@@ -152,7 +152,7 @@ def test_hist_data_hue_points(tmp_path, monkeypatch):
 
     from plotipus import registry
 
-    out = make_project(tmp_path, monkeypatch, {"Energies": _frame()})
+    make_project(tmp_path, monkeypatch, {"Energies": _frame()})
     figures = []
     registry.add_figure_hook(lambda fig, args: figures.append(fig))
     try:

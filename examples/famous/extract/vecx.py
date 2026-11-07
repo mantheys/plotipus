@@ -55,7 +55,7 @@ def calibrate_axis(labels, ticks, along):
 def y_calibration(frame, words, drawings, log=False):
     """Map page y to value for a panel framed by ``frame`` from its left tick labels."""
     labels = []
-    for x0, y0, x1, y1, text, *_ in words:
+    for _x0, y0, x1, y1, text, *_ in words:
         # Tick labels end just left of the axis; axis titles sit further out.
         if frame.x0 - 8 <= x1 <= frame.x0 + 1 and frame.y0 - 4 <= (y0 + y1) / 2 <= frame.y1 + 4 and NUMBER.match(text):
             labels.append(((y0 + y1) / 2, number(text)))

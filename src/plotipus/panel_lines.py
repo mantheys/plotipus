@@ -67,7 +67,7 @@ def parse_panel_line_values(raw_values, flag_name, error=None):
             except ValueError:
                 message = f"{flag_name} values must be numbers or 'none' to skip a panel, got '{piece}' in '{raw}'"
                 if error is None:
-                    raise ValueError(message)
+                    raise ValueError(message) from None
                 error(message)
         parsed.append(values)
     return parsed

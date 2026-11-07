@@ -174,7 +174,8 @@ def build_parser():
     add("--contour_label_leader", action="store_true", default=False,
         help="With --contour_label_pos: a thin line from each label to its contour.")
     add("--contour_alpha", type=float, default=0.95)
-    add("--contour_smoothing_sigma", type=float, default=0.0, help="Gaussian smoothing of the maps before contouring (in bins; without -z, default 1).")
+    add("--contour_smoothing_sigma", type=float, default=0.0, help="Gaussian smoothing of the maps before contouring "
+        "(in bins; without -z, default 1).")
     add("--background_smoothing_sigma", type=float, default=0.0, help="Gaussian smoothing of the background image.")
     add("--contour_min_vertices", type=int, default=0, help="Drop contour pieces with fewer vertices.")
     add("--background", default=None, choices=["all", "combined", "first", "none"],
@@ -1644,7 +1645,7 @@ def run(args):
     if args.corner is not None:
         missing = [v for v in args.corner if v not in df.columns]
         if len(args.corner) < 2 or missing:
-            rprint(f"[red]Error:[/red] --corner needs two or more columns of the data"
+            rprint("[red]Error:[/red] --corner needs two or more columns of the data"
                    + (f"; not found: {', '.join(missing)}" if missing else ""))
             return []
         if args.contour or args.z is not None or args.variables is not None or args.iterable is not None:

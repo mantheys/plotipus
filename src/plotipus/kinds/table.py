@@ -650,9 +650,11 @@ def build_fit_params_table(df, args):
     records = []
     for _, row in rows.iterrows():
         params = list(row["Params"])
-        errors = list(row["ParamsError"]) if "ParamsError" in row and isinstance(row["ParamsError"], (list, tuple, np.ndarray)) else [None] * len(params)
-        labels = list(row["ParamsLabel"]) if "ParamsLabel" in row and isinstance(row["ParamsLabel"], (list, tuple, np.ndarray)) else [f"p{i}" for i in range(len(params))]
-        formats = list(row["ParamsFormat"]) if "ParamsFormat" in row and isinstance(row["ParamsFormat"], (list, tuple, np.ndarray)) else [None] * len(params)
+        sequence = (list, tuple, np.ndarray)
+        errors = list(row["ParamsError"]) if "ParamsError" in row and isinstance(row["ParamsError"], sequence) else [None] * len(params)
+        labels = (list(row["ParamsLabel"]) if "ParamsLabel" in row and isinstance(row["ParamsLabel"], sequence)
+                  else [f"p{i}" for i in range(len(params))])
+        formats = list(row["ParamsFormat"]) if "ParamsFormat" in row and isinstance(row["ParamsFormat"], sequence) else [None] * len(params)
         record = {key or "Fit": row[key] if key and key in row else len(records) + 1}
         for label, value, error, fmt in zip(labels, params, errors, formats):
             fmt = fmt or f".{2 if args.decimals is None else args.decimals}f"

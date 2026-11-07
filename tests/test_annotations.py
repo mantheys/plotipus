@@ -119,7 +119,7 @@ def test_parse_coordinate():
     assert parse_coordinate("2.5") == 2.5
     assert parse_coordinate("2025-07-15") == pytest.approx(20284.0)
     assert parse_coordinate("2025-07-15T12:00") == pytest.approx(20284.5)
-    with pytest.raises(Exception):
+    with pytest.raises(ValueError):
         parse_coordinate("July")
 
 

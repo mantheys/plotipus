@@ -115,7 +115,7 @@ def _anscombe():
 
 def test_stats_table_of_arrays(tmp_project, capsys):
     write(tmp_project, "Anscombe", _anscombe())
-    name = table.main(["--datafile", "Anscombe", "-x", "X", "-y", "Y", "--row_name", "Dataset",
+    table.main(["--datafile", "Anscombe", "-x", "X", "-y", "Y", "--row_name", "Dataset",
                        "--stats", "mean", "var", "corr", "line", "n", "--table_env", "none"])
     out = capsys.readouterr().out
     assert "Mean X" in out and "Var Y" in out and "Corr" in out
