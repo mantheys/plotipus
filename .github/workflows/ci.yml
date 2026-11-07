@@ -1,0 +1,58 @@
+name: ci
+# A pull request is tested once (pull_request); a push runs CI only on main, after a merge.
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+env:
+  MPLBACKEND: Agg
+
+jobs:
+  lint:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with: {python-version: "3.12"}
+      - run: pip install ruff==0.17.3      # same version and rules as snufish ([tool.ruff] in pyproject.toml)
+      - run: ruff check .
+
+  test:
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        python: ["3.10", "3.12"]    # the floor in pyproject.toml and the version snufish makes its plots with
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "${{ matrix.python }}"
+          cache: pip
+          cache-dependency-path: pyproject.toml
+      # The styles need no system fonts: cmr10 (paper) and DejaVu (slides, web) ship with matplotlib.
+      - run: pip install -e ".[dev]"
+      - run: pytest -rs --durations=10 --cov --cov-report=xml --cov-report=term
+      - if: matrix.python == '3.12'
+        uses: codecov/codecov-action@v5
+        with:
+          token: ${{ secrets.CODECOV_TOKEN }}
+          files: coverage.xml
+          fail_ci_if_error: false
+
+  # The single status check to require in branch protection: passes only once lint and every test job have.
+  ci:
+    if: always()
+    needs: [lint, test]
+    runs-on: ubuntu-latest
+    steps:
+      - if: contains(needs.*.result, 'failure') || contains(needs.*.result, 'cancelled') || contains(needs.*.result, 'skipped')
+        run: |
+          echo "lint: ${{ needs.lint.result }}, test: ${{ needs.test.result }}"
+          exit 1
+      - run: echo "lint and tests passed"

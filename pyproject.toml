@@ -23,7 +23,7 @@ dependencies = [
 [project.optional-dependencies]
 yaml = ["pyyaml"]
 parquet = ["pyarrow"]
-dev = ["pytest", "pytest-xdist", "pyyaml", "pyarrow"]
+dev = ["pytest", "pytest-xdist", "pytest-cov", "pyyaml", "pyarrow"]
 
 [project.scripts]
 plotipus = "plotipus.cli:main"
@@ -40,3 +40,24 @@ testpaths = ["tests"]
 # loadgroup keeps the xdist_group-marked gallery tests on one worker.
 addopts = "-n auto --dist loadgroup"
 markers = ["slow: renders many figures (the gallery); deselect with -m 'not slow'"]
+
+[tool.coverage.run]
+source = ["plotipus"]
+branch = true
+
+# Same version (pinned in .github/workflows/ci.yml) and rules as snufish.
+[tool.ruff]
+line-length = 150
+
+[tool.ruff.lint]
+select = ["E", "F", "W", "B"]
+ignore = [
+    "B023",  # closures in loops are called within the same iteration
+    "B905",  # zip(strict=) on paired sequences adds noise; they are built together
+    "E731",  # short lambdas for one-line callbacks
+    "E741",  # short math names (l, I) follow the usual notation
+]
+
+[tool.ruff.lint.per-file-ignores]
+# One-off design scripts: long command strings and dense data set-up, kept as written.
+"docs/design/**" = ["E501", "E702"]
