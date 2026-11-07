@@ -11,7 +11,8 @@ repository-code: "https://github.com/mantheys/plotipus"
 license: MIT
 version: 0.1.0
 date-released: "2026-11-07"
-# doi: 10.5281/zenodo.XXXXXXX (the version DOI Zenodo mints for the tag; add after the release)
+# the concept DOI (every version); v0.1.0 itself is 10.5281/zenodo.24044062
+doi: 10.5281/zenodo.24044061
 keywords:
   - plotting
   - matplotlib

@@ -4,6 +4,7 @@
 [![codecov](https://codecov.io/gh/mantheys/plotipus/branch/main/graph/badge.svg)](https://codecov.io/gh/mantheys/plotipus)
 [![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
 [![Python ≥3.10](https://img.shields.io/badge/python-%E2%89%A53.10-blue.svg)](pyproject.toml)
+[![DOI](https://zenodo.org/badge/DOI/10.5281/zenodo.24044061.svg)](https://doi.org/10.5281/zenodo.24044061)
 
 <p align="center">
   <picture>
