@@ -37,7 +37,9 @@ jobs:
           cache-dependency-path: pyproject.toml
       # The styles need no system fonts: cmr10 (paper) and DejaVu (slides, web) ship with matplotlib.
       - run: pip install -e ".[dev]"
-      - run: pytest -rs --durations=10 --cov --cov-report=xml --cov-report=term
+      # The whole suite takes ~5.5 min here, the gallery (-m slow) ~2 min of it on one worker: pull requests skip
+      # the gallery, a push to main runs everything.
+      - run: pytest -rs --durations=10 ${{ github.event_name == 'pull_request' && '-m "not slow"' || '' }} --cov --cov-report=xml --cov-report=term
       - if: matrix.python == '3.12'
         uses: codecov/codecov-action@v5
         with:

@@ -11,7 +11,9 @@ pytest                                               # run the tests
 
 `pytest` runs one worker per core (pytest-xdist, `addopts` in
 `pyproject.toml`); `pytest -n 0` runs serially, `pytest -m 'not slow'` skips
-the gallery. `plotipus run` and the gallery fork every command from one
+the gallery. CI (`.github/workflows/ci.yml`) runs ruff and the tests on
+Python 3.10 and 3.12; pull requests skip the gallery, a push to `main` runs
+it too. `plotipus run` and the gallery fork every command from one
 preloaded server process instead of starting a Python each.
 
 Python ≥ 3.10; plotipus depends on numpy, pandas, matplotlib, scipy, rich
