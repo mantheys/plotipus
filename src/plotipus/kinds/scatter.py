@@ -466,7 +466,8 @@ def _add_marker_legend(ax, title, markers):
     for value in values:
         marker, hollow = markers[value]
         if hollow:
-            handles.append(_proxy(ax, s=60 * HOLLOW_AREA, marker=marker, facecolors="none", edgecolors=style.role("muted"), linewidths=1.5, alpha=0.85))
+            handles.append(_proxy(ax, s=60 * HOLLOW_AREA, marker=marker, facecolors="none",
+                                  edgecolors=style.role("muted"), linewidths=1.5, alpha=0.85))
         else:
             handles.append(_proxy(ax, s=60, marker=marker, color=style.role("muted"), alpha=0.85, linewidths=0))
     labels = [map_iterable_label(v, title, None, len(values)) for v in values]

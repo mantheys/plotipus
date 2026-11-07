@@ -1,5 +1,10 @@
 # plotipus
 
+[![CI](https://github.com/mantheys/plotipus/actions/workflows/ci.yml/badge.svg?branch=main)](https://github.com/mantheys/plotipus/actions/workflows/ci.yml)
+[![codecov](https://codecov.io/gh/mantheys/plotipus/branch/main/graph/badge.svg)](https://codecov.io/gh/mantheys/plotipus)
+[![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
+[![Python ≥3.10](https://img.shields.io/badge/python-%E2%89%A53.10-blue.svg)](pyproject.toml)
+
 <p align="center">
   <picture>
     <source media="(prefers-color-scheme: dark)" srcset="docs/images/mascot/mascot-dark.png">

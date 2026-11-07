@@ -290,7 +290,7 @@ def run_list(name, tables=False, show=False, debug=False, jobs=1, dry_run=False,
         return len(failures)
 
     if dry_run:
-        for line, argv in planned:
+        for _, argv in planned:
             shown = shlex.join(["python", *argv[1:]]) if argv[0] == SCRIPT else "plotipus " + shlex.join(argv)
             print(shown + ("" if tables else _describe(argv, project)))
         for line, _, message in failures:

@@ -228,7 +228,8 @@ def prepare_import(args):
     if len(names) == 1:
         return configs, names * len(configs)
 
-    rprint("[red]Error:[/red] When providing multiple configurations and names, they must either be of the same length, or one of them must be of length 1.")
+    rprint("[red]Error:[/red] When providing multiple configurations and names, they must either be of the same length, "
+           "or one of them must be of length 1.")
     return None, None
 
 

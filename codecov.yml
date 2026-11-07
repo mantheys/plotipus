@@ -1,0 +1,10 @@
+# Coverage is reported, never enforced: the statuses are informational and there is no PR comment.
+coverage:
+  status:
+    project:
+      default:
+        informational: true
+    patch:
+      default:
+        informational: true
+comment: false

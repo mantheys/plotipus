@@ -52,7 +52,6 @@ from ..format import _title_case_words, make_config_color_and_style_from_args, m
 from ..inset import add_inset_args, draw_inset
 from ..io import import_data, prepare_import
 from ..lower import (
-    DEFAULT_LABELS,
     REFERENCE_LINES,
     count_ratio,
     group_difference,
@@ -1370,7 +1369,6 @@ def draw_figure(rows, args, kdx=None):
     last_x = np.array([])
     extrapolated_axes = {}
     vertical_map = json.loads(args.vertical_column_map) if args.vertical_column_map else {}
-    sum_set = {str(s) for s in (args.sum_iterables or [])}
 
     for idx, variable in enumerate(variables):
         ax = upper[idx]
@@ -1803,7 +1801,7 @@ def _draw_lower(ax, spec, series, args, comparable, comparable_values, colors):
         hues = {}
         for s in regular:
             hues.setdefault(s.hue, []).append(s)
-        for hdx, (hue, members) in enumerate(hues.items()):
+        for hdx, members in enumerate(hues.values()):
             members = sorted(members, key=lambda s: s.comparable_index)
             if len(members) < 2 or args.lower_line_index >= len(members):
                 continue
@@ -1814,7 +1812,7 @@ def _draw_lower(ax, spec, series, args, comparable, comparable_values, colors):
             out.append(_lower_series(reference.x, values, None, other.color, linestyle,
                                      label if hdx == 0 else None, resolve_linewidth(hdx, args, len(hues))))
     else:
-        for value, members in by_comparable.items():
+        for members in by_comparable.values():
             x, aligned = _aligned(members)
             if not aligned:
                 continue
@@ -2415,7 +2413,6 @@ def run_by_config(df, args):
                     if x is not None:
                         grids.append(x + args.shift_offset if _is_shifted(config, name, args) else x)
             grid = union_grid(grids)
-            last_edges = None
             for ldx, (prefix, config, name) in enumerate(zip(prefixes, configs, names)):
                 rows = _config_rows(subset, config, name, ldx)
                 if rows.empty:
@@ -2487,7 +2484,6 @@ def run_by_config(df, args):
                 if not np.all(np.diff(edges) > 0):
                     unique = np.unique(np.sort(x))
                     edges = edges_from_centers(unique) if len(unique) > 1 else np.array([unique[0] - 0.5, unique[0] + 0.5])
-                last_edges = edges
 
                 if is_data:
                     if args.show_configs is None or config in args.show_configs:

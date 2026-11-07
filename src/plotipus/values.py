@@ -70,7 +70,7 @@ def _lookup(obj, key, path):
                 current = current[int(part)]
                 continue
             except (ValueError, IndexError):
-                raise KeyError(f"'{part}' is not a valid index in key '{key}' of {path}")
+                raise KeyError(f"'{part}' is not a valid index in key '{key}' of {path}") from None
         if not isinstance(current, dict) or part not in current:
             available = list(current.keys())[:20] if isinstance(current, dict) else type(current).__name__
             raise KeyError(f"key '{key}' not found in {path} (at '{part}'; available: {available})")

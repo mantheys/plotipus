@@ -458,7 +458,7 @@ def draw_figure(df, args, kdx, config, name):
     data_labels = {_series_style(args, v, name)[0] for v in values if is_data(v)}
     is_data_label = lambda label: label in data_labels  # noqa: E731
 
-    for idx, variable in enumerate(variables):
+    for idx in range(len(variables)):
         ax = axes[idx]
         if n_panels > 1:
             title = args.panel_title[idx] if args.panel_title is not None else make_subtitle_from_args(args, None, idx=idx)

@@ -96,8 +96,10 @@ class Sweep:
         u = (self.s[sel] - lo) / (hi - lo)
         k_lo = k_lo(u) if callable(k_lo) else np.full(u.shape, k_lo)
         k_hi = k_hi(u) if callable(k_hi) else np.full(u.shape, k_hi)
-        full_lo = np.zeros(self.s.shape); full_lo[sel] = k_lo
-        full_hi = np.zeros(self.s.shape); full_hi[sel] = k_hi
+        full_lo = np.zeros(self.s.shape)
+        full_lo[sel] = k_lo
+        full_hi = np.zeros(self.s.shape)
+        full_hi[sel] = k_hi
         a = self.c[sel] + self.n[sel] * (self.w[sel] * k_hi)[:, None]
         b = self.c[sel] + self.n[sel] * (self.w[sel] * k_lo)[:, None]
         return np.vstack([a, b[::-1]])
@@ -201,7 +203,7 @@ def mascot(angle=-30.0, seed=11, span=10.6, centre=(0.1, 0.25)):
     near_back = limb_and_foot(p_nb, -118, 1.00, 0.98, False)
 
     # 1. Far limbs (drawn first: the body hides their roots).
-    for name, (arm, foot, claws, webs) in (("far_front", far_front), ("far_back", far_back)):
+    for name, (arm, foot, claws, _webs) in (("far_front", far_front), ("far_back", far_back)):
         add(f"{name}_arm", arm, "fill", face=FUR_SHADE, width=2.4)
         add(f"{name}_foot", foot, "fill", face=FEET_FAR, width=2.4)
         for j, c in enumerate(claws):
@@ -224,7 +226,7 @@ def mascot(angle=-30.0, seed=11, span=10.6, centre=(0.1, 0.25)):
 
     # 4. Fur strokes following the spine (fewer on the lit back, none near the outline).
     strokes = 0
-    for attempt in range(4000):
+    for _ in range(4000):
         if strokes >= 40:
             break
         s0 = rng.uniform(0.04, 0.93)

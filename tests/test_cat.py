@@ -314,7 +314,7 @@ def test_lollipop_orient_h_and_dodged_series(make_project):
              and all(segment[0][0] == 0.0 for segment in c.get_segments())]
     assert len(stems) == 3
     for collection in stems:
-        for (x0, y0), (x1, y1) in collection.get_segments():
+        for (x0, y0), (_x1, y1) in collection.get_segments():
             assert x0 == 0.0 and y0 == y1  # horizontal stems from zero
     first = sorted(c.get_segments()[0][0][1] for c in stems)
     assert first[0] < first[1] < first[2] and np.isclose(np.mean(first), 0.0)

@@ -6,6 +6,8 @@ from matplotlib.legend_handler import HandlerPatch
 from matplotlib.patches import Rectangle, StepPatch
 from matplotlib.transforms import Bbox
 from matplotlib.legend import Legend
+from matplotlib.colors import LogNorm, to_rgba
+from matplotlib.ticker import Formatter, LogFormatter, LogFormatterMathtext, LogFormatterSciNotation, ScalarFormatter
 from typing import Any
 
 from . import style as _style
@@ -78,19 +80,19 @@ def get_common_figsize(ncols=1, nrows=1, height_ratios=None):
 
 def apply_common_figure_margins(fig, hspace=None):
     """Apply common margins to a figure, converting from absolute inches to normalized coordinates.
-    
+
     Args:
         fig: matplotlib Figure object
         hspace: Optional override for hspace (height space between subplots)
     """
     if not isinstance(_style.figure_margins_inches, dict):
         return
-    
+
     figwidth = fig.get_figwidth()
     figheight = fig.get_figheight()
     # Enlarged text (apply_panel_font_scale) needs proportionally wider margins.
     text_scale = float(plt.rcParams["font.size"]) / _style.base_font_size
-    
+
     # Convert absolute-inch margins to normalized coordinates (0-1 scale)
     margins_normalized = {}
     for key, value in _style.figure_margins_inches.items():
@@ -109,7 +111,7 @@ def apply_common_figure_margins(fig, hspace=None):
         else:
             # wspace, hspace, etc. are already in proper units
             margins_normalized[key] = value
-    
+
     if hspace is not None:
         margins_normalized["hspace"] = hspace
 
@@ -423,9 +425,6 @@ def _apply_plot_style(kwargs, plot_style):
     if "ls" in kwargs or "linestyle" in kwargs:
         return
     kwargs["ls"] = plot_style
-
-from matplotlib.colors import LogNorm, to_rgba
-from matplotlib.ticker import Formatter, LogFormatter, LogFormatterMathtext, LogFormatterSciNotation, ScalarFormatter
 
 
 def apply_tick_formatter(ax, axis="both"):
@@ -1740,20 +1739,20 @@ def add_note_to_axes(ax, note_text, fontsize=None):
 
     Tries the corners and the middle of the sides (upper right first) and
     keeps the one covering the least drawn data, never on a legend.
-    
+
     Args:
         ax: matplotlib axes object
         note_text: Text string to display
         fontsize: Font size for the note text (uses _style.note_style default if None)
-    
+
     Returns:
         matplotlib text object
     """
     if note_text is None or not str(note_text).strip():
         return None
-    
+
     text_str = str(note_text).strip()
-    
+
     # Get note style from config
     note_cfg = _style.role_colors(_style.note_style) if isinstance(_style.note_style, dict) else {}
     configured_fontsize = note_cfg.get("fontsize", "large")
@@ -1764,11 +1763,11 @@ def add_note_to_axes(ax, note_text, fontsize=None):
         "edgecolor": _style.role("muted"),
         "linewidth": 0.5,
     })
-    
+
     # Use provided fontsize or fall back to config
     if fontsize is None:
         fontsize = configured_fontsize
-    
+
     # Candidate anchors (x, y) in axes coordinates, in order of preference;
     # the note goes where it covers the least drawn data, clear of fixed
     # legends (automatic legends are placed later, around the note).

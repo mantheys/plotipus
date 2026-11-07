@@ -191,7 +191,7 @@ def test_palette_option(make_project, spectra):
 
 def test_mapped_colour_not_reused(make_project, spectra, tmp_path):
     (tmp_path / "style.json").write_text('{"mappings": {"samples": {"C": "C0"}}}')
-    out = make_project({"Spectra": spectra}, 'style = ["style.json"]\n')
+    make_project({"Spectra": spectra}, 'style = ["style.json"]\n')
     figures = _capture()
     line.main(["--datafile", "Spectra", "-x", "Energy", "-y", "Counts", "--hue", "Sample", "--select", "Stage",
                "-s", "Raw", "--plot_type", "line", "--hue_color_mapping", "samples"])

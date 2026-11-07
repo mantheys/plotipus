@@ -1,5 +1,4 @@
 import numpy as np
-import pandas as pd
 
 from itertools import product
 from rich import print as rprint
@@ -87,7 +86,7 @@ def _coerce_filter_value(series, raw_value, key, debug=False):
     if isinstance(series.iloc[0], np.bool_):
         value = np.bool_(value)
 
-    if value is None or type(series.iloc[0]) == type(value):
+    if value is None or type(series.iloc[0]) is type(value):
         return value, True
 
     if debug:

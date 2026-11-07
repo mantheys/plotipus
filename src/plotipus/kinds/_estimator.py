@@ -297,7 +297,8 @@ def _panel_figure(df, args, kdx, config, name):
     for idx, _ in enumerate(variables):
         ax = axes[idx]
         if n_panels > 1:
-            title = args.panel_title[idx] if args.panels is not None and args.panel_title is not None else make_subtitle_from_args(args, None, idx=idx)
+            title = (args.panel_title[idx] if args.panels is not None and args.panel_title is not None
+                     else make_subtitle_from_args(args, None, idx=idx))
             ax.set_title(title, fontsize=style.subtitlefontsize)
         subset = first_subset.get(idx, df)
         x_col = args.panels[idx] if args.panels is not None else args.x

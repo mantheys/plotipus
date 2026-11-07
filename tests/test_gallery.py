@@ -48,7 +48,7 @@ def test_every_command_renders(page, tmp_path):
         if entry.kind == "plots":
             assert set(entry.renders) == set(entry.media()), entry.row
             for medium, result in entry.renders.items():
-                assert [f.suffix for f in result.files] == [".png"], (entry.row, medium, result.files)
+                assert [f.suffix for f in result.files] == [".png"], (entry.row, medium, result.files, result.log[-2000:])
         else:
             suffixes = sorted(f.suffix for f in entry.renders[None].files)
             assert ".tex" in suffixes and len(suffixes) <= 2, (entry.row, suffixes)
