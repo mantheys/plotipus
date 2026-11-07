@@ -383,6 +383,10 @@ def build_parser():
         "stored next to the data's residual) as lines; by default only the data's column is drawn.")
     add("--lower_series_donor", nargs=2, metavar=("FROM", "TO"), default=None,
         help="Copy the lower column (column:NAME) from the rows of hue FROM onto those of hue TO.")
+    add("--lower_min_y", type=float, default=None, metavar="VALUE",
+        help="A --lower column:NAME panel draws each series' NAME values only in the bins where the series' own "
+        "upper-panel value is above VALUE; the other bins are drawn at zero (e.g. a per-bin significance shown only "
+        "where the signal is populated).")
     add_panel_args(parser, "lower_")
     from ._estimator import add_estimator_args
     from ._events import add_events_args
@@ -1705,6 +1709,20 @@ def _lower_series(x, y, error, color, linestyle, label, linewidth=None, x_edges=
     return s
 
 
+def _mask_below(column_series, upper, min_y):
+    """--lower_min_y: zero the lower values (and errors) in the bins where the upper series is at or below min_y."""
+    x_upper, y_upper = np.asarray(upper.x, dtype=float), np.asarray(upper.y, dtype=float)
+    x_lower = np.asarray(column_series.x, dtype=float)
+    if x_upper.shape == x_lower.shape and np.allclose(x_upper, x_lower, equal_nan=True):
+        keep = y_upper > min_y
+    else:  # different binning: match the bins by their centres
+        lookup = dict(zip(np.round(x_upper, 9), y_upper))
+        keep = np.array([lookup.get(value, -np.inf) > min_y for value in np.round(x_lower, 9)])
+    column_series.y = np.where(keep, column_series.y, 0.0)
+    if column_series.error is not None:
+        column_series.error = np.where(keep, column_series.error, 0.0)
+
+
 def _draw_lower(ax, spec, series, args, comparable, comparable_values, colors):
     """Compute and draw one lower panel from the series of its upper panel."""
     plot_type = _resolved_plot_type(args, "lower_")
@@ -1787,6 +1805,8 @@ def _draw_lower(ax, spec, series, args, comparable, comparable_values, colors):
             column_series = extract(error_rows, args, y_column=spec.name)
             if column_series is None:
                 continue
+            if args.lower_min_y is not None:
+                _mask_below(column_series, s, args.lower_min_y)
             lower_s = _lower_series(column_series.x, column_series.y, column_series.error, s.color, s.linestyle,
                                     label if first else None, s.linewidth, column_series.x_edges)
             if s.is_data:
@@ -2645,7 +2665,8 @@ def _legacy_line_operation(tokens):
     stack_reverse = has(tokens, "--stacked") and not has(tokens, "--no_stack_reverse")
 
     tokens = rename(tokens, {"--operation": None, "--lower_series_data": None, "--comparable_operation": None,
-                             "--default_operation": None, **_OPERATION_RENAMES})
+                             "--default_operation": None, "--lower_series_min_y": "--lower_min_y",
+                             **_OPERATION_RENAMES})
     if comparable_operation:
         lower = ["--lower", comparable_operation[0], "--lower_across", "comparable", "--no_lower_name"]
     elif column:
@@ -2720,6 +2741,9 @@ def _legacy_reduction(tokens):
         # --boxplot wins over an explicit --plot_type, as in the old script.
         i = next(i for i, t in enumerate(tokens) if t == "--plot_type" and tokens[i + 1] != "box")
         del tokens[i:i + 2]
+    if not has(tokens, "--min_count"):
+        # The old script kept every bin; per-bin histograms (one entry per bin) would all fall under the default.
+        tokens += ["--min_count", "1"]
     return tokens + ["--binned"]
 
 

@@ -41,6 +41,27 @@ def test_lower_ratio_and_column(make_project, spectra):
 
 
 
+def test_lower_min_y_masks_column_where_upper_is_low(make_project, spectra):
+    """--lower_min_y draws the lower column only where the series' own upper value is above the threshold."""
+    figures = _capture()
+    run(make_project, spectra, "--hue", "Sample", "--select", "Stage", "-s", "Raw", "--plot_type", "line",
+        "--lower", "column:Significance", "--lower_min_y", "0.5")
+    lower = figures[-1].axes[1]
+    values = [np.asarray(l.get_ydata(), dtype=float) for l in lower.get_lines() if len(l.get_ydata()) == 10]
+    x = np.arange(0.5, 10, 1.0)
+    expected = {scale: np.where(scale * np.exp(-x / 3) > 0.5, scale, 0.0) for scale in (1.0, 2.0, 0.5)}
+    assert len(values) == 3
+    for drawn in values:
+        assert any(np.allclose(drawn, e) for e in expected.values())
+    assert any(np.allclose(drawn, expected[1.0]) for drawn in values)
+
+
+def test_legacy_lower_series_min_y_translates():
+    _, args = translate(["scripts/script_compare_line_operation.py", "--datafile", "S", "-x", "E", "-y", "C",
+                         "--lower_series_data", "Significance", "--lower_series_min_y", "1"])
+    assert args[args.index("--lower_min_y") + 1] == "1"
+
+
 def test_lower_ratio_with_empty_reference_bin(make_project, spectra):
     """A ratio to an empty bin is undefined there, not for the whole series."""
     from matplotlib.patches import StepPatch
