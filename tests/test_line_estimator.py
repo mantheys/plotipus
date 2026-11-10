@@ -53,6 +53,21 @@ def test_binned_box(make_project):
     assert outputs[0].endswith("_box.png") and (out / outputs[0]).exists()
 
 
+def test_panels_compact_overlay_names(make_project):
+    """--overlay_names draws every --names entry in one figure, split by --iterable."""
+    frames = {}
+    for name, components in (("signal", ("8B", "hep")), ("bkg", ("gamma",))):
+        frames[f"c_{name}_Scan"] = pd.DataFrame([{"Config": "c", "Name": name, "Component": component,
+                                                  "Margin": np.arange(0, 100, 20), "Counts": np.arange(1.0, 6.0)}
+                                                 for component in components])
+    make_project(frames)
+    common = ["--datafile", "Scan", "--configs", "c", "--names", "signal", "bkg", "--iterable", "Component", "-y", "Counts",
+              "--binned", "--min_count", "1", "--panels", "Margin", "--panel_rangex", "0", "100", "--compact",
+              "--plot_type", "step"]
+    assert len(line.main(common)) == 2
+    assert len(line.main(common + ["--overlay_names"])) == 1
+
+
 def test_panels_compact(make_project):
     out = make_project({"Events": _events()})
     outputs = line.main(["--datafile", "Events", "-y", "Energy", "--binned", "--panels", "Hits", "Charge",

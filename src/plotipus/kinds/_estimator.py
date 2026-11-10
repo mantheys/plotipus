@@ -126,6 +126,8 @@ def run_estimator(df, args):
     configs, names = prepare_import(args)
     configs = configs if (configs is not None and args.iterable != "Config") else [None]
     names = names if (names is not None and args.iterable != "Name") else [None]
+    if getattr(args, "overlay_names", False):  # one figure over every --configs/--names pair
+        configs, names = [None], [None]
     if args.compact:
         return [_compact_figure(df, args, kdx, config, name) for kdx, (config, name) in enumerate(zip(configs, names))]
     return [_panel_figure(df, args, kdx, config, name) for kdx, (config, name) in enumerate(zip(configs, names))]
