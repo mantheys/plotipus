@@ -18,6 +18,8 @@ categories on the y axis (first on top), ``--sort`` orders them by their
 total. Category labels are rotated only when they would overlap.
 """
 
+import json
+
 import matplotlib.lines as mlines
 import matplotlib.patches as mpatches
 import matplotlib.pyplot as plt
@@ -32,9 +34,10 @@ from ..encodings import LINESTYLES
 from ..io import import_data, prepare_import
 from ..hue_colors import avoid_registered, hue_color
 from ..palettes import ColorAllocator
-from ..panels import add_title_and_note, create_panels, draw_horizontal_overlay, save
+from ..panels import add_title_and_note, create_panels, draw_horizontal_overlay, save, share_grid
 from ..plot import apply_legend_style, apply_legend_style_clear_of_data, draw_vertical_lines, plot_data
 from ..selection import filter_dataframe
+from ..transforms import multiply_conditions, row_factor
 from . import _base
 
 KIND = "cat"
@@ -103,6 +106,25 @@ def build_parser():
         "error (errors in quadrature, with --errory); --data_hue values stay points on top.")
     add("--overlay_names", action="store_true", default=False,
         help="All --configs/--names in one figure instead of one figure per pair.")
+    add("--error_style", choices=["bars", "band"], default="bars",
+        help="With --kind line: errors as error bars (default) or as a band joining the categories.")
+    add("--multiply_where", nargs=2, action="append", default=None, metavar=("COLUMN=VALUE", "FACTOR"),
+        help="Multiply the -y values (and errors) of the rows whose COLUMN equals VALUE by FACTOR, on top of "
+        "--multiply (e.g. a sample normalised to a different mass); repeat for several.")
+    add("--variable_panels", action="store_true", default=False,
+        help="One panel per --variables value (sharing the categories, hues and colours) instead of pooling "
+        "them as one set of rows.")
+    add("--panel_grid", nargs=2, type=int, default=None, metavar=("ROWS", "COLS"),
+        help="Shape of the --variables panels (default: one row, wrapped at the medium's facet columns).")
+    add("--sharey", choices=["none", "row", "all"], default=None,
+        help="Share the value axis of the --variables panels along each row or across all (default all; tick "
+        "labels and the label on the first column only); none gives each panel its own range.")
+    add("--panel_title", nargs="+", default=None, metavar="TITLE", help="Title of each panel, in order.")
+    add("--variable_mapping", type=str, default=None, help="Mapping giving the panel titles of the --variables.")
+    add("--variable_label_map", type=str, default=None, help="JSON {panel value: panel title}.")
+    add("--center_last_row", action="store_true", default=False,
+        help="Centre the panels of an incomplete last row of the --panel_grid, at the size of the others.")
+    add("--legend_panel", type=int, default=0, help="Panel (index, negative from the end) holding the legend.")
     _base.add_output_args(parser)
     return parser
 
@@ -111,20 +133,26 @@ def main(argv=None):
     return _base.main(__import__(__name__, fromlist=["run"]), argv)
 
 
+def _factor(row, args):
+    """The scale of ``row``: --multiply times every matching --multiply_where factor (None when unscaled)."""
+    return row_factor(row, multiply_conditions(getattr(args, "multiply_where", None)), args.multiply)
+
+
 def integrate_row(row, args, with_errors=None):
     """(value, error) of one row: -y reduced over --integrate_over, or a
     scalar -y (and {y}Error) taken as already integrated. Errors are read
     with --errory (or ``with_errors``)."""
     error_column = f"{args.y}Error"
+    factor = _factor(row, args)
     with_errors = args.errory if with_errors is None else with_errors
     if np.ndim(row[args.y]) == 0:
         value = float(row[args.y])
         error = None
         if with_errors and error_column in row.index and np.ndim(row[error_column]) == 0 and row[error_column] is not None:
             error = float(row[error_column])
-        if args.multiply is not None:
-            value *= args.multiply
-            error = None if error is None else error * args.multiply
+        if factor is not None:
+            value *= factor
+            error = None if error is None else error * factor
         return value, error
     y = np.asarray(row[args.y], dtype=float)
     yerr = None
@@ -140,9 +168,9 @@ def integrate_row(row, args, with_errors=None):
         mask &= (grid >= lo) & (grid <= hi)
     value = float(np.sum(y[mask] * widths[mask]))
     error = float(np.sqrt(np.sum((yerr[mask] * widths[mask]) ** 2))) if yerr is not None and len(yerr) == len(y) else None
-    if args.multiply is not None:
-        value *= args.multiply
-        error = None if error is None else error * args.multiply
+    if factor is not None:
+        value *= factor
+        error = None if error is None else error * factor
     return value, error
 
 
@@ -156,7 +184,7 @@ def _ordered_unique(values, explicit=None):
 def _counted(row, args):
     """Whether the integrated value of ``row`` is itself a count: integer
     counts summed bin by bin (or one integer per row), not rescaled."""
-    if args.multiply is not None or not uncertainty.is_counts(row[args.y]):
+    if _factor(row, args) is not None or not uncertainty.is_counts(row[args.y]):
         return False
     if np.ndim(row[args.y]) == 0 or args.integral_mode == "sum":
         return True
@@ -228,11 +256,10 @@ def _sorted_categories(rows, categories, args):
 
 
 def _pooled(rows, args):
-    """The finite -y values of ``rows``, every row's array (or scalar) pooled, scaled by --multiply."""
-    parts = [np.ravel(np.asarray(value, dtype=float)) for value in rows[args.y]]
+    """The finite -y values of ``rows``, every row's array (or scalar) pooled, scaled by --multiply(_where)."""
+    parts = [np.ravel(np.asarray(row[args.y], dtype=float)) * (_factor(row, args) or 1.0) for _, row in rows.iterrows()]
     values = np.concatenate(parts) if parts else np.array([])
-    values = values[np.isfinite(values)]
-    return values * args.multiply if args.multiply is not None else values
+    return values[np.isfinite(values)]
 
 
 def _hue_values(rows, args):
@@ -271,28 +298,117 @@ class _Axes:
         return mpatches.Rectangle((centre - width / 2, low), width, high - low, **kwargs)
 
 
+def _panel_values(rows, args):
+    """The panels with --variable_panels: the --variables values in their order (the ``Variable``
+    column, or --variable_column); otherwise one panel [None] (--variables then only select rows)."""
+    if not args.variable_panels or args.variables is None or "Variable" not in rows.columns:
+        return [None]
+    present = set(rows["Variable"].astype(str))
+    return [value for value in args.variables if str(value) in present]
+
+
+def _panel_title(value, args):
+    label_map = json.loads(args.variable_label_map) if args.variable_label_map else None
+    if label_map is not None and str(value) in label_map:
+        return label_map[str(value)]
+    if args.variable_mapping is not None:
+        return map_iterable_label(value, "Variable", args.variable_mapping)
+    return str(value)
+
+
 def draw_figure(rows, args, kdx, comparable):
+    """One panel per --variables value (sharing the categories, hues and their
+    colours), the legend on --legend_panel."""
     categories = _ordered_unique(rows[args.x].tolist(), args.x_order)
     if args.sort:
         if args.x_order:
             rprint("[yellow]Warning:[/yellow] --sort orders the categories; --x_order is ignored.")
         categories = _sorted_categories(rows, categories, args)
+    hues = _ordered_unique(_hue_values(rows, args).tolist())
+    data_values = {str(v) for v in (args.data_hue or [])}
+    colors = ColorAllocator()
+    colors.reserve([hue for hue in hues if str(hue) not in data_values],
+                   lambda hue: hue_color(hue, args, args.iterable))
+    avoid_registered(colors, args, args.iterable)
+
+    panels = _panel_values(rows, args)
+    shape = tuple(args.panel_grid) if args.panel_grid else None
+    fig, axes, _, (nrows, ncols) = create_panels(len(panels), shape=shape, wrap=not args.panel_grid)
+    n_panels = len(panels)
+    horizontal = args.orient == "h"
+    if args.center_last_row and n_panels % ncols:
+        _center_last_row(fig, axes, nrows, ncols)
+    if n_panels > 1:
+        # The categories are the same in every panel: shared down the columns (across the rows when
+        # horizontal); the value axis is shared per --sharey (default all).
+        sharey = args.sharey or "all"
+        if horizontal:
+            share_grid(axes, [[] for _ in axes], (nrows, ncols), sharex="none" if sharey == "none" else "all",
+                       sharey="all")
+        else:
+            # A centred last row is not under the columns above it: every panel keeps its category labels.
+            share_grid(axes, [[] for _ in axes], (nrows, ncols),
+                       sharex="none" if args.center_last_row and n_panels % ncols else "col", sharey=sharey)
+        if sharey != "none" and ncols > 1 and not horizontal:
+            axes[0].get_gridspec().update(wspace=style.compact_gap())
+    legend_panel = args.legend_panel % n_panels
+    handles, styled = [], False
+    for idx, panel in enumerate(panels):
+        ax = axes[idx]
+        panel_rows = rows if panel is None else rows[rows["Variable"].astype(str) == str(panel)]
+        panel_handles, panel_styled = _draw_panel(fig, ax, panel_rows, args, comparable, categories, hues,
+                                                  colors, data_values)
+        if idx == legend_panel:
+            handles, styled = panel_handles, panel_styled
+        if panel is not None:
+            title = args.panel_title[idx] if args.panel_title is not None and idx < len(args.panel_title) else \
+                _panel_title(panel, args)
+            ax.set_title(title, fontsize=style.subtitlefontsize)
+        row, col = divmod(idx, ncols)
+        if getattr(ax, "_plotipus_inner_x", False):
+            ax.set_xlabel("")
+        if getattr(ax, "_plotipus_inner_y", False):
+            ax.set_ylabel("")
+        if not getattr(ax, "_plotipus_inner_x", False) and not horizontal:
+            _rotate_tick_labels(fig, ax, args.xtick_rotation)  # the measured layout makes room for them
+
+    ax = axes[legend_panel]
+    if not args.iterable and not styled:
+        pass  # one series without --hue: nothing to tell apart
+    elif args.legend_loc:
+        apply_legend_style(ax, handles=handles, capitalize_labels=args.capitalize_legend, loc=args.legend_loc)
+    else:
+        apply_legend_style_clear_of_data(ax, handles=handles, labels=[h.get_label() for h in handles],
+                                         capitalize_labels=args.capitalize_legend)
+
+    add_title_and_note(fig, args)
+    return save(fig, args, kdx, suffix="cat.png")
+
+
+def _center_last_row(fig, axes, nrows, ncols):
+    """Panels of a short last row centred under the full rows, at the same size: each panel spans two
+    columns of a grid twice as fine, the last row shifted by one column per missing panel."""
+    grid = axes[0].get_gridspec()
+    fine = fig.add_gridspec(nrows, 2 * ncols, left=grid.left, right=grid.right, top=grid.top, bottom=grid.bottom,
+                            wspace=grid.wspace, hspace=grid.hspace)
+    missing = nrows * ncols - len(axes)
+    for idx, ax in enumerate(axes):
+        row, col = divmod(idx, ncols)
+        start = 2 * col + (missing if row == nrows - 1 else 0)
+        ax.set_subplotspec(fine[row, start:start + 2])
+
+
+def _draw_panel(fig, ax, rows, args, comparable, categories, hues, colors, data_values):
+    """Draw ``rows`` on ``ax`` (axis labels included); returns the legend handles."""
     hue_values = _hue_values(rows, args)
-    hues = _ordered_unique(hue_values.tolist())
     comparables = _ordered_unique(rows[comparable].dropna().tolist()) if comparable else [None]
     linestyles = args.comparable_linestyles or LINESTYLES
     positions = np.arange(len(categories), dtype=float)
-    fig, axes, _, _ = create_panels(1)
-    ax = axes[0]
     horizontal = args.orient == "h"
     draw = _Axes(ax, horizontal)
 
-    data_values = {str(v) for v in (args.data_hue or [])}
     data_hues = [hue for hue in hues if str(hue) in data_values]
     models = [hue for hue in hues if str(hue) not in data_values]
-    colors = ColorAllocator()
-    colors.reserve(models, lambda hue: hue_color(hue, args, args.iterable))
-    avoid_registered(colors, args, args.iterable)
     hue_handles, style_handles, data_handles, band_handles = [], [], [], []
     stacked = args.stacked and args.kind == "bar"
     # Points and lollipops side by side: each series its own slot within the category (data first).
@@ -340,6 +456,10 @@ def draw_figure(rows, args, kdx, comparable):
                 continue
             linestyle = linestyles[cdx % len(linestyles)]
             xs, ys, es = _category_totals(subset, categories, positions, args, name=hue_label, hue=hue)
+            if args.logy and not stacked and args.error_style == "band":
+                # A band on a log axis: a value of 0 has no place on it, the point and its error are left out.
+                keep = ys > 0
+                xs, ys, es = xs[keep], ys[keep], es[:, keep]
             if not len(xs):
                 continue
             rprint(f"\tValues for {args.iterable}={hue}" + (f", {comparable}={value}" if value is not None else "") + ": "
@@ -371,7 +491,17 @@ def draw_figure(rows, args, kdx, comparable):
                 # The series marker, as in the legend (points are drawn with fmt, default "o").
                 kwargs = {"marker": marker} if args.kind == "line" else {"fmt": marker}
                 xs = xs + offset(len(data_hues) + idx)
-                if args.errory and np.isfinite(es).any():
+                if args.errory and np.isfinite(es).any() and args.error_style == "band" and args.kind == "line":
+                    # A band joining the errors of consecutive categories, under the line and its markers.
+                    errors = np.nan_to_num(es)
+                    low, high = ys - errors[0], ys + errors[1]
+                    if args.logy:
+                        low = np.where(low > 0, low, ys * 1e-3)  # a band reaching zero ends at the axis edge
+                    fill = draw.ax.fill_betweenx if draw.horizontal else draw.ax.fill_between
+                    fill(xs, low, high, color=color, alpha=0.25, linewidth=0)
+                    px, py = draw.xy(xs, ys)
+                    plot_data(args, ax, px, y=py, color=color, plot_type=plot_type, linestyle=linestyle, **kwargs)
+                elif args.errory and np.isfinite(es).any():
                     draw.errorbar(xs, ys, np.nan_to_num(es), color=color, marker=marker,
                                   linestyle=linestyle if args.kind == "line" else "none", capsize=3)
                 else:
@@ -435,7 +565,6 @@ def draw_figure(rows, args, kdx, comparable):
             ax.set_ylim(args.rangey)
         ax.set_xlim(-0.5, len(categories) - 0.5)
         draw_horizontal_overlay(ax, args)
-        _rotate_tick_labels(fig, ax, args.xtick_rotation)  # the measured layout makes room for them
 
     # A stack lists its top first, as in line --stacked; the error band comes last.
     handles = data_handles + (hue_handles[::-1] if stacked else hue_handles) + band_handles
@@ -443,16 +572,7 @@ def draw_figure(rows, args, kdx, comparable):
         title = args.comparable_title if args.comparable_title is not None else comparable
         handles.append(mlines.Line2D([], [], color="none", label=f"$\\bf{{{title}}}$" if title else ""))
         handles += style_handles
-    if not args.iterable and not style_handles:
-        pass  # one series without --hue: nothing to tell apart
-    elif args.legend_loc:
-        apply_legend_style(ax, handles=handles, capitalize_labels=args.capitalize_legend, loc=args.legend_loc)
-    else:
-        apply_legend_style_clear_of_data(ax, handles=handles, labels=[h.get_label() for h in handles],
-                                         capitalize_labels=args.capitalize_legend)
-
-    add_title_and_note(fig, args)
-    return save(fig, args, kdx, suffix="cat.png")
+    return handles, bool(style_handles)
 
 
 def _draw_distributions(draw, rows, hue_values, categories, positions, hues, data_values, colors, args):

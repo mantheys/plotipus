@@ -53,12 +53,75 @@ def test_binned_box(make_project):
     assert outputs[0].endswith("_box.png") and (out / outputs[0]).exists()
 
 
+def test_panels_compact_overlay_names(make_project):
+    """--overlay_names draws every --names entry in one figure, split by --iterable."""
+    frames = {}
+    for name, components in (("signal", ("8B", "hep")), ("bkg", ("gamma",))):
+        frames[f"c_{name}_Scan"] = pd.DataFrame([{"Config": "c", "Name": name, "Component": component,
+                                                  "Margin": np.arange(0, 100, 20), "Counts": np.arange(1.0, 6.0)}
+                                                 for component in components])
+    make_project(frames)
+    common = ["--datafile", "Scan", "--configs", "c", "--names", "signal", "bkg", "--iterable", "Component", "-y", "Counts",
+              "--binned", "--min_count", "1", "--panels", "Margin", "--panel_rangex", "0", "100", "--compact",
+              "--plot_type", "step"]
+    assert len(line.main(common)) == 2
+    assert len(line.main(common + ["--overlay_names"])) == 1
+
+
 def test_panels_compact(make_project):
     out = make_project({"Events": _events()})
     outputs = line.main(["--datafile", "Events", "-y", "Energy", "--binned", "--panels", "Hits", "Charge",
                          "--panel_rangex", "0", "12", "0", "80", "--compact", "--panel_vertical", "5", "none",
                          "--plot_type", "step"])
     assert (out / outputs[0]).exists()
+
+
+def test_panels_compact_equal_width(make_project):
+    """--panel_equal_width: same width per panel, each value placed on its own panel's scale."""
+    make_project({"Events": _events()})
+    figures = _capture()
+    common = ["--datafile", "Events", "-y", "Energy", "--binned", "--panels", "Hits", "Charge",
+              "--panel_rangex", "0", "20", "0", "80", "--compact", "--panel_vertical", "5", "none",
+              "--plot_type", "step"]
+    line.main([*common, "--panel_equal_width"])
+    ax = figures[-1].axes[0]
+    assert ax.get_xlim() == (0, 160)
+    # 5 of 20 in the first panel: a quarter of its 80 units.
+    assert any(np.allclose(l.get_xdata(), 20) for l in ax.get_lines() if len(l.get_xdata()) == 2)
+    minor = ax.get_xticks(minor=True)
+    assert minor.min() >= 0 and minor.max() <= 160 and len(minor) > 0
+
+
+def test_panels_compact_facet_row(make_project, tmp_path):
+    """--facet_row with --compact: one stacked axis per row value, per-row ranges, vertical lines
+    read per row from the {config} file, and --multiply_where scaling one row."""
+    import json
+
+    other = _events().assign(Config="c")
+    make_project({"a_b_Events": _events(), "c_b_Events": other})
+    (tmp_path / "cuts.json").write_text(json.dumps({"a": {"h": 5}, "c": {"h": 8}}))
+    figures = _capture()
+    line.main(["--datafile", "Events", "--configs", "a", "c", "--names", "b", "b", "--overlay_names",
+               "-y", "Energy", "--estimator", "sum", "--binned", "--panels", "Hits", "Charge",
+               "--panel_rangex", "0", "20", "0", "80", "0", "20", "0", "40", "--compact", "--panel_equal_width",
+               "--panel_vertical_file", str(tmp_path / "cuts.json"), "--panel_vertical_keys", "{config}.h", "none",
+               "--facet_row", "Config", "--variable_label_map", '{"a": "A", "c": "C"}',
+               "--multiply_where", "Config=c", "2", "--plot_type", "step"])
+    top, bottom = figures[-1].axes[:2]
+    assert top.get_title() == "A" and bottom.get_title() == "C"
+    # Every row split in equal halves, on its own scale: 80 + 80 units on top, 40 + 40 below.
+    assert top.get_xlim() == (0, 160) and bottom.get_xlim() == (0, 80)
+    # 5 of 20 in the first panel on top (20 of its 80 units), 8 of 20 below (16 of 40).
+    vlines = lambda ax: [l.get_xdata()[0] for l in ax.get_lines() if len(l.get_xdata()) == 2]
+    assert any(np.isclose(v, 20) for v in vlines(top)) and any(np.isclose(v, 16) for v in vlines(bottom))
+    # The second row's sums are doubled (the first panel, the same range in both rows).
+    def first(ax):
+        half = ax.get_xlim()[1] / 2
+        lines = [l for l in ax.get_lines() if len(l.get_xdata()) > 2 and np.max(l.get_xdata()) <= half]
+        return max(np.nanmax(l.get_ydata()) for l in lines)
+
+    top_max, bottom_max = first(top), first(bottom)
+    assert np.isclose(bottom_max, 2 * top_max)
 
 
 def test_legacy_reduction_translation():

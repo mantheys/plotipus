@@ -747,6 +747,7 @@ def apply_legend_style(
         legend.set_visible(False)
     elif mode is not None:
         _defer_placement(legend, mode, handles, labels, style)
+        legend._plotipus_placement["figure_center"] = loc == "top center"
     return legend
 
 
@@ -759,7 +760,8 @@ LEGEND_PLACEMENT_CANDIDATES = (
     "lower right",
 )
 # --legend_loc values placed outside the axes -> placement mode.
-OUTSIDE_LOCATIONS = {"outside": "outside", "above": "outside", "below": "below", "right": "right"}
+OUTSIDE_LOCATIONS = {"outside": "outside", "above": "outside", "top center": "outside", "below": "below",
+                     "right": "right"}
 _PLACED_LATER = ("auto", "free", "outside", "below", "right")
 # A placement is free when data covers less than this fraction of its box.
 LEGEND_FREE_FRACTION = 0.002
@@ -1077,14 +1079,32 @@ def _place_outside(ax, legend, renderer):
               if getattr(a, "_plotipus_header", None) == "above" and a.get_visible()]
     rise = max([0.0, *(b.y1 - ax.bbox.y1 for b in above)]) * 72.0 / ax.figure.dpi
     anchor = offset_copy(ax.transAxes, fig=ax.figure, y=rise, units="points")
+    centered = info.get("figure_center", False)
+    x, width = _panels_center(ax) if centered else (0.5, ax.bbox.width)
     rebuilt = legend
     for ncol in range(entries, 0, -1):
-        rebuilt = _rebuild_legend(ax, rebuilt, dict(style, ncol=ncol, bbox_to_anchor=(0.5, 1.0),
+        rebuilt = _rebuild_legend(ax, rebuilt, dict(style, ncol=ncol, bbox_to_anchor=(x, 1.0),
                                                     bbox_transform=anchor, borderaxespad=0.2))
-        if rebuilt.get_window_extent(renderer).width <= ax.bbox.width or ncol == 1:
+        if rebuilt.get_window_extent(renderer).width <= width or ncol == 1:
             break
+    balanced = -(-entries // -(-entries // ncol))  # the same rows, filled evenly (4 entries: 2 + 2, not 3 + 1)
+    if centered and balanced < ncol:  # only 'top center': the other placements keep their columns
+        rebuilt = _rebuild_legend(ax, rebuilt, dict(style, ncol=balanced, bbox_to_anchor=(x, 1.0),
+                                                    bbox_transform=anchor, borderaxespad=0.2))
+        if rebuilt.get_window_extent(renderer).width > width:  # evenly filled but too wide: keep the fit
+            rebuilt = _rebuild_legend(ax, rebuilt, dict(style, ncol=ncol, bbox_to_anchor=(x, 1.0),
+                                                        bbox_transform=anchor, borderaxespad=0.2))
     rebuilt._plotipus_placement["above"] = True
+    rebuilt._plotipus_placement["anchor"] = anchor
     return rebuilt
+
+
+def _panels_center(ax):
+    """(x, width): the centre of all the visible panels of the figure of ``ax``, in the axes fraction of
+    ``ax``, and the width they span in pixels."""
+    boxes = [other.bbox for other in ax.figure.axes if other.get_visible()]
+    left, right = min(box.x0 for box in boxes), max(box.x1 for box in boxes)
+    return ((left + right) / 2 - ax.bbox.x0) / ax.bbox.width, right - left
 
 
 def stagger_above_legends(fig):
@@ -1231,6 +1251,9 @@ def attach_legends(fig):
     renderer = fig.canvas.get_renderer()
     for ax in fig.axes:
         for legend in _axes_legends(ax):
+            info = getattr(legend, "_plotipus_placement", {})
+            if info.get("figure_center") and info.get("anchor") is not None:  # --legend_loc 'top center'
+                legend.set_bbox_to_anchor((_panels_center(ax)[0], 1.0), transform=info["anchor"])
             leader = getattr(legend, "_plotipus_follow", None)
             while getattr(leader, "_plotipus_rebuilt", None) is not None:
                 leader = leader._plotipus_rebuilt

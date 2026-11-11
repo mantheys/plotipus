@@ -453,3 +453,79 @@ def test_data_violins_and_boxes_are_hollow_ink(make_project):
     assert [t.get_text() for t in violins.get_legend().get_texts()] == ["Data", "Simulation"]
     faces = [p.get_facecolor()[3] for p in boxes.patches]
     assert sorted(faces) == [0, 0, 0, 0.6, 0.6, 0.6]
+
+
+# --- Panels per --variables and --multiply_where ------------------------------------------
+
+
+def _cutflow_configs():
+    rows = []
+    for config, scale in (("A", 1.0), ("B", 3.0)):
+        for component, level in (("signal", 10), ("background", 100)):
+            for stage, kept in (("raw", 1.0), ("cut", 0.5), ("final", 0.0 if component == "background" else 0.25)):
+                rows.append({"Config": config, "Stage": stage, "Component": component, "Energy": np.arange(4.0),
+                             "Counts": np.full(4, level * scale * kept), "CountsError": np.full(4, 0.1)})
+    return pd.DataFrame(rows)
+
+
+def test_variables_give_one_panel_each(make_project):
+    """--variable_column/--variables: one panel per value, titled, the legend on --legend_panel only,
+    and, with --error_style band, a value of 0 left out on a log axis."""
+    figures = _capture()
+    make_project({"Cutflow": _cutflow_configs()})
+    cat.main(["--datafile", "Cutflow", "-x", "Stage", "-y", "Counts", "--hue", "Config", "--integrate_over", "Energy",
+              "--integral_mode", "sum", "--variable_column", "Component", "--variables", "signal", "background",
+              "--variable_panels",
+              "--variable_label_map", '{"signal": "Signal"}', "--sharey", "none", "--logy", "--legend_panel", "1",
+              "--kind", "line", "--error_style", "band"])
+    axes = [ax for ax in figures[-1].axes if ax.get_visible()]
+    assert [ax.get_title() for ax in axes] == ["Signal", "background"]
+    assert axes[0].get_legend() is None and axes[1].get_legend() is not None
+    background = [line for line in axes[1].get_lines() if len(line.get_xdata()) > 1]
+    assert all(len(line.get_xdata()) == 2 for line in background)  # the 0 at "final" is not drawn
+
+
+def test_variables_without_panels_stay_one_axes(make_project):
+    """--variables alone select rows (one axes); --variable_panels is the opt-in that splits them."""
+    figures = _capture()
+    make_project({"Cutflow": _cutflow_configs()})
+    cat.main(["--datafile", "Cutflow", "-x", "Stage", "-y", "Counts", "--hue", "Config", "--integrate_over", "Energy",
+              "--integral_mode", "sum", "--variable_column", "Component", "--variables", "signal", "background"])
+    assert len([ax for ax in figures[-1].axes if ax.get_visible()]) == 1
+
+
+def test_multiply_where_scales_matching_rows():
+    class Args:
+        y = "Counts"
+        integrate_over = "Energy"
+        integral_mode = "sum"
+        integration_range = None
+        errory = True
+        multiply = None
+        multiply_where = [["Config=B", "2"]]
+
+    frame = _cutflow_configs()
+    a = frame[(frame.Config == "A") & (frame.Stage == "raw") & (frame.Component == "signal")].iloc[0]
+    b = frame[(frame.Config == "B") & (frame.Stage == "raw") & (frame.Component == "signal")].iloc[0]
+    assert cat.integrate_row(a, Args)[0] == 40.0
+    assert cat.integrate_row(b, Args) == (240.0, 2 * 0.2)
+
+
+def test_top_center_legend_is_centred_above_all_panels(make_project):
+    """--legend_loc 'top center': one legend above the panels, centred on all of them."""
+    figures = _capture()
+    make_project({"Cutflow": _cutflow_configs()})
+    cat.main(["--datafile", "Cutflow", "-x", "Stage", "-y", "Counts", "--hue", "Config", "--integrate_over", "Energy",
+              "--integral_mode", "sum", "--variable_column", "Component", "--variables", "signal", "background",
+              "--variable_panels",
+              "--legend_loc", "top center"])
+    fig = figures[-1]
+    fig.canvas.draw()
+    axes = [ax for ax in fig.axes if ax.get_visible()]
+    legends = [ax.get_legend() for ax in axes if ax.get_legend() is not None]
+    assert len(legends) == 1
+    renderer = fig._get_renderer()
+    box = legends[0].get_window_extent(renderer)
+    left, right = min(ax.bbox.x0 for ax in axes), max(ax.bbox.x1 for ax in axes)
+    assert abs((box.x0 + box.x1) / 2 - (left + right) / 2) < 0.02 * (right - left)
+    assert box.y0 >= max(ax.bbox.y1 for ax in axes)

@@ -56,6 +56,15 @@ are the example list, `examples/input/plots/example_scripts.txt`;
   keeps one plot's size, split in touching panels). They share their y range
   and only the first shows the y label and tick labels (`--no-compact` gives
   each its own axis).
+* **Touching `--panels`** (`line --binned`): `--compact` puts them on one axis
+  with widths proportional to their `--panel_rangex` ranges;
+  `--panel_equal_width` makes them equally wide, each with its own x scale.
+  With `--facet_row COL` the compact axes are stacked, one per value of COL
+  (titled by `--variable_label_map`); `--panel_rangex` takes either one set of
+  ranges for every row or one set per row, and `--panel_vertical_file` is read
+  again per row with the row's value as `{config}` (or `{col}`).
+  `--multiply_where COLUMN=VALUE FACTOR` rescales the matching rows only
+  (e.g. a sample normalised to a different mass).
 * **Panel grids** (`line`): more than three `--variables` make a near-square
   grid (`--panel_grid ROWS COLS` fixes it); `--facet_row COL` and
   `--facet_col COL` give one row or column of panels per value of a column
@@ -103,7 +112,8 @@ plotipus line --datafile Keeling -x DecimalDate -y CO2 --hue Series --plot_type 
   legend goes above the axes in as many columns as fit, as it does past
   6 entries. `--legend_loc` pins a matplotlib location, `above` (or
   `outside`), `below` (under the lowest panel and its axis label) or `right`
-  of the axes (the layout makes room), or `none`; `--legend_free` treats any
+  of the axes (the layout makes room), `top center` (one legend above the
+  panels, centred on all of them), or `none`; `--legend_free` treats any
   free spot like a corner; `--legend_inside` keeps automatic legends inside
   the axes (the emptiest place, over the data if nothing is free, also past
   6 entries). `--legend_panel all` gives every panel a legend of
@@ -749,6 +759,15 @@ points with error bars do not hide each other. Points need something to be
 read against: a bar, a line, or a true scatter; a lone row of markers per
 category says little. Bars suit any quantity with a true zero (counts, a
 width); data points go over them with `--data_hue`.
+`cat --variable_panels` gives each `--variables` value (of `Variable`, or of `--variable_column COL`) its
+own panel, with the same categories, hue values and colours (without it, `--variables` only select rows).
+`--panel_grid ROWS COLS` shapes the panels (`--center_last_row` centres an incomplete last row), the value
+axis is shared (`--sharey all`, the default; `row`; or `none`), `--legend_panel N` holds the legend and
+`--variable_label_map`, `--variable_mapping` or `--panel_title` title the panels. `--kind line --error_style
+band` draws the errors as a band joining the categories (a value of 0 is left out on a log axis).
+`--multiply_where COLUMN=VALUE FACTOR` (also in `line`) rescales only the matching rows, on top of
+`--multiply` (e.g. one sample normalised to a different mass).
+
 `scatter` draws one point per
 entry of the array cells, with colour (`--colorby`), size (`--sizeby`) and
 marker (`--markerby`) encodings; only the drawn columns are exploded into

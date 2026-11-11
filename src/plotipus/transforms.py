@@ -112,6 +112,39 @@ def scale_cells(frame, columns, factor):
     return frame
 
 
+def multiply_conditions(pairs):
+    """--multiply_where [(COLUMN=VALUE, FACTOR), ...] as [(column, value, factor)]."""
+    conditions = []
+    for condition, factor in pairs or []:
+        column, _, wanted = condition.partition("=")
+        conditions.append((column, wanted, float(factor)))
+    return conditions
+
+
+def row_factor(row, conditions, factor=None):
+    """``factor`` times the factor of every condition ``row`` matches (None: unscaled)."""
+    for column, wanted, value in conditions:
+        if column in row.index and str(row[column]) == wanted:
+            factor = (1.0 if factor is None else factor) * value
+    return factor
+
+
+def scale_cells_where(frame, columns, pairs, warn=None):
+    """Multiply array/scalar cells of ``columns`` in the rows matching each --multiply_where condition;
+    ``warn(column)`` is called for a condition column the frame lacks."""
+    frame = frame.copy()
+    for column, wanted, value in multiply_conditions(pairs):
+        if column not in frame.columns:
+            if warn is not None:
+                warn(column)
+            continue
+        mask = (frame[column].astype(str) == wanted).to_numpy()
+        for cell_column in (c for c in columns if c in frame.columns):
+            frame[cell_column] = [np.asarray(v) * value if m and v is not None else v
+                                  for v, m in zip(frame[cell_column], mask)]
+    return frame
+
+
 def rebin_rows(frame, x, y, n, sum_y=False, error_columns=()):
     """Merge every ``n`` consecutive points of array-valued x/y rows: x is the
     mean of the merged centres, y their mean (or sum with ``sum_y``); errors

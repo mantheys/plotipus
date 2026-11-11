@@ -1,5 +1,23 @@
 # Changelog
 
+## Unreleased
+
+New options; every existing command renders as before.
+
+- `line --binned --compact`: `--panel_equal_width` (every panel as wide as the
+  widest, each on its own x scale, with minor ticks per panel) and
+  `--facet_row COL` (one stacked compact axis per value of COL, titled by
+  `--variable_label_map`; `--panel_rangex` takes one set of ranges for all
+  rows or one per row; `--panel_vertical_file` is read again per row).
+- `line`, `cat`: `--multiply_where COLUMN=VALUE FACTOR` (repeatable) rescales
+  the matching rows, on top of `--multiply`.
+- `cat`: `--variable_panels` draws one panel per `--variables` value, with
+  `--panel_grid`, `--sharey`, `--panel_title`, `--variable_mapping`,
+  `--variable_label_map`, `--center_last_row` and `--legend_panel`;
+  `--error_style band` (with `--kind line`) draws the errors as a band.
+- `--legend_loc 'top center'`: one legend above the panels, centred on all of
+  them, its entries in evenly filled columns.
+
 ## 0.1.0 (2026-11-07)
 
 First tagged release, archived on Zenodo.
