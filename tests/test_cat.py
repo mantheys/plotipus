@@ -524,7 +524,7 @@ def test_top_center_legend_is_centred_above_all_panels(make_project):
     axes = [ax for ax in fig.axes if ax.get_visible()]
     legends = [ax.get_legend() for ax in axes if ax.get_legend() is not None]
     assert len(legends) == 1
-    renderer = fig.canvas.get_renderer()
+    renderer = fig._get_renderer()
     box = legends[0].get_window_extent(renderer)
     left, right = min(ax.bbox.x0 for ax in axes), max(ax.bbox.x1 for ax in axes)
     assert abs((box.x0 + box.x1) / 2 - (left + right) / 2) < 0.02 * (right - left)
