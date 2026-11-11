@@ -81,11 +81,25 @@ def add_estimator_args(parser):
 def resolve_estimator_args(args, parser):
     if args.panels is None and args.x is None:
         parser.error("the following arguments are required: -x (or use --panels)")
-    resolve_panel_lines(args, parser, n_panels=len(args.panels) if args.panels else None, unit="--panels entry")
+    n_panels = len(args.panels) if args.panels else None
+    # --facet_row with --compact: --panel_rangex may give one set of ranges per row.
+    args.panel_rangex_rows = None
+    rangex = getattr(args, "panel_rangex", None)
+    if (getattr(args, "facet_row", None) and args.compact and n_panels and rangex is not None
+            and len(rangex) > 2 * n_panels and len(rangex) % (2 * n_panels) == 0):
+        size = 2 * n_panels
+        args.panel_rangex_rows = [rangex[i:i + size] for i in range(0, len(rangex), size)]
+        args.panel_rangex = args.panel_rangex_rows[0]
+    # The vertical-line file is read again per row (its {config} placeholder takes the row's value).
+    args.panel_vertical_source = (args.panel_vertical_file, args.panel_vertical_keys) \
+        if getattr(args, "panel_vertical_file", None) else None
+    resolve_panel_lines(args, parser, n_panels=n_panels, unit="--panels entry")
     if args.compact and args.panels is None:
         parser.error("--compact requires --panels")
     if args.compact and args.panel_rangex is None:
         parser.error("--compact requires --panel_rangex")
+    if args.panel_equal_width and not args.compact:
+        parser.error("--panel_equal_width requires --compact")
 
 
 def _estimator(args):
@@ -126,7 +140,8 @@ def run_estimator(df, args):
     configs, names = prepare_import(args)
     configs = configs if (configs is not None and args.iterable != "Config") else [None]
     names = names if (names is not None and args.iterable != "Name") else [None]
-    if getattr(args, "overlay_names", False):  # one figure over every --configs/--names pair
+    if getattr(args, "overlay_names", False) or (args.compact and getattr(args, "facet_row", None)):
+        # One figure over every --configs/--names pair (--facet_row: one row of it per value).
         configs, names = [None], [None]
     if args.compact:
         return [_compact_figure(df, args, kdx, config, name) for kdx, (config, name) in enumerate(zip(configs, names))]
@@ -413,28 +428,119 @@ def _first(value):
     return value
 
 
-def _compact_figure(df, args, kdx, config, name):
-    """--panels on one shared axis, each panel's range shifted after the previous."""
-    ranges = [panel_rangex(args, i) for i in range(len(args.panels))]
-    widths = [hi - lo for lo, hi in ranges]
-    offsets = list(np.concatenate([[0.0], np.cumsum(widths)[:-1]]))
-    cycle = plt.rcParams["axes.prop_cycle"].by_key().get("color", ["C0"])
+def _row_values(group, args):
+    """The --facet_row values of a compact figure, in --configs/--names order when faceting on those."""
+    column = getattr(args, "facet_row", None)
+    if not column:
+        return [None]
+    present = list(dict.fromkeys(filter_dataframe(group, args)[column].dropna()))
+    order = {"Config": args.configs, "Name": args.names}.get(column)
+    if order:
+        ordered = [v for v in dict.fromkeys(order) if v in present]
+        return ordered + [v for v in present if v not in ordered]
+    return present
 
-    fig, ax = plt.subplots(nrows=1, ncols=1, figsize=get_common_figsize(ncols=1, nrows=1), constrained_layout=False)
+
+def _row_verticals(args, column, value):
+    """--panel_vertical of one row: the file read again with the row's value as its placeholder."""
+    if value is None or args.panel_vertical_source is None:
+        return args.panel_vertical
+    from ..panel_lines import parse_panel_line_values
+    from ..values import build_context, read_values_as_strings
+
+    context = build_context(args)
+    context[column.lower()] = value
+    context[column.lower() + "s"] = value
+    path, keys = args.panel_vertical_source
+    return parse_panel_line_values(read_values_as_strings(path, keys, context), "--panel_vertical")
+
+
+def _row_label(args, value):
+    if value is None:
+        return None
+    import json
+
+    label_map = json.loads(args.variable_label_map) if getattr(args, "variable_label_map", None) else {}
+    return label_map.get(str(value), str(value))
+
+
+def _compact_figure(df, args, kdx, config, name):
+    """--panels on one shared axis, each panel's range shifted after the previous;
+    with --facet_row, one such axis per row value, stacked."""
+    group = _group_rows(df, args, config, name)
+    column = getattr(args, "facet_row", None)
+    row_values = _row_values(group, args)
+    nrows = len(row_values)
+    n_panels = len(args.panels)
+    row_ranges = args.panel_rangex_rows or [args.panel_rangex]
+    if len(row_ranges) not in (1, nrows):
+        raise ValueError(f"--panel_rangex: {len(row_ranges)} sets of ranges for {nrows} rows of --facet_row.")
+    shared_x = len(row_ranges) == 1
+
+    fig, axes = plt.subplots(nrows=nrows, ncols=1, figsize=get_common_figsize(ncols=1, nrows=nrows),
+                             constrained_layout=False, squeeze=False)
+    axes = axes[:, 0]
     apply_common_figure_margins(fig)
     # Room for the per-panel x label row under the tick labels.
     fig.subplots_adjust(bottom=fig.subplotpars.bottom + 0.42 / fig.get_figheight())
+    if nrows > 1:
+        pars = fig.subplotpars
+        row_height = (pars.top - pars.bottom) * fig.get_figheight() / nrows
+        # Between rows: the row title, plus the tick labels when every row has its own x ranges.
+        gap = 0.45 + (0.0 if shared_x else 0.35)
+        fig.subplots_adjust(hspace=gap / max(row_height - gap, 0.5))
 
-    group = _group_rows(df, args, config, name)
     # Hue values left by --select and friends: the boxes dodge over these only.
     hues = filter_dataframe(group, args)[args.iterable].unique() if args.iterable is not None else [None]
+    cycle = plt.rcParams["axes.prop_cycle"].by_key().get("color", ["C0"])
     colors = {hue: hue_color(hue, args, args.iterable) or cycle[j % len(cycle)] for j, hue in enumerate(hues)}
-    tick_positions, tick_labels = [], []
+    errors_drawn = propagated = False
+
+    for ridx, (ax, value) in enumerate(zip(axes, row_values)):
+        rows = group if value is None else group[group[column].astype(str) == str(value)]
+        rangex = row_ranges[0] if shared_x else row_ranges[ridx]
+        ranges = [(rangex[2 * i], rangex[2 * i + 1]) for i in range(n_panels)]
+        last = ridx == nrows - 1
+        drawn, prop = _compact_row(ax, rows, args, ranges, hues, colors, _row_verticals(args, column, value),
+                                   labels=last, ticklabels=last or not shared_x, legend=ridx == 0)
+        errors_drawn, propagated = errors_drawn or drawn, propagated or prop
+        title = _row_label(args, value)
+        if title:
+            ax.set_title(title, fontsize=style.subtitlefontsize)
+
+    for ax in axes:
+        ax.set_ylabel(_ylabel(args, group, errors_drawn, propagated))
+        if args.rangey is not None:
+            ax.set_ylim(args.rangey[0], args.rangey[1])
+        # y only: the x ticks carry the per-panel values set above.
+        apply_tick_formatter(ax, axis="y")
+        if args.logy:
+            ax.semilogy()
+        draw_overlays(ax, args)
+    # Without --hue no series is labelled; an empty legend fails on matplotlib >= 3.11.
+    if not args.no_legend and axes[0].get_legend_handles_labels()[0]:
+        apply_legend_style(axes[0], title=args.labelz if args.labelz is not None else args.iterable,
+                           capitalize_labels=args.capitalize_legend)
+    title = make_title_from_args(args)
+    if title:
+        add_centered_suptitle(fig, title, fontsize=style.titlefontsize)
+    apply_note_to_figure(fig, args.note)
+    return save(fig, args, kdx, suffix=_suffix(args))
+
+
+def _compact_row(ax, group, args, ranges, hues, colors, vertical, labels=True, ticklabels=True, legend=True):
+    """One compact axis: the --panels side by side over ``ranges``. Returns (errors drawn, propagated)."""
+    spans = [hi - lo for lo, hi in ranges]
+    # --panel_equal_width: every panel as wide as the widest, each on its own x scale.
+    widths = [max(spans)] * len(spans) if args.panel_equal_width else spans
+    offsets = list(np.concatenate([[0.0], np.cumsum(widths)[:-1]]))
+    tick_positions, tick_labels, minor_positions = [], [], []
     errors_drawn = propagated = False
 
     for pidx, x_col in enumerate(args.panels):
         lo, hi = ranges[pidx]
         offset = offsets[pidx]
+        scale = widths[pidx] / spans[pidx]
         integer = None
         for hue in hues:
             rows = group if hue is None else group[group[args.iterable] == hue]
@@ -459,25 +565,32 @@ def _compact_figure(df, args, kdx, config, name):
             if errors is not None:
                 errors_drawn = True
                 propagated = propagated or error is not None
-            label = map_iterable_label(hue, args.iterable, args.iterable_mapping, len(hues)) if args.iterable is not None and pidx == 0 else None
-            plot_data(args, ax, centres[keep] - lo + offset, y=values[keep],
+            label = map_iterable_label(hue, args.iterable, args.iterable_mapping, len(hues)) \
+                if args.iterable is not None and pidx == 0 and legend else None
+            plot_data(args, ax, (centres[keep] - lo) * scale + offset, y=values[keep],
                       errory=None if errors is None else errors[keep], label=label, color=colors[hue],
                       **_marker_kwargs(args, plot_type), **resolve_plot_kwargs(plot_type))
 
         locator = MaxNLocator(nbins=4 if args.reduce else 6, integer=bool(integer), steps=[1, 2, 2.5, 5, 10])
         ticks = locator.tick_values(lo, hi)
         for tick in ticks[(ticks >= lo) & (ticks <= hi)]:
-            tick_positions.append(tick - lo + offset)
+            tick_positions.append((tick - lo) * scale + offset)
             tick_labels.append(str(int(round(tick))) if integer else f"{tick:g}")
+        if args.panel_equal_width and len(ticks) > 1:
+            # The automatic minor ticks assume one x scale: place them per panel, five per major interval.
+            step = (ticks[1] - ticks[0]) / 5
+            if integer:  # whole counts have no fractional ticks
+                step = max(round(step), 1)
+            minor = np.arange(np.ceil(lo / step), np.floor(hi / step) + 1) * step
+            minor_positions.extend((minor - lo) * scale + offset)
         if pidx > 0:
             ax.axvline(offset, color=style.role("ink"), linewidth=1.4, zorder=10)
 
-        vertical = args.panel_vertical
         if vertical is not None and vertical[pidx] is not None:
             from ..plot import draw_vertical_lines
 
             draw_vertical_lines(
-                ax, [v - lo + offset for v in vertical[pidx]],
+                ax, [(v - lo) * scale + offset for v in vertical[pidx]],
                 labels=args.panel_vertical_label[pidx] if args.panel_vertical_label is not None else None,
                 styles=args.panel_vertical_style[pidx] if args.panel_vertical_style is not None else None,
                 colors=args.panel_vertical_color[pidx] if args.panel_vertical_color is not None else None,
@@ -495,36 +608,23 @@ def _compact_figure(df, args, kdx, config, name):
                 ax.text(offset + widths[pidx] * 0.97, horizontal[pidx], label, ha="right", va="bottom",
                         fontsize=style.linelabelfontsize, color=color, clip_on=True)
 
-        if args.panel_labelx is not None:
-            text = args.panel_labelx[pidx]
-        elif args.labelx is not None:
-            text = _first(args.labelx)
-        else:
-            text = resolve_axis_label(None, x_col, group)
-        ax.text(offset + widths[pidx] / 2, -0.11, text, transform=ax.get_xaxis_transform(), ha="center",
-                va="top", fontsize=style.xsublabelfontsize, clip_on=False)
+        if labels:
+            if args.panel_labelx is not None:
+                text = args.panel_labelx[pidx]
+            elif args.labelx is not None:
+                text = _first(args.labelx)
+            else:
+                text = resolve_axis_label(None, x_col, group)
+            ax.text(offset + widths[pidx] / 2, -0.11, text, transform=ax.get_xaxis_transform(), ha="center",
+                    va="top", fontsize=style.xsublabelfontsize, clip_on=False)
 
     ax.set_xlim(0, sum(widths))
     ax.set_xticks(tick_positions)
-    ax.set_xticklabels(tick_labels)
+    ax.set_xticklabels(tick_labels if ticklabels else [])
+    if args.panel_equal_width:
+        ax.set_xticks(minor_positions, minor=True)
     ax.set_xlabel("")
-    ax.set_ylabel(_ylabel(args, group, errors_drawn, propagated))
-    if args.rangey is not None:
-        ax.set_ylim(args.rangey[0], args.rangey[1])
-    # y only: the x ticks carry the per-panel values set above.
-    apply_tick_formatter(ax, axis="y")
-    if args.logy:
-        ax.semilogy()
-    # Without --hue no series is labelled; an empty legend fails on matplotlib >= 3.11.
-    if not args.no_legend and ax.get_legend_handles_labels()[0]:
-        apply_legend_style(ax, title=args.labelz if args.labelz is not None else args.iterable,
-                           capitalize_labels=args.capitalize_legend)
-    draw_overlays(ax, args)
-    title = make_title_from_args(args)
-    if title:
-        add_centered_suptitle(fig, title, fontsize=style.titlefontsize)
-    apply_note_to_figure(fig, args.note)
-    return save(fig, args, kdx, suffix=_suffix(args))
+    return errors_drawn, propagated
 
 
 def _propagate(args):
