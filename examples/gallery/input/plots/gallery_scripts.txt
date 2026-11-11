@@ -21,7 +21,7 @@
 hist --datafile Showers -x Response --hue Particle --select Particle -s electron pion --bins 60 --rangex 0.4 1.4 --flow hint --labelx 'Response $E_{reco}/E_{true}$' --title 'Calorimeter response to electrons and pions' --output_suffix A1
 
 # A2 Histogram of pre-binned counts
-line --datafile Yields -x Energy -y Counts --hue Particle --select Stage -s Preselection --plot_type step --logy --labelx 'Reconstructed energy (GeV)' --labely 'Events / 5 GeV' --title 'Pre-binned spectra after the preselection' --output_suffix A2
+line --datafile SelectionYields -x Energy -y Counts --hue Particle --select Stage -s Preselection --plot_type step --logy --labelx 'Reconstructed energy (GeV)' --labely 'Events / 5 GeV' --title 'Pre-binned spectra after the preselection' --output_suffix A2
 
 # A3 Filled / stacked histogram (stacked MC)
 line --datafile Distributions -x Bin -y Counts --hue Sample --select Distribution Sample -s Resonance Background Signal --stacked --plot_type fill --labelx 'Mass (GeV)' --labely 'Events / 2 GeV' --title 'Stacked simulation as filled steps' --output_suffix A3
@@ -117,7 +117,7 @@ line --datafile RotationCurves -x Radius -y Velocity --hue Galaxy --hue_cmap vir
 # == D Comparisons
 
 # D1 Bar chart (integrated arrays)
-cat --datafile Yields -x Stage -y Counts --hue Particle --kind bar --labely Events --title 'Yields per selection stage' --output_suffix D1
+cat --datafile SelectionYields -x Stage -y Counts --hue Particle --kind bar --labely Events --title 'Yields per selection stage' --output_suffix D1
 
 # D2 Bar chart of scalar cells
 cat --datafile Importance -x Feature -y Importance --select Model -s BDT --hue Model --kind bar --labely 'Importance' --title 'BDT feature importance' --output_suffix D2
@@ -126,7 +126,7 @@ cat --datafile Importance -x Feature -y Importance --select Model -s BDT --hue M
 cat --datafile Importance -x Feature -y Importance --hue Model --kind bar --labely 'Importance' --title 'Feature importance of two models' --output_suffix D3
 
 # D4 Stacked bars per category
-cat --datafile Yields -x Stage -y Counts --hue Particle --kind bar --stacked --errory --labely Events --title 'Composition per selection stage' --output_suffix D4
+cat --datafile SelectionYields -x Stage -y Counts --hue Particle --kind bar --stacked --errory --labely Events --title 'Composition per selection stage' --output_suffix D4
 
 # D5 Horizontal bars (sorted)
 cat --datafile Importance -x Feature -y Importance --select Model -s BDT --hue Model --kind bar --orient h --sort desc --errory --labely 'Importance' --title 'Ranked BDT feature importance' --output_suffix D5
@@ -141,7 +141,7 @@ cat --datafile Importance -x Feature -y Importance --select Model -s DNN --hue M
 map --datafile Correlation -x FeatureX -y FeatureY -z Correlation --annotate .2f --matrix --cmap RdBu_r --zmin -1 --labelz 'Correlation' --title 'Correlation of the input features' --output_suffix D8
 
 # D9 Before/after (slope) chart
-cat --datafile Yields -x Stage -y Counts --hue Particle --select Stage Stage -s Preselection 'Final selection' --kind line --labely Events --title 'Yields before and after the selection' --output_suffix D9
+cat --datafile SelectionYields -x Stage -y Counts --hue Particle --select Stage Stage -s Preselection 'Final selection' --kind line --labely Events --title 'Yields before and after the selection' --output_suffix D9
 
 # == E Ratios and significance
 
