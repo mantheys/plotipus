@@ -88,6 +88,7 @@ from ..transforms import (
     project,
     rebin_rows,
     scale_cells,
+    scale_cells_where,
     smooth,
     union_grid,
     y_error_of,
@@ -150,6 +151,9 @@ def build_parser():
     add("--exclude_iterable", nargs="+", action="extend", default=None,
         help="Hue values left out of plot and legend.")
     add("--variable_label_map", type=str, default=None, help="JSON {panel value: panel title}.")
+    add("--multiply_where", nargs=2, action="append", default=None, metavar=("COLUMN=VALUE", "FACTOR"),
+        help="Multiply the -y values (and errors) of the rows whose COLUMN equals VALUE by FACTOR, on top of "
+        "--multiply; repeat for several.")
     add("--y_row", type=int, default=None, help="For 2D y cells, plot only this row (0-based).")
     add("--errory_column", nargs="+", default=None, metavar="COL",
         help="Column holding the symmetric y error (default {y}Error), or a COL+/COL- pair of upper/lower "
@@ -278,6 +282,9 @@ def build_parser():
         help="Panels side by side share their y range and only the first of a row shows the y label and tick "
         "labels (default with several panels; --no-compact gives each panel its own y axis).")
     add("--no-compact", dest="compact", action="store_false")
+    add("--panel_equal_width", action="store_true", default=False,
+        help="With --panels --compact: give every panel the same width, each with its own x scale "
+        "(default: widths proportional to the --panel_rangex ranges, one x scale for all).")
     add("--vertical_per_variable", type=str, default=None, help="JSON {panel value: [x positions]}.")
     add("--facet_row", type=str, default=None, metavar="COL",
         help="One row of panels per value of COL (with --variables, the variables are the columns).")
@@ -531,6 +538,9 @@ def load(args):
 
     if args.multiply is not None:
         df = scale_cells(df, [y, *error_columns], args.multiply)
+    if getattr(args, "multiply_where", None):
+        df = scale_cells_where(df, [y, *error_columns], args.multiply_where, warn=lambda column: rprint(
+            f"[yellow]Warning:[/yellow] --multiply_where: column '{column}' not found."))
     if args.merge_iterables and args.iterable in df.columns:
         df = merge_groups(df, args.iterable, y, args.merge_iterables, error_columns=[c for c in ("Error",) if c in df.columns])
     # NaN panel values are dropped unless --variables asks for "None".
