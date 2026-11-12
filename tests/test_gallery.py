@@ -35,6 +35,9 @@ def test_lists_parse(page):
     assert {e.kind for e in entries} == {"plots", "tables"}
     rendered = [e for e in entries if e.needs is None]
     assert len({e.row for e in rendered}) == len(rendered)
+    by_row = {e.row: e.command for e in entries}
+    for row in ("A2", "D1", "D4", "D9", "J5"):
+        assert "--datafile SelectionYields" in by_row[row]
 
 
 def test_every_command_renders(page, tmp_path):

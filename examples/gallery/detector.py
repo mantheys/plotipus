@@ -13,7 +13,7 @@ seeded).
 - ``TriggerEfficiency``: the turn-on curves of two trigger levels per
   particle, as pass/total counts per energy bin with the efficiency in
   percent and its Clopper-Pearson interval (``EfficiencyError+/-``).
-- ``Yields``: the reconstructed-energy spectra of each particle after
+- ``SelectionYields``: the reconstructed-energy spectra of each particle after
   preselection and after the final selection (for a before/after chart).
 - ``Summary``: efficiency, purity and rate of two detector layouts, with
   errors (for the result tables).
@@ -103,7 +103,7 @@ def yields(rng):
                 counts = cuts.binomial(counts.astype(int), efficiency).astype(float)
             rows.append({"Particle": particle, "Stage": stage, "Energy": centres, "Counts": counts,
                          "CountsError": np.sqrt(counts)})
-    return {"Yields": pd.DataFrame(rows)}
+    return {"SelectionYields": pd.DataFrame(rows)}
 
 
 def summary(rng):
