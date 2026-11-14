@@ -58,3 +58,24 @@ jobs:
           echo "lint: ${{ needs.lint.result }}, test: ${{ needs.test.result }}"
           exit 1
       - run: echo "lint and tests passed"
+
+  # The page (https://mantheys.github.io/plotipus/): web/ and the figures of docs/, pushed as the single commit of
+  # gh-pages on every push to main that passed lint and tests.
+  pages:
+    if: github.event_name == 'push'
+    needs: [lint, test]
+    runs-on: ubuntu-latest
+    permissions: {contents: write}
+    concurrency: {group: pages, cancel-in-progress: true}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with: {python-version: "3.12"}
+      - run: pip install pillow
+      - run: bash web/deploy.sh
+        env:
+          DEPLOY_REMOTE: https://x-access-token:${{ secrets.GITHUB_TOKEN }}@github.com/${{ github.repository }}.git
+          GIT_AUTHOR_NAME: github-actions[bot]
+          GIT_AUTHOR_EMAIL: 41898282+github-actions[bot]@users.noreply.github.com
+          GIT_COMMITTER_NAME: github-actions[bot]
+          GIT_COMMITTER_EMAIL: 41898282+github-actions[bot]@users.noreply.github.com
