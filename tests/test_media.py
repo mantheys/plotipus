@@ -214,6 +214,8 @@ def test_facets_wrap_at_two_columns(make_project, spectra):
     assert _sizes(*three)[-1] == pytest.approx((2 * single[0], 2 * single[1]))
     assert _sizes(*three, "--medium", "paper", "--layout", "facets")[-1] == pytest.approx((6.8, 2 * 2.55))
     assert _sizes(*three, "--medium", "paper")[-1] == pytest.approx((3.4, 2.55))
+    # The web medium wraps like slides, at its own 16:9 plot.
+    assert _sizes(*three, "--medium", "web")[-1] == pytest.approx((16, 2 * 4.5))
     # A grid asked for is kept: one row of three single plots.
     assert _sizes(*three, "--panel_grid", "1", "3")[-1] == pytest.approx((3 * single[0], single[1]))
 
@@ -237,3 +239,24 @@ def test_other_fonts_keep_their_text(make_project, spectra):
     line.main(["--datafile", "Spectra", "-x", "Energy", "-y", "Counts", "--hue", "Sample", "--select", "Variable",
                "-s", "E", "--labelx", "radius < 12"])
     assert figures[0].axes[0].xaxis.label.get_text() == "radius < 12"
+
+
+def test_only_facets_change_the_size_of_a_figure(make_project, spectra):
+    """Rules L1-L3 in every shipped style: one size per medium, kept with one or two lower panels, a
+    legend outside the axes or a title; only side-by-side facets enlarge it (paper splits its column)."""
+    make_project({"Spectra": spectra})
+    expected = {"slides": (8, 5.84), "slides-dark": (8, 5.84), "paper": (3.4, 2.55), "paper-dark": (3.4, 2.55),
+                "open": (8, 4.5), "open-dark": (8, 4.5), "classic": (8, 6)}
+    two = ["--select", "Variable", "-s", "E", "F", "--variables", "E", "F"]
+    for name, size in expected.items():
+        preset = ["--style_preset", name]
+        assert _sizes(*preset)[-1] == pytest.approx(size), name
+        assert _sizes(*preset, "--lower", "ratio")[-1] == pytest.approx(size), name
+        assert _sizes(*preset, "--legend_loc", "outside", "--title", "A title")[-1] == pytest.approx(size), name
+        if name != "classic":  # classic adds 15% per lower panel past the first, as it always did
+            assert _sizes(*preset, "--lower", "ratio", "--lower", "subtract")[-1] == pytest.approx(size), name
+        wide = _sizes(*preset, *two)[-1]
+        if name.startswith("paper"):
+            assert wide == pytest.approx(size), name
+        elif name != "classic":
+            assert wide == pytest.approx((2 * size[0], size[1])), name

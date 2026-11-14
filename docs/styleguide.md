@@ -56,8 +56,11 @@ enforceable version. Where the two differ, this guide is the target.
 ## L. Size and layout
 
 - **L1. Fixed size per medium.** ✅
-  - Slides: 8 in wide at aspect 0.73.
-  - Paper: one journal column, 3.4 in.
+  - Slides: 8 × 5.84 in (aspect 0.73).
+  - Paper: one journal column, 3.4 × 2.55 in (aspect 0.75).
+  - Web (`open`): 8 × 4.5 in (16:9) at 96 dpi.
+  - Only panels side by side, or a grid of facets, make a figure larger
+    (L3); a lower panel, a legend, a colorbar or long tick labels never do.
   - A figure is drawn at its printed size and never rescaled afterwards
     (no `bbox_inches="tight"`, no `\includegraphics[width=...]` resizing).
   - Choose another size with `--width single|onehalf|double|nature|slide|half-slide`.
@@ -72,8 +75,8 @@ enforceable version. Where the two differ, this guide is the target.
     and the text have the same size ratio. The figure gets wider, N plots
     wide for N panels.
   - When a row would be wider than the medium allows, panels wrap into more
-    rows instead of shrinking: at most 2 columns on paper (2 × single =
-    double column) and on slides (`facet_columns: 2`). A wrapped row still
+    rows instead of shrinking: at most 2 columns in every medium
+    (`facet_columns: 2`; on paper 2 × single = double column). A wrapped row still
     behaves as one row: one shared y range, each panel its own x axis and
     title. A grid you ask for (`--panel_grid`, `--facet_row` with
     `--facet_col`) is kept and widens instead.

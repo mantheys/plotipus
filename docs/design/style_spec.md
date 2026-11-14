@@ -119,7 +119,7 @@ Widths are confirmed from the publishers' pages:
   facet adds one plot's width (`facet_width: 1.0`), at one plot's height,
   so every facet has the proportions, marker and text sizes of a single
   plot (rule L3); compact by default (shared y, labels on the first). A
-  row of more than `facet_columns` facets (2 on paper and slides) wraps
+  row of more than `facet_columns` facets (2 in every medium) wraps
   into rows; a grid given explicitly widens instead. `--layout panels` instead keeps
   the preset's size and splits it into touching panels, the paper default
   as the page width is fixed (decided 2026-10-27,
@@ -304,8 +304,10 @@ lines unless `--connect` is given (B17).
 
 ### 2.10 Lower panels
 
-- Height ratio 3:1 (one lower panel) or 3:1:1 (two). `hspace: 0`, with the
-  x tick labels of the upper panel hidden.
+- Height ratio 1 : 0.3 (one lower panel) or 1 : 0.3 : 0.3 (two), taken from
+  the figure's height (§2.1: the figure keeps the size of a single plot;
+  `classic` keeps 3:1). `hspace: 0`, with the x tick labels of the upper
+  panel hidden.
 - Reference line (1 for a ratio, 0 for a difference or pull) in `muted`, 0.6
   pt, dashed.
 - Y range symmetric around the reference, with 3–4 major ticks. The
@@ -318,7 +320,7 @@ lines unless `--connect` is given (B17).
 ### 2.11 Media and themes
 
 - **slides** (the default medium):
-  - 8×4.5 in, 14 pt base, line width 2.4, markers 7 pt.
+  - 8×5.84 in (aspect 0.73), 14 pt base, line width 2.4, markers 7 pt.
   - Sans type (DejaVu Sans, or Nimbus Sans/Heros when present), with math in
     the same face.
   - The plotipus frame: ticks in, mirrored, no grid. Titles are allowed.
