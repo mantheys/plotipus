@@ -46,9 +46,8 @@ plotipus run paper          <span class="c"># every command in input/plots/paper
           <a class="button ghost-link" href="#famous">Famous plots</a></p>
       </div>
       <div>
-        <img class="mascot light" src="images/mascot/mascot.png" width="600" height="438"
+        <img class="mascot" src="images/mascot/mascot.png" width="600" height="438"
              alt="The plotipus mascot: a cartoon platypus diving through a water disc, drawn by plotipus itself">
-        <img class="mascot dark" src="images/mascot/mascot-dark.png" width="600" height="438" alt="">
       </div>
     </section>
 
@@ -86,9 +85,9 @@ plotipus run paper          <span class="c"># every command in input/plots/paper
       </article>
       <article class="card finding">
         <span class="chips-b"><a class="chip" href="#gallery">map</a></span>
-        <p><b>Maps, contours and corner plots.</b> 2D histograms, hexbins and Δχ² grids with their confidence
-          regions; <code>--corner</code> draws every pair of variables on one shared colour scale.</p>
-        <a class="fig" href="#gallery"><img loading="lazy" src="images/options/corner.png" alt="Corner plot of the true and measured values of a log-normal sample and their ratio"></a>
+        <p><b>Posterior corner plots.</b> <code>--corner --contour</code> draws the credible regions of every
+          pair of parameters and their marginals, one colour per chain or experiment, from the samples.</p>
+        <a class="fig" href="#gallery"><img loading="lazy" src="images/options/posteriors.png" alt="Posterior corner plot of two experiments and their combination, one colour each"></a>
       </article>
       <article class="card finding">
         <span class="chips-b"><a class="chip" href="#famous">famous</a></span>
@@ -210,7 +209,7 @@ pd.DataFrame([
         <figure><img loading="lazy" src="images/mascot/shaded.png" alt="The mascot with light and shade">
           <figcaption><b>4. Light and shade.</b> <code>--select Layer … -s shade</code></figcaption></figure>
         <figure><img loading="lazy" src="images/mascot/mascot.png" alt="The finished mascot">
-          <figcaption><b>5. The mascot.</b> every layer</figcaption></figure>
+          <figcaption><b>5. The mascot.</b> every layer, <code>--transparent</code></figcaption></figure>
       </div>
       <pre><code>cd examples/mascot
 python make_mascot.py        <span class="c"># input/data/Mascot.pkl</span>

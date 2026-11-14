@@ -83,13 +83,7 @@ a:focus-visible, button:focus-visible { outline: 2px solid var(--accent); outlin
 .hero p { color: var(--text-secondary); max-width: 62em; margin: 6px 0; }
 .hero p.actions { margin-top: 14px; }
 .hero.split { display: grid; grid-template-columns: minmax(0, 1fr) 300px; gap: 8px 24px; align-items: center; }
-.hero.split .mascot { width: 100%; border-radius: 8px; }
-:root:not([data-theme="dark"]) .mascot.dark { display: none; }
-:root[data-theme="dark"] .mascot.light { display: none; }
-@media (prefers-color-scheme: dark) {
-  :root:not([data-theme="light"]) .mascot.dark { display: block; }
-  :root:not([data-theme="light"]) .mascot.light { display: none; }
-}
+.hero.split .mascot { width: 100%; }  /* a transparent PNG: it sits on the card in either theme */
 @media (max-width: 760px) { .hero.split { grid-template-columns: minmax(0, 1fr); } .hero.split .mascot { max-width: 260px; margin: 0 auto; } }
 
 .section-title { margin: 8px 0 0; font-size: 1.15rem; }
@@ -169,6 +163,7 @@ td:first-child { color: var(--text-primary); white-space: nowrap; }
 .strip { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(180px, 100%), 1fr)); gap: 10px; margin-top: 8px; }
 .strip figure, .pair figure { margin: 0; }
 .strip img, .pair img { display: block; width: 100%; border-radius: 6px; background: #fff; }
+.strip img[src$="mascot.png"] { background: transparent; }
 .strip figcaption, .pair figcaption { margin-top: 4px; font-size: 0.8rem; color: var(--text-muted); }
 .strip figcaption b, .pair figcaption b { color: var(--text-primary); }
 .pair { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }

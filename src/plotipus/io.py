@@ -627,10 +627,11 @@ def _save_style_record(figure_path, rendering):
 
 
 def save_figure_to_paths(fig, output_arg, output_file, default_output_dir=None, rprint_func=None, subfolder=None,
-                         sci_in_label=None, log_labels=None):
+                         sci_in_label=None, log_labels=None, transparent=False):
     """Save ``fig`` into every --output directory (or the default plot
     directory when none is given); ``sci_in_label`` and ``log_labels`` as in
-    :func:`plotipus.plot.finish_tick_labels`."""
+    :func:`plotipus.plot.finish_tick_labels`; ``transparent`` leaves the
+    figure and axes backgrounds out (--transparent)."""
     from .plot import (_shorten_title_to_fit, apply_measured_layout, attach_legends, finish_tick_labels, place_legends,
                        fix_cmr10_glyphs, separate_panel_tick_labels, settle_text_backgrounds, stagger_above_legends,
                        stagger_stacked_ylabels)
@@ -668,7 +669,7 @@ def save_figure_to_paths(fig, output_arg, output_file, default_output_dir=None, 
     for output_dir in _output_dirs(output_arg, default_dir, subfolder):
         os.makedirs(output_dir, exist_ok=True)
         full_path = os.path.join(output_dir, output_file)
-        fig.savefig(full_path)
+        fig.savefig(full_path, **({"transparent": True} if transparent else {}))
         rprint_func(f"[green]Success:[/green] Plot saved to:\n{full_path}")
         if rendering is not None and rendering.save_style:
             _save_style_record(full_path, rendering)

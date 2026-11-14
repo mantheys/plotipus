@@ -2,7 +2,23 @@
 
 ## Unreleased
 
-New options; every existing command renders as before.
+New options; every existing command renders as before, except the colorbar
+of `map --corner`, which is now as tall as the grid and as wide as the bar of
+a single plot (it was a hairline beside the lower rows).
+
+- `map --corner X1 X2 ... --contour`: a posterior corner plot. Below the
+  diagonal, the credible regions of each pair (`--contour_sigmas`; the
+  smallest regions holding 68.3, 95.4, ... % of the points), filled from the
+  sample's colour towards the paper; on the diagonal, the marginal density
+  of each variable, for a single sample with its median and central 68.3%
+  interval shaded and written above the panel (`--no_corner_titles`).
+  `--contour_hue COLUMN` overlays one sample per value (chains, experiments,
+  a combination) in its own colour, `--weight COLUMN` takes weighted samples,
+  and `--corner_truth V1 V2 ...` (`--corner_truth_label`) marks reference
+  values. The legend takes the empty upper triangle.
+- `--transparent` (every kind): saves the figure without its background. The
+  mascot of the README is drawn with it; `examples/mascot/dark` and
+  `mascot-dark.png` are gone.
 
 - `line --binned --compact`: `--panel_equal_width` (every panel as wide as the
   widest, each on its own x scale, with minor ticks per panel) and

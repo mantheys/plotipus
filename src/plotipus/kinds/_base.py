@@ -81,6 +81,9 @@ def add_output_args(parser):
     add("--filename_prefix", type=str, default=None, help="First part of the output file name.")
     add("--format", type=str, default=None, help="File format when --output_suffix has no extension (default png).")
     add("--show", action="store_true", default=False, help="Keep figures open (interactive use).")
+    add("--transparent", action="store_true", default=False,
+        help="Save with a transparent background (figure and axes) instead of the style's paper colour, "
+        "to place the figure on any background (PNG, PDF, SVG).")
     add_media_args(parser)
     add_header_args(parser)
     add_annotation_args(parser)

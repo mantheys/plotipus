@@ -1,7 +1,8 @@
 """Write the example data of input/plots/example_scripts.txt (and of the
 figures of docs/options.md): Distributions.pkl, and the files derived from
 it: the per-config files of the --configs example, Moments.pkl for the table
-and scalar-cell cat examples and Yields.pkl for the stacked cat example.
+and scalar-cell cat examples and Yields.pkl for the stacked cat example;
+and Posterior.pkl, the posterior samples of the corner-plot example.
 
     python make_data.py          # into input/data
     python make_data.py DIR      # into DIR (the gallery's data)
@@ -170,4 +171,28 @@ for row in frame[frame.Distribution == "Resonance"].itertuples():
         yields.append({"Region": region, "Sample": row.Sample, "Counts": float(np.sum(row.Counts[inside])),
                        "CountsError": float(np.sqrt(np.sum(row.CountsError[inside] ** 2)))})
 pd.DataFrame(yields).to_pickle(out / "Yields.pkl")
+# Posterior: samples of the three parameters of a peak fit (signal strength, mass and width; injected at
+# 1, 125 GeV and 2.4 GeV) as two experiments and their combination would report them, one row per
+# experiment with one array per parameter, for the posterior corner plot (map --corner --contour).
+# A resolves the mass, B the signal strength (which it trades against the width); the widths are
+# log-normal, so their marginals are skewed. The combination reweights nothing: it is drawn from the
+# product of the two Gaussian approximations.
+truth = np.array([1.0, 125.0, np.log(2.4)])
+experiments = {
+    "Experiment A": (np.array([0.06, -0.05, 0.03]), np.array([0.22, 0.25, 0.16]), {(0, 2): 0.55}),
+    "Experiment B": (np.array([-0.03, 0.12, -0.02]), np.array([0.12, 0.55, 0.22]), {(0, 2): -0.5, (1, 2): 0.3}),
+}
+posterior, precision, weighted_mean = [], np.zeros((3, 3)), np.zeros(3)
+for experiment, (shift, sigma, correlations) in experiments.items():
+    correlation = np.eye(3)
+    for (i, j), rho in correlations.items():
+        correlation[i, j] = correlation[j, i] = rho
+    covariance = correlation * np.outer(sigma, sigma)
+    precision += np.linalg.inv(covariance)
+    weighted_mean += np.linalg.inv(covariance) @ (truth + shift)
+    posterior.append((experiment, rng.multivariate_normal(truth + shift, covariance, 40000)))
+combined = np.linalg.inv(precision)
+posterior.append(("Combined", rng.multivariate_normal(combined @ weighted_mean, combined, 40000)))
+pd.DataFrame([{"Experiment": experiment, "Strength": draws[:, 0], "Mass": draws[:, 1], "Width": np.exp(draws[:, 2])}
+              for experiment, draws in posterior]).to_pickle(out / "Posterior.pkl")
 print(f"Example data written to {out}")
