@@ -2,7 +2,29 @@
 
 ## Unreleased
 
-New options; every existing command renders as before.
+New options; every existing command renders as before, except the colorbar
+of `map --corner`, which is now as tall as the grid and as wide as the bar of
+a single plot (it was a hairline beside the lower rows).
+
+- `map --corner X1 X2 ... --contour`: a posterior corner plot. Below the
+  diagonal, the credible regions of each pair (`--contour_sigmas`; the
+  smallest regions holding 68.3, 95.4, ... % of the points), filled from the
+  sample's colour towards the paper; on the diagonal, the marginal density
+  of each variable, for a single sample with its median and central 68.3%
+  interval shaded and written above the panel (`--no_corner_titles`).
+  `--contour_hue COLUMN` overlays one sample per value (chains, experiments,
+  a combination) in its own colour, `--weight COLUMN` takes weighted samples,
+  and `--corner_truth V1 V2 ...` (`--corner_truth_label`) marks reference
+  values. The legend takes the empty upper triangle.
+- The web medium (`open`, `open-dark`) states its sizing like slides and
+  paper: `lower_panels: share` (as before, by default) and `facet_columns: 2`,
+  so a row of three or more facets wraps into rows of two instead of growing
+  to three plots' width. The style renders of `docs/design/styles` are redrawn
+  at the sizes the styles have had since 0.1.0 (a lower panel no longer makes
+  them taller).
+- `--transparent` (every kind): saves the figure without its background. The
+  mascot of the README is drawn with it; `examples/mascot/dark` and
+  `mascot-dark.png` are gone.
 
 - `line --binned --compact`: `--panel_equal_width` (every panel as wide as the
   widest, each on its own x scale, with minor ticks per panel) and
@@ -96,7 +118,7 @@ The bug fixes below stay fixed under `classic`.
 ### Styles (T16)
 
 - The default style is `slides`: the plotipus language (ticks in on four
-  sides, no grid, frameless legends, Petroff-10 colours) on an 8 × 4.5 in
+  sides, no grid, frameless legends, Petroff-10 colours) on an 8 × 5.84 in
   slide at 14 pt sans. The other names are `slides-dark`, `paper` (a 3.4 in
   journal column at 8 pt Computer Modern, no titles), `paper-dark`, `open`
   (L-shaped frame, ticks out, a faint y grid; 8 in at 96 dpi), `open-dark`

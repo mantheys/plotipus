@@ -150,17 +150,16 @@ strokes:
 plotipus line --datafile Mascot -x X -y Y --hue Part \
     --plot_type fill --plot_type_column Mode \
     --color_column Face --edgecolor_column Edge --linewidth_column Width \
-    --no_legend --axis equal off --rangex -5.6 5.6 --rangey -5.6 5.6 --title None
+    --no_legend --axis equal off --rangex -5.6 5.6 --rangey -5.6 5.6 --title None \
+    --transparent
 ```
 
 <img src="images/mascot/mascot.png" width="420" alt="The finished plotipus mascot">
 
-The README shows the same command on a black background in dark mode. That
-version is in `examples/mascot/dark`, a two-file project that reads the same
-data and adds a style overlay, `dark.json`. The overlay sets the figure and
-axes background (`figure.facecolor`, `axes.facecolor`, `savefig.facecolor`)
-and the `ink` and `paper` colour roles. The data and the command are
-unchanged.
+**`--transparent`** saves the figure without its background, so the mascot
+sits on any page: this file is the one the README shows, in light and in
+dark mode. Every kind takes it, for figures that go on a coloured slide or a
+poster.
 
 ## What you used
 

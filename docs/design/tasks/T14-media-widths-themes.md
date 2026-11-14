@@ -53,7 +53,10 @@ ships the style files that the plumbing selects.
    - The preset table lives in style.json (`"widths"`, `"aspect"`), as in
      [style_spec.md §4](../style_spec.md).
    - A row of N panels shares the width, and lower panels add height (30%
-     of the upper panel each) instead of squeezing.
+     of the upper panel each) instead of squeezing. *Superseded on
+     2026-10-27 (style_spec §2.1, style guide L2 and L3): lower panels share
+     the figure's height in every medium, and side-by-side panels are facets
+     that widen the figure; `"lower_panels": "add"` keeps this behaviour.*
    - Remove `panel_font_scale`. Text is never scaled to compensate (spec
      §2.1). With `fixed_margins` (classic), keep the old behaviour.
 5. **Output folders.**
@@ -84,7 +87,8 @@ ships the style files that the plumbing selects.
 - `[project] media = ["slides", "paper"]` writes two files per command, in
   `output/plots/` and `output/plots/paper/`.
 - A two-panel figure at `double` is 6.8 in wide.
-- Adding `--lower ratio` increases the height by 30% of the upper panel.
+- ~~Adding `--lower ratio` increases the height by 30% of the upper panel.~~
+  Superseded: the figure keeps its size (see above).
 
 ## Done when
 

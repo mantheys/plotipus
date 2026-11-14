@@ -2,7 +2,7 @@
 #   make          clean, then toy data, plots and tables
 #   make clean    delete generated data and outputs (both gitignored)
 #   make docs     the example figures, copied to docs/images/options for docs/options.md
-#   make mascot   draw the mascot (docs/tutorial.md, and on black for the README) into docs/images/mascot
+#   make mascot   draw the mascot (docs/tutorial.md; the finished one is transparent, for the README) into docs/images/mascot
 #   make famous   the famous-plot reproductions for slides and paper; the README gallery (paper) goes to docs/images/famous,
 #                 the style guide's before/after pairs (with famous/restyled) to docs/images/styleguide
 #   make gallery  one example per working catalogue row (examples/gallery), with the page gallery/output/gallery.md
@@ -34,8 +34,6 @@ mascot:
 	cd mascot && $(PYTHON) make_mascot.py && rm -rf output && $(PLOTIPUS) run mascot
 	mkdir -p ../docs/images/mascot
 	for f in mascot/output/plots/*.png; do cp "$$f" "../docs/images/mascot/$${f##*_}"; done
-	cd mascot/dark && rm -rf output && $(PLOTIPUS) run mascot
-	cp mascot/dark/output/plots/*_dark.png ../docs/images/mascot/mascot-dark.png
 
 # The famous plots (examples/famous) for slides and, with --medium paper, at one paper-column size;
 # the README gallery is a selection of the paper renders, renamed.
@@ -78,6 +76,6 @@ gallery:
 	cd gallery && $(PYTHON) make_data.py && rm -rf output && $(PYTHON) make_page.py
 
 clean:
-	rm -rf output mascot/output mascot/dark/output famous/output famous/restyled/output gallery/output
+	rm -rf output mascot/output famous/output famous/restyled/output gallery/output
 	rm -f input/data/*.pkl mascot/input/data/*.pkl famous/input/data/*.pkl gallery/input/data/*.pkl
 	rm -f gallery/input/famous_mappings.json

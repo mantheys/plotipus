@@ -33,7 +33,7 @@ depends on are merged.
 | 5 | ~~T14 media, widths and themes~~ → ~~T15 legends~~ | both build on T13's layout |
 | 6 | ~~T16 ship the styles~~ → ~~T17 experiments and watermarks~~ | the new defaults land here |
 | 7 | ~~T18 stacking/overlay~~ → ~~T19 Poisson/CP errors~~ · ~~T21 series type~~ → ~~T20 bands and σ lines~~ | the HEP essentials; T18–T21 all edit `line.py`/`plot.py`, so overlap them only with care |
-| 8 | T22 backlog items (each item can be its own session) · T23 examples gallery (grows from wave 2 on) | breadth |
+| 8 | T22 backlog items (each item can be its own session) · T23 examples gallery (grows from wave 2 on) · T25 statistical-inference items (one session per item) | breadth |
 
 ```
 T̶0̶1̶ ─┬─ T̶0̶2̶ ── T̶0̶9̶
@@ -125,3 +125,4 @@ Struck through: done and merged into `main`.
 | [T22](T22-backlog.md) | Breadth backlog (one session per item) | 8 | — | low |
 | [T23](T23-examples-gallery.md) | New examples and gallery | 2→8 | M | low |
 | [T24](T24-famous-plots-data.md) | Synthetic datasets for famous plots | 0→ | M | none |
+| [T25](T25-statistical-inference.md) | Statistical inference backlog: Bayesian and likelihood analyses (one session per item; T25.1, the posterior corner plot, is done) | 8 | — | low |

@@ -565,3 +565,21 @@ def test_title_case_keeps_units_after_numbers():
     assert _title_case_words("12 - 35 kpc") == "12 - 35 kpc"
     assert _title_case_words("whitened strain") == "Whitened Strain"
     assert _title_case_words("energy above 2 GeV only") == "Energy Above 2 GeV Only"
+
+
+def test_transparent_saves_without_background(tmp_path):
+    """--transparent: the figure and axes backgrounds are left out of the file; the default keeps the paper."""
+    import matplotlib.pyplot as plt
+    from matplotlib.image import imread
+
+    from plotipus.io import save_figure_to_paths
+    from plotipus.kinds import line
+
+    assert line.build_parser().parse_args(["--datafile", "x", "-y", "Y", "--transparent"]).transparent
+    for transparent, alpha in ((True, 0.0), (False, 1.0)):
+        fig, ax = plt.subplots()
+        ax.plot([0, 1], [0, 1])
+        save_figure_to_paths(fig, [str(tmp_path)], f"figure_{transparent}.png", transparent=transparent)
+        plt.close(fig)
+        image = imread(tmp_path / f"figure_{transparent}.png")
+        assert image[5, 5, 3] == alpha and image[image.shape[0] // 4, image.shape[1] // 2, 3] == alpha

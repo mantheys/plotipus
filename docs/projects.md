@@ -57,8 +57,8 @@ rcParams, to `<figure>.style.json`.
   panel has the size of one without (`"add"` makes each add 30% of the upper
   height). Several panels side by side are facets by default: each adds
   `facet_width` (1.0) of one plot's width, at one plot's height, so two
-  slide facets are 16 × 5.84 in. Past `facet_columns` (2 in slides and
-  paper) a row wraps: three slide facets are two rows of two, 16 × 11.7 in.
+  slide facets are 16 × 5.84 in. Past `facet_columns` (2 in every
+  medium) a row wraps: three slide facets are two rows of two, 16 × 11.7 in.
   `--panel_grid` and `--facet_row` with `--facet_col` keep their grid. `--layout panels` keeps
   one plot's size and splits it into touching panels sharing the y axis;
   it is the paper default, since the page width is fixed. Text is never scaled for more

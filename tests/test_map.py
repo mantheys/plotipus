@@ -734,3 +734,95 @@ def test_contour_hue_takes_the_registered_colours(make_project, tmp_path):
                    "--contour_hue", "Dataset", "--contour_sigmas", "1"])
     lines = [c for c in figures[0].axes[0].collections if type(c).__name__ == "QuadContourSet" and not c.filled]
     assert [to_hex(c.get_edgecolor()[0]) for c in lines] == [to_hex(current_colors()[3]), to_hex(current_colors()[5])]
+
+
+# --- Posterior corner plots (--corner --contour) --------------------------------------
+
+
+def _posterior_frame():
+    rng = np.random.default_rng(11)
+    rows = []
+    for name, shift in (("A", 0.0), ("B", 1.0)):
+        draws = rng.multivariate_normal([shift, 5.0, 0.0], [[1.0, 0.6, 0.0], [0.6, 1.0, 0.0], [0.0, 0.0, 4e-10]], 20000)
+        rows.append({"Chain": name, "P": draws[:, 0], "Q": draws[:, 1], "Tiny": 7.5e-5 + draws[:, 2], "W": np.ones(20000)})
+    return pd.DataFrame(rows)
+
+
+def _posterior(make_project, *argv):
+    make_project({"Chains": _posterior_frame()})
+    figures = _capture()
+    map_kind.main(["--datafile", "Chains", "--corner", "P", "Q", "--contour", *argv])
+    return figures
+
+
+def _corner_grid(fig):
+    panels = [ax for ax in fig.axes if not hasattr(ax, "_colorbar") and ax.axison]
+    return {(ax.get_subplotspec().rowspan.start, ax.get_subplotspec().colspan.start): ax for ax in panels}
+
+
+def test_posterior_corner_regions_marginals_and_titles(make_project):
+    (fig,) = _posterior(make_project, "--select", "Chain", "-s", "A", "--contour_sigmas", "1", "2",
+                        "--corner_labels", "p", "q (GeV)", "--corner_truth", "0", "5")
+    assert not [ax for ax in fig.axes if hasattr(ax, "_colorbar")]  # credible regions need no colour scale
+    grid = _corner_grid(fig)
+    assert set(grid) == {(0, 0), (1, 0), (1, 1)}
+    # The median and the central 68.3% interval above each diagonal panel, the unit after the value.
+    values = _posterior_frame()["Q"].iloc[0]
+    low, median, high = np.percentile(values, [15.865, 50, 84.135])
+    assert grid[1, 1].get_title() == f"q = ${median:.2f}^{{+{high - median:.2f}}}_{{-{median - low:.2f}}}$ GeV"
+    assert grid[0, 0].get_title().startswith("p = $")
+    assert grid[0, 0].get_ylabel() == "" and grid[1, 0].get_ylabel() == "q (GeV)"
+    # The filled 68.3% region holds 68.3% of the points (to the binning and smoothing).
+    from matplotlib.path import Path as MplPath
+
+    filled, outlines = grid[1, 0].collections[:2]
+    inner = filled.get_paths()[-1]
+    points = np.column_stack([_posterior_frame()["P"].iloc[0], values])
+    inside = np.zeros(len(points), dtype=bool)
+    for polygon in inner.to_polygons():
+        inside |= MplPath(polygon).contains_points(points)
+    assert abs(inside.mean() - 0.683) < 0.03
+    # Truth lines in every panel of their variable, a marker where two meet; all named in the legend.
+    assert grid[0, 0].lines[-1].get_xdata()[0] == 0 and len(grid[1, 0].lines) == 3
+    (holder,) = [ax for ax in fig.axes if not ax.axison]
+    assert [t.get_text() for t in holder.get_legend().get_texts()] == ["68.3%", "95.4%", "Truth"]
+
+
+def test_posterior_corner_overlays_hue_values(make_project):
+    (fig,) = _posterior(make_project, "--contour_hue", "Chain", "--contour_sigmas", "1", "--weight", "W")
+    grid = _corner_grid(fig)
+    assert len(grid[1, 0].collections) == 4  # a filled set and its outline per chain
+    faces = [grid[1, 0].collections[i].get_facecolor()[0] for i in (0, 2)]
+    assert not np.allclose(faces[0][:3], faces[1][:3]) and np.isclose(faces[0][3], 0.6)
+    assert grid[0, 0].get_title() == ""  # several samples: no single summary to write
+    (holder,) = [ax for ax in fig.axes if not ax.axison]
+    assert [t.get_text() for t in holder.get_legend().get_texts()] == ["A", "B", "68.3%"]
+    # Both chains fit the shared range of each variable.
+    assert grid[0, 0].get_xlim()[0] < -2 and grid[0, 0].get_xlim()[1] > 3
+
+
+def test_posterior_corner_helpers_and_errors(make_project, capsys):
+    values = np.arange(1.0, 101.0)
+    assert np.allclose(map_kind.weighted_quantiles(values, None, [0.5]), [50.5])
+    # A weight of zero removes a point; doubling the weights changes nothing.
+    weights = np.where(values > 50, 0.0, 2.0)
+    assert np.allclose(map_kind.weighted_quantiles(values, weights, [0.5]), [25.5])
+    assert map_kind.credible_text(1.0, 1.2, 1.5) == "$1.20^{+0.30}_{-0.20}$"
+    assert map_kind.credible_text(7.3e-5, 7.5e-5, 7.8e-5) == r"$(7.50^{+0.30}_{-0.20}) \times 10^{-5}$"
+    assert map_kind._split_unit("$m$ [GeV]") == ("$m$", "GeV") and map_kind._split_unit("p") == ("p", None)
+    assert _posterior(make_project) == [] and "--contour_hue" in capsys.readouterr().out  # two rows, no hue
+    make_project({"Chains": _posterior_frame()})
+    assert not map_kind.main(["--datafile", "Chains", "--corner", "P", "Q", "--weight", "W"])
+    assert "--weight" in capsys.readouterr().out
+    assert not map_kind.main(["--datafile", "Chains", "--corner", "P", "Q", "--contour_hue", "Chain"])
+
+
+def test_corner_colorbar_spans_the_grid(make_project):
+    (fig,) = _corner(make_project)
+    fig.canvas.draw()
+    (cbar,) = [ax for ax in fig.axes if hasattr(ax, "_colorbar")]
+    grid = _corner_grid(fig)
+    bar, top, bottom = cbar.get_position(), grid[0, 0].get_position(), grid[2, 2].get_position()
+    assert np.isclose(bar.y1, top.y1, atol=0.01) and np.isclose(bar.y0, bottom.y0, atol=0.01)
+    # As wide as the bar of a single plot: 1.5 panels' share for three columns.
+    assert np.isclose(bar.width, 0.04 * 1.5 * bottom.width, rtol=0.05)

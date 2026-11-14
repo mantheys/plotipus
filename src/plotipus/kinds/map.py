@@ -32,6 +32,7 @@ from matplotlib.colors import LogNorm, Normalize, PowerNorm, to_rgb, to_rgba
 from matplotlib.lines import Line2D
 from matplotlib.patches import Patch
 from matplotlib.path import Path
+from matplotlib.ticker import MaxNLocator
 from rich import print as rprint
 
 from .. import style
@@ -112,9 +113,19 @@ def build_parser():
         "both take --logz, --rangez, --cmap, --zpower and the colorbar options.")
     add("--corner", nargs="+", default=None, metavar="VARIABLE",
         help="Corner plot of these array columns (instead of -x/-y): an N x N grid with the 2D histogram of each "
-        "pair below the diagonal, the histogram of each variable on the diagonal and the upper triangle empty.")
+        "pair below the diagonal, the histogram of each variable on the diagonal and the upper triangle empty. "
+        "With --contour, a posterior corner plot: credible regions (--contour_sigmas) and marginal densities "
+        "with their median and 68.3%% interval, one colour per --contour_hue value.")
     add("--corner_labels", nargs="+", type=parse_plot_label, default=None, metavar="LABEL",
         help="Axis label of each --corner variable (default: the column names).")
+    add("--corner_truth", nargs="+", type=float, default=None, metavar="VALUE",
+        help="Reference value of each --corner variable (the injected or true value; 'nan' for none): a line "
+        "across its panels and a marker where two meet.")
+    add("--corner_truth_label", type=parse_plot_label, default="Truth", help="Legend label of the --corner_truth lines.")
+    add("--no_corner_titles", action="store_true", default=False,
+        help="With --corner --contour: do not write the median and 68.3%% interval above each diagonal panel.")
+    add("--weight", type=str, default=None, metavar="COLUMN",
+        help="With --corner --contour: column of per-point weights (weighted posterior samples).")
     add("--diagonal", action="store_true", default=False, help="Draw the y = x line.")
     add("--cmap", type=str, default=None,
         help="Matplotlib colour map of -z images; 'diverging' is the style's map for signed values "
@@ -527,30 +538,165 @@ def draw_corner_diagonal(ax, values, edges):
     ax.set_ylim(0, 1.1 * high.max())
 
 
+# The central 68.3% interval of a marginal: the 1 sigma quantiles around the median.
+CREDIBLE_QUANTILES = (0.15865525393145707, 0.5, 0.8413447460685429)
+
+
+def weighted_quantiles(values, weights, quantiles):
+    """Quantiles of weighted values (unit weights for None): the weighted
+    ECDF taken at each value's mid-weight, interpolated."""
+    order = np.argsort(values)
+    values = np.asarray(values, dtype=float)[order]
+    weights = np.ones(len(values)) if weights is None else np.asarray(weights, dtype=float)[order]
+    cumulative = (np.cumsum(weights) - 0.5 * weights) / weights.sum()
+    return np.interp(quantiles, cumulative, values)
+
+
+def corner_samples(subset, args):
+    """The samples of a corner plot, each a dict (label, color, columns,
+    weights): the one row of arrays; with --contour and --contour_hue, one
+    sample per value of that column (its rows joined), overlaid in the
+    panels. None, after an error message, when the rows do not fit."""
+    hue = args.contour_hue if args.contour else None
+    if hue is None and len(subset) != 1:
+        rprint(f"[red]Error:[/red] --corner needs one row of arrays, found {len(subset)} "
+               f"(narrow it with --select or --configs/--names"
+               + (", or overlay the rows with --contour_hue COLUMN)" if args.contour else ")"))
+        return None
+    groups = [(None, subset)] if hue is None else [(value, subset[subset[hue] == value]) for value in pd.unique(subset[hue])]
+    join = lambda cells: np.concatenate([np.asarray(cell, dtype=float).ravel() for cell in cells])  # noqa: E731
+    allocator = ColorAllocator()
+    if hue is not None:
+        allocator.reserve([value for value, _ in groups], lambda value: hue_color(value, args, hue))
+    samples, dropped, total = [], 0, 0
+    for value, frame in groups:
+        columns = [join(frame[variable].values) for variable in args.corner]
+        weights = join(frame[args.weight].values) if args.weight else None
+        if len({len(c) for c in columns} | ({len(weights)} if weights is not None else set())) != 1:
+            rprint(f"[red]Error:[/red] --corner: the arrays of {', '.join(args.corner)}"
+                   + (f" and {args.weight}" if args.weight else "") + " differ in length"
+                   + (f" for {hue} = {value}" if hue is not None else ""))
+            return None
+        valid = np.logical_and.reduce([np.isfinite(c) for c in columns] + ([np.isfinite(weights)] if weights is not None else []))
+        dropped, total = dropped + int((~valid).sum()), total + len(valid)
+        if not valid.any():
+            continue
+        samples.append({
+            "label": None if value is None else map_iterable_label(value, hue, args.iterable_mapping),
+            "color": allocator.color_for(value if hue is not None else "sample"),
+            "columns": [c[valid] for c in columns],
+            "weights": weights[valid] if weights is not None else None,
+        })
+    if dropped:
+        rprint(f"[yellow]Warning:[/yellow] Dropping {dropped} non-finite entries out of {total}")
+    if not samples:
+        rprint("[red]Error:[/red] --corner: no finite entries to draw")
+        return None
+    return samples
+
+
+def credible_fractions(args):
+    """Content of the --contour_sigmas regions of sampled points (68.3, 95.4
+    and 99.7% with 2 dof; 39.3, 86.5 and 98.9% with --contour_dof 1), innermost first."""
+    from scipy.stats import chi2
+
+    sigmas = sorted(set(float(s) for s in args.contour_sigmas if np.isfinite(s)))
+    return [float(chi2.cdf(level, 2)) for level in contour_levels(sigmas, "sigma_probability", args.contour_dof)]
+
+
+def draw_corner_regions(ax, sample, c, r, xedges, yedges, fractions, args, alpha):
+    """Credible regions of one sample in the (c, r) panel: the smallest
+    regions holding each fraction of its (weighted) points, from the 2D
+    histogram smoothed by --contour_smoothing_sigma bins (default 1), filled
+    from the sample's colour (innermost) towards the paper, with outlines."""
+    counts, _, _ = np.histogram2d(sample["columns"][c], sample["columns"][r], bins=[xedges, yedges], weights=sample["weights"])
+    density = _smooth(counts, args.contour_smoothing_sigma or 1.0)
+    thresholds = sample_region_thresholds(density, fractions)
+    levels = sorted(set(t for t in thresholds if np.isfinite(t) and 0 < t < density.max()))  # outermost first
+    if not levels:
+        return
+    xc, yc = 0.5 * (xedges[1:] + xedges[:-1]), 0.5 * (yedges[1:] + yedges[:-1])
+    bands = sample["bands"][:len(levels)][::-1]
+    ax.contourf(xc, yc, density.T, levels=levels + [np.inf], colors=bands, alpha=alpha, zorder=2)
+    ax.contour(xc, yc, density.T, levels=levels, colors=[sample["color"]], linewidths=0.6 * args.contour_linewidth,
+               linestyles="solid", zorder=2.5)
+
+
+def draw_corner_marginal(ax, sample, index, edges, interval=True):
+    """Marginal of one variable: the (weighted) density as a step outline in
+    the sample's colour; with ``interval`` (a single sample), shaded over its
+    central 68.3% interval, with a line at the median. Returns (low, median,
+    high, peak density)."""
+    values, weights, color = sample["columns"][index], sample["weights"], sample["color"]
+    density, _ = np.histogram(values, bins=edges, weights=weights, density=True)
+    density = np.nan_to_num(density)
+    low, median, high = weighted_quantiles(values, weights, CREDIBLE_QUANTILES)
+    height = lambda x: density[np.clip(np.searchsorted(edges, x, side="right") - 1, 0, len(density) - 1)]  # noqa: E731
+    inside = np.linspace(max(low, edges[0]), min(high, edges[-1]), 400)
+    if interval:
+        ax.fill_between(inside, height(inside), color=color, alpha=0.25, linewidth=0)
+        ax.plot([median, median], [0, float(height(median))], color=color, linewidth=1.0)
+    ax.stairs(density, edges, color=color, linewidth=1.2)
+    return low, median, high, float(density.max())
+
+
+def _split_unit(label):
+    """('E', 'GeV') for 'E (GeV)' or 'E [GeV]'; (label, None) without a unit."""
+    import re
+
+    match = re.match(r"^(.*\S)\s*[(\[]([^()\[\]]+)[)\]]\s*$", label or "")
+    return (match.group(1), match.group(2)) if match else (label, None)
+
+
+def credible_text(low, median, high):
+    """'$1.20^{+0.10}_{-0.11}$': the median with the distances to the
+    interval's ends, to two significant figures of the smaller one, with a
+    common power of ten for very small or large values."""
+    up, down = high - median, median - low
+    scale = max(abs(median), up, down)
+    exponent = int(np.floor(np.log10(scale))) if scale > 0 and not 1e-3 <= scale < 1e4 else 0
+    median, up, down = (v / 10.0**exponent for v in (median, up, down))
+    sides = [s for s in (up, down) if s > 0]
+    decimals = int(np.clip(1 - np.floor(np.log10(min(sides))), 0, 6)) if sides else 2
+    text = f"{median:.{decimals}f}^{{+{up:.{decimals}f}}}_{{-{down:.{decimals}f}}}"
+    return f"$({text}) \\times 10^{{{exponent}}}$" if exponent else f"${text}$"
+
+
+def corner_truths(args, n):
+    """--corner_truth as one value per variable (NaN: none)."""
+    values = list(args.corner_truth or [])
+    if len(values) > n:
+        rprint(f"[yellow]Warning:[/yellow] --corner_truth: {len(values)} values for {n} variables; the last ones are ignored")
+    return [values[i] if i < len(values) else np.nan for i in range(n)]
+
+
 def draw_corner_figure(rows, args, kdx):
-    """--corner X1 ... XN: an N x N grid, the 2D histogram of (Xc, Xr) at row
-    r, column c below the diagonal, the histogram of Xr on the diagonal, the
-    upper triangle empty. Panels share x down each column and y along each
-    row (the diagonal keeps its counts axis); labels on the outer panels only;
-    one colour scale and colorbar for every 2D panel."""
+    """--corner X1 ... XN: an N x N grid, the pair (Xc, Xr) at row r, column c
+    below the diagonal, Xr alone on the diagonal, the upper triangle empty.
+    Panels share x down each column and y along each row; labels on the outer
+    panels only.
+
+    * Histograms (default): the 2D histogram of each pair on one colour scale
+      with one colorbar, the counts of each variable (with their Garwood
+      band) on the diagonal, which keeps its counts axis.
+    * Posterior samples (--contour): the credible regions of each pair
+      (--contour_sigmas), the marginal density of each variable with its
+      median and central 68.3% interval on the diagonal for a single sample
+      (written above it), --contour_hue samples overlaid in their colours, and
+      --corner_truth lines; the legend takes the empty upper triangle."""
     from ..plot import apply_common_figure_margins, apply_panel_font_scale
 
     variables = args.corner
     subset = filter_dataframe(rows, args)
-    if len(subset) != 1:
-        rprint(f"[red]Error:[/red] --corner needs one row of arrays, found {len(subset)} "
-               f"(narrow it with --select or --configs/--names)")
+    samples = corner_samples(subset, args)
+    if samples is None:
         return None
-    columns = [np.asarray(subset[v].values[0], dtype=float) for v in variables]
-    valid = np.logical_and.reduce([np.isfinite(c) for c in columns])
-    if not valid.all():
-        rprint(f"[yellow]Warning:[/yellow] Dropping {(~valid).sum()} non-finite entries out of {len(valid)}")
-    columns = [c[valid] for c in columns]
-    edges = [corner_edges(c, args) for c in columns]
+    n = len(variables)
+    edges = [corner_edges(np.concatenate([s["columns"][i] for s in samples]), args) for i in range(n)]
     labels = list(args.corner_labels or [])
     labels = [labels[i] if i < len(labels) else resolve_axis_label(None, v, subset) for i, v in enumerate(variables)]
+    posterior = args.contour
 
-    n = len(variables)
     apply_panel_font_scale(1)
     fig = plt.figure(figsize=corner_figure_size(n))
     # Rows as far apart as the measured layout puts the columns (its pad), close enough to read as one figure.
@@ -565,20 +711,48 @@ def draw_corner_figure(rows, args, kdx):
             sharey = axes[r][0] if 0 < c < r else None
             axes[r][c] = fig.add_subplot(grid[r, c], sharex=sharex, sharey=sharey)
 
-    mappables = []
+    mappables, fractions = [], []
+    if posterior:
+        fractions = credible_fractions(args)
+        mix = fill_mix(len(fractions))
+        for sample in samples:
+            sample["bands"] = [mix_paper(sample["color"], m) for m in mix]
+        alpha = 1.0 if len(samples) == 1 else 0.6  # overlaid samples show through each other
     for r in range(n):
         for c in range(r + 1):
             ax = axes[r][c]
-            if r == c:
-                draw_corner_diagonal(ax, columns[r], edges[r])
-                continue
-            x_range, y_range = (edges[c][0], edges[c][-1]), (edges[r][0], edges[r][-1])
-            if args.map_type == "hexbin":
-                mappables.append(draw_hexbin(ax, columns[c], columns[r], x_range, y_range, args,
-                                             gridsize=len(edges[c]) - 1))
+            if r == c and posterior:
+                summaries = [draw_corner_marginal(ax, sample, r, edges[r], interval=len(samples) == 1) for sample in samples]
+                ax.set_ylim(0, 1.1 * max(s[3] for s in summaries))
+                if len(samples) == 1 and not args.no_corner_titles:
+                    name, unit = _split_unit(labels[r])
+                    ax.set_title(f"{name} = {credible_text(*summaries[0][:3])}" + (f" {unit}" if unit else ""),
+                                 fontsize=plt.rcParams["xtick.labelsize"])
+            elif r == c:
+                draw_corner_diagonal(ax, samples[0]["columns"][r], edges[r])
+            elif posterior:
+                for sample in samples:
+                    draw_corner_regions(ax, sample, c, r, edges[c], edges[r], fractions, args, alpha)
             else:
-                mappables.append(draw_hist2d(ax, columns[c], columns[r], x_range, y_range, args,
-                                             bins=[edges[c], edges[r]])[1])
+                x, y = samples[0]["columns"][c], samples[0]["columns"][r]
+                x_range, y_range = (edges[c][0], edges[c][-1]), (edges[r][0], edges[r][-1])
+                if args.map_type == "hexbin":
+                    mappables.append(draw_hexbin(ax, x, y, x_range, y_range, args, gridsize=len(edges[c]) - 1))
+                else:
+                    mappables.append(draw_hist2d(ax, x, y, x_range, y_range, args, bins=[edges[c], edges[r]])[1])
+
+    truths = corner_truths(args, n)
+    ink = style.role("ink")
+    for r in range(n):
+        for c in range(r + 1):
+            ax = axes[r][c]
+            if np.isfinite(truths[c]):
+                ax.axvline(truths[c], color=ink, linewidth=0.9, zorder=OVERLAY_ZORDER)
+            if r != c and np.isfinite(truths[r]):
+                ax.axhline(truths[r], color=ink, linewidth=0.9, zorder=OVERLAY_ZORDER)
+                if np.isfinite(truths[c]):
+                    ax.plot([truths[c]], [truths[r]], marker="s", markersize=3.5, color=ink, linestyle="none", zorder=OVERLAY_ZORDER)
+
     for r in range(n):
         for c in range(r + 1):
             ax = axes[r][c]
@@ -592,14 +766,19 @@ def draw_corner_figure(rows, args, kdx):
             if c == 0 and r > 0:
                 ax.set_ylabel(labels[r])
             elif r == c:
-                # The counts of a diagonal panel are not the row's variable: unlabelled, except the first.
-                if r == 0 and n > 1:
+                # The counts of a diagonal panel are not the row's variable: unlabelled, except the first
+                # (a posterior's density has no scale worth reading: never labelled).
+                if r == 0 and n > 1 and not posterior:
                     ax.set_ylabel("Counts")
                 else:
                     ax.tick_params(which="both", labelleft=False)
             else:
                 ax.tick_params(which="both", labelleft=False)
             apply_tick_formatter(ax, axis="both")
+            if posterior:
+                # Small panels of narrow ranges: few ticks, so that "124.75" and "125.00" do not touch.
+                for axis in (ax.xaxis, ax.yaxis) if r != c else (ax.xaxis,):
+                    axis.set_major_locator(MaxNLocator(nbins=5, steps=[1, 2, 2.5, 5, 10]))
 
     if mappables and colorbar_mode(args) != "none":
         for mappable in mappables:
@@ -610,12 +789,36 @@ def draw_corner_figure(rows, args, kdx):
         for mappable in mappables:
             mappable.set_norm(norm)
         label = args.labelz or (NORM_LABELS["global"] if args.norm else "Density" if args.density else "Counts")
-        # Right of the grid, beside the rows holding 2D panels.
-        add_colorbar(fig, mappables[0], [axes[r][c] for r in range(1, n) for c in range(r + 1)], label)
+        # Right of the grid, as tall as it, and as wide as the bar of a single plot (the panels are 1/n of the
+        # figure, which is two plots wide: a bar of one panel's share would be a hairline).
+        add_colorbar(fig, mappables[0], [axes[r][c] for r in range(n) for c in range(r + 1)], label, width=n / 2)
         _power_ticks(mappables[0], args)
+
+    handles = corner_legend_handles(samples, fractions, truths, args) if posterior or np.isfinite(truths).any() else []
+    if handles:
+        # The empty upper triangle holds the legend, in a panel of its own so that the layout moves it with the grid.
+        holder = fig.add_subplot(grid[0, n - 1])
+        holder.set_axis_off()
+        holder.legend(handles=handles, loc="upper right", borderaxespad=0.0, frameon=False)
 
     add_title_and_note(fig, args)
     return save(fig, args, kdx, suffix="corner.png")
+
+
+def corner_legend_handles(samples, fractions, truths, args):
+    """One patch per overlaid sample, one per credible level (in the single
+    sample's colour, or in the muted colour when several share them) and the
+    truth line."""
+    handles = []
+    if len(samples) > 1:
+        handles += [Patch(facecolor=s["bands"][0], edgecolor=s["color"], label=s["label"]) for s in samples]
+    if fractions:
+        base = samples[0]["color"] if len(samples) == 1 else style.role("muted")
+        handles += [Patch(facecolor=mix_paper(base, m), edgecolor=base, label=f"{100 * f:.1f}%")
+                    for f, m in zip(fractions, fill_mix(len(fractions)))]
+    if np.isfinite(truths).any():
+        handles.append(Line2D([0], [0], color=style.role("ink"), linewidth=0.9, marker="s", markersize=3.5, label=args.corner_truth_label))
+    return handles
 
 
 def draw_hist2d(ax, x, y, x_range, y_range, args, bins=None):
@@ -1648,10 +1851,16 @@ def run(args):
             rprint("[red]Error:[/red] --corner needs two or more columns of the data"
                    + (f"; not found: {', '.join(missing)}" if missing else ""))
             return []
-        if args.contour or args.z is not None or args.variables is not None or args.iterable is not None:
-            rprint("[red]Error:[/red] --corner draws raw points only; drop --contour, -z, --variables and --iterable.")
+        if args.z is not None or args.variables is not None or args.iterable is not None:
+            rprint("[red]Error:[/red] --corner draws raw points only; drop -z, --variables and --iterable.")
             return []
-    elif args.x is None or args.y is None:
+        if args.contour_hue is not None and (not args.contour or args.contour_hue not in df.columns):
+            rprint("[red]Error:[/red] --corner overlays the values of --contour_hue, a column of the data, with --contour.")
+            return []
+    if args.weight is not None and not (args.corner and args.contour and args.weight in df.columns):
+        rprint("[red]Error:[/red] --weight takes a column of the data and applies to --corner --contour.")
+        return []
+    if args.corner is None and (args.x is None or args.y is None):
         rprint("[red]Error:[/red] map needs -x and -y (or --corner X1 X2 ...).")
         return []
     if args.map_type == "hexbin" and (args.z is not None or args.contour or args.annotate is not None
@@ -1661,7 +1870,7 @@ def run(args):
         return []
     if args.variables is not None and "None" in args.variables and "Variable" in df.columns:
         df["Variable"] = df["Variable"].fillna("None")
-    if args.contour_hue is not None and not (args.contour and args.z is not None):
+    if args.contour_hue is not None and args.corner is None and not (args.contour and args.z is not None):
         rprint("[red]Error:[/red] --contour_hue overlays -z maps: it needs --contour and -z.")
         return []
     if args.contour_hue is not None and args.contour_hue not in df.columns:

@@ -223,23 +223,25 @@ class _ColorbarLocator:
     """Places a colorbar right of its panels whenever they move: as tall as
     the panels, COLORBAR_WIDTH of one panel's width, after COLORBAR_PAD."""
 
-    def __init__(self, axes):
+    def __init__(self, axes, width=1.0):
         self.axes = axes
+        self.width = width
 
     def __call__(self, cax, renderer):
         boxes = [ax.get_position() for ax in self.axes]
-        width = boxes[0].width
+        width = boxes[0].width * self.width
         y0, y1 = min(b.y0 for b in boxes), max(b.y1 for b in boxes)
         return Bbox.from_bounds(max(b.x1 for b in boxes) + COLORBAR_PAD * width, y0, COLORBAR_WIDTH * width, y1 - y0)
 
 
-def add_colorbar(fig, mappable, axes, label=None):
+def add_colorbar(fig, mappable, axes, label=None, width=1.0):
     """Colorbar right of ``axes`` (one axes, or a row sharing it), labelled
-    on its right."""
+    on its right; ``width`` scales its width and pad (in panel widths: a grid
+    of small panels asks for more than one panel's share)."""
     axes = list(np.atleast_1d(axes))
     if measured_layout_enabled():
         # The bar follows the panels; the measured layout makes room for it.
-        locator = _ColorbarLocator(axes)
+        locator = _ColorbarLocator(axes, width)
         cax = fig.add_axes(locator(None, None))
         cax.set_axes_locator(locator)
         cax._plotipus_colorbar_of = axes
@@ -249,7 +251,7 @@ def add_colorbar(fig, mappable, axes, label=None):
         cbar.ax.yaxis.set_label_position("right")
         return cbar
     boxes = [ax.get_position() for ax in axes]
-    width = boxes[0].width
+    width = boxes[0].width * width
     span = max(b.x1 for b in boxes) - min(b.x0 for b in boxes)
     fig_width, fig_height = fig.get_size_inches()
     aspect = boxes[0].height * fig_height / (COLORBAR_WIDTH * width * fig_width)
@@ -457,7 +459,8 @@ def save(fig, args, idx=None, suffix="plot.png", prefix=None):
     output_file = make_name_from_args(args, idx, prefix=prefix, suffix=suffix)
     apply_figure_hooks(fig, args)
     save_figure_to_paths(fig, getattr(args, "output", None), output_file, subfolder=getattr(args, "subfolder", None),
-                         sci_in_label=getattr(args, "sci_in_label", None), log_labels=getattr(args, "log_labels", None))
+                         sci_in_label=getattr(args, "sci_in_label", None), log_labels=getattr(args, "log_labels", None),
+                         transparent=getattr(args, "transparent", False))
     if not getattr(args, "show", False):
         plt.close(fig)
     return output_file

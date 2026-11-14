@@ -1,0 +1,419 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>plotipus: publication plots from DataFrames</title>
+  <meta name="description" content="plotipus draws publication plots and tables from pandas DataFrames, one short command per figure: usage, styles and famous plots redrawn.">
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Ccircle cx='16' cy='16' r='11' fill='%233f90da'/%3E%3Cellipse cx='16' cy='18' rx='7' ry='4' fill='%23a96b59'/%3E%3C/svg%3E">
+  <link rel="stylesheet" href="style.css">
+  <script type="module" src="home.js"></script>
+</head>
+<body>
+<header class="top">
+  <h1><a href="#overview">plotipus</a> <span>publication plots from DataFrames, one command each</span></h1>
+  <div class="actions">
+    <a class="button" href="https://github.com/mantheys/plotipus" target="_blank" rel="noopener">GitHub</a>
+    <a class="button ghost-link" href="https://github.com/mantheys/plotipus/blob/main/docs/options.md" target="_blank" rel="noopener">Docs</a>
+    <button id="theme" class="ghost icon" type="button" aria-label="Colour theme"></button>
+  </div>
+</header>
+
+<nav class="tabs" aria-label="Sections">
+  <a href="#overview" data-tab="overview">Overview</a>
+  <a href="#usage" data-tab="usage">Usage</a>
+  <a href="#gallery" data-tab="gallery">Gallery</a>
+  <a href="#styles" data-tab="styles">Styles</a>
+  <a href="#famous" data-tab="famous">Famous plots</a>
+</nav>
+
+<main class="home">
+
+  <!-- ================================================================ overview -->
+  <section data-page="overview">
+    <section class="hero split">
+      <div>
+        <h2>Publication plots and tables, one command each</h2>
+        <p>
+          plotipus draws pickled pandas DataFrames. Analysis code writes its results once, one row per series with
+          whole arrays in the cells, and every figure and LaTeX table is redrawn from them with a plain-text command:
+          no plotting scripts to maintain, and the same look in every figure.
+        </p>
+        <pre class="wrap"><code>plotipus line --datafile Distributions -x Bin -y Counts --hue Sample --data_hue Data --lower ratio
+plotipus run paper          <span class="c"># every command in input/plots/paper_scripts.txt</span></code></pre>
+        <p class="actions"><a class="button" href="#usage">Get started</a>
+          <a class="button ghost-link" href="#gallery">Gallery</a>
+          <a class="button ghost-link" href="#famous">Famous plots</a></p>
+      </div>
+      <div>
+        <img class="mascot" src="images/mascot/mascot.png" width="600" height="438"
+             alt="The plotipus mascot: a cartoon platypus diving through a water disc, drawn by plotipus itself">
+      </div>
+    </section>
+
+    <div class="home-grid">
+      <section class="step">
+        <h2>You are a scientist, not a designer</h2>
+        <p>One short command per figure, and every figure comes out clean and consistent, with a look of your own.</p>
+      </section>
+      <section class="step">
+        <h2>Produce the data once, plot it without limits</h2>
+        <p>A well-built DataFrame is all you ever need to save: it is your immutable source, and every figure and
+          table is redrawn from it.</p>
+      </section>
+      <section class="step">
+        <h2>Strict formats, unlimited versatility</h2>
+        <p>Journal styles, experiment-wide conventions and collaboration rules are a style file or a plugin away,
+          without touching your analysis.</p>
+      </section>
+    </div>
+
+    <h2 class="section-title">What one command draws</h2>
+    <div class="findings">
+      <article class="card finding">
+        <span class="chips-b"><a class="chip" href="#gallery">line</a></span>
+        <p><b>Data against simulation, with the ratio.</b> <code>--data_hue</code> marks the measured rows: they
+          become ink points with error bars, the simulation a step histogram with its band, and
+          <code>--lower ratio</code> adds the panel below.</p>
+        <a class="fig" href="#gallery"><img loading="lazy" src="images/options/datamc.png" alt="Landau data as points over the simulation as a step histogram, with the data/simulation ratio"></a>
+      </article>
+      <article class="card finding">
+        <span class="chips-b"><a class="chip" href="#gallery">line</a></span>
+        <p><b>Fits stored with the data.</b> The DataFrame carries the fit function and its parameters;
+          <code>--fit --lower pull</code> draws the curve, its components, the parameter legend and the pulls.</p>
+        <a class="fig" href="#gallery"><img loading="lazy" src="images/options/datafit.png" alt="Data points with a signal + background fit, its two dashed components, the fit parameters and the pulls"></a>
+      </article>
+      <article class="card finding">
+        <span class="chips-b"><a class="chip" href="#gallery">map</a></span>
+        <p><b>Posterior corner plots.</b> <code>--corner --contour</code> draws the credible regions of every
+          pair of parameters and their marginals, one colour per chain or experiment, from the samples.</p>
+        <a class="fig" href="#gallery"><img loading="lazy" src="images/options/posteriors.png" alt="Posterior corner plot of two experiments and their combination, one colour each"></a>
+      </article>
+      <article class="card finding">
+        <span class="chips-b"><a class="chip" href="#famous">famous</a></span>
+        <p><b>Flexible enough for the classics.</b> The Higgs discovery plots, the Keeling curve and Hubble's 1929
+          diagram are redrawn from public data, each with a single command.</p>
+        <a class="fig" href="#famous"><img loading="lazy" src="images/famous/higgs-diphoton.png" alt="Diphoton mass spectrum with the Higgs boson bump, a signal plus background fit and the data minus background"></a>
+      </article>
+      <article class="card finding wide">
+        <span class="chips-b"><a class="chip" href="#styles">styles</a></span>
+        <p><b>One command list, every medium.</b> Slides, a paper column or the web, light or dark: the commands
+          do not change, only the size, the type and the colours do.</p>
+        <a class="fig" href="#styles"><img loading="lazy" src="images/styles/compare.png" alt="The same data/simulation ratio figure in the slides, slides-dark, paper, open, open-dark and classic styles"></a>
+      </article>
+    </div>
+  </section>
+
+  <!-- ================================================================ usage -->
+  <section data-page="usage" hidden>
+    <section class="hero">
+      <h2>From a DataFrame to a figure</h2>
+      <p>Three steps: save a DataFrame, write a command, keep the command in a list. Everything else (colours,
+        sizes, error bars, legends) follows from the data and the style.</p>
+    </section>
+
+    <div class="home-grid">
+      <section class="step">
+        <h2><span>1</span> Install</h2>
+        <pre><code>pipx install git+https://github.com/mantheys/plotipus.git
+plotipus init my_project</code></pre>
+        <p>Python ≥ 3.10. <code>init</code> creates <code>plotipus.toml</code>, <code>input/{data,plots,tables}</code>
+          and <code>output/</code>.</p>
+      </section>
+      <section class="step">
+        <h2><span>2</span> Try the examples</h2>
+        <pre><code>git clone https://github.com/mantheys/plotipus.git
+cd plotipus/examples
+python make_data.py      <span class="c"># toy pickles</span>
+plotipus run example     <span class="c"># figures in output/plots</span></code></pre>
+        <p><code>--tables</code> writes the LaTeX tables instead.</p>
+      </section>
+    </div>
+
+    <h2 class="section-title">Your own data</h2>
+    <section class="step">
+      <h2><span>3</span> One row per series, arrays in the cells</h2>
+      <p>plotipus reads pickled (or Parquet) DataFrames from <code>input/data/</code>: <code>--datafile Spectrum</code>
+        loads <code>input/data/Spectrum.pkl</code>.</p>
+      <pre><code>import numpy as np
+import pandas as pd
+
+x = np.arange(0.25, 10, 0.5)                     <span class="c"># bin centres (GeV)</span>
+expected = 200 * np.exp(-x / 3)                  <span class="c"># the simulation's prediction</span>
+observed = np.random.default_rng(1).poisson(expected)
+
+pd.DataFrame([
+    {"Sample": "Simulation", "Energy": x, "Counts": expected, "CountsError": 0.05 * expected},
+    {"Sample": "Data",       "Energy": x, "Counts": observed},
+]).to_pickle("input/data/Spectrum.pkl")</code></pre>
+      <div class="table-wrap">
+        <table>
+          <thead><tr><th>Sample</th><th>Energy</th><th>Counts</th><th>CountsError</th></tr></thead>
+          <tbody>
+            <tr><td>Simulation</td><td>[0.25, 0.75, …, 9.75]</td><td>[184.0, 155.8, …]</td><td>[9.2, 7.8, …]</td></tr>
+            <tr><td>Data</td><td>[0.25, 0.75, …, 9.75]</td><td>[184, 149, …]</td><td>—</td></tr>
+          </tbody>
+        </table>
+      </div>
+      <pre class="wrap"><code>plotipus line --datafile Spectrum -x Energy -y Counts --hue Sample --data_hue Data --errory --lower ratio</code></pre>
+      <ul class="plain" style="margin-top:10px">
+        <li><code>-x</code>, <code>-y</code> name the columns to draw; <code>--hue</code> names the column that splits
+          the rows into series, one colour each; <code>--data_hue Data</code> marks the data rows, drawn as points.</li>
+        <li>Errors live next to the value: <code>{y}Error</code>, or <code>{y}Error+</code> and <code>{y}Error-</code>.
+          A row without them gets the standard interval where one applies: counts get Poisson (Garwood) intervals.</li>
+        <li>Commands go one per line in <code>input/plots/&lt;name&gt;_scripts.txt</code>, and
+          <code>plotipus run &lt;name&gt;</code> draws them all.</li>
+      </ul>
+    </section>
+
+    <h2 class="section-title">Plot kinds</h2>
+    <section class="step">
+      <p>Kinds follow the data relationship, as in seaborn and plotly, not the use case.
+        <code>plotipus &lt;kind&gt; --help</code> lists every option.</p>
+      <div class="table-wrap">
+        <table>
+          <thead><tr><th>Kind</th><th>Draws</th><th>Typical options</th></tr></thead>
+          <tbody>
+            <tr><td><code>line</code></td><td>y against an ordered x, one series per <code>--hue</code> value</td>
+              <td><code>--plot_type</code>, <code>--data_hue</code>, <code>--lower</code>, <code>--stacked</code>, <code>--fit</code>, <code>--binned</code>, <code>--facet_row</code>, <code>--inset</code></td></tr>
+            <tr><td><code>scatter</code></td><td>observations with colour, size and marker encodings</td>
+              <td><code>--colorby</code>, <code>--sizeby</code>, <code>--markerby</code></td></tr>
+            <tr><td><code>hist</code></td><td>1D histograms of per-event arrays, KDEs, ECDFs</td>
+              <td><code>--bins</code>, <code>--weight</code>, <code>--density</code>, <code>--hist_type kde|ecdf</code>, <code>--ridge</code></td></tr>
+            <tr><td><code>map</code></td><td>2D histograms, hexbins, corner plots, images of a grid, contours</td>
+              <td><code>--norm</code>, <code>--logz</code>, <code>--map_type hexbin</code>, <code>--corner</code>, <code>--contour</code></td></tr>
+            <tr><td><code>cat</code></td><td>one value per category</td>
+              <td><code>--kind point|line|lollipop|bar|box|violin|strip</code>, <code>--orient h</code>, <code>--sort</code></td></tr>
+            <tr><td><code>table</code></td><td>aggregated values as LaTeX and HTML tables</td>
+              <td><code>--variables</code>, <code>--agg</code>, <code>--stats</code>, <code>--fit_params</code>, <code>--cutflow</code>, <code>--siunitx</code></td></tr>
+          </tbody>
+        </table>
+      </div>
+      <p>Every kind takes annotations (<code>--text</code>, <code>--arrow</code>, <code>--region</code>), reference
+        lines and bands, and writes PNG at 300 dpi or, with <code>--format pdf</code>, vector output at the printed size.</p>
+    </section>
+
+    <h2 class="section-title">Tutorial: draw the mascot</h2>
+    <section class="step">
+      <p>The mascot is a DataFrame too: 97 shapes, one row each. The
+        <a href="https://github.com/mantheys/plotipus/blob/main/docs/tutorial.md" target="_blank" rel="noopener">tutorial</a>
+        draws it in five commands that read the same file, and introduces <code>--hue</code>, row selection and
+        styles taken from the data along the way.</p>
+      <div class="strip">
+        <figure><img loading="lazy" src="images/mascot/points.png" alt="The mascot's outline points, coloured by layer">
+          <figcaption><b>1. The points.</b> <code>--hue Layer</code></figcaption></figure>
+        <figure><img loading="lazy" src="images/mascot/outline.png" alt="The mascot as a colouring-book outline">
+          <figcaption><b>2. An outline.</b> <code>--plot_type fill</code></figcaption></figure>
+        <figure><img loading="lazy" src="images/mascot/flat.png" alt="The mascot in flat colours">
+          <figcaption><b>3. Flat colours.</b> <code>--color_column Face</code></figcaption></figure>
+        <figure><img loading="lazy" src="images/mascot/shaded.png" alt="The mascot with light and shade">
+          <figcaption><b>4. Light and shade.</b> <code>--select Layer … -s shade</code></figcaption></figure>
+        <figure><img loading="lazy" src="images/mascot/mascot.png" alt="The finished mascot">
+          <figcaption><b>5. The mascot.</b> every layer, <code>--transparent</code></figcaption></figure>
+      </div>
+      <pre><code>cd examples/mascot
+python make_mascot.py        <span class="c"># input/data/Mascot.pkl</span>
+plotipus run mascot          <span class="c"># five figures in output/plots</span></code></pre>
+    </section>
+
+    <h2 class="section-title">Further reading</h2>
+    <section class="step">
+      <ul class="plain">
+        <li><a href="https://github.com/mantheys/plotipus/blob/main/docs/options.md" target="_blank" rel="noopener">Options</a>:
+          shared options, lower panels, colorbars, contours and binned estimators.</li>
+        <li><a href="https://github.com/mantheys/plotipus/blob/main/docs/projects.md" target="_blank" rel="noopener">Projects</a>:
+          <code>plotipus.toml</code>, style files, plugins and command lists.</li>
+        <li><a href="https://github.com/mantheys/plotipus/blob/main/docs/python.md" target="_blank" rel="noopener">Python</a>:
+          using plotipus from Python code.</li>
+        <li><a href="https://github.com/mantheys/plotipus/blob/main/CONTRIBUTING.md" target="_blank" rel="noopener">Contributing</a>:
+          development install, tests and regenerating the examples.</li>
+      </ul>
+    </section>
+  </section>
+
+  <!-- ================================================================ gallery -->
+  <section data-page="gallery" hidden>
+    <section class="hero">
+      <h2>Gallery</h2>
+      <p>Each figure is one command on the example data (<code>examples/make_data.py</code>): the command is under
+        the figure, ready to copy. They are the figures of the
+        <a href="https://github.com/mantheys/plotipus/blob/main/docs/options.md" target="_blank" rel="noopener">options reference</a>,
+        which explains every option they use.</p>
+      <div id="kind-filter" class="seg" role="radiogroup" aria-label="Plot kind" style="margin-top:12px"></div>
+    </section>
+    <p id="gallery-status" class="hint"></p>
+    <div id="gallery-cards" class="findings"></div>
+  </section>
+
+  <!-- ================================================================ styles -->
+  <section data-page="styles" hidden>
+    <section class="hero">
+      <h2>One command list, every medium</h2>
+      <p>A style combines a design language, a medium and a theme. Figures are drawn at the size they are shown
+        at, so text is never scaled to fit: slides first, then a paper column or the web, with no change to the
+        commands. File names stay the same in every folder, so a LaTeX <code>\includegraphics</code> only changes
+        its directory.</p>
+    </section>
+
+    <section class="step">
+      <h2>Try the styles</h2>
+      <div class="viewer">
+        <div>
+          <span class="field-label" id="style-label">Style</span>
+          <div id="style-pick" class="seg" role="radiogroup" aria-labelledby="style-label"></div>
+          <span class="field-label" id="example-label">Figure</span>
+          <div id="example-pick" class="seg" role="radiogroup" aria-labelledby="example-label"></div>
+          <div class="look"><b id="style-name"></b><span id="style-look"></span></div>
+        </div>
+        <figure><img id="style-image" alt=""></figure>
+      </div>
+    </section>
+
+    <div class="home-grid">
+      <section class="step">
+        <h2>Choose the medium in the project</h2>
+        <pre><code><span class="c"># plotipus.toml</span>
+[project]
+medium = "slides"             <span class="c"># what plotipus run draws</span>
+media = ["slides", "paper"]   <span class="c"># what --medium all draws</span>
+style = ["config/style.json"] <span class="c"># your own layer on top</span></code></pre>
+      </section>
+      <section class="step">
+        <h2>Or on the command line</h2>
+        <pre><code>plotipus run analysis                  <span class="c"># output/plots/</span>
+plotipus run analysis --medium paper   <span class="c"># output/plots/paper/</span>
+plotipus run analysis --theme dark     <span class="c"># output/plots/slides-dark/</span></code></pre>
+      </section>
+    </div>
+
+    <h2 class="section-title">Experiment headers and watermarks</h2>
+    <div class="findings">
+      <article class="card finding">
+        <p><b>A header and a status on every figure.</b> <code>--experiment atlas|cms|lhcb|alice|dune</code> applies
+          the experiment's label, typography and palette; <code>--label_status</code> and <code>--watermark</code>
+          mark work in progress. Set them once in <code>plotipus.toml</code>:</p>
+        <pre><code>[header]
+experiment = "dune"
+label_status = "Preliminary"
+label_right = "1.2 MW, 10 years"
+watermark = "preliminary"
+watermark_style = "diagonal"</code></pre>
+      </article>
+      <article class="card finding">
+        <div class="pair">
+          <figure><img loading="lazy" src="images/styles/dune-preliminary.png" alt="Stacked signal and background with a DUNE Preliminary header and a diagonal watermark, in the paper style">
+            <figcaption><b>paper</b> + dune + preliminary</figcaption></figure>
+          <figure><img loading="lazy" src="images/styles/atlas-wip.png" alt="The same figure with an ATLAS header and a work in progress watermark, in the slides style">
+            <figcaption><b>slides</b> + atlas + wip</figcaption></figure>
+        </div>
+      </article>
+    </div>
+
+    <h2 class="section-title">The style guide</h2>
+    <section class="step">
+      <p>The defaults are not taste: each one applies a rule of the
+        <a href="https://github.com/mantheys/plotipus/blob/main/docs/styleguide.md" target="_blank" rel="noopener">style guide</a>.</p>
+      <ul class="plain">
+        <li><b>The kind of a series decides how it is drawn.</b> Data, simulation, fits and theory each have one
+          look, the same in every plot.</li>
+        <li><b>A figure has a fixed printed size per medium.</b> Text is never scaled to fit; layouts add or share
+          space instead.</li>
+        <li><b>Every number carries its uncertainty</b>, computed by the method that suits the quantity, and says
+          which method it is.</li>
+        <li><b>No silent guesses.</b> When plotipus fills in something the data did not give, it prints a warning
+          that names what it did and how to change it.</li>
+        <li><b>Conventions live in the data.</b> A DataFrame that follows the column conventions needs no options to
+          be drawn right.</li>
+        <li><b>One command list, every medium.</b> A category keeps its colour and a series its look across slides,
+          paper and web.</li>
+      </ul>
+    </section>
+
+    <h2 id="before-after" class="section-title">Before and after: famous figures</h2>
+    <p class="hint">On the left, the command that reproduces the published look; on the right, the same data with
+      plotipus's defaults, giving only columns, selections, ranges and labels. The originals were good figures for
+      their time and medium: the pairs show what the rules change, not what the authors got wrong.</p>
+    <div class="findings">
+      <article class="card finding">
+        <h3>Hubble 1929, Fig. 1</h3>
+        <div class="pair">
+          <figure><img loading="lazy" src="images/styleguide/hubble-1929-before.png" alt="Hubble 1929, Fig. 1 as published">
+            <figcaption><b>Before.</b> Grid lines through the data, every series black with no legend, a bold title above the frame.</figcaption></figure>
+          <figure><img loading="lazy" src="images/styleguide/hubble-1929-after.png" alt="Hubble 1929, Fig. 1 with plotipus defaults">
+            <figcaption><b>After.</b> No grid; the data in ink with a legend that names each series; the two fits in palette colours; the title left to the caption.</figcaption></figure>
+        </div>
+      </article>
+      <article class="card finding">
+        <h3>Mann, Bradley &amp; Hughes 1999, Fig. 3(a)</h3>
+        <div class="pair">
+          <figure><img loading="lazy" src="images/styleguide/hockey-stick-before.png" alt="Mann, Bradley and Hughes 1999, Fig. 3(a) as published">
+            <figcaption><b>Before.</b> Upper-case axis labels, the legend under the axes, a grey band that belongs to no line.</figcaption></figure>
+          <figure><img loading="lazy" src="images/styleguide/hockey-stick-after.png" alt="Mann, Bradley and Hughes 1999, Fig. 3(a) with plotipus defaults">
+            <figcaption><b>After.</b> Sentence-case labels with units; the band in its line's colour, behind it; the legend in the empty space of the axes.</figcaption></figure>
+        </div>
+      </article>
+      <article class="card finding">
+        <h3>LEP Z lineshape, Phys. Rept. 427, Fig. 1.13</h3>
+        <div class="pair">
+          <figure><img loading="lazy" src="images/styleguide/z-lineshape-before.png" alt="LEP Z lineshape as published">
+            <figcaption><b>Before.</b> Red data on red curves, labels in bold blue, the ×10 error bars explained in free text.</figcaption></figure>
+          <figure><img loading="lazy" src="images/styleguide/z-lineshape-after.png" alt="LEP Z lineshape with plotipus defaults">
+            <figcaption><b>After.</b> The data in ink; the curves in palette colours with a legend; the magnified errors said in the legend label.</figcaption></figure>
+        </div>
+      </article>
+      <article class="card finding">
+        <h3>Gaia DR2 HR diagram, A&amp;A 616, A10, Fig. 1</h3>
+        <div class="pair">
+          <figure><img loading="lazy" src="images/styleguide/hr-diagram-before.png" alt="Gaia DR2 HR diagram as published">
+            <figcaption><b>Before.</b> A red-to-yellow square-root scale with black for the sparsest bins and no colorbar: the counts cannot be read.</figcaption></figure>
+          <figure><img loading="lazy" src="images/styleguide/hr-diagram-after.png" alt="Gaia DR2 HR diagram with plotipus defaults">
+            <figcaption><b>After.</b> A lightness-monotonic map on a log scale, for counts that span four decades, with a labelled colorbar.</figcaption></figure>
+        </div>
+      </article>
+      <article class="card finding">
+        <h3>ATLAS 2012, Fig. 7(a)</h3>
+        <div class="pair">
+          <figure><img loading="lazy" src="images/styleguide/brazil-band-before.png" alt="ATLAS 2012, Fig. 7(a) as published">
+            <figcaption><b>Before.</b> Green and yellow bands, which red-green colour-vision deficiencies cannot tell apart, and a free-text label.</figcaption></figure>
+          <figure><img loading="lazy" src="images/styleguide/brazil-band-after.png" alt="ATLAS 2012, Fig. 7(a) with plotipus defaults">
+            <figcaption><b>After.</b> Graded bands, lighter for 2σ; the reference line dashed in the muted colour; the status in the experiment header.</figcaption></figure>
+        </div>
+      </article>
+    </div>
+  </section>
+
+  <!-- ================================================================ famous -->
+  <section data-page="famous" hidden>
+    <section class="hero">
+      <h2>Famous plots, redrawn</h2>
+      <p>Famous figures from particle physics, cosmology, astronomy and climate science, redrawn by plotipus in
+        the paper style. The commands aim at the originals (their colours, line styles, markers, legend layout
+        and annotations) to show that plotipus can draw what others drew.</p>
+      <p><span class="chip real">real data</span> comes from public data releases;
+        <span class="chip extracted">extracted</span> values were read back from the vector graphics of the
+        published figures. Data, commands and remaining gaps:
+        <a href="https://github.com/mantheys/plotipus/tree/main/examples/famous" target="_blank" rel="noopener">examples/famous</a>.</p>
+      <pre><code>cd examples/famous
+python make_data.py            <span class="c"># 22 pickles in input/data</span>
+plotipus run famous            <span class="c"># figures in output/plots</span></code></pre>
+    </section>
+
+    <div id="famous-cards" class="findings three"></div>
+
+    <p class="hint">Recreations made to demonstrate plotipus, not the original figures or official results of the
+      ATLAS, CMS, LEP, KamLAND or Gaia collaborations or of the original authors, who do not endorse this project:
+      cite the originals, linked from each figure. Sources and licences:
+      <a href="https://github.com/mantheys/plotipus/blob/main/examples/famous/data/README.md" target="_blank" rel="noopener">examples/famous/data</a>.
+      The HR diagram, made from Gaia data, is shared under CC BY-SA 3.0 IGO. The
+      <a href="#before-after">style guide's pairs</a> redraw five of them with plotipus's defaults.</p>
+  </section>
+</main>
+
+<footer>
+  plotipus is MIT-licensed software by Sergio Manthey ·
+  <a href="https://github.com/mantheys/plotipus" target="_blank" rel="noopener">source</a> ·
+  <a href="https://doi.org/10.5281/zenodo.24044061" target="_blank" rel="noopener">cite (Zenodo)</a> ·
+  <a href="https://mantheys.github.io/snufish/" target="_blank" rel="noopener">SNUfish</a>, a page whose figures plotipus draws
+</footer>
+</body>
+</html>

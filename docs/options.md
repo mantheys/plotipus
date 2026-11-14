@@ -38,7 +38,10 @@ signal + background fit with its two components (see [Fits](#fits)). Three files
 Landau histograms, one file per sample, for `--configs`), `Moments.pkl`
 (mean and standard deviation of every sample, for `table` and `cat`) and
 `Yields.pkl` (the `Resonance` counts of each sample summed in the two
-sidebands and the signal region, with errors, for `cat --stacked`). The commands
+sidebands and the signal region, with errors, for `cat --stacked`).
+`Posterior.pkl` holds posterior samples of three fit parameters for two
+experiments and their combination, one row each, for the posterior corner
+plot. The commands
 are the example list, `examples/input/plots/example_scripts.txt`;
 `make -C examples docs` renders them again into `docs/images/options`.
 
@@ -230,6 +233,8 @@ plotipus line --datafile Keeling -x DecimalDate -y CO2 --hue Series --plot_type 
   `--filename_select` (keys that must stay in the generated file name),
   `--format` (`png` by default, written at 300 dpi). For papers use
   `--format pdf`: vector output at the printed size, sharp at any zoom.
+  `--transparent` saves without the figure and axes backgrounds, for a
+  coloured slide or poster.
 
 ![Landau data and simulation read from one file per config, data as points](images/options/configs.png)
 
@@ -626,7 +631,7 @@ variable is binned once (`--bins` over its `--percentile` range,
 integer-aligned bins for integer data), so the panels share x down each
 column and y along each row; tick and axis labels are on the outer panels
 only (the first diagonal panel carries the counts axis), and every 2D panel
-shares one colour scale and colorbar. `--corner_labels` names the axes,
+shares one colour scale and one colorbar, as tall as the grid. `--corner_labels` names the axes,
 `--map_type hexbin` draws hexagons below the diagonal. The figure is as wide as
 two facets of the medium (one column on paper, `--layout panels`) at one
 plot's aspect, so each panel keeps a single plot's proportions. Narrow the data to one row with `--select` or
@@ -636,6 +641,41 @@ plot's aspect, so each panel keeps a single plot's proportions. Narrow the data 
 
 ```bash
 plotipus map --datafile Distributions --corner Value Smeared Response --select Distribution Sample -s Log-normal Simulation --corner_labels True Measured 'Measured / True' --bins 30 --percentile 0 99 --logz --title 'Corner plot: every pair of three variables'
+```
+
+**Posterior samples.** With `--contour`, the corner plot is the one of
+Bayesian analyses (MCMC chains, nested sampling, toys of a fit). Each pair
+shows its credible regions: the smallest regions holding the
+`--contour_sigmas` fractions of the points (68.3 and 95.4% for `1 2`; the
+content of the two-parameter levels, see [Contours](#contours) for
+`--contour_dof`), from the 2D histogram smoothed by
+`--contour_smoothing_sigma` bins (default 1), filled from the sample's
+colour towards the paper. The diagonal shows the marginal density of each
+variable, so its y axis has no labels; for a single sample the central 68.3%
+interval is shaded, the median is a line, and both are written above the
+panel as `m = 124.95 +0.25 −0.25 GeV` (the unit is taken from the axis
+label; `--no_corner_titles` leaves them out). `--corner_truth V1 V2 ...`
+draws a reference value per variable (`nan` for none) as lines across its
+panels, named `--corner_truth_label` (Truth) in the legend, which takes the
+empty upper triangle. `--weight COLUMN` names per-point weights.
+
+![Posterior corner plot of three fit parameters: 68.3 and 95.4% credible regions, marginals with their median and interval, and the injected values](images/options/posterior.png)
+
+```bash
+plotipus map --datafile Posterior --corner Strength Mass Width --contour --select Experiment -s 'Experiment A' --contour_sigmas 1 2 --corner_labels '$\mu$' '$m$ (GeV)' '$\Gamma$ (GeV)' --corner_truth 1 125 2.4 --bins 40 --title 'Posterior corner plot: credible regions and marginals'
+```
+
+`--contour_hue COLUMN` overlays one sample per value of the column (chains,
+experiments and their combination), each in its colour
+(`--iterable_color_mapping`, `--iterable_mapping` for the labels), translucent
+so that the regions show through each other. The rows of one value are
+joined, and the binning covers all of them. With several samples the
+diagonal keeps only the outlines.
+
+![Posterior corner plot of two experiments and their combination, one colour each](images/options/posteriors.png)
+
+```bash
+plotipus map --datafile Posterior --corner Strength Mass Width --contour --contour_hue Experiment --contour_sigmas 1 2 --corner_labels '$\mu$' '$m$ (GeV)' '$\Gamma$ (GeV)' --corner_truth 1 125 2.4 --bins 40 --percentile 0.5 99.5 --title 'Posterior corner plot: two experiments and their combination'
 ```
 
 ## Contours
