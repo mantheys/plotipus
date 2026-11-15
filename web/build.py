@@ -47,7 +47,7 @@ TASKS = {
     "Fits and residuals": ["datafit", "fit", "ratio", "column"],
     "Searches and significance": ["significance", "yields", "overlays"],
     "Likelihood and Bayesian": ["contours", "sigmas", "posterior", "posteriors", "intervals", "hypotheses", "profile",
-                                "upper", "correlations", "prior", "corner"],
+                                "upper", "smooth", "correlations", "prior", "corner"],
     "Detector performance": ["binned", "box", "violin", "colorbar", "hexbin", "scatter", "hue"],
     "Comparisons and presentation": ["moments", "ranking", "violins", "palette", "rate"],
 }

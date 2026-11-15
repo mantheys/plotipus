@@ -14,6 +14,8 @@ FINE = 8
 PROFILE_MIN_DRAWS = 3
 # Effective draws a region needs outside it: fewer, and its outline is mostly noise.
 MIN_DRAWS_OUTSIDE = 25
+# Smallest kernel of a smoothed marginal, in panel bins: below it the curve follows the noise of the fine bins.
+KDE_MIN_SIGMA = 0.25
 
 
 # --- Sample sizes ------------------------------------------------------------------
@@ -106,6 +108,33 @@ def fine_density(values, weights, edges, cyclic=False, bound=(np.nan, np.nan), s
     left = "wrap" if cyclic else "reflect" if np.isfinite(bound[0]) and np.isclose(low, bound[0]) else "nearest"
     right = "wrap" if cyclic else "reflect" if np.isfinite(bound[1]) and np.isclose(high, bound[1]) else "nearest"
     return fine, smooth1d(density, sigma * FINE, left, right)
+
+
+def kde_sigma(values, weights, ess, width, bw="scott"):
+    """Gaussian kernel width of a marginal in panel bins of ``width``: ``bw`` is a
+    width in the units of the values, or 'scott' / 'silverman' (the rules of thumb
+    at the effective sample size ``ess``, so that autocorrelated or heavily weighted
+    draws are smoothed more). Never below KDE_MIN_SIGMA."""
+    values = np.asarray(values, dtype=float)
+    mean = np.average(values, weights=weights)
+    spread = float(np.sqrt(np.average((values - mean) ** 2, weights=weights)))
+    try:
+        h = float(bw)
+    except (TypeError, ValueError):
+        n = max(float(ess or len(values)), 2.0)
+        h = spread * ((0.75 * n) ** -0.2 if bw == "silverman" else n**-0.2)
+    return max(h / width, KDE_MIN_SIGMA)
+
+
+def marginal_curve(values, weights, edges, sigma, cyclic=False, bound=(np.nan, np.nan)):
+    """(edges, density) of a smoothed marginal over the panel range ``edges``:
+    :func:`fine_density` cut to the panel."""
+    fine, density = fine_density(values, weights, edges, cyclic, bound, sigma=sigma)
+    centres = 0.5 * (fine[1:] + fine[:-1])
+    kept = np.flatnonzero((centres >= edges[0]) & (centres <= edges[-1]))
+    if kept.size == 0:
+        return np.asarray(edges, dtype=float), np.zeros(len(edges) - 1)
+    return fine[kept[0]: kept[-1] + 2], density[kept[0]: kept[-1] + 1]
 
 
 def density_pieces(fine, density, fraction, cyclic=False):

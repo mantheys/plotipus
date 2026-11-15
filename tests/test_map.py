@@ -1,3 +1,5 @@
+import re
+
 import numpy as np
 import pandas as pd
 import pytest
@@ -1177,3 +1179,69 @@ def test_corner_colorbar_spans_the_grid(make_project):
     assert np.isclose(bar.y1, top.y1, atol=0.01) and np.isclose(bar.y0, bottom.y0, atol=0.01)
     # As wide as the bar of a single plot: 1.5 panels' share for three columns.
     assert np.isclose(bar.width, 0.04 * 1.5 * bottom.width, rtol=0.05)
+
+
+def test_posterior_corner_range(make_project, capsys):
+    """T25.2: --corner_range sets the axis of one variable; the statistics keep every draw."""
+    (fig,) = _posterior(make_project, "--select", "Chain", "-s", "A", "--corner_range", "P", "-1", "2")
+    grid = _corner_grid(fig)
+    assert grid[0, 0].get_xlim() == (-1.0, 2.0) and grid[1, 0].get_xlim() == (-1.0, 2.0)
+    assert grid[1, 0].get_ylim() != (-1.0, 2.0)  # Q keeps its own range
+    values = _posterior_frame()["P"].iloc[0]
+    low, median, high = np.percentile(values, [15.865, 50, 84.135])
+    assert grid[0, 0].get_title() == f"P = ${median:.2f}^{{+{high - median:.2f}}}_{{-{median - low:.2f}}}$"
+    (fig,) = _corner(make_project, "--corner_range", "A", "0", "1")  # a histogram corner takes it too
+    assert any(ax.get_xlim() == (0.0, 1.0) for ax in fig.axes)
+    capsys.readouterr()
+    for bad in (["Z", "0", "1"], ["P", "2", "1"], ["P", "a", "b"]):
+        assert not _posterior(make_project, "--select", "Chain", "-s", "A", "--corner_range", *bad)
+        assert "--corner_range" in capsys.readouterr().out
+    assert not _posterior(make_project, "--select", "Chain", "-s", "A", "--corner_cyclic", "P", "-3", "3",
+                          "--corner_range", "P", "-1", "1")
+    assert "cyclic" in capsys.readouterr().out
+
+
+def test_posterior_corner_kde_marginals(make_project, capsys):
+    """T25.2: smooth marginals; the interval is read from the curve that is drawn."""
+    (fig,) = _posterior(make_project, "--select", "Chain", "-s", "A", "--corner_marginal", "kde")
+    ax = _corner_grid(fig)[0, 0]
+    (line,) = [line for line in ax.lines if len(line.get_xdata()) > 30]
+    x, y = line.get_data()
+    # A standard normal: peak near 1/sqrt(2 pi) at the centre, area near one.
+    assert abs(y.max() - 0.3989) < 0.03 and abs(x[np.argmax(y)]) < 0.4
+    assert abs(np.trapezoid(y, x) - 1) < 0.05
+    # The highest-density interval of a normal is the central one, read from the same curve.
+    (fig,) = _posterior(make_project, "--select", "Chain", "-s", "A", "--corner_marginal", "kde", "--corner_interval", "hdi",
+                        "--corner_bw", "silverman")
+    up, down = (float(v) for v in re.findall(r"\{[+-]([0-9.]+)\}", _corner_grid(fig)[0, 0].get_title()))
+    assert abs(up + down - 2.0) < 0.15  # the 68.3% interval of a standard normal is 2 wide
+    (fig,) = _posterior(make_project, "--contour_hue", "Chain", "--corner_marginal", "kde", "--corner_bw", "0.3")
+    assert len([line for line in _corner_grid(fig)[0, 0].lines if len(line.get_xdata()) > 30]) == 2
+    capsys.readouterr()
+    assert not _posterior(make_project, "--select", "Chain", "-s", "A", "--corner_marginal", "kde", "--corner_bw", "wide")
+    assert "--corner_bw" in capsys.readouterr().out
+    assert not map_kind.main(["--datafile", "Chains", "--corner", "P", "Q", "--corner_marginal", "kde"])
+    assert "posterior corner" in capsys.readouterr().out
+
+
+def test_posterior_corner_points_outside(make_project, capsys):
+    """T25.2: the draws outside the outermost region, capped and the same every time."""
+    from matplotlib.collections import PathCollection
+
+    def dots(fig):
+        return [c for c in _corner_grid(fig)[1, 0].collections if isinstance(c, PathCollection)]
+
+    (fig,) = _posterior(make_project, "--select", "Chain", "-s", "A", "--contour_sigmas", "1", "2", "--corner_points")
+    (cloud,) = dots(fig)
+    assert 100 < len(cloud.get_offsets()) <= map_kind.POINTS_MAX
+    x, y = np.asarray(cloud.get_offsets()).T
+    # They lie outside the 95.4% region of a correlated normal: far from the centre in the Mahalanobis sense.
+    d2 = (x**2 - 2 * 0.6 * x * (y - 5) + (y - 5) ** 2) / (1 - 0.36)
+    assert np.median(d2) > 6.18
+    (again,) = dots(_posterior(make_project, "--select", "Chain", "-s", "A", "--contour_sigmas", "1", "2", "--corner_points")[0])
+    assert np.array_equal(cloud.get_offsets(), again.get_offsets())
+    (fig,) = _posterior(make_project, "--select", "Chain", "-s", "A")
+    assert not dots(fig)
+    capsys.readouterr()
+    assert not map_kind.main(["--datafile", "Chains", "--corner", "P", "Q", "--corner_points"])
+    assert "--corner_points" in capsys.readouterr().out
