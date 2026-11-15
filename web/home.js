@@ -71,31 +71,83 @@ function setupCopy() {
 
 // ------------------------------------------------------------------ gallery
 
-const KINDS = [["all", "All"], ["line", "line"], ["hist", "hist"], ["map", "map"], ["cat", "cat"], ["scatter", "scatter"]];
+// What each task of the gallery (web/build.py TASKS) covers, shown under its heading.
+const TASK_TEXT = {
+  "Data and simulation": "Measured points against simulated histograms, with their uncertainties.",
+  "Fits and residuals": "Fits stored with the data: curves, components, parameters, pulls, residuals and ratios.",
+  "Searches and significance": "Stacked backgrounds and signal, S/√B, yields per region and signal windows.",
+  "Likelihood and Bayesian": "Δχ² confidence regions and posterior corner plots: credible regions, marginals, profiles and priors.",
+  "Detector performance": "Resolution and response: binned estimators, 2D histograms and scatter plots.",
+  "Comparisons and presentation": "One value per category, palettes and number formatting.",
+};
+const MEDIA = [["slides", "Slides"], ["paper", "Paper column"]];
+
+function dataTable(data) {
+  if (!data) return "";
+  const head = data.columns.map((c) => `<th>${escape(c)}</th>`).join("");
+  const rows = data.rows.map((row) => `<tr>${row.map((v) => `<td>${escape(v)}</td>`).join("")}</tr>`).join("");
+  const count = data.shown < data.total ? `${data.rows.length} of the ${data.shown} rows drawn (${data.total} in the file)`
+    : `${data.rows.length} of ${data.total} rows`;
+  return `<div class="recipe"><span class="step-name">The data</span> <code>${escape(data.file)}</code>
+      <span class="hint">${count}</span></div>
+    <div class="table-wrap data"><table><thead><tr>${head}</tr></thead><tbody>${rows}</tbody></table></div>`;
+}
+
+function card(figure, medium) {
+  const src = medium === "paper" && figure.paper ? figure.paper : figure.image;
+  const toggle = figure.paper ? `<span class="card-medium" role="group" aria-label="Medium">${MEDIA.map(([value, label]) =>
+    `<button type="button" data-medium="${value}" aria-pressed="${src === (value === "paper" ? figure.paper : figure.image)}">${label}</button>`).join("")}</span>` : "";
+  const docs = figure.docs ? `<p class="hint"><a href="${figure.docs}" target="_blank" rel="noopener">${figure.section
+    ? `Options reference: ${escape(figure.section)}` : "Options reference"}</a></p>` : "";
+  return `
+    <article class="card finding${figure.wide ? " wide" : ""}" data-image="${figure.image}" data-paper="${figure.paper || ""}">
+      <span class="chips-b"><span class="chip kind">${figure.kind}</span>${toggle}</span>
+      <p><b>${escape(figure.title)}</b></p>
+      <a class="fig" href="${src}" target="_blank" rel="noopener"><img loading="lazy" src="${src}" alt="${escape(figure.alt)}"></a>
+      ${dataTable(figure.data)}
+      <div class="recipe"><span class="step-name">The command</span></div>
+      <pre class="wrap"><button class="copy" type="button">Copy</button><code>${escape(figure.command)}</code></pre>
+      ${docs}
+    </article>`;
+}
 
 async function setupGallery() {
-  let figures;
+  let gallery;
   try {
     const response = await fetch("gallery.json");
     if (!response.ok) throw new Error(response.status);
-    figures = await response.json();
+    gallery = await response.json();
   } catch {
     $("gallery-status").textContent = "The gallery could not be loaded (gallery.json is written by web/build.py).";
     return;
   }
-  const draw = (kind) => {
-    const shown = figures.filter((figure) => kind === "all" || figure.kind === kind);
-    $("gallery-status").textContent = `${shown.length} of ${figures.length} figures`;
-    $("gallery-cards").innerHTML = shown.map((figure) => `
-      <article class="card finding${figure.wide ? " wide" : ""}">
-        <span class="chips-b"><span class="chip">${figure.kind}</span></span>
-        <p><b>${escape(figure.title)}</b></p>
-        <a class="fig" href="${figure.image}" target="_blank" rel="noopener"><img loading="lazy" src="${figure.image}" alt="${escape(figure.alt)}"></a>
-        <pre class="wrap"><button class="copy" type="button">Copy</button><code>${escape(figure.command)}</code></pre>
-      </article>`).join("");
+  const { tasks, figures } = gallery;
+  const state = { task: "all", medium: "slides" };
+  const draw = () => {
+    const shown = tasks.filter((task) => state.task === "all" || task === state.task);
+    const count = figures.filter((f) => shown.includes(f.task)).length;
+    $("gallery-status").textContent = `${count} of ${figures.length} figures`;
+    $("gallery-cards").innerHTML = shown.map((task) => {
+      const cards = figures.filter((f) => f.task === task);
+      if (!cards.length) return "";
+      return `<section class="task"><h2 class="section-title">${escape(task)}</h2>
+        ${TASK_TEXT[task] ? `<p class="hint">${escape(TASK_TEXT[task])}</p>` : ""}
+        <div class="findings">${cards.map((f) => card(f, state.medium)).join("")}</div></section>`;
+    }).join("");
   };
-  segmented($("kind-filter"), "kind", KINDS, "all", draw);
-  draw("all");
+  // One card's medium, without redrawing the others.
+  $("gallery-cards").addEventListener("click", (event) => {
+    const button = event.target.closest(".card-medium button");
+    if (!button) return;
+    const article = button.closest("article");
+    const src = button.dataset.medium === "paper" ? article.dataset.paper : article.dataset.image;
+    article.querySelector("img").src = src;
+    article.querySelector("a.fig").href = src;
+    article.querySelectorAll(".card-medium button").forEach((b) => b.setAttribute("aria-pressed", String(b === button)));
+  });
+  segmented($("task-filter"), "task", [["all", "All"], ...tasks.map((t) => [t, t])], state.task, (v) => { state.task = v; draw(); });
+  segmented($("medium-pick"), "medium", MEDIA, state.medium, (v) => { state.medium = v; draw(); });
+  draw();
 }
 
 // ------------------------------------------------------------------ style viewer

@@ -4,7 +4,7 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>plotipus: publication plots from DataFrames</title>
-  <meta name="description" content="plotipus draws publication plots and tables from pandas DataFrames, one short command per figure: usage, styles and famous plots redrawn.">
+  <meta name="description" content="Every figure and table of your analysis, from the results you saved once: plotipus draws publication plots and LaTeX tables from pandas DataFrames, one plain-text command each, sized for slides, paper and the web.">
   <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Ccircle cx='16' cy='16' r='11' fill='%233f90da'/%3E%3Cellipse cx='16' cy='18' rx='7' ry='4' fill='%23a96b59'/%3E%3C/svg%3E">
   <link rel="stylesheet" href="style.css">
   <script type="module" src="home.js"></script>
@@ -33,17 +33,20 @@
   <section data-page="overview">
     <section class="hero split">
       <div>
-        <h2>Publication plots and tables, one command each</h2>
+        <h2>Every figure and table of your analysis, from the results you saved once</h2>
         <p>
-          plotipus draws pickled pandas DataFrames. Analysis code writes its results once, one row per series with
-          whole arrays in the cells, and every figure and LaTeX table is redrawn from them with a plain-text command:
-          no plotting scripts to maintain, and the same look in every figure.
+          plotipus turns the pandas DataFrames your analysis writes into publication figures and LaTeX tables, one
+          plain-text command each. The commands live in lists next to the data, so every figure is redrawn
+          identically, with the uncertainties physics needs by default, and at the right size for slides, a
+          journal column or the web without changing a line.
         </p>
-        <pre class="wrap"><code>plotipus line --datafile Distributions -x Bin -y Counts --hue Sample --data_hue Data --lower ratio
-plotipus run paper          <span class="c"># every command in input/plots/paper_scripts.txt</span></code></pre>
+        <pre class="wrap"><code>pipx install git+https://github.com/mantheys/plotipus.git
+plotipus line --datafile Spectrum -x Energy -y Counts --hue Sample --data_hue Data --lower ratio
+plotipus run paper --medium paper   <span class="c"># every command of input/plots/paper_scripts.txt, at column width</span></code></pre>
         <p class="actions"><a class="button" href="#usage">Get started</a>
           <a class="button ghost-link" href="#gallery">Gallery</a>
-          <a class="button ghost-link" href="#famous">Famous plots</a></p>
+          <a class="button ghost-link" href="#cite">Cite</a></p>
+        <p class="hint">Built on matplotlib · MIT licence · DOI <a href="https://doi.org/{{DOI}}" target="_blank" rel="noopener">{{DOI}}</a></p>
       </div>
       <div>
         <img class="mascot" src="images/mascot/mascot.png" width="600" height="438"
@@ -51,20 +54,26 @@ plotipus run paper          <span class="c"># every command in input/plots/paper
       </div>
     </section>
 
-    <div class="home-grid">
+    <div class="home-grid four">
       <section class="step">
-        <h2>You are a scientist, not a designer</h2>
-        <p>One short command per figure, and every figure comes out clean and consistent, with a look of your own.</p>
+        <h2>Reproducible by construction</h2>
+        <p>Save the results once as DataFrames; every figure is a command over them. Keep the command lists under
+          version control and redraw a talk, a paper or a thesis from scratch in one run.</p>
       </section>
       <section class="step">
-        <h2>Produce the data once, plot it without limits</h2>
-        <p>A well-built DataFrame is all you ever need to save: it is your immutable source, and every figure and
-          table is redrawn from it.</p>
+        <h2>One command list, every medium</h2>
+        <p>Slides, a journal column, the web, light or dark: each at its printed size. A ratio panel never changes a
+          figure's size; only side-by-side panels make it wider.</p>
       </section>
       <section class="step">
-        <h2>Strict formats, unlimited versatility</h2>
-        <p>Journal styles, experiment-wide conventions and collaboration rules are a style file or a plugin away,
-          without touching your analysis.</p>
+        <h2>The statistics physics needs</h2>
+        <p>Data as points with Poisson (Garwood) intervals, simulation as histograms with their bands, two-parameter
+          confidence levels, credible regions. What plotipus fills in, it says.</p>
+      </section>
+      <section class="step">
+        <h2>The whole result chain</h2>
+        <p>Data against simulation, fits and pulls, stacks and significance, Brazil bands, Δχ² contours, posterior
+          corner plots, and the LaTeX tables of the same numbers.</p>
       </section>
     </div>
 
@@ -102,6 +111,41 @@ plotipus run paper          <span class="c"># every command in input/plots/paper
         <a class="fig" href="#styles"><img loading="lazy" src="images/styles/compare.png" alt="The same data/simulation ratio figure in the slides, slides-dark, paper, open, open-dark and classic styles"></a>
       </article>
     </div>
+
+    <h2 id="when" class="section-title">When to use plotipus</h2>
+    <section class="step">
+      <p>plotipus is not a plotting library to replace the ones you know: it draws with matplotlib, and it works
+        next to the others. Each has its job.</p>
+      <div class="table-wrap">
+        <table>
+          <thead><tr><th>Reach for</th><th>when you want</th></tr></thead>
+          <tbody>
+            <tr><td><a href="https://matplotlib.org/" target="_blank" rel="noopener">matplotlib</a></td>
+              <td>full control over every line and label of one figure, in code.</td></tr>
+            <tr><td><a href="https://seaborn.pydata.org/" target="_blank" rel="noopener">seaborn</a></td>
+              <td>to explore a tidy table in a notebook, with statistical summaries.</td></tr>
+            <tr><td><a href="https://plotly.com/python/" target="_blank" rel="noopener">plotly</a></td>
+              <td>interactive figures, dashboards and 3D views.</td></tr>
+            <tr><td><a href="https://scikit-hep.org/mplhep/" target="_blank" rel="noopener">mplhep</a></td>
+              <td>your experiment's look on histograms you build in code (hist and boost-histogram objects).</td></tr>
+            <tr><td><b>plotipus</b></td>
+              <td>all the figures and tables of an analysis, redrawn from its saved results by plain-text commands:
+                reproducible, sized per medium, and with the uncertainties a physics result needs.</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </section>
+
+    <h2 id="cite" class="section-title">Cite plotipus</h2>
+    <section class="step">
+      <p>If plotipus helped make figures of a publication or a thesis, please cite the archived release you used.
+        The DOI below always resolves to the latest one; Zenodo lists each version's own DOI.</p>
+      <p>{{CITE_TEXT}}</p>
+      <pre><button class="copy" type="button">Copy</button><code>{{BIBTEX}}</code></pre>
+      <p class="hint">From <a href="https://github.com/mantheys/plotipus/blob/main/CITATION.cff" target="_blank" rel="noopener">CITATION.cff</a>,
+        which GitHub also offers under "Cite this repository". Please cite the original publications of the
+        famous plots too.</p>
+    </section>
   </section>
 
   <!-- ================================================================ usage -->
@@ -235,14 +279,19 @@ plotipus run mascot          <span class="c"># five figures in output/plots</spa
   <section data-page="gallery" hidden>
     <section class="hero">
       <h2>Gallery</h2>
-      <p>Each figure is one command on the example data (<code>examples/make_data.py</code>): the command is under
-        the figure, ready to copy. They are the figures of the
+      <p>Each card is the whole recipe: <b>the data</b> (the first rows of the DataFrame the command reads, from
+        <code>examples/make_data.py</code>), <b>the command</b>, ready to copy, and <b>the figure</b> it draws, for
+        slides or for a paper column from the same command. The figures are those of the
         <a href="https://github.com/mantheys/plotipus/blob/main/docs/options.md" target="_blank" rel="noopener">options reference</a>,
-        which explains every option they use.</p>
-      <div id="kind-filter" class="seg" role="radiogroup" aria-label="Plot kind" style="margin-top:12px"></div>
+        and each card links to the section that explains its options. The command list they come from is
+        <a href="https://github.com/mantheys/plotipus/blob/main/examples/input/plots/example_scripts.txt" target="_blank" rel="noopener">examples/input/plots/example_scripts.txt</a>.</p>
+      <span class="field-label" id="task-label">Task</span>
+      <div id="task-filter" class="seg" role="radiogroup" aria-labelledby="task-label"></div>
+      <span class="field-label" id="medium-label">Medium</span>
+      <div id="medium-pick" class="seg compact" role="radiogroup" aria-labelledby="medium-label"></div>
     </section>
     <p id="gallery-status" class="hint"></p>
-    <div id="gallery-cards" class="findings"></div>
+    <div id="gallery-cards"></div>
   </section>
 
   <!-- ================================================================ styles -->

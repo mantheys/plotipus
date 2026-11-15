@@ -172,3 +172,24 @@ td:first-child { color: var(--text-primary); white-space: nowrap; }
 
 footer { max-width: 1100px; margin: 0 auto; padding: 4px 20px 28px; font-size: 0.8rem; color: var(--text-muted); }
 @media (max-width: 600px) { .top h1 span { display: none; } .home { padding: 16px; } .tabs { padding: 8px 16px 0; } footer { padding: 4px 16px 24px; } }
+
+/* overview: four advantages; gallery: task sections, the data/command recipe on each card, a medium switch */
+.home-grid.four { grid-template-columns: repeat(auto-fit, minmax(min(230px, 100%), 1fr)); }
+.seg.compact { display: inline-flex; }
+.seg.compact label { flex: 0 0 auto; }
+#gallery-cards { display: flex; flex-direction: column; gap: 10px; }
+.task { display: flex; flex-direction: column; gap: 10px; }
+.task > .section-title { margin-top: 14px; }
+.recipe { margin: 10px 6px 0; font-size: 0.82rem; color: var(--text-secondary); display: flex; flex-wrap: wrap; gap: 4px 8px; align-items: baseline; }
+.recipe .step-name { font-weight: 650; color: var(--text-primary); }
+.table-wrap.data { margin: 0 2px; }
+.table-wrap.data table { margin-top: 4px; font-size: 0.74rem; }
+.table-wrap.data th, .table-wrap.data td { padding: 3px 6px; white-space: nowrap; font-family: ui-monospace, "SF Mono", Menlo, Consolas, monospace; }
+.table-wrap.data td:first-child { color: var(--text-secondary); }
+.card-medium { margin-left: auto; display: inline-flex; border: 1px solid var(--border); border-radius: 999px; overflow: hidden; }
+.card-medium button {
+  padding: 2px 9px; font-size: 0.74rem; border: 0; border-radius: 0; background: transparent; color: var(--text-secondary);
+}
+.card-medium button + button { border-left: 1px solid var(--border); }
+.card-medium button[aria-pressed="true"] { background: var(--accent); color: #fff; }
+.finding .chips-b { align-items: center; }

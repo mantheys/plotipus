@@ -32,6 +32,15 @@ a single plot (it was a hairline beside the lower rows).
   (correlation coefficients with their Monte Carlo error), `--corner_mc_error
   [N]` (the outer region's outline under resampling) and `--corner_band VAR
   LOW HIGH [LABEL]`.
+- Posterior corner plots, the open items of the design (T25.2, T25.28):
+  `--corner_upper sample VALUE` (the regions of one `--contour_hue` value in the
+  upper triangle; the lower triangle keeps the others and every sample keeps its
+  marginal) and `--corner_truth_level` (under each title the posterior
+  probability below the `--corner_truth` value, in each pair panel the content
+  of the smallest region through it). With several overlaid samples the
+  diagonal titles are now written, one line per sample in its colour, up to
+  three; before, none were; the legend adds "Titles: ...". `--corner_upper`
+  takes a mode and, for `sample`, a value.
 - Posterior corner plots, continued (T25.26): `--corner_prior VALUE` (the
   `--contour_hue` value holding prior draws: dashed marginals and outer region
   in the neutral colour), `--corner_shrinkage` (σ/σ₀ and Δ/σ₀ under each

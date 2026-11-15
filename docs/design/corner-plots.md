@@ -16,14 +16,17 @@ is large enough for the outer contour. Those are the proposals ranked first
 below. The upper triangle is the natural place for them, because each one is
 a second view of the same pair of parameters or a number about it.
 
-**Status (2026-11-15).** P1 to P7 and the band of P8 are implemented
-(T25.21–T25.27; `docs/options.md`, "Hexbin and corner plots"). Open:
-`--corner_truth_level` of P8, and the points listed under the Bayesian table
-of T25. The split probabilities went into the legend, not an upper cell: it
-moves with the layout and works for two parameters. The prior (P6) is a row
-of draws named with `--corner_prior`, and the block takes its columns from
-the same row of data; both follow the proposal. A posterior corner plot is
-drawn at the double-column width on paper.
+**Status (2026-11-16).** All eight proposals are implemented (T25.21–T25.28;
+`docs/options.md`, "Hexbin and corner plots"), and the T25.2 items that
+overlapped with them: `--corner_upper sample VALUE` (the second sample above
+the diagonal) and the titles of several samples. Differences from the text
+below: the split probabilities are in the legend, not an upper cell (it moves
+with the layout and works for two parameters); the prior (P6) is a row of
+draws named with `--corner_prior`, and the block takes its columns from the
+same row of data; `--corner_truth_level` writes the content of the smallest
+region through the point next to its marker and the probability below it in
+the title; and a posterior corner plot is drawn at the double-column width on
+paper.
 
 Contents: [where plotipus stands](#1-where-plotipus-stands) ·
 [tools](#2-what-the-tools-draw-and-where-they-stop) ·

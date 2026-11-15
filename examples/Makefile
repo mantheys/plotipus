@@ -1,7 +1,7 @@
 # Regenerate the example project from scratch:
 #   make          clean, then toy data, plots and tables
 #   make clean    delete generated data and outputs (both gitignored)
-#   make docs     the example figures, copied to docs/images/options for docs/options.md
+#   make docs     the example figures, copied to docs/images/options for docs/options.md (paper ones to options/paper)
 #   make mascot   draw the mascot (docs/tutorial.md; the finished one is transparent, for the README) into docs/images/mascot
 #   make famous   the famous-plot reproductions for slides and paper; the README gallery (paper) goes to docs/images/famous,
 #                 the style guide's before/after pairs (with famous/restyled) to docs/images/styleguide
@@ -22,12 +22,15 @@ plots: data
 tables: data
 	$(PLOTIPUS) run example --tables
 
-# The example figures, renamed after the last word of their --output_suffix.
+# The example figures, renamed after the last word of their --output_suffix: for slides (docs/options.md
+# and the web page) and, with --medium paper, at one journal column (the web page's paper view).
 docs: data
 	rm -rf output/plots
 	$(PLOTIPUS) run example
-	rm -rf ../docs/images/options && mkdir -p ../docs/images/options
+	$(PLOTIPUS) run example --medium paper
+	rm -rf ../docs/images/options && mkdir -p ../docs/images/options/paper
 	for f in output/plots/*.png; do cp "$$f" "../docs/images/options/$${f##*_}"; done
+	for f in output/plots/paper/*.png; do cp "$$f" "../docs/images/options/paper/$${f##*_}"; done
 
 # The five steps of the tutorial, named after the last word of their --output_suffix.
 mascot:
