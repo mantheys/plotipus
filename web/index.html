@@ -23,6 +23,7 @@
   <a href="#overview" data-tab="overview">Overview</a>
   <a href="#usage" data-tab="usage">Usage</a>
   <a href="#gallery" data-tab="gallery">Gallery</a>
+  <a href="#tables" data-tab="tables">Tables</a>
   <a href="#styles" data-tab="styles">Styles</a>
   <a href="#famous" data-tab="famous">Famous plots</a>
 </nav>
@@ -280,7 +281,8 @@ plotipus run mascot          <span class="c"># five figures in output/plots</spa
     <section class="hero">
       <h2>Gallery</h2>
       <p>Each card is the whole recipe: <b>the data</b> (the first rows of the DataFrame the command reads, from
-        <code>examples/make_data.py</code>), <b>the command</b>, ready to copy, and <b>the figure</b> it draws, for
+        <code>examples/make_data.py</code>), <b>the command</b>, ready to copy for a shell or as the
+        <code>plotipus.plot</code> call that draws the same figure from Python, and <b>the figure</b> it draws, for
         slides or for a paper column from the same command. The figures are those of the
         <a href="https://github.com/mantheys/plotipus/blob/main/docs/options.md" target="_blank" rel="noopener">options reference</a>,
         and each card links to the section that explains its options. The command list they come from is
@@ -295,6 +297,21 @@ plotipus run mascot          <span class="c"># five figures in output/plots</spa
   </section>
 
   <!-- ================================================================ styles -->
+  <section data-page="tables" hidden>
+    <section class="hero">
+      <h2>Tables</h2>
+      <p>The numbers of a figure, as a LaTeX table from the same data and the same selection, so that the figure
+        and the table cannot disagree. Each card is a command run on the example data when this page is built: the
+        command, the LaTeX it writes (<code>\toprule</code>, <code>\midrule</code> and <code>\bottomrule</code>, ready
+        for <code>\input</code>) and the table it makes. Errors follow the quantity as in the plots (counts get Garwood
+        intervals, efficiencies Clopper–Pearson) and set the digits printed; <code>--html</code> writes the same table
+        for a web page. The options are in the
+        <a href="https://github.com/mantheys/plotipus/blob/main/docs/options.md#tables" target="_blank" rel="noopener">options reference</a>.</p>
+    </section>
+    <p id="tables-status" class="hint"></p>
+    <div id="table-cards" class="findings"></div>
+  </section>
+
   <section data-page="styles" hidden>
     <section class="hero">
       <h2>One command list, every medium</h2>

@@ -193,3 +193,14 @@ footer { max-width: 1100px; margin: 0 auto; padding: 4px 20px 28px; font-size: 0
 .card-medium button + button { border-left: 1px solid var(--border); }
 .card-medium button[aria-pressed="true"] { background: var(--accent); color: #fff; }
 .finding .chips-b { align-items: center; }
+
+/* the tables showcase: the rendered table is set like a booktabs table */
+#table-cards .card { padding: 14px; }
+.latex-table { overflow-x: auto; margin-top: 4px; }
+.latex-table table { margin: 6px auto; border-collapse: collapse; font-size: 0.9rem; font-variant-numeric: tabular-nums; }
+.latex-table th, .latex-table td { padding: 3px 12px; text-align: center; border: 0; background: transparent; }
+.latex-table th:first-child, .latex-table td:first-child { text-align: left; }
+.latex-table thead tr:first-child th { border-top: 2px solid var(--text-primary); }
+.latex-table thead tr:last-child th { border-bottom: 1px solid var(--text-primary); }
+.latex-table tbody tr:last-child td { border-bottom: 2px solid var(--text-primary); }
+.latex-table th { font-weight: 600; }

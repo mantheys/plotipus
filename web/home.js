@@ -93,7 +93,16 @@ function dataTable(data) {
     <div class="table-wrap data"><table><thead><tr>${head}</tr></thead><tbody>${rows}</tbody></table></div>`;
 }
 
-function card(figure, medium) {
+// The command of a card as typed in a shell, or as the plotipus.plot call that draws the same figure from Python.
+const LANGUAGES = [["shell", "Shell"], ["python", "Python"]];
+
+function commandText(figure, language) {
+  return language === "python" && figure.python ? figure.python : figure.command;
+}
+
+function card(figure, medium, language) {
+  const languages = figure.python ? `<span class="card-medium card-lang" role="group" aria-label="Language">${LANGUAGES.map(([value, label]) =>
+    `<button type="button" data-language="${value}" aria-pressed="${value === language}">${label}</button>`).join("")}</span>` : "";
   const src = medium === "paper" && figure.paper ? figure.paper : figure.image;
   const toggle = figure.paper ? `<span class="card-medium" role="group" aria-label="Medium">${MEDIA.map(([value, label]) =>
     `<button type="button" data-medium="${value}" aria-pressed="${src === (value === "paper" ? figure.paper : figure.image)}">${label}</button>`).join("")}</span>` : "";
@@ -105,8 +114,8 @@ function card(figure, medium) {
       <p><b>${escape(figure.title)}</b></p>
       <a class="fig" href="${src}" target="_blank" rel="noopener"><img loading="lazy" src="${src}" alt="${escape(figure.alt)}"></a>
       ${dataTable(figure.data)}
-      <div class="recipe"><span class="step-name">The command</span></div>
-      <pre class="wrap"><button class="copy" type="button">Copy</button><code>${escape(figure.command)}</code></pre>
+      <div class="recipe"><span class="step-name">The command</span>${languages}</div>
+      <pre class="wrap"><button class="copy" type="button">Copy</button><code>${escape(commandText(figure, language))}</code></pre>
       ${docs}
     </article>`;
 }
@@ -122,7 +131,8 @@ async function setupGallery() {
     return;
   }
   const { tasks, figures } = gallery;
-  const state = { task: "all", medium: "slides" };
+  const state = { task: "all", medium: "slides", language: "shell" };
+  try { if (localStorage.getItem("plotipus-language") === "python") state.language = "python"; } catch { /* storage may be unavailable */ }
   const draw = () => {
     const shown = tasks.filter((task) => state.task === "all" || task === state.task);
     const count = figures.filter((f) => shown.includes(f.task)).length;
@@ -132,22 +142,77 @@ async function setupGallery() {
       if (!cards.length) return "";
       return `<section class="task"><h2 class="section-title">${escape(task)}</h2>
         ${TASK_TEXT[task] ? `<p class="hint">${escape(TASK_TEXT[task])}</p>` : ""}
-        <div class="findings">${cards.map((f) => card(f, state.medium)).join("")}</div></section>`;
+        <div class="findings">${cards.map((f) => card(f, state.medium, state.language)).join("")}</div></section>`;
     }).join("");
   };
+  // The language of every card's command (a reader works in one), kept for the next visit.
+  const byPath = new Map(figures.map((f) => [f.image, f]));
+  $("gallery-cards").addEventListener("click", (event) => {
+    const button = event.target.closest(".card-lang button");
+    if (!button) return;
+    state.language = button.dataset.language;
+    try { localStorage.setItem("plotipus-language", state.language); } catch { /* ignore */ }
+    $("gallery-cards").querySelectorAll("article").forEach((article) => {
+      const figure = byPath.get(article.dataset.image);
+      if (!figure) return;
+      article.querySelector("pre code").textContent = commandText(figure, state.language);
+      article.querySelectorAll(".card-lang button").forEach((b) => b.setAttribute("aria-pressed", String(b.dataset.language === state.language)));
+    });
+  });
   // One card's medium, without redrawing the others.
   $("gallery-cards").addEventListener("click", (event) => {
-    const button = event.target.closest(".card-medium button");
+    const button = event.target.closest(".card-medium:not(.card-lang) button");
     if (!button) return;
     const article = button.closest("article");
     const src = button.dataset.medium === "paper" ? article.dataset.paper : article.dataset.image;
     article.querySelector("img").src = src;
     article.querySelector("a.fig").href = src;
-    article.querySelectorAll(".card-medium button").forEach((b) => b.setAttribute("aria-pressed", String(b === button)));
+    article.querySelectorAll(".card-medium:not(.card-lang) button").forEach((b) => b.setAttribute("aria-pressed", String(b === button)));
   });
   segmented($("task-filter"), "task", [["all", "All"], ...tasks.map((t) => [t, t])], state.task, (v) => { state.task = v; draw(); });
   segmented($("medium-pick"), "medium", MEDIA, state.medium, (v) => { state.medium = v; draw(); });
   draw();
+}
+
+// ------------------------------------------------------------------ tables
+
+function tableCard(table, language) {
+  const languages = `<span class="card-medium card-lang" role="group" aria-label="Language">${LANGUAGES.map(([value, label]) =>
+    `<button type="button" data-language="${value}" aria-pressed="${value === language}">${label}</button>`).join("")}</span>`;
+  return `
+    <article class="card finding wide" data-command="${escape(table.command)}">
+      <span class="chips-b"><span class="chip kind">table</span></span>
+      <p><b>${escape(table.title)}</b></p>
+      <p class="hint">${escape(table.text)}</p>
+      <div class="latex-table">${table.html}</div>
+      <div class="recipe"><span class="step-name">The command</span>${languages}</div>
+      <pre class="wrap"><button class="copy" type="button">Copy</button><code>${escape(commandText(table, language))}</code></pre>
+      <div class="recipe"><span class="step-name">The LaTeX</span> <code>.tex</code></div>
+      <pre><button class="copy" type="button">Copy</button><code>${escape(table.latex)}</code></pre>
+    </article>`;
+}
+
+async function setupTables() {
+  let tables;
+  try {
+    const response = await fetch("tables.json");
+    if (!response.ok) throw new Error(response.status);
+    tables = await response.json();
+  } catch {
+    $("tables-status").textContent = "The tables could not be loaded (tables.json is written by web/build.py).";
+    return;
+  }
+  let language = "shell";
+  try { if (localStorage.getItem("plotipus-language") === "python") language = "python"; } catch { /* storage may be unavailable */ }
+  $("table-cards").innerHTML = tables.map((t) => tableCard(t, language)).join("");
+  $("table-cards").addEventListener("click", (event) => {
+    const button = event.target.closest(".card-lang button");
+    if (!button) return;
+    const article = button.closest("article"), table = tables.find((t) => t.command === article.dataset.command);
+    try { localStorage.setItem("plotipus-language", button.dataset.language); } catch { /* ignore */ }
+    article.querySelector("pre code").textContent = commandText(table, button.dataset.language);
+    article.querySelectorAll(".card-lang button").forEach((b) => b.setAttribute("aria-pressed", String(b === button)));
+  });
 }
 
 // ------------------------------------------------------------------ style viewer
@@ -163,7 +228,8 @@ const STYLES = [
 ];
 const EXAMPLES = [
   ["01_hue_style", "Hue and style"], ["02_ratio", "Ratio"], ["03_stacked_significance", "Stack"], ["04_data_stack", "Data on a stack"],
-  ["05_binned_std", "Binned"], ["06_hist2d", "2D histogram"], ["07_contour", "Contours"], ["08_fit", "Fit"],
+  ["05_binned_std", "Binned"], ["06_hist2d", "2D histogram"], ["09_hist2d_panel", "2D histogram, one panel"], ["07_contour", "Contours"],
+  ["10_contour_panel", "Contours, one panel"], ["08_fit", "Fit"],
 ];
 
 function setupStyles() {
@@ -238,4 +304,5 @@ setupStyles();
 setupFamous();
 show();
 addEventListener("hashchange", show);
+setupTables();
 setupGallery().then(() => { if (location.hash === "#gallery") show(); });
