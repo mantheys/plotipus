@@ -51,6 +51,12 @@ The page takes its content from the repository, so the docs stay the source:
   `docs/images/options` (slides) and `docs/images/options/paper`, both
   rendered by `make -C examples docs`; each card's data excerpt from the
   example data, which `build.py` regenerates with `examples/make_data.py`;
+- the Tables tab from `TABLES` in `web/build.py`: each command is run on the
+  example data at build time, and its LaTeX and HTML are shown with it (a
+  cell with LaTeX beyond `tex_html`'s small subset fails the build);
+- the Styles tab's figures from `docs/design/styles/<style>/png`, rendered by
+  `docs/design/styles/render.py`, whose commands `EXAMPLES` in `web/home.js`
+  lists by name;
 - the gallery's task groups from `TASKS` in `web/build.py`: a new figure of
   `docs/options.md` belongs in one of them (the build warns otherwise);
 - the citation from `CITATION.cff`;

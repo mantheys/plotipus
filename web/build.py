@@ -12,6 +12,7 @@ CITATION.cff. The result is plain files: any static host serves it (web/deploy.s
 
 import argparse
 import json
+import os
 import re
 import shlex
 import shutil
@@ -76,11 +77,13 @@ def main():
     with tempfile.TemporaryDirectory() as data:
         subprocess.run([sys.executable, str(ROOT / "examples" / "make_data.py"), data], check=True, capture_output=True)
         figures = gallery(images, Path(data))
+        showcase = tables(data)
     (args.out / "gallery.json").write_text(json.dumps({"tasks": list(TASKS), "figures": figures}, indent=1,
                                                       ensure_ascii=False))
+    (args.out / "tables.json").write_text(json.dumps(showcase, indent=1, ensure_ascii=False))
     check(args.out)
     size = sum(path.stat().st_size for path in args.out.rglob("*") if path.is_file())
-    print(f"{args.out}: {len(figures)} gallery figures, {size / 1e6:.1f} MB")
+    print(f"{args.out}: {len(figures)} gallery figures, {len(showcase)} tables, {size / 1e6:.1f} MB")
 
 
 def scaled(source, target):
@@ -153,6 +156,74 @@ def _options(command):
         elif current is not None:
             options[current].append(token)
     return options
+
+
+# The tables of the Tables tab: each command is run on the example data when the site is built, and its LaTeX and
+# HTML outputs are shown with it. (docs/options.md, "Tables", explains every option.)
+TABLES = [
+    ("Mean and spread, with errors that set the digits",
+     "One row per configuration, one column per variable, each cell a value with its error. The error decides how many "
+     "digits are printed, so a precise value gets more of them (1.963 ± 0.010 beside 1.99 ± 0.01), and a column group "
+     "per sample puts data beside simulation.",
+     "plotipus table --datafile Moments -y Value --select Sample -s Data Simulation --variables Mean Std "
+     "--column_group Sample --missing '—'"),
+    ("Fit parameters",
+     "The parameters of a stored fit, one row per fit, as value ± error with the labels the fit was drawn with.",
+     "plotipus table --datafile Distributions --select Distribution Sample -s Resonance Data --fit_params"),
+    ("Row statistics",
+     "Means, variances, the Pearson correlation, the least-squares line and the number of points of each row's "
+     "x and y arrays: the table of a data-against-simulation comparison.",
+     "plotipus table --datafile Distributions -x X -y Y --select Distribution -s 'Bivariate Gaussian' "
+     "--row_name Sample --stats mean var corr line n"),
+]
+TEX_SYMBOLS = {r"\pm": "±", r"\,": "\u2009", r"\sigma": "σ", r"\mu": "μ", r"\tau": "τ", r"\chi": "χ", r"\Gamma": "Γ",
+               r"\alpha": "α", r"\beta": "β", r"\theta": "θ", r"\Delta": "Δ", r"\times": "×", r"\sim": "∼"}
+
+
+def tex_html(text):
+    """The HTML of a table cell: the plain text escaped, and each $...$ run as HTML (symbols, sub- and superscripts).
+    Anything beyond that small subset is an error, so that a new kind of cell is handled on purpose."""
+    def math(match):
+        body = match.group(1)
+        for command, symbol in TEX_SYMBOLS.items():
+            body = re.sub(re.escape(command) + (r"(?![A-Za-z])" if command[-1].isalpha() else ""), lambda _, symbol=symbol: symbol, body)
+        def script(m):
+            tag = "sub" if m.group(1) == "_" else "sup"
+            return f"<{tag}>{m.group(2) or m.group(3)}</{tag}>"
+        body = re.sub(r"([_^])(?:\{([^{}]*)\}|(\w))", script, body)
+        if "\\" in body:
+            raise SystemExit(f"web/build.py: LaTeX in a table cell is beyond tex_html: {match.group(0)}")
+        return body.replace(" - ", " − ").replace("-", "−")
+    return re.sub(r"\$([^$]*)\$", math, text)
+
+
+def table_html(html):
+    """The <table> of plotipus's --html output, without its inline styling and with its cells as HTML."""
+    table = re.search(r"<table.*?</table>", html, re.S).group(0)
+    table = re.sub(r'<table[^>]*>', "<table>", table)
+    table = re.sub(r' (style|halign|class)="[^"]*"', "", table)
+    def cell(match):
+        text = tex_html(match.group(1)) if "$" in match.group(1) else match.group(1)
+        return ">" + re.sub(r"(?<![\w.])-(?=\d)", "−", text) + "<"  # a typographic minus before a number
+    return re.sub(r">([^<>]+)<", cell, table)
+
+
+def tables(data):
+    """The tables showcase: title, text, command, the Python call, the LaTeX source and the table as HTML."""
+    shown = []
+    with tempfile.TemporaryDirectory() as work:
+        work = Path(work)
+        (work / "plotipus.toml").write_text(f'[project]\ndata_root = "{data}"\noutput = "out"\n')
+        for index, (title, text, command) in enumerate(TABLES):
+            target = work / f"table{index}"
+            result = subprocess.run([sys.executable, "-m", "plotipus", *shlex.split(command)[1:], "--html", "-o", str(target)],
+                                    cwd=work, capture_output=True, text=True, env={**os.environ, "PYTHONPATH": str(ROOT / "src")})
+            texs, htmls = sorted(target.rglob("*.tex")), sorted(target.rglob("*.html"))
+            if result.returncode or not texs or not htmls:
+                raise SystemExit(f"web/build.py: the table command failed:\n{command}\n{result.stdout[-600:]}{result.stderr[-600:]}")
+            shown.append({"title": title, "text": text, "command": command, "python": python_call(command),
+                          "latex": texs[0].read_text().strip(), "html": table_html(htmls[0].read_text())})
+    return shown
 
 
 def _python_string(text):

@@ -365,6 +365,8 @@ Comparison sheets (current look, then each candidate) are in
 | 2D histograms | [06](styles/compare/06_hist2d.png) |
 | Δχ² contours | [07](styles/compare/07_contour.png) |
 | category bars | [08](styles/compare/08_cat_bars.png) |
+| 2D histogram, one panel | [09](styles/compare/09_hist2d_panel.png) |
+| Δχ² contours, one panel | [10](styles/compare/10_contour_panel.png) |
 
 **What the renders show.**
 - **Typography.** All three candidates fix the size problem: text is

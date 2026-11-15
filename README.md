@@ -14,7 +14,7 @@
 Every figure and table of your analysis, from the results you saved once.
 plotipus turns the pandas DataFrames an analysis writes into publication
 figures and LaTeX tables, one plain-text command each. Website, with the
-gallery and the styles: **https://mantheys.github.io/plotipus/**
+gallery, the tables and the styles: **https://mantheys.github.io/plotipus/**
 
 * **Reproducible by construction.** Save the results once as DataFrames;
   every figure is a command over them. Keep the command lists under version
