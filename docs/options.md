@@ -656,10 +656,28 @@ interval is shaded, the median is a line, and both are written above the
 panel as `m = 124.95 +0.25 −0.25 GeV` (the unit is taken from the axis
 label; `--no_corner_titles` leaves them out). `--corner_truth V1 V2 ...`
 draws a reference value per variable (`nan` for none) as lines across its
-panels, named `--corner_truth_label` (Truth) in the legend, which takes the
-empty upper triangle. `--weight COLUMN` names per-point weights.
+panels, named `--corner_truth_label` (Truth) in the legend. `--weight COLUMN`
+names per-point weights.
 
-![Posterior corner plot of three fit parameters: 68.3 and 95.4% credible regions, marginals with their median and interval, and the injected values](images/options/posterior.png)
+The legend, in the empty upper triangle, says how to read the figure: what
+each region holds ("68.3% (2D region)"), which interval the marginals carry
+("median, central 68.3%"), and the number of draws N, with the effective
+sample size when it is below 80% of N (Kish's for weighted draws; from the
+autocorrelation of each row otherwise, taking the arrays in draw order).
+The region of a pair is wider than the intervals of its two marginals at the
+same content: 68.3% of a 2D Gaussian reaches ±1.52σ. plotipus warns when a
+region has fewer than about 25 effective draws outside it, and rounds a
+title to the Monte Carlo error of its estimate when that is larger than its
+last digit. `--corner_levels 68 90` gives the content of the regions
+directly, for the fields that do not use σ; the marginals then carry the
+interval of the first level. A legend that does not fit the empty cells
+goes above the grid. On a single paper column there is often no room for it
+there either: plotipus then prints the entries it leaves out (first the
+ones without a symbol, then the whole legend) with a warning, for the
+caption (a posterior corner plot is drawn at the double-column width on
+paper, see below, so this is the case of `--width single`).
+
+![Posterior corner plot of three fit parameters: 68.3 and 95.4% credible regions, marginals with their median and interval, the injected values, and a legend that names each](images/options/posterior.png)
 
 ```bash
 plotipus map --datafile Posterior --corner Strength Mass Width --contour --select Experiment -s 'Experiment A' --contour_sigmas 1 2 --corner_labels '$\mu$' '$m$ (GeV)' '$\Gamma$ (GeV)' --corner_truth 1 125 2.4 --bins 40 --title 'Posterior corner plot: credible regions and marginals'
@@ -677,6 +695,120 @@ diagonal keeps only the outlines.
 ```bash
 plotipus map --datafile Posterior --corner Strength Mass Width --contour --contour_hue Experiment --contour_sigmas 1 2 --corner_labels '$\mu$' '$m$ (GeV)' '$\Gamma$ (GeV)' --corner_truth 1 125 2.4 --bins 40 --percentile 0.5 99.5 --title 'Posterior corner plot: two experiments and their combination'
 ```
+
+**Intervals that follow the marginal.** One central interval is wrong for
+three shapes, each with its option:
+
+* `--corner_interval hdi` shades and writes the highest-density interval
+  around the mode instead. A marginal with several peaks gets its pieces,
+  written as a union and never merged.
+* `--corner_cyclic VARIABLE [LOW HIGH]` names a periodic variable (a phase).
+  Its panels span one period (`[-π, π]` or `[0, 2π]` by default, whichever
+  holds the draws), the regions run across the end of the axis, and its
+  interval is the highest-density one, written past the end when it wraps:
+  0.86 +0.33 −0.29 below reaches 1.19, that is −0.81.
+* `--corner_bound VARIABLE LOW HIGH` (`nan` for none) names hard bounds.
+  Nothing is smoothed across them, and a marginal that is highest at its
+  bound gets a one-sided limit holding the outermost level, `f < 0.12
+  (95.4%)`, with a warning (`--corner_interval quantile` or `hdi` keeps the
+  interval; `limit` asks for a limit on every bounded variable).
+
+`--corner_band VARIABLE LOW HIGH [LABEL]` lays an outside constraint over
+the panels of one variable as a hatched band.
+
+![Posterior corner plot of a parameter with two peaks, a cyclic phase and a third parameter with the band of another experiment: a highest-density region in two pieces and an interval that wraps around the end of the axis](images/options/intervals.png)
+
+```bash
+plotipus map --datafile Oscillation --select Sample -s Posterior --corner Mixing Phase Splitting --contour --contour_sigmas 1 2 --corner_labels '$\sin^2\theta_{23}$' '$\delta/\pi$' '$\Delta m^2$ ($10^{-3}$ eV$^2$)' --corner_interval hdi --corner_cyclic Phase -1 1 --corner_band Splitting 2.47 2.51 'Other experiment' --bins 40 --title 'Posterior corner plot: two peaks and a cyclic phase'
+```
+
+**Discrete hypotheses.** `--corner_split VARIABLE VALUE` gives the posterior
+probability of each side of a value of a drawn variable, and
+`--corner_split COLUMN` that of each value of a label column (one label per
+draw, or one per row), such as a discrete parameter that was sampled with
+the others. The legend gives each probability with its Monte Carlo error
+(binomial, at the effective sample size) and, for a split in two, the
+posterior odds of the first part against the second; with `--prior_odds K`
+it gives the Bayes factor, odds / K, instead. A dotted line marks the value.
+`--corner_split_marginals` draws the share of each part of the first split
+in every diagonal panel, one line style each, so that the parts add up to
+the marginal. These probabilities are not significances.
+
+![Posterior corner plot with the probability of each side of sin²θ23 = 0.5 and of each mass ordering in the legend, and the marginals split into the two sides](images/options/hypotheses.png)
+
+```bash
+plotipus map --datafile Oscillation --select Sample -s Posterior --corner Mixing Phase Splitting --contour --corner_levels 68 90 --corner_labels '$\sin^2\theta_{23}$' '$\delta/\pi$' '$\Delta m^2$ ($10^{-3}$ eV$^2$)' --corner_interval hdi --corner_cyclic Phase -1 1 --corner_split Mixing 0.5 --corner_split Ordering --corner_split_marginals --prior_odds 1 --no_corner_titles --bins 40 --title 'Posterior corner plot: the probability of each hypothesis'
+```
+
+**The upper triangle.** `--corner_upper` fills the cell above the diagonal
+of each pair with a second view of it; the legend then goes above the grid.
+
+`--corner_upper profile --loglike COLUMN` draws the profile likelihood of
+the same draws: the regions where −2 ln L, minimised over the draws of each
+bin, is within 2.30 and 6.18 of the best draw (the 2-dof levels of the
+regions' content), dashed and in the neutral colour, with the best draw as a
+star, and the 1D profile as a dashed line over each marginal. Where the two
+views differ, the posterior is shaped by the prior volume and not by the
+data: below, the marginal posterior of f is highest at its bound although
+the likelihood peaks at 0.07. The column is the log-likelihood, not the
+log-posterior. The maximum over the draws of a bin lies below the true
+maximum, so this profile is for the comparison; bins with fewer than three
+draws are left out with a warning, and a profile to publish comes from a
+minimiser (`map --contour -z`, [Contours](#contours)).
+
+![Posterior corner plot with the credible regions below the diagonal and the profile-likelihood regions of the same draws above it; the marginal of f carries a one-sided limit](images/options/profile.png)
+
+```bash
+plotipus map --datafile Volume --corner Fraction Scale Rate --contour --weight Weight --contour_sigmas 1 2 --corner_labels '$f$' '$m$' '$h$' --corner_bound Fraction 0 nan --corner_upper profile --loglike LogLike --bins 36 --title 'Posterior below the diagonal, profile likelihood above'
+```
+
+`--corner_upper corr` writes the correlation coefficient of each pair with
+its Monte Carlo error, (1 − ρ²)/√(ESS − 1), on a tint of the diverging map;
+several samples get one line each in their colours, and a pair with a cyclic
+variable gets none. When the numbers do not fit their cells only the tint is
+drawn, with a warning. `--corner_mc_error [N]` shows how well the sample
+determines the outermost region: its outline for N (default 30) resamplings
+of the histogram at the effective sample size, as hairlines.
+
+![Posterior corner plot with the correlation coefficient of each pair in the upper triangle and the 99.7% outline of 30 resamplings](images/options/correlations.png)
+
+```bash
+plotipus map --datafile Posterior --corner Strength Mass Width --contour --select Experiment -s 'Experiment A' --contour_sigmas 1 2 3 --corner_labels '$\mu$' '$m$ (GeV)' '$\Gamma$ (GeV)' --corner_upper corr --corner_mc_error --bins 40 --title 'Posterior corner plot: correlations and the Monte Carlo error of the outer region'
+```
+
+**The prior.** `--corner_prior VALUE` names the value of `--contour_hue`
+whose rows hold draws from the prior (the same columns as the posterior,
+sampled from the prior alone). Its marginals are drawn as dashed steps in the
+neutral colour and, in the pairs, the outline of its outermost region; a
+prior that is flat over the panel has no outline, which would only be the
+noise of its histogram. It never fills, takes no colour of the palette, and
+does not widen the ranges or enter the titles, intervals and probabilities
+of the posterior. Because the prior is a sample, the prior of a derived
+parameter comes with it. `--corner_shrinkage` adds a line to each title,
+σ/σ₀ and Δ/σ₀: the posterior's half 68.3% interval over the prior's, and the
+shift of its median in prior widths. A ratio above 0.9 means the data hardly
+constrain the parameter, and plotipus says so.
+
+**Derived parameters.** `--corner_block COLUMN ...` draws array columns that
+are not in the grid, a function of the others, as marginals in the top-right
+block of the upper triangle (the ⌊N/2⌋ × ⌊N/2⌋ cells that touch no diagonal
+panel, so from four variables) with their interval and, with
+`--corner_prior`, their prior. A derived parameter has no row and no column:
+its panels against the others would show a curve, not a constraint.
+`--corner_block_labels` names them. The block and `--corner_upper corr` share
+the upper triangle; the legend goes above the grid.
+
+![Posterior corner plot of four parameters with their prior, the width and shift of each marginal in prior widths, and a derived parameter in the block of the upper triangle, whose prior is far from flat](images/options/prior.png)
+
+```bash
+plotipus map --datafile Oscillation --corner Mixing Small Phase Splitting --contour --contour_hue Sample --corner_prior Prior --contour_sigmas 1 2 --corner_labels '$\sin^2\theta_{23}$' '$\sin^2\theta_{13}$' '$\delta/\pi$' '$\Delta m^2$ ($10^{-3}$ eV$^2$)' --corner_interval hdi --corner_cyclic Phase -1 1 --corner_shrinkage --corner_block Invariant --corner_block_labels '$J$' --bins 40 --title 'Posterior corner plot: the prior, and a derived parameter in the block'
+```
+
+**Paper size.** A posterior corner plot in a medium that draws panels side
+by side at one plot's width (paper) is drawn at the style's `double` width
+(6.8 in), with a note: its titles, legend and the numbers of the upper
+triangle do not fit a column. `--width single` keeps the column, and a corner
+plot of histograms is not affected.
 
 ## Contours
 
@@ -819,6 +951,18 @@ of filled cells (`diverging_cmap`), whose centre melts into the paper. Other
 columns take the sequential
 `image.cmap` (`plotipus`; cividis with `--experiment dune`).
 
+**Marker size** follows the number of points, so that a colour can be read
+whatever the sample: the markers cover about a third of the axes if they
+were spread evenly, up to the style's data marker (`lines.markersize`: 7 pt
+across on slides, 3.5 pt on paper) and down to 45% of its diameter, the
+smallest disc whose colour still reads. A figure that needs less than that
+prints a notice, since no marker size can then separate the points: draw
+their density with `map --map_type hexbin`, or give `--marker_size AREA`
+(points²) to choose the size yourself. `--sizeby` spreads the sizes around
+the chosen one. With `--colorby`, the points are drawn in a fixed random
+order, so that the last rows of the data do not hide the others where they
+overlap.
+
 The yields of a search are counts, so they are bars: the simulated
 background and signal stacked in each mass region, with the band of their
 total error, and the data as points on top.
@@ -882,7 +1026,7 @@ plotipus cat --datafile Distributions -x Distribution -y Value --hue Sample --se
 ![True against measured values of exponential samples coloured by their residual](images/options/scatter.png)
 
 ```bash
-plotipus scatter --datafile Distributions -x Value -y Response --colorby Residual --select Distribution Sample -s Exponential Data --marker_size 4 --rangey 0.5 1.5 --labelx True --labely 'Measured / True' --title 'Points coloured by a third column'
+plotipus scatter --datafile Distributions -x Value -y Response --colorby Residual --select Distribution Sample -s Exponential Data --rangey 0.5 1.5 --labelx True --labely 'Measured / True' --title 'Points coloured by a third column'
 ```
 
 `--hue` gives each row its own colour and legend entry. Here the rows are
@@ -891,7 +1035,7 @@ three distributions picked with `--select` (values of one key are OR-ed):
 ![True against measured values of Gaussian, exponential and log-normal data, one colour each](images/options/hue.png)
 
 ```bash
-plotipus scatter --datafile Distributions -x Value -y Response --hue Distribution --select Sample Distribution Distribution Distribution -s Data Gaussian Exponential Log-normal --marker_size 4 --rangey 0.5 1.5 --legend_loc 'lower right' --labelx True --labely 'Measured / True' --title 'Points coloured by group (--hue)'
+plotipus scatter --datafile Distributions -x Value -y Response --hue Distribution --select Sample Distribution Distribution Distribution -s Data Gaussian Exponential Log-normal --rangey 0.5 1.5 --legend_loc 'lower right' --labelx True --labely 'Measured / True' --title 'Points coloured by group (--hue)'
 ```
 
 ## Tables

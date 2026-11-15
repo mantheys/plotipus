@@ -35,7 +35,7 @@ from matplotlib.path import Path
 from matplotlib.ticker import MaxNLocator
 from rich import print as rprint
 
-from .. import style
+from .. import posterior, style
 from ..args import add_common_args, map_iterable_color, map_iterable_label, parse_plot_label, resolve_axis_label
 from ..format import _title_case_words, make_config_label_from_args, make_subtitle_from_args
 from ..io import import_data, normalize_datafiles, prepare_import
@@ -126,6 +126,55 @@ def build_parser():
         help="With --corner --contour: do not write the median and 68.3%% interval above each diagonal panel.")
     add("--weight", type=str, default=None, metavar="COLUMN",
         help="With --corner --contour: column of per-point weights (weighted posterior samples).")
+    add("--corner_levels", nargs="+", type=float, default=None, metavar="PERCENT",
+        help="With --corner --contour: content of the credible regions in percent (68 90), instead of the "
+        "--contour_sigmas levels; the marginals then carry the interval of the first level.")
+    add("--corner_interval", default=None, choices=["quantile", "hdi", "limit"],
+        help="Interval of each marginal: the central one around the median (quantile), the highest-density one "
+        "around the mode, in pieces when the marginal has several peaks (hdi), or a one-sided limit for every "
+        "variable with a --corner_bound (limit). Default: quantile, a limit where the marginal is highest at its "
+        "bound, and hdi for a --corner_cyclic variable.")
+    add("--corner_cyclic", nargs="+", action="append", default=None, metavar="VARIABLE [LOW HIGH]",
+        help="A periodic --corner variable (a phase; repeatable): its panels span one period (default [-pi, pi] or "
+        "[0, 2 pi], whichever holds the draws), regions and intervals run across the end of the axis.")
+    add("--corner_bound", nargs=3, action="append", default=None, metavar=("VARIABLE", "LOW", "HIGH"),
+        help="Hard bounds of a --corner variable ('nan' for none; repeatable): nothing is smoothed across them, and a "
+        "marginal that is highest at one gets a one-sided limit holding the outermost level.")
+    add("--corner_split", nargs="+", action="append", default=None, metavar="VARIABLE VALUE | COLUMN",
+        help="Posterior probability of the two sides of a value of a --corner variable, or of each value of a label "
+        "column (one label per draw or per row; repeatable): written in the legend with its Monte Carlo error and the "
+        "posterior odds, a dotted line at the value.")
+    add("--corner_split_marginals", action="store_true", default=False,
+        help="With --corner_split: draw the share of each part of the first split in every diagonal panel, one line "
+        "style each.")
+    add("--prior_odds", type=float, default=None, metavar="ODDS",
+        help="With --corner_split: prior odds of the first part against the second; the legend then gives the Bayes "
+        "factor (posterior odds / prior odds) instead of the posterior odds.")
+    add("--corner_upper", default=None, choices=["profile", "corr"],
+        help="With --corner --contour, the upper triangle: the profile likelihood of each pair and over each marginal "
+        "(profile, needs --loglike; one sample) or the correlation coefficient of each pair with its Monte Carlo "
+        "error (corr). The legend then goes above the grid.")
+    add("--loglike", type=str, default=None, metavar="COLUMN",
+        help="With --corner_upper profile: column of the log-likelihood of each draw (not the log-posterior).")
+    add("--corner_mc_error", nargs="?", type=int, const=30, default=None, metavar="N",
+        help="With --corner --contour: the outermost region's outline for N (default 30) resamplings of the draws at "
+        "their effective sample size, as hairlines: the Monte Carlo uncertainty of the region.")
+    add("--corner_prior", type=str, default=None, metavar="VALUE",
+        help="With --corner --contour --contour_hue: the value of that column whose rows hold draws from the prior. It "
+        "is drawn as a dashed outline in the neutral colour (its marginals, and its outermost region in the pairs), "
+        "never filled, and is left out of the ranges, the titles and the other statistics.")
+    add("--corner_shrinkage", action="store_true", default=False,
+        help="With --corner_prior and one posterior sample: under each title, the posterior's width over the prior's "
+        "and the shift of its median in prior widths (widths: half the central 68.3%% interval).")
+    add("--corner_block", nargs="+", default=None, metavar="COLUMN",
+        help="With --corner --contour and four or more variables: array columns that are not in the grid (derived "
+        "parameters), drawn as marginals in the top-right block of the upper triangle, with their interval and, with "
+        "--corner_prior, the prior they inherit. The legend then goes above the grid.")
+    add("--corner_block_labels", nargs="+", type=parse_plot_label, default=None, metavar="LABEL",
+        help="Axis label of each --corner_block column (default: the column names).")
+    add("--corner_band", nargs="+", action="append", default=None, metavar="VARIABLE LOW HIGH [LABEL]",
+        help="With --corner --contour: an outside constraint on one variable, a hatched band across its panels "
+        "(repeatable); with a LABEL it is named in the legend.")
     add("--diagonal", action="store_true", default=False, help="Draw the y = x line.")
     add("--cmap", type=str, default=None,
         help="Matplotlib colour map of -z images; 'diverging' is the style's map for signed values "
@@ -514,14 +563,26 @@ def corner_edges(values, args):
     return np.linspace(low, high, nbins + 1)
 
 
-def corner_figure_size(n):
+def corner_figure_size(n, posterior_mode=False):
     """The medium's width for two facets side by side (one plot's width with
     --layout panels, as on paper), at one plot's aspect: every panel keeps
-    the proportions of a single plot."""
+    the proportions of a single plot. A posterior corner plot in a medium
+    that keeps side-by-side panels at one plot's width (paper) is drawn at
+    the style's 'double' width instead, unless a --width was given: its
+    panels, titles and legend do not fit one column."""
     from ..plot import get_common_figsize
 
     width, height = get_common_figsize()
     wide = get_common_figsize(ncols=min(n, 2))[0]
+    double = style.widths.get("double")
+    given = style._CONFIG.get("cli_geometry", {}).get("width") is not None
+    if posterior_mode and double is not None and style.figure_width is not None and not given \
+            and style.figure_layout_mode == "panels" and not style.figure_single_panel:
+        double = float(double["width"] if isinstance(double, dict) else double)
+        if double > wide:
+            _notice("corner-double", f"a posterior corner plot is drawn at the double-column width ({double:g} in) in this "
+                    "medium; --width single keeps one column")
+            wide = double
     return wide, height * wide / width
 
 
@@ -540,23 +601,28 @@ def draw_corner_diagonal(ax, values, edges):
 
 # The central 68.3% interval of a marginal: the 1 sigma quantiles around the median.
 CREDIBLE_QUANTILES = (0.15865525393145707, 0.5, 0.8413447460685429)
+CREDIBLE_LEVEL = CREDIBLE_QUANTILES[2] - CREDIBLE_QUANTILES[0]
 
 
 def weighted_quantiles(values, weights, quantiles):
     """Quantiles of weighted values (unit weights for None): the weighted
     ECDF taken at each value's mid-weight, interpolated."""
-    order = np.argsort(values)
-    values = np.asarray(values, dtype=float)[order]
-    weights = np.ones(len(values)) if weights is None else np.asarray(weights, dtype=float)[order]
-    cumulative = (np.cumsum(weights) - 0.5 * weights) / weights.sum()
-    return np.interp(quantiles, cumulative, values)
+    return posterior.weighted_quantiles(values, weights, quantiles)
+
+
+def _notice(key, message):
+    """Print a warning once per process."""
+    if key not in _NOTICES_SHOWN:
+        _NOTICES_SHOWN.add(key)
+        rprint(f"[yellow]Warning:[/yellow] {message}")
 
 
 def corner_samples(subset, args):
     """The samples of a corner plot, each a dict (label, color, columns,
-    weights): the one row of arrays; with --contour and --contour_hue, one
-    sample per value of that column (its rows joined), overlaid in the
-    panels. None, after an error message, when the rows do not fit."""
+    weights, and for posteriors lengths, loglike and labels): the one row of
+    arrays; with --contour and --contour_hue, one sample per value of that
+    column (its rows joined, each row a chain), overlaid in the panels. None,
+    after an error message, when the rows do not fit."""
     hue = args.contour_hue if args.contour else None
     if hue is None and len(subset) != 1:
         rprint(f"[red]Error:[/red] --corner needs one row of arrays, found {len(subset)} "
@@ -565,27 +631,46 @@ def corner_samples(subset, args):
         return None
     groups = [(None, subset)] if hue is None else [(value, subset[subset[hue] == value]) for value in pd.unique(subset[hue])]
     join = lambda cells: np.concatenate([np.asarray(cell, dtype=float).ravel() for cell in cells])  # noqa: E731
+    label_columns = [entry[0] for entry in getattr(args, "corner_split", None) or [] if len(entry) == 1]
+    loglike = getattr(args, "loglike", None) if getattr(args, "corner_upper", None) == "profile" else None
+    block_columns = list(getattr(args, "corner_block", None) or []) if args.contour else []
+    prior_value = getattr(args, "corner_prior", None) if hue is not None else None
+    is_prior = lambda value: prior_value is not None and str(value) == str(prior_value)  # noqa: E731
     allocator = ColorAllocator()
-    if hue is not None:
-        allocator.reserve([value for value, _ in groups], lambda value: hue_color(value, args, hue))
+    if hue is not None:  # the prior takes the neutral colour, not one of the palette
+        allocator.reserve([value for value, _ in groups if not is_prior(value)], lambda value: hue_color(value, args, hue))
     samples, dropped, total = [], 0, 0
     for value, frame in groups:
         columns = [join(frame[variable].values) for variable in args.corner]
         weights = join(frame[args.weight].values) if args.weight else None
-        if len({len(c) for c in columns} | ({len(weights)} if weights is not None else set())) != 1:
-            rprint(f"[red]Error:[/red] --corner: the arrays of {', '.join(args.corner)}"
-                   + (f" and {args.weight}" if args.weight else "") + " differ in length"
+        extra = join(frame[loglike].values) if loglike else None
+        lengths = [np.asarray(cell).size for cell in frame[args.corner[0]].values]
+        # A label per draw (an array cell) or per row (a scalar cell, repeated over the row's draws).
+        labels = {name: np.concatenate([np.asarray(cell, dtype=object).ravel() if np.ndim(cell) else np.full(size, cell, dtype=object)
+                                        for cell, size in zip(frame[name].values, lengths)]) for name in label_columns}
+        block = {name: join(frame[name].values) for name in block_columns}
+        sizes = {len(c) for c in columns} | {len(a) for a in (weights, extra, *labels.values(), *block.values()) if a is not None}
+        if len(sizes) != 1:
+            names = [*args.corner, *(n for n in (args.weight, loglike, *label_columns, *block_columns) if n)]
+            rprint(f"[red]Error:[/red] --corner: the arrays of {', '.join(names)} differ in length"
                    + (f" for {hue} = {value}" if hue is not None else ""))
             return None
-        valid = np.logical_and.reduce([np.isfinite(c) for c in columns] + ([np.isfinite(weights)] if weights is not None else []))
+        valid = np.logical_and.reduce([np.isfinite(c) for c in columns]
+                                      + [np.isfinite(a) for a in (weights, extra, *block.values()) if a is not None])
         dropped, total = dropped + int((~valid).sum()), total + len(valid)
         if not valid.any():
             continue
+        bounds = np.r_[0, np.cumsum(lengths)]
         samples.append({
             "label": None if value is None else map_iterable_label(value, hue, args.iterable_mapping),
-            "color": allocator.color_for(value if hue is not None else "sample"),
+            "color": style.role("muted") if is_prior(value) else allocator.color_for(value if hue is not None else "sample"),
+            "prior": is_prior(value),
+            "block": {name: array[valid] for name, array in block.items()},
             "columns": [c[valid] for c in columns],
             "weights": weights[valid] if weights is not None else None,
+            "loglike": extra[valid] if extra is not None else None,
+            "labels": {name: array[valid] for name, array in labels.items()},
+            "lengths": [int(valid[a:b].sum()) for a, b in zip(bounds[:-1], bounds[1:])],
         })
     if dropped:
         rprint(f"[yellow]Warning:[/yellow] Dropping {dropped} non-finite entries out of {total}")
@@ -595,49 +680,240 @@ def corner_samples(subset, args):
     return samples
 
 
+def corner_variable_info(args, samples):
+    """What --corner_cyclic and --corner_bound say of each --corner variable:
+    [{"cyclic": (low, high) or None, "bound": (low, high)}] (NaN: no bound).
+    Draws of a cyclic variable outside its range are wrapped into it. None,
+    after an error message, for a variable that is not drawn or a range that
+    cannot be read."""
+    info = [{"cyclic": None, "bound": (np.nan, np.nan)} for _ in args.corner]
+
+    def position(name, option):
+        if name not in args.corner:
+            rprint(f"[red]Error:[/red] {option} {name}: not one of the --corner variables ({', '.join(args.corner)})")
+            return None
+        return args.corner.index(name)
+
+    for entry in args.corner_cyclic or []:
+        index = position(entry[0], "--corner_cyclic")
+        if index is None:
+            return None
+        values = np.concatenate([s["columns"][index] for s in samples])
+        try:
+            given = [float(v) for v in entry[1:]]
+        except ValueError:
+            given = [np.nan]
+        if len(given) == 2 and given[0] < given[1]:
+            low, high = given
+        elif not given and values.min() >= -np.pi and values.max() <= np.pi:
+            low, high = -np.pi, np.pi
+        elif not given and values.min() >= 0 and values.max() <= 2 * np.pi:
+            low, high = 0.0, 2 * np.pi
+        else:
+            rprint(f"[red]Error:[/red] --corner_cyclic {entry[0]}: give its range as LOW HIGH "
+                   f"(the draws span {values.min():.4g} to {values.max():.4g}, neither [-pi, pi] nor [0, 2 pi])")
+            return None
+        outside = int(((values < low) | (values > high)).sum())
+        if outside:
+            rprint(f"[yellow]Warning:[/yellow] --corner_cyclic {entry[0]}: {outside} draws outside [{low:.4g}, {high:.4g}] "
+                   "are wrapped into it")
+            for sample in samples:
+                sample["columns"][index] = low + np.mod(sample["columns"][index] - low, high - low)
+        info[index]["cyclic"] = (low, high)
+    for name, low, high in args.corner_bound or []:
+        index = position(name, "--corner_bound")
+        if index is None:
+            return None
+        try:
+            low, high = float(low), float(high)
+        except ValueError:
+            rprint(f"[red]Error:[/red] --corner_bound {name}: LOW and HIGH are numbers ('nan' for no bound)")
+            return None
+        values = np.concatenate([s["columns"][index] for s in samples])
+        outside = int(((values < low) | (values > high)).sum())  # comparisons with NaN are False
+        if outside:
+            rprint(f"[yellow]Warning:[/yellow] --corner_bound {name}: {outside} draws lie outside the bounds and are not drawn")
+        info[index]["bound"] = (low, high)
+    return info
+
+
+def corner_posterior_edges(values, args, info):
+    """Bin edges of a posterior's variable: one period of a cyclic variable;
+    else :func:`corner_edges`, which stop at a --corner_bound and start from
+    it when the draws come within a tenth of the range of it."""
+    nbins = args.bins or style.nbins
+    nbins = nbins[0] if isinstance(nbins, (list, tuple)) else int(nbins)
+    if info["cyclic"] is not None:
+        return np.linspace(*info["cyclic"], nbins + 1)
+    edges = corner_edges(values, args)
+    low, high = edges[0], edges[-1]
+    bound_low, bound_high = info["bound"]
+    if np.isfinite(bound_low) and low - bound_low < 0.1 * (high - low):
+        low = bound_low
+    if np.isfinite(bound_high) and bound_high - high < 0.1 * (high - low):
+        high = bound_high
+    return edges if (low, high) == (edges[0], edges[-1]) else np.linspace(low, high, nbins + 1)
+
+
 def credible_fractions(args):
-    """Content of the --contour_sigmas regions of sampled points (68.3, 95.4
-    and 99.7% with 2 dof; 39.3, 86.5 and 98.9% with --contour_dof 1), innermost first."""
+    """Content of the regions of sampled points, innermost first:
+    --corner_levels (in percent), else that of the --contour_sigmas levels
+    (68.3, 95.4 and 99.7% with 2 dof; 39.3, 86.5 and 98.9% with --contour_dof 1)."""
     from scipy.stats import chi2
 
+    levels = getattr(args, "corner_levels", None)
+    if levels:
+        return sorted(set(float(p) / 100.0 for p in levels if 0 < p < 100))
     sigmas = sorted(set(float(s) for s in args.contour_sigmas if np.isfinite(s)))
     return [float(chi2.cdf(level, 2)) for level in contour_levels(sigmas, "sigma_probability", args.contour_dof)]
 
 
-def draw_corner_regions(ax, sample, c, r, xedges, yedges, fractions, args, alpha):
+def level_text(fraction, args):
+    """'68.3%' ('90%' for a --corner_levels value)."""
+    return f"{100 * fraction:g}%" if getattr(args, "corner_levels", None) else f"{100 * fraction:.1f}%"
+
+
+def _contour_grid(density, xedges, yedges, pads=(None, None)):
+    """(x, y, density) to contour: the bin centres, with one more column or
+    row past each end named in ``pads`` (per axis, (low, high) of 'wrap' for
+    a cyclic axis, 'edge' for a hard bound, None), so that a region reaches
+    the end of the axis instead of stopping half a bin short of it."""
+    grids = []
+    for axis, (edges, pad) in enumerate(zip((xedges, yedges), pads)):
+        centres = 0.5 * (edges[1:] + edges[:-1])
+        low, high = pad if pad is not None else (None, None)
+        step = edges[1] - edges[0]
+        for side, kind in (("low", low), ("high", high)):
+            if kind is None:
+                continue
+            take = (-1 if side == "low" else 0) if kind == "wrap" else (0 if side == "low" else -1)
+            extra = np.take(density, [take], axis=axis)
+            density = np.concatenate([extra, density] if side == "low" else [density, extra], axis=axis)
+            centres = np.r_[centres[0] - step, centres] if side == "low" else np.r_[centres, centres[-1] + step]
+        grids.append(centres)
+    return grids[0], grids[1], density
+
+
+def corner_pads(info, edges):
+    """Per variable, how its contouring grid continues past the ends of its axis (see :func:`_contour_grid`)."""
+    pads = []
+    for entry, edge in zip(info, edges):
+        if entry["cyclic"] is not None:
+            pads.append(("wrap", "wrap"))
+        else:
+            low, high = entry["bound"]
+            pads.append(("edge" if np.isfinite(low) and np.isclose(edge[0], low) else None,
+                         "edge" if np.isfinite(high) and np.isclose(edge[-1], high) else None))
+    return pads
+
+
+def draw_corner_regions(ax, sample, c, r, xedges, yedges, fractions, args, alpha, modes=("reflect", "reflect"),
+                        pads=(None, None)):
     """Credible regions of one sample in the (c, r) panel: the smallest
     regions holding each fraction of its (weighted) points, from the 2D
-    histogram smoothed by --contour_smoothing_sigma bins (default 1), filled
-    from the sample's colour (innermost) towards the paper, with outlines."""
+    histogram smoothed by --contour_smoothing_sigma bins (default 1; around
+    the end of a cyclic axis with the mode 'wrap'), filled from the sample's
+    colour (innermost) towards the paper, with outlines. With
+    --corner_mc_error, the outermost outline of that many resamplings of the
+    histogram at the effective sample size, as hairlines."""
     counts, _, _ = np.histogram2d(sample["columns"][c], sample["columns"][r], bins=[xedges, yedges], weights=sample["weights"])
-    density = _smooth(counts, args.contour_smoothing_sigma or 1.0)
+    sigma = args.contour_smoothing_sigma or 1.0
+    density = _smooth(counts, sigma, modes)
     thresholds = sample_region_thresholds(density, fractions)
     levels = sorted(set(t for t in thresholds if np.isfinite(t) and 0 < t < density.max()))  # outermost first
     if not levels:
         return
-    xc, yc = 0.5 * (xedges[1:] + xedges[:-1]), 0.5 * (yedges[1:] + yedges[:-1])
+    xc, yc, drawn = _contour_grid(density, xedges, yedges, pads)
     bands = sample["bands"][:len(levels)][::-1]
-    ax.contourf(xc, yc, density.T, levels=levels + [np.inf], colors=bands, alpha=alpha, zorder=2)
-    ax.contour(xc, yc, density.T, levels=levels, colors=[sample["color"]], linewidths=0.6 * args.contour_linewidth,
+    ax.contourf(xc, yc, drawn.T, levels=levels + [np.inf], colors=bands, alpha=alpha, zorder=2)
+    ax.contour(xc, yc, drawn.T, levels=levels, colors=[sample["color"]], linewidths=0.6 * args.contour_linewidth,
                linestyles="solid", zorder=2.5)
+    if args.corner_mc_error:
+        rng = np.random.default_rng(1000 * c + r)  # the same hairlines every time the figure is drawn
+        total = float(np.sum(sample["weights"])) if sample["weights"] is not None else float(len(sample["columns"][c]))
+        for _ in range(int(args.corner_mc_error)):
+            resampled = _smooth(posterior.resampled_counts(counts, total, sample["ess"], rng), sigma, modes)
+            (level,) = sample_region_thresholds(resampled, fractions[-1:])
+            if np.isfinite(level) and 0 < level < resampled.max():
+                ax.contour(xc, yc, _contour_grid(resampled, xedges, yedges, pads)[2].T, levels=[level], colors=[sample["color"]], linewidths=0.25 * args.contour_linewidth,
+                           alpha=0.45, zorder=2.6)
 
 
-def draw_corner_marginal(ax, sample, index, edges, interval=True):
+def corner_summary(sample, index, edges, info, args, level, outer):
+    """How the marginal of one variable is summarised: a dict with ``kind``
+    ('interval', 'pieces' or 'limit'), ``pieces`` [(low, high)] to shade,
+    ``centre`` (the median or the mode; the limit), ``method`` (for the
+    legend) and ``error``, the Monte Carlo error of the centre.
+
+    * the central interval around the median (default), at ``level``;
+    * with --corner_interval hdi, and always for a cyclic variable, the
+      highest-density region: one interval around the mode (past the end of
+      a cyclic axis when it wraps) or several pieces, never merged;
+    * for a variable with a --corner_bound whose highest-density region
+      touches the bound (and for every bounded one with --corner_interval
+      limit), a one-sided limit holding ``outer`` of the marginal."""
+    values, weights = sample["columns"][index], sample["weights"]
+    percent, mode = level_text(level, args), args.corner_interval
+    cyclic, bound = info["cyclic"], info["bound"]
+    error = posterior.quantile_error(values, weights, 0.5, sample["ess"])
+    bounded = np.isfinite(bound).any() and cyclic is None
+    if cyclic is not None or mode == "hdi" or (bounded and mode in (None, "limit")):
+        fine, density = posterior.fine_density(values, weights, edges, cyclic is not None, bound)
+        pieces, peak = posterior.density_pieces(fine, density, level, cyclic is not None)
+        step = fine[1] - fine[0]
+        at_low = np.isfinite(bound[0]) and pieces and pieces[0][0] <= bound[0] + 1.5 * step
+        at_high = np.isfinite(bound[1]) and pieces and pieces[-1][1] >= bound[1] - 1.5 * step
+        if bounded and mode == "limit" and not (at_low or at_high):
+            at_low = np.isfinite(bound[0]) and (not np.isfinite(bound[1]) or peak - bound[0] < bound[1] - peak)
+            at_high = not at_low
+        if bounded and mode in (None, "limit") and (at_low or at_high):
+            lower_side = bool(at_low and not (at_high and density[-1] > density[0]))
+            (limit,) = weighted_quantiles(values, weights, [outer if lower_side else 1 - outer])
+            pieces = [(bound[0], float(limit))] if lower_side else [(float(limit), bound[1])]
+            return {"kind": "limit", "pieces": pieces, "centre": float(limit), "side": "<" if lower_side else ">",
+                    "method": f"{level_text(outer, args)} limit", "error": error, "auto": mode is None}
+        if cyclic is not None or mode == "hdi":
+            if cyclic is not None and mode != "hdi":
+                _notice(("cyclic", args.corner[index]),
+                        f"{args.corner[index]} is cyclic: its interval is the highest-density one (a central interval "
+                        "depends on where the axis is cut)")
+            if cyclic is not None and pieces and peak < pieces[-1][0] and pieces[-1][1] > cyclic[1]:
+                peak += cyclic[1] - cyclic[0]  # the mode lies in the part of the wrapped piece past the end
+            return {"kind": "interval" if len(pieces) == 1 else "pieces", "pieces": pieces, "centre": float(peak),
+                    "method": f"mode, {percent} HDI", "error": error}
+    tail = 0.5 * (1 - level)
+    low, median, high = weighted_quantiles(values, weights, [tail, 0.5, 1 - tail])
+    return {"kind": "interval", "pieces": [(float(low), float(high))], "centre": float(median),
+            "method": f"median, central {percent}", "error": error}
+
+
+def draw_corner_marginal(ax, sample, index, edges, summary=None, period=None):
     """Marginal of one variable: the (weighted) density as a step outline in
-    the sample's colour; with ``interval`` (a single sample), shaded over its
-    central 68.3% interval, with a line at the median. Returns (low, median,
-    high, peak density)."""
+    the sample's colour; with a ``summary`` (a single sample), shaded over
+    its pieces (a piece past the end of a cyclic axis continues from its
+    start), with a line at the median, the mode or the limit. Returns the
+    peak density."""
     values, weights, color = sample["columns"][index], sample["weights"], sample["color"]
     density, _ = np.histogram(values, bins=edges, weights=weights, density=True)
     density = np.nan_to_num(density)
-    low, median, high = weighted_quantiles(values, weights, CREDIBLE_QUANTILES)
     height = lambda x: density[np.clip(np.searchsorted(edges, x, side="right") - 1, 0, len(density) - 1)]  # noqa: E731
-    inside = np.linspace(max(low, edges[0]), min(high, edges[-1]), 400)
-    if interval:
-        ax.fill_between(inside, height(inside), color=color, alpha=0.25, linewidth=0)
-        ax.plot([median, median], [0, float(height(median))], color=color, linewidth=1.0)
+    if summary is not None:
+        shown = []
+        for low, high in summary["pieces"]:
+            low = edges[0] if not np.isfinite(low) else low
+            high = edges[-1] if not np.isfinite(high) else high
+            if period is not None and high > edges[-1]:
+                shown += [(low, edges[-1]), (edges[0], high - period)]
+            else:
+                shown.append((low, high))
+        for low, high in shown:
+            inside = np.linspace(max(low, edges[0]), min(high, edges[-1]), 400)
+            ax.fill_between(inside, height(inside), color=color, alpha=0.25, linewidth=0)
+        if summary["kind"] != "pieces":
+            centre = summary["centre"] - period if period is not None and summary["centre"] > edges[-1] else summary["centre"]
+            ax.plot([centre, centre], [0, float(height(centre))], color=color, linewidth=1.0)
     ax.stairs(density, edges, color=color, linewidth=1.2)
-    return low, median, high, float(density.max())
+    return float(density.max())
 
 
 def _split_unit(label):
@@ -648,18 +924,47 @@ def _split_unit(label):
     return (match.group(1), match.group(2)) if match else (label, None)
 
 
-def credible_text(low, median, high):
+def _decimals(value, digits=2):
+    """Decimals that show ``digits`` significant figures of ``value``."""
+    return int(np.clip(digits - 1 - np.floor(np.log10(abs(value))), 0, 6)) if value and np.isfinite(value) else 2
+
+
+def credible_text(low, median, high, mc_error=None):
     """'$1.20^{+0.10}_{-0.11}$': the median with the distances to the
     interval's ends, to two significant figures of the smaller one, with a
-    common power of ten for very small or large values."""
+    common power of ten for very small or large values. With ``mc_error``
+    (the Monte Carlo error of the median), no digit past its leading one."""
     up, down = high - median, median - low
     scale = max(abs(median), up, down)
     exponent = int(np.floor(np.log10(scale))) if scale > 0 and not 1e-3 <= scale < 1e4 else 0
     median, up, down = (v / 10.0**exponent for v in (median, up, down))
     sides = [s for s in (up, down) if s > 0]
     decimals = int(np.clip(1 - np.floor(np.log10(min(sides))), 0, 6)) if sides else 2
+    if mc_error and np.isfinite(mc_error) and mc_error > 0:
+        decimals = min(decimals, max(0, int(-np.floor(np.log10(mc_error / 10.0**exponent)))))
     text = f"{median:.{decimals}f}^{{+{up:.{decimals}f}}}_{{-{down:.{decimals}f}}}"
     return f"$({text}) \\times 10^{{{exponent}}}$" if exponent else f"${text}$"
+
+
+def summary_text(summary, label, args, outer):
+    """The title of a diagonal panel: 'm = 124.95 +0.25 -0.25 GeV', the
+    pieces of a highest-density region as a union, or a limit with its
+    content."""
+    name, unit = _split_unit(label)
+    unit = f" {unit}" if unit else ""
+    if summary["kind"] == "limit":
+        value = summary["centre"]
+        return f"{name} ${summary['side']}$ ${value:.{_decimals(value)}f}${unit} ({level_text(outer, args)})"
+    if summary["kind"] == "pieces":
+        decimals = _decimals(min(high - low for low, high in summary["pieces"]))
+        union = " $\\cup$ ".join(f"[${low:.{decimals}f}$, ${high:.{decimals}f}$]" for low, high in summary["pieces"])
+        return f"{name} $\\in$ {union}{unit}"
+    (low, high), centre = summary["pieces"][0], summary["centre"]
+    text = credible_text(low, centre, high, summary["error"])
+    if text != credible_text(low, centre, high):
+        _notice(("digits", label), f"{name}: the Monte Carlo error of its estimate ({summary['error']:.2g}) is larger than "
+                "the last digit of its interval; the title is rounded to it")
+    return f"{name} = {text}{unit}"
 
 
 def corner_truths(args, n):
@@ -668,6 +973,265 @@ def corner_truths(args, n):
     if len(values) > n:
         rprint(f"[yellow]Warning:[/yellow] --corner_truth: {len(values)} values for {n} variables; the last ones are ignored")
     return [values[i] if i < len(values) else np.nan for i in range(n)]
+
+
+def corner_bands(args):
+    """--corner_band as [(variable index, low, high, label or None)]; None after an error message."""
+    bands = []
+    for entry in args.corner_band or []:
+        try:
+            index, low, high = args.corner.index(entry[0]), float(entry[1]), float(entry[2])
+        except (ValueError, IndexError):
+            rprint("[red]Error:[/red] --corner_band takes VARIABLE LOW HIGH [LABEL], the variable one of --corner "
+                   f"({', '.join(args.corner)})")
+            return None
+        bands.append((index, min(low, high), max(low, high), parse_plot_label(" ".join(entry[3:])) if len(entry) > 3 else None))
+    return bands
+
+
+def corner_splits(args, samples, labels):
+    """--corner_split as [{"index" (a drawn variable, or None), "value",
+    "parts": per sample [(text, mask)]}]: the two sides of a value of a drawn
+    variable, or the values of a label column. None after an error message."""
+    splits = []
+    for entry in args.corner_split or []:
+        if len(entry) == 2 and entry[0] in args.corner:
+            index = args.corner.index(entry[0])
+            try:
+                value = float(entry[1])
+            except ValueError:
+                rprint(f"[red]Error:[/red] --corner_split {entry[0]} {entry[1]}: the value is a number")
+                return None
+            name = _split_unit(labels[index])[0]
+            parts = [[(f"{name} $>$ {value:g}", s["columns"][index] > value), (f"{name} $<$ {value:g}", s["columns"][index] < value)]
+                     for s in samples]
+            splits.append({"index": index, "value": value, "parts": parts})
+        elif len(entry) == 1:
+            values = list(pd.unique(np.concatenate([s["labels"][entry[0]] for s in samples])))
+            if len(values) > 6:
+                rprint(f"[red]Error:[/red] --corner_split {entry[0]}: {len(values)} values; a split takes a column of a few labels")
+                return None
+            parts = [[(f"{entry[0]} = {value}", s["labels"][entry[0]] == value) for value in values] for s in samples]
+            splits.append({"index": None, "value": None, "parts": parts})
+        else:
+            rprint("[red]Error:[/red] --corner_split takes VARIABLE VALUE (a --corner variable) or one label COLUMN")
+            return None
+    return splits
+
+
+def _probability_text(p, error):
+    decimals = int(np.clip(-np.floor(np.log10(error)), 2, 5)) if np.isfinite(error) and error > 0 else 3
+    return f"{p:.{decimals}f} $\\pm$ {error:.{decimals}f}"
+
+
+# The profile-likelihood regions are lighter than a sample's: they are the second view, in the neutral colour.
+PROFILE_FILL = 0.55
+SPLIT_LINESTYLES = ["--", ":", "-.", (0, (1, 3)), (0, (5, 1)), (0, (3, 1, 1, 1))]
+
+
+def split_entries(splits, samples, args):
+    """Legend entries (handle, text) of the splits: the probability of each
+    part with its error, and for a split in two the odds of the first part
+    against the second (the Bayes factor with --prior_odds). With
+    --corner_split_marginals the entries of the first split carry the line
+    styles of its parts in the diagonal panels."""
+    entries = []
+    blank = lambda: Line2D([], [], linestyle="none")  # noqa: E731
+    for number, split in enumerate(splits):
+        drawn = args.corner_split_marginals and number == 0
+        for sample, parts in zip(samples, split["parts"]):
+            prefix = f"{sample['label']}: " if sample["label"] is not None and len(samples) > 1 else ""
+            results = posterior.split_probabilities([mask for _, mask in parts], sample["weights"], sample["ess"])
+            binary = len(parts) == 2
+            for k, ((text, _), (p, error)) in enumerate(zip(parts, results)):
+                if binary and k == 1 and not drawn:
+                    continue  # the second side of two is one minus the first
+                handle = Line2D([], [], color=sample["color"], linewidth=1.0, linestyle=SPLIT_LINESTYLES[k]) \
+                    if drawn else blank()
+                entries.append((handle, f"{prefix}$P$({text}) = {_probability_text(p, error)}"))
+            if binary and 0 < results[0][0] < 1:
+                p, error = results[0]
+                odds, odds_error = p / (1 - p), error / (1 - p) ** 2
+                if args.prior_odds:
+                    odds, odds_error = odds / args.prior_odds, odds_error / args.prior_odds
+                    name = f"Bayes factor (prior odds {args.prior_odds:g})"
+                else:
+                    name = "posterior odds"
+                decimals = _decimals(odds_error, 1) if np.isfinite(odds_error) and odds_error > 0 else 2
+                entries.append((blank(), f"{prefix}{name} {odds:.{decimals}f} $\\pm$ {odds_error:.{decimals}f}"))
+    return entries
+
+
+def draw_split_marginals(ax, sample, parts, index, edges):
+    """The parts of a split in a diagonal panel: the density of each part
+    scaled by its share, so that the parts add up to the marginal."""
+    weights = np.ones(len(sample["columns"][index])) if sample["weights"] is None else sample["weights"]
+    width = np.diff(edges)
+    for k, (_, mask) in enumerate(parts):
+        counts, _ = np.histogram(sample["columns"][index][mask], bins=edges, weights=weights[mask])
+        ax.stairs(counts / (weights.sum() * width), edges, color=sample["color"], linewidth=0.9, linestyle=SPLIT_LINESTYLES[k])
+
+
+def draw_corner_profile(ax, sample, c, r, xedges, yedges, fractions, args, pads=(None, None)):
+    """The profile likelihood of the (c, r) pair in its mirrored cell: the
+    regions where -2 ln L, minimised over the draws of each bin, lies within
+    the delta-chi2 of each fraction (2 dof) of the best draw, in the neutral
+    colour with dashed outlines, and the best draw as a star. Bins with fewer
+    than posterior.PROFILE_MIN_DRAWS draws are left out. Returns (bins with
+    draws, bins left out)."""
+    from scipy.stats import chi2 as chi2_law
+
+    chi2 = -2.0 * sample["loglike"]
+    best, counts = posterior.profile_grid(chi2, [posterior.bin_index(sample["columns"][c], xedges),
+                                                 posterior.bin_index(sample["columns"][r], yedges)],
+                                          (len(xedges) - 1, len(yedges) - 1))
+    levels = [float(chi2_law.ppf(f, 2)) for f in fractions]
+    thin = (counts > 0) & (counts < posterior.PROFILE_MIN_DRAWS)
+    delta = np.where(counts >= posterior.PROFILE_MIN_DRAWS, best - chi2.min(), np.inf)
+    delta = _smooth(np.minimum(delta, 3 * levels[-1]), 0.5 * (args.contour_smoothing_sigma or 1.0))
+    xc, yc, delta = _contour_grid(delta, xedges, yedges, pads)
+    muted, ink = style.role("muted"), style.role("ink")
+    mix = [PROFILE_FILL * m for m in fill_mix(len(levels))]
+    ax.contourf(xc, yc, delta.T, levels=[-np.inf] + levels, colors=[mix_paper(muted, m) for m in mix], zorder=2)
+    ax.contour(xc, yc, delta.T, levels=levels, colors=[ink], linewidths=0.6 * args.contour_linewidth, linestyles="dashed", zorder=2.5)
+    at = int(np.argmin(chi2))
+    ax.plot([sample["columns"][c][at]], [sample["columns"][r][at]], marker="*", markersize=7, color=ink, linestyle="none",
+            zorder=OVERLAY_ZORDER)
+    return int((counts > 0).sum()), int(thin.sum())
+
+
+def draw_marginal_profile(ax, sample, index, edges, peak):
+    """The 1D profile likelihood over a marginal: exp(-delta chi2 / 2) of
+    the best draw of each bin, scaled to the marginal's peak, dashed in ink."""
+    chi2 = -2.0 * sample["loglike"]
+    best, counts = posterior.profile_grid(chi2, [posterior.bin_index(sample["columns"][index], edges)], (len(edges) - 1,))
+    shown = counts >= posterior.PROFILE_MIN_DRAWS
+    centres = 0.5 * (edges[1:] + edges[:-1])
+    ax.plot(centres[shown], peak * np.exp(-0.5 * (best[shown] - chi2.min())), color=style.role("ink"), linewidth=1.0,
+            linestyle="dashed")
+
+
+def draw_corner_correlation(ax, samples, c, r, cyclic):
+    """The correlation coefficient of the (c, r) pair in its mirrored cell,
+    with its Monte Carlo error: one sample on a tint of the diverging map,
+    several as one line each in their colours. Empty for a pair with a cyclic
+    variable. Returns the texts."""
+    ax.set_xticks([]), ax.set_yticks([])
+    ax.tick_params(which="both", length=0)
+    for spine in ax.spines.values():
+        spine.set_visible(False)
+    if cyclic:
+        _notice("corr-cyclic", "--corner_upper corr: no coefficient for a pair with a cyclic variable (a linear "
+                "correlation does not describe it); its cell is empty")
+        return []
+    texts = []
+    for k, sample in enumerate(samples):
+        rho, error = posterior.correlation(sample["columns"][c], sample["columns"][r], sample["weights"], sample["ess"])
+        decimals = int(np.clip(-np.floor(np.log10(error)), 2, 3)) if np.isfinite(error) and error > 0 else 2
+        value = f"{rho:+.{decimals}f} \\pm {error:.{decimals}f}" if np.isfinite(error) else f"{rho:+.2f}"
+        y = 0.5 + (0.5 * (len(samples) - 1) - k) * 0.22
+        texts.append(ax.text(0.5, y, f"$\\rho = {value}$", ha="center", va="center", transform=ax.transAxes,
+                             color=sample["color"] if len(samples) > 1 else style.role("ink")))
+        if len(samples) == 1:
+            ax.set_facecolor(mix_paper(plt.get_cmap(style.diverging_cmap)(0.5 + 0.5 * rho), 0.55))
+            ax._plotipus_rho = (rho, error)
+    return texts
+
+
+PRIOR_REGION_MAX = 0.8
+SHRINKAGE_LEGEND = r"$\sigma/\sigma_0$, $\Delta/\sigma_0$: width, shift in prior widths"
+
+
+def draw_prior_marginal(ax, values, weights, edges):
+    """The prior of a marginal: its density as a dashed step in the neutral colour, never filled."""
+    density, _ = np.histogram(values, bins=edges, weights=weights)
+    total = float(np.sum(weights)) if weights is not None else float(len(values))
+    ax.stairs(density / (total * np.diff(edges)), edges, color=style.role("muted"), linewidth=1.0, linestyle="dashed")
+
+
+def draw_prior_region(ax, prior, c, r, xedges, yedges, fraction, args, modes, pads):
+    """The prior in a pair panel: the outline of its outermost region, dashed
+    in the neutral colour. A prior whose region fills more than
+    PRIOR_REGION_MAX of the panel (flat over it) has none: its outline would
+    be the noise of its histogram."""
+    counts, _, _ = np.histogram2d(prior["columns"][c], prior["columns"][r], bins=[xedges, yedges], weights=prior["weights"])
+    density = _smooth(counts, args.contour_smoothing_sigma or 1.0, modes)
+    (level,) = sample_region_thresholds(density, [fraction])
+    if np.isfinite(level) and 0 < level < density.max() and (density >= level).mean() <= PRIOR_REGION_MAX:
+        xc, yc, drawn = _contour_grid(density, xedges, yedges, pads)
+        ax.contour(xc, yc, drawn.T, levels=[level], colors=[style.role("muted")], linewidths=0.5 * args.contour_linewidth,
+                   linestyles="dashed", zorder=2.4)
+
+
+def prior_shrinkage(values, weights, prior_values, prior_weights):
+    """(posterior width / prior width, shift of the median in prior widths),
+    a width being half the central 68.3% interval."""
+    low, median, high = weighted_quantiles(values, weights, CREDIBLE_QUANTILES)
+    prior_low, prior_median, prior_high = weighted_quantiles(prior_values, prior_weights, CREDIBLE_QUANTILES)
+    width = 0.5 * (prior_high - prior_low)
+    if not width > 0:
+        return np.nan, np.nan
+    return float(0.5 * (high - low) / width), float((median - prior_median) / width)
+
+
+def shrinkage_text(shrinkage):
+    """The second line of a title: the width and the shift in prior widths."""
+    if shrinkage is None or not np.isfinite(shrinkage[0]):
+        return ""
+    ratio, shift = shrinkage
+    return f"\n$\\sigma/\\sigma_0$ = {ratio:.2f}, $\\Delta/\\sigma_0$ = ${shift:+.2f}$"
+
+
+def corner_block_cells(args, n):
+    """The cells of the block of --corner_block: the top-right n//2 x n//2
+    cells, which touch no diagonal panel; empty below four variables."""
+    size = n // 2
+    if not args.corner_block or n < 4:
+        return set()
+    return {(r, c) for r in range(size) for c in range(n - size, n)}
+
+
+def draw_corner_block(fig, grid, n, samples, prior, args, level, outer):
+    """--corner_block: the marginal of each column in the block, side by
+    side in a holder that spans it, each with its own x axis, its interval
+    and title (a single sample) and its prior. The panels are inset by the
+    room their tick labels, axis label and title take, in inches, so that
+    they stay inside the block at every figure size. Returns the panels."""
+    from matplotlib.font_manager import FontProperties
+
+    size = n // 2
+    holder = fig.add_subplot(grid[0:size, n - size:n])
+    holder.set_axis_off()
+    names = list(args.corner_block)
+    labels = list(args.corner_block_labels or [])
+    labels = [labels[i] if i < len(labels) else name for i, name in enumerate(names)]
+    box = holder.get_position()
+    width, height = box.width * fig.get_figwidth(), box.height * fig.get_figheight()
+    line = FontProperties(size=plt.rcParams["axes.labelsize"]).get_size_in_points() / 72.0
+    left, gap = min(0.3, 1.5 * line / width), min(0.2, 1.5 * line / width)
+    bottom, top = min(0.45, 3.4 * line / height), min(0.3, 1.8 * line / height)
+    each = (1.0 - left - gap * (len(names) - 1)) / len(names)
+    panels = []
+    for k, (name, label) in enumerate(zip(names, labels)):
+        ax = holder.inset_axes([left + k * (each + gap), bottom, each, 1.0 - bottom - top])
+        edges = corner_edges(np.concatenate([s["block"][name] for s in samples]), args)
+        views = [dict(s, columns=[s["block"][name]]) for s in samples]
+        summary = None
+        if len(samples) == 1:
+            summary = corner_summary(views[0], 0, edges, {"cyclic": None, "bound": (np.nan, np.nan)}, args, level, outer)
+        peaks = [draw_corner_marginal(ax, view, 0, edges, summary) for view in views]
+        if prior is not None:
+            draw_prior_marginal(ax, prior["block"][name], prior["weights"], edges)
+        ax.set_ylim(0, 1.1 * max(peaks))
+        ax.set_xlim(edges[0], edges[-1])
+        ax.set_xlabel(label)
+        ax.tick_params(which="both", labelleft=False)
+        apply_tick_formatter(ax, axis="both")
+        ax.xaxis.set_major_locator(MaxNLocator(nbins=5, steps=[1, 2, 2.5, 5, 10]))
+        if summary is not None and not args.no_corner_titles:
+            ax.set_title(summary_text(summary, label, args, outer), fontsize=plt.rcParams["xtick.labelsize"])
+        panels.append(ax)
+    return panels
 
 
 def draw_corner_figure(rows, args, kdx):
@@ -680,10 +1244,15 @@ def draw_corner_figure(rows, args, kdx):
       with one colorbar, the counts of each variable (with their Garwood
       band) on the diagonal, which keeps its counts axis.
     * Posterior samples (--contour): the credible regions of each pair
-      (--contour_sigmas), the marginal density of each variable with its
-      median and central 68.3% interval on the diagonal for a single sample
-      (written above it), --contour_hue samples overlaid in their colours, and
-      --corner_truth lines; the legend takes the empty upper triangle."""
+      (--contour_sigmas or --corner_levels), the marginal density of each
+      variable on the diagonal, for a single sample with its interval shaded
+      and written above it (:func:`corner_summary`), --contour_hue samples
+      overlaid in their colours, --corner_truth lines and --corner_band
+      bands. The legend names what the regions and the intervals hold and the
+      number of draws, with the probabilities of --corner_split; it takes the
+      top-right cell, or goes above the grid when --corner_upper fills the
+      upper triangle with the profile likelihood (profile) or the
+      correlation coefficients (corr) of each pair."""
     from ..plot import apply_common_figure_margins, apply_panel_font_scale
 
     variables = args.corner
@@ -692,47 +1261,131 @@ def draw_corner_figure(rows, args, kdx):
     if samples is None:
         return None
     n = len(variables)
-    edges = [corner_edges(np.concatenate([s["columns"][i] for s in samples]), args) for i in range(n)]
+    posterior_mode = args.contour
+    prior = None
+    if posterior_mode and args.corner_prior is not None:
+        priors = [sample for sample in samples if sample.get("prior")]
+        if len(priors) != 1 or len(samples) < 2:
+            rprint(f"[red]Error:[/red] --corner_prior {args.corner_prior}: "
+                   + ("no such value of " + args.contour_hue if not priors else "no other sample to draw with the prior"))
+            return None
+        prior = priors[0]
+    everything = samples
+    samples = [sample for sample in samples if sample is not prior]
+    info = corner_variable_info(args, everything) if posterior_mode else None
+    bands = corner_bands(args) if posterior_mode else []
+    if posterior_mode and (info is None or bands is None):
+        return None
+    if posterior_mode:
+        edges = [corner_posterior_edges(np.concatenate([s["columns"][i] for s in samples]), args, info[i]) for i in range(n)]
+    else:
+        edges = [corner_edges(np.concatenate([s["columns"][i] for s in samples]), args) for i in range(n)]
     labels = list(args.corner_labels or [])
     labels = [labels[i] if i < len(labels) else resolve_axis_label(None, v, subset) for i, v in enumerate(variables)]
-    posterior = args.contour
+    upper = args.corner_upper if posterior_mode else None
+    splits, block = [], set()
+    if posterior_mode:
+        cyclic = [i["cyclic"] for i in info]
+        for sample in everything:
+            sample["size"] = len(sample["columns"][0])
+            sample["ess"] = posterior.sample_ess(sample["columns"], sample["weights"], sample["lengths"], cyclic)
+        block = corner_block_cells(args, n)
+        splits = corner_splits(args, samples, labels)
+        if splits is None:
+            return None
+        if upper == "profile" and len(samples) > 1:
+            rprint("[red]Error:[/red] --corner_upper profile draws the profile of one sample; narrow --contour_hue to one "
+                   "value with --select")
+            return None
 
     apply_panel_font_scale(1)
-    fig = plt.figure(figsize=corner_figure_size(n))
+    fig = plt.figure(figsize=corner_figure_size(n, posterior_mode))
     # Rows as far apart as the measured layout puts the columns (its pad), close enough to read as one figure.
     rows_height = 0.75 * fig.get_figheight()
     gap = style.figure_pad_inches / (rows_height / n) if style.compact_gap() else 0.0
-    grid = fig.add_gridspec(n, n, wspace=gap, hspace=gap)
-    apply_common_figure_margins(fig, hspace=gap)
+    row_gap, titles_between = gap, bool(upper) and len(samples) == 1 and not args.no_corner_titles
+    if titles_between:
+        # The title of a diagonal panel needs its line between the rows when the cell above it is drawn: the
+        # measured layout sets the row gap from the titles (two lines when they wrap); this is its minimum.
+        from matplotlib.font_manager import FontProperties
+
+        title_inches = 1.5 * FontProperties(size=plt.rcParams["xtick.labelsize"]).get_size_in_points() / 72.0
+        row_gap = (style.figure_pad_inches + title_inches) / (rows_height / n)
+    grid = fig.add_gridspec(n, n, wspace=gap, hspace=None if titles_between else gap)
+    apply_common_figure_margins(fig, hspace=row_gap)
     axes = [[None] * n for _ in range(n)]
     for r in range(n):
         for c in range(r + 1):
             sharex = axes[c][c] if r > c else None
             sharey = axes[r][0] if 0 < c < r else None
             axes[r][c] = fig.add_subplot(grid[r, c], sharex=sharex, sharey=sharey)
+    if upper:
+        for r in range(n):
+            for c in range(r + 1, n):
+                if (r, c) in block:
+                    continue
+                if upper == "profile":  # the pair of (c, r) with its axes exchanged: x of its column, y of its row
+                    sharey = axes[r][0] if r > 0 else axes[0][1] if c > 1 else None
+                    axes[r][c] = fig.add_subplot(grid[r, c], sharex=axes[c][c], sharey=sharey)
+                else:
+                    axes[r][c] = fig.add_subplot(grid[r, c])
 
-    mappables, fractions = [], []
-    if posterior:
+    mappables, fractions, summaries = [], [], {}
+    if posterior_mode:
         fractions = credible_fractions(args)
+        if not fractions:
+            rprint("[red]Error:[/red] --corner: no region to draw (--corner_levels takes percentages between 0 and 100)")
+            plt.close(fig)
+            return None
+        level = fractions[0] if args.corner_levels else CREDIBLE_LEVEL
         mix = fill_mix(len(fractions))
         for sample in samples:
             sample["bands"] = [mix_paper(sample["color"], m) for m in mix]
         alpha = 1.0 if len(samples) == 1 else 0.6  # overlaid samples show through each other
+        modes = ["wrap" if i["cyclic"] is not None else "reflect" for i in info]
+        pads = corner_pads(info, edges)
+        corner_sample_warnings(samples, fractions, args)
+    blanked = [0, 0]
+    shrinkage = {}
     for r in range(n):
-        for c in range(r + 1):
+        for c in range(n if upper else r + 1):
             ax = axes[r][c]
-            if r == c and posterior:
-                summaries = [draw_corner_marginal(ax, sample, r, edges[r], interval=len(samples) == 1) for sample in samples]
-                ax.set_ylim(0, 1.1 * max(s[3] for s in summaries))
-                if len(samples) == 1 and not args.no_corner_titles:
-                    name, unit = _split_unit(labels[r])
-                    ax.set_title(f"{name} = {credible_text(*summaries[0][:3])}" + (f" {unit}" if unit else ""),
+            if ax is None:
+                continue  # a cell of the block
+            if c > r and upper == "profile":
+                seen, thin = draw_corner_profile(ax, samples[0], c, r, edges[c], edges[r], fractions, args, (pads[c], pads[r]))
+                blanked = [blanked[0] + seen, blanked[1] + thin]
+            elif c > r:
+                draw_corner_correlation(ax, samples, c, r, info[c]["cyclic"] is not None or info[r]["cyclic"] is not None)
+            elif r == c and posterior_mode:
+                single = len(samples) == 1
+                period = info[r]["cyclic"][1] - info[r]["cyclic"][0] if info[r]["cyclic"] is not None else None
+                if single:
+                    summaries[r] = corner_summary(samples[0], r, edges[r], info[r], args, level, fractions[-1])
+                peaks = [draw_corner_marginal(ax, sample, r, edges[r], summaries.get(r), period) for sample in samples]
+                if prior is not None:
+                    draw_prior_marginal(ax, prior["columns"][r], prior["weights"], edges[r])
+                    if single and args.corner_shrinkage and summaries[r]["kind"] == "interval" and period is None:
+                        shrinkage[r] = prior_shrinkage(samples[0]["columns"][r], samples[0]["weights"], prior["columns"][r],
+                                                       prior["weights"])
+                for split in splits[:1] if args.corner_split_marginals else []:  # one split: its styles name its parts
+                    for sample, parts in zip(samples, split["parts"]):
+                        draw_split_marginals(ax, sample, parts, r, edges[r])
+                if upper == "profile":
+                    draw_marginal_profile(ax, samples[0], r, edges[r], max(peaks))
+                ax.set_ylim(0, 1.1 * max(peaks))
+                if single and not args.no_corner_titles:
+                    ax.set_title(summary_text(summaries[r], labels[r], args, fractions[-1]) + shrinkage_text(shrinkage.get(r)),
                                  fontsize=plt.rcParams["xtick.labelsize"])
             elif r == c:
                 draw_corner_diagonal(ax, samples[0]["columns"][r], edges[r])
-            elif posterior:
+            elif posterior_mode:
                 for sample in samples:
-                    draw_corner_regions(ax, sample, c, r, edges[c], edges[r], fractions, args, alpha)
+                    draw_corner_regions(ax, sample, c, r, edges[c], edges[r], fractions, args, alpha, (modes[c], modes[r]),
+                                        (pads[c], pads[r]))
+                if prior is not None:
+                    draw_prior_region(ax, prior, c, r, edges[c], edges[r], fractions[-1], args, (modes[c], modes[r]),
+                                      (pads[c], pads[r]))
             else:
                 x, y = samples[0]["columns"][c], samples[0]["columns"][r]
                 x_range, y_range = (edges[c][0], edges[c][-1]), (edges[r][0], edges[r][-1])
@@ -740,45 +1393,78 @@ def draw_corner_figure(rows, args, kdx):
                     mappables.append(draw_hexbin(ax, x, y, x_range, y_range, args, gridsize=len(edges[c]) - 1))
                 else:
                     mappables.append(draw_hist2d(ax, x, y, x_range, y_range, args, bins=[edges[c], edges[r]])[1])
+    if blanked[1]:
+        rprint(f"[yellow]Warning:[/yellow] --corner_upper profile: {blanked[1]} of the {blanked[0]} bins with draws hold fewer "
+               f"than {posterior.PROFILE_MIN_DRAWS} and are left out of the profile (fewer --bins, or more draws, fill them)")
+    for index, (ratio, _) in shrinkage.items():
+        if ratio > 0.9:
+            rprint(f"[yellow]Warning:[/yellow] {variables[index]}: the posterior is {ratio:.2f} times as wide as the prior; "
+                   "the data hardly constrain it")
+    block_axes = []
+    if posterior_mode and args.corner_block:
+        if not block:
+            rprint(f"[yellow]Warning:[/yellow] --corner_block needs four or more --corner variables (the block is the "
+                   f"top-right {max(n // 2, 1)} x {max(n // 2, 1)} cells of the upper triangle); with {n} it is not drawn")
+        else:
+            block_axes = draw_corner_block(fig, grid, n, samples, prior, args, level, fractions[-1])
+    for index, summary in summaries.items():
+        if summary["kind"] == "limit" and summary.get("auto"):
+            rprint(f"[yellow]Warning:[/yellow] {variables[index]}: the marginal is highest at its bound, so a one-sided limit "
+                   f"holding {level_text(fractions[-1], args)} replaces the interval (--corner_interval quantile or hdi keeps it)")
 
     truths = corner_truths(args, n)
-    ink = style.role("ink")
-    for r in range(n):
-        for c in range(r + 1):
-            ax = axes[r][c]
+    ink, muted = style.role("ink"), style.role("muted")
+    data_panels = [(r, c) for r in range(n) for c in range(n if upper == "profile" else r + 1) if axes[r][c] is not None]
+    for r, c in data_panels:
+        ax = axes[r][c]
+        for index, low, high, _ in bands:
+            if index == c:
+                ax.axvspan(low, high, facecolor="none", edgecolor=muted, hatch="////", linewidth=0.0, zorder=2.8)
+            if index == r and r != c:
+                ax.axhspan(low, high, facecolor="none", edgecolor=muted, hatch="////", linewidth=0.0, zorder=2.8)
+        for split in splits:
+            if split["index"] == c:
+                ax.axvline(split["value"], color=muted, linewidth=0.9, linestyle="dotted", zorder=OVERLAY_ZORDER - 0.1)
+            if split["index"] == r and r != c:
+                ax.axhline(split["value"], color=muted, linewidth=0.9, linestyle="dotted", zorder=OVERLAY_ZORDER - 0.1)
+        if np.isfinite(truths[c]):
+            ax.axvline(truths[c], color=ink, linewidth=0.9, zorder=OVERLAY_ZORDER)
+        if r != c and np.isfinite(truths[r]):
+            ax.axhline(truths[r], color=ink, linewidth=0.9, zorder=OVERLAY_ZORDER)
             if np.isfinite(truths[c]):
-                ax.axvline(truths[c], color=ink, linewidth=0.9, zorder=OVERLAY_ZORDER)
-            if r != c and np.isfinite(truths[r]):
-                ax.axhline(truths[r], color=ink, linewidth=0.9, zorder=OVERLAY_ZORDER)
-                if np.isfinite(truths[c]):
-                    ax.plot([truths[c]], [truths[r]], marker="s", markersize=3.5, color=ink, linestyle="none", zorder=OVERLAY_ZORDER)
+                ax.plot([truths[c]], [truths[r]], marker="s", markersize=3.5, color=ink, linestyle="none", zorder=OVERLAY_ZORDER)
 
-    for r in range(n):
-        for c in range(r + 1):
-            ax = axes[r][c]
-            ax.set_xlim(edges[c][0], edges[c][-1])
-            if r != c:
-                ax.set_ylim(edges[r][0], edges[r][-1])
-            if r == n - 1:
-                ax.set_xlabel(labels[c])
-            else:
-                ax.tick_params(which="both", labelbottom=False)
-            if c == 0 and r > 0:
+    for r, c in data_panels:
+        ax = axes[r][c]
+        ax.set_xlim(edges[c][0], edges[c][-1])
+        if r != c:
+            ax.set_ylim(edges[r][0], edges[r][-1])
+        if r == n - 1:
+            ax.set_xlabel(labels[c])
+        else:
+            ax.tick_params(which="both", labelbottom=False)
+        if c > r:
+            # A mirrored panel reads its y axis on the right, on the last column only.
+            ax.tick_params(which="both", labelleft=False, labelright=c == n - 1)
+            if c == n - 1:
+                ax.yaxis.set_label_position("right")
                 ax.set_ylabel(labels[r])
-            elif r == c:
-                # The counts of a diagonal panel are not the row's variable: unlabelled, except the first
-                # (a posterior's density has no scale worth reading: never labelled).
-                if r == 0 and n > 1 and not posterior:
-                    ax.set_ylabel("Counts")
-                else:
-                    ax.tick_params(which="both", labelleft=False)
+        elif c == 0 and r > 0:
+            ax.set_ylabel(labels[r])
+        elif r == c:
+            # The counts of a diagonal panel are not the row's variable: unlabelled, except the first
+            # (a posterior's density has no scale worth reading: never labelled).
+            if r == 0 and n > 1 and not posterior_mode:
+                ax.set_ylabel("Counts")
             else:
                 ax.tick_params(which="both", labelleft=False)
-            apply_tick_formatter(ax, axis="both")
-            if posterior:
-                # Small panels of narrow ranges: few ticks, so that "124.75" and "125.00" do not touch.
-                for axis in (ax.xaxis, ax.yaxis) if r != c else (ax.xaxis,):
-                    axis.set_major_locator(MaxNLocator(nbins=5, steps=[1, 2, 2.5, 5, 10]))
+        else:
+            ax.tick_params(which="both", labelleft=False)
+        apply_tick_formatter(ax, axis="both")
+        if posterior_mode:
+            # Small panels of narrow ranges: few ticks, so that "124.75" and "125.00" do not touch.
+            for axis in (ax.xaxis, ax.yaxis) if r != c else (ax.xaxis,):
+                axis.set_major_locator(MaxNLocator(nbins=5, steps=[1, 2, 2.5, 5, 10]))
 
     if mappables and colorbar_mode(args) != "none":
         for mappable in mappables:
@@ -794,30 +1480,207 @@ def draw_corner_figure(rows, args, kdx):
         add_colorbar(fig, mappables[0], [axes[r][c] for r in range(n) for c in range(r + 1)], label, width=n / 2)
         _power_ticks(mappables[0], args)
 
-    handles = corner_legend_handles(samples, fractions, truths, args) if posterior or np.isfinite(truths).any() else []
+    handles = []
+    if posterior_mode or np.isfinite(truths).any():
+        methods = list(dict.fromkeys(s["method"] for s in summaries.values())) if not args.no_corner_titles or summaries else []
+        handles = corner_legend_handles(samples, fractions, truths, args, methods=methods, bands=bands,
+                                        entries=split_entries(splits, samples, args) if splits else [], profile=upper == "profile",
+                                        prior=prior, shrinkage=bool(shrinkage))
+    if posterior_mode and len(samples) == 1 and not args.no_corner_titles:
+        from ..plot import apply_measured_layout
+
+        apply_measured_layout(fig)  # the panels at their final width, before the titles are fitted to them
+        _fit_corner_titles(fig, [axes[i][i] for i in range(n)])
+    holder = None
     if handles:
         # The empty upper triangle holds the legend, in a panel of its own so that the layout moves it with the grid.
         holder = fig.add_subplot(grid[0, n - 1])
         holder.set_axis_off()
-        holder.legend(handles=handles, loc="upper right", borderaxespad=0.0, frameon=False)
+        legend = holder.legend(handles=handles, loc="upper right", borderaxespad=0.0, frameon=False)
+        if upper or block_axes or not _legend_fits_upper_triangle(fig, legend, axes, n):
+            handles = _legend_above_handles(fig, legend, handles, axes[0][0])
+            holder.remove()
+            holder = None
+    if handles and holder is None:
+        # Every cell is taken, or the legend is larger than the empty ones: it goes above the grid, centred on it.
+        from ..plot import apply_legend_style
+
+        apply_legend_style(axes[0][0], handles=handles, labels=[h.get_label() for h in handles], loc="top center")
+    if upper == "corr":
+        _fit_correlation_texts(fig, [axes[r][c] for r in range(n) for c in range(r + 1, n) if axes[r][c] is not None])
 
     add_title_and_note(fig, args)
     return save(fig, args, kdx, suffix="corner.png")
 
 
-def corner_legend_handles(samples, fractions, truths, args):
-    """One patch per overlaid sample, one per credible level (in the single
-    sample's colour, or in the muted colour when several share them) and the
-    truth line."""
+def _legend_fits_upper_triangle(fig, legend, axes, n):
+    """Whether the legend of the top-right cell stays inside the empty
+    upper triangle: right of the diagonal panel of the first column it
+    reaches, and above the title of the diagonal panel under it."""
+    fig.canvas.draw()
+    renderer = fig.canvas.get_renderer()
+    box = legend.get_window_extent(renderer)
+    for column in range(1, n):
+        if box.x0 >= axes[column - 1][column - 1].bbox.x1:
+            below = axes[column][column]
+            floor = max(below.bbox.y1, below.title.get_window_extent(renderer).y1 if below.title.get_text() else 0.0)
+            return box.y0 >= floor
+    return False
+
+
+def _legend_above_handles(fig, legend, handles, first):
+    """The handles of a legend that goes above the grid, where it is laid
+    out in as many columns as fit the figure. The layout gives the top of a
+    figure at most 3/8 of its height, shared with the figure title and the
+    title of the first panel (``first``); text is never scaled to fit. So
+    when the legend's rows need more than what is left, the entries without
+    a handle (the number of draws, the odds) are printed instead of drawn;
+    when the rest is still too tall, the whole legend is printed and the
+    caption has to name what is drawn. Each step warns."""
+    fig.canvas.draw()
+    renderer = fig.canvas.get_renderer()
+    box = legend.get_window_extent(renderer)
+    texts = legend.get_texts()
+    widths = [t.get_window_extent(renderer).width for t in texts]
+    handle = box.width - max(widths)
+    line = box.height / len(texts)
+    taken = sum(t.get_window_extent(renderer).height for t in (first.title, fig._suptitle) if t is not None and t.get_text())
+    room = 0.9 * (0.375 * fig.bbox.height - taken - 4 * style.figure_pad_inches * fig.dpi)
+
+    def height(kept):
+        # The columns must fit the width of the panels, about 0.7 of a small figure's.
+        columns = max(1, int(0.7 * fig.bbox.width // (max(widths[i] for i in kept) + 1.5 * handle)))
+        return np.ceil(len(kept) / columns) * line
+
+    plain = lambda text: text.replace("$", "").replace("\\pm", "+-").replace("\\,", " ").replace("\\Delta", "Delta")  # noqa: E731
+    advice = "a wider figure (--width double on paper) has room for it"
+    everything = list(range(len(handles)))
+    if height(everything) <= room:
+        return handles
+    drawn = [i for i in everything if not (isinstance(handles[i], Line2D) and handles[i].get_linestyle() == "None"
+                                             and handles[i].get_marker() in ("None", "", None))]
+    if drawn and len(drawn) < len(everything) and height(drawn) <= room:
+        rprint(f"[yellow]Warning:[/yellow] --corner: the legend does not fit above the grid at this size, so these entries "
+               f"are left out of it; {advice}:")
+        for i in everything:
+            if i not in drawn:
+                rprint("  " + plain(handles[i].get_label()))
+        return [handles[i] for i in drawn]
+    rprint(f"[yellow]Warning:[/yellow] --corner: the legend does not fit above the grid at this size and is not drawn; "
+           f"{advice}. The caption has to say:")
+    for handle_ in handles:
+        rprint("  " + plain(handle_.get_label()))
+    return []
+
+
+def _fit_corner_titles(fig, diagonal):
+    """Keep the titles of the diagonal panels inside the figure: one wider
+    than its panel is broken onto two lines, and when it is still wider, the
+    title of the last column ends at its panel's right edge and the title of
+    the first starts at its left edge."""
+    from ..plot import _break_label
+
+    fig.canvas.draw()
+    renderer = fig.canvas.get_renderer()
+    for index, ax in enumerate(diagonal):
+        title = ax.title
+        if not title.get_text() or title.get_window_extent(renderer).width <= ax.bbox.width:
+            continue
+        broken = _break_label(title.get_text())
+        if broken is not None:
+            title.set_text(broken)
+        if title.get_window_extent(renderer).width > ax.bbox.width:
+            if index == len(diagonal) - 1:
+                title.set_ha("right"), title.set_x(1.0)
+            elif index == 0:
+                title.set_ha("left"), title.set_x(0.0)
+
+
+def _fit_correlation_texts(fig, cells):
+    """Drop the numbers of the correlation cells when one does not fit its
+    cell at the medium's type size (the tint stays), with a warning."""
+    fig.canvas.draw()
+    renderer = fig.canvas.get_renderer()
+    texts = [(ax, text) for ax in cells for text in ax.texts]
+    if any(text.get_window_extent(renderer).width > 0.95 * ax.bbox.width for ax, text in texts):
+        for _, text in texts:
+            text.set_visible(False)
+        rprint("[yellow]Warning:[/yellow] --corner_upper corr: the coefficients do not fit their cells at this medium's "
+               "type size, so only the tint is drawn (fewer variables, or a wider --width, show them)")
+
+
+# The effective sample size is written when it is below this share of the draws (its estimate scatters by a few
+# percent for independent draws).
+ESS_SHOWN_BELOW = 0.8
+
+
+def _count_text(value):
+    """'40\\,000' for mathtext: thousands apart by a thin space."""
+    return f"{int(round(value)):,}".replace(",", "\\,")
+
+
+def corner_sample_warnings(samples, fractions, args):
+    """Say when a sample cannot support a region: fewer than
+    posterior.MIN_DRAWS_OUTSIDE effective draws outside it; and that
+    --contour_dof 1 regions hold less than their sigma suggests."""
+    if args.contour_dof == 1 and not args.corner_levels:
+        rprint("[yellow]Warning:[/yellow] --contour_dof 1 on samples: the regions hold "
+               + ", ".join(level_text(f, args) for f in fractions)
+               + " of the points, not the coverage of 1, 2, ... sigma intervals (the legend states their content)")
+    for sample in samples:
+        name = f"{sample['label']}: " if sample["label"] is not None else ""
+        for fraction in fractions:
+            outside = sample["ess"] * (1 - fraction)
+            if outside < posterior.MIN_DRAWS_OUTSIDE:
+                rprint(f"[yellow]Warning:[/yellow] {name}the {level_text(fraction, args)} region rests on about "
+                       f"{max(outside, 0):.0f} effective draws outside it (ESS = {sample['ess']:.0f} of {sample['size']} draws): "
+                       "its outline is uncertain (--corner_mc_error shows by how much)")
+
+
+def corner_legend_handles(samples, fractions, truths, args, methods=(), bands=(), entries=(), profile=False, prior=None,
+                          shrinkage=False):
+    """One patch per overlaid sample; one per credible level, named with its
+    content (in the single sample's colour, or in the muted colour when
+    several share them); the interval of the marginals; the resampled
+    outline; the profile likelihood's levels and best fit; the bands and the
+    truth line; the number of draws of a single sample (with its effective
+    size when that is smaller) and the split probabilities."""
+    from scipy.stats import chi2
+
     handles = []
     if len(samples) > 1:
         handles += [Patch(facecolor=s["bands"][0], edgecolor=s["color"], label=s["label"]) for s in samples]
+    base = samples[0]["color"] if len(samples) == 1 else style.role("muted")
     if fractions:
-        base = samples[0]["color"] if len(samples) == 1 else style.role("muted")
-        handles += [Patch(facecolor=mix_paper(base, m), edgecolor=base, label=f"{100 * f:.1f}%")
+        handles += [Patch(facecolor=mix_paper(base, m), edgecolor=base, label=f"{level_text(f, args)} (2D region)")
                     for f, m in zip(fractions, fill_mix(len(fractions)))]
+        if args.corner_mc_error:
+            handles.append(Line2D([0], [0], color=base, linewidth=0.25 * args.contour_linewidth, alpha=0.6,
+                                  label=f"{level_text(fractions[-1], args)}, {int(args.corner_mc_error)} resamplings"))
+    handles += [Patch(facecolor=to_rgba(base, 0.25), edgecolor="none", label=method) for method in methods]
+    if profile:
+        muted, ink = style.role("muted"), style.role("ink")
+        for k, (f, m) in enumerate(zip(fractions, fill_mix(len(fractions)))):
+            label = f"Profile, $-2\\Delta\\ln L <$ {chi2.ppf(f, 2):.2f}"
+            handles.append(Patch(facecolor=mix_paper(muted, PROFILE_FILL * m), edgecolor=ink, linestyle="dashed", label=label))
+        handles.append(Line2D([0], [0], color=ink, marker="*", markersize=7, linestyle="none", label="Best draw"))
+    muted = style.role("muted")
+    if prior is not None:
+        handles.append(Line2D([0], [0], color=muted, linewidth=1.0, linestyle="dashed", label=prior["label"]))
+    if shrinkage:
+        handles.append(Line2D([], [], linestyle="none", label=SHRINKAGE_LEGEND))
+    handles += [Patch(facecolor="none", edgecolor=muted, hatch="////", linewidth=0.0, label=label) for *_, label in bands if label]
     if np.isfinite(truths).any():
         handles.append(Line2D([0], [0], color=style.role("ink"), linewidth=0.9, marker="s", markersize=3.5, label=args.corner_truth_label))
+    if fractions and len(samples) == 1:
+        size, ess = samples[0]["size"], samples[0]["ess"]
+        text = f"$N = {_count_text(size)}$"
+        if ess < ESS_SHOWN_BELOW * size:
+            text += f", ESS = ${_count_text(float(f'{ess:.2g}'))}$"
+        handles.append(Line2D([], [], linestyle="none", label=text))
+    for handle, text in entries:
+        handle.set_label(text)
+        handles.append(handle)
     return handles
 
 
@@ -1026,13 +1889,15 @@ def band_hues(color, count, offset=0):
     return hues
 
 
-def _smooth(z, sigma):
+def _smooth(z, sigma, mode="reflect"):
+    """Gaussian smoothing by ``sigma`` bins; ``mode`` is scipy's rule at the edges (one per axis: 'wrap' for a
+    cyclic axis)."""
     z = np.asarray(z, dtype=float)
     if sigma <= 0:
         return z
     from scipy.ndimage import gaussian_filter
 
-    return gaussian_filter(z, sigma=sigma)
+    return gaussian_filter(z, sigma=sigma, mode=mode)
 
 
 def fill_nan(z, x, y, strategy, method):
@@ -1857,6 +2722,35 @@ def run(args):
         if args.contour_hue is not None and (not args.contour or args.contour_hue not in df.columns):
             rprint("[red]Error:[/red] --corner overlays the values of --contour_hue, a column of the data, with --contour.")
             return []
+    posterior_only = {"--corner_levels": args.corner_levels, "--corner_interval": args.corner_interval,
+                      "--corner_cyclic": args.corner_cyclic, "--corner_bound": args.corner_bound,
+                      "--corner_split": args.corner_split, "--corner_upper": args.corner_upper,
+                      "--corner_mc_error": args.corner_mc_error, "--corner_band": args.corner_band,
+                      "--corner_prior": args.corner_prior, "--corner_shrinkage": args.corner_shrinkage,
+                      "--corner_block": args.corner_block}
+    given = [name for name, value in posterior_only.items() if value]
+    if given and not (args.corner and args.contour):
+        rprint(f"[red]Error:[/red] {', '.join(given)} apply to a posterior corner plot (--corner ... --contour).")
+        return []
+    if args.corner_upper == "profile" and (args.loglike is None or args.loglike not in df.columns):
+        rprint("[red]Error:[/red] --corner_upper profile needs --loglike COLUMN, the log-likelihood of each draw.")
+        return []
+    if args.corner_prior is not None and args.contour_hue is None:
+        rprint("[red]Error:[/red] --corner_prior names a value of --contour_hue COLUMN, whose rows hold the prior draws.")
+        return []
+    if args.corner_shrinkage and args.corner_prior is None:
+        rprint("[red]Error:[/red] --corner_shrinkage compares with the prior: name its rows with --corner_prior VALUE.")
+        return []
+    absent = [name for name in args.corner_block or [] if name not in df.columns]
+    if absent or (args.corner_block and args.corner_upper == "profile"):
+        rprint("[red]Error:[/red] --corner_block takes array columns of the data"
+               + (f"; not found: {', '.join(absent)}" if absent else " and shares the upper triangle with --corner_upper corr "
+                  "only (the profile likelihood fills every cell)"))
+        return []
+    missing = [entry[0] for entry in args.corner_split or [] if len(entry) == 1 and entry[0] not in df.columns]
+    if missing:
+        rprint(f"[red]Error:[/red] --corner_split: no column {', '.join(missing)} (a label column, or VARIABLE VALUE).")
+        return []
     if args.weight is not None and not (args.corner and args.contour and args.weight in df.columns):
         rprint("[red]Error:[/red] --weight takes a column of the data and applies to --corner --contour.")
         return []

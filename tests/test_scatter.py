@@ -1,6 +1,9 @@
+import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
+import pytest
 
+from plotipus import registry
 from plotipus.kinds import scatter
 from plotipus.legacy import translate
 
@@ -157,3 +160,45 @@ def test_marker_diverging_map_stands_out_from_the_background(make_project):
         project.apply_rendering(preset=name)
         centre, paper = colormaps[style.diverging_marker_cmap](0.5), style.role("paper")
         assert abs(lightness(centre) - lightness(paper)) > 0.5, name
+
+
+def _cloud(n):
+    rng = np.random.default_rng(3)
+    return pd.DataFrame([{"X": rng.normal(size=n), "Y": rng.normal(size=n), "C": np.linspace(-1, 1, n)}])
+
+
+def _marker_areas(make_project, n, *argv):
+    make_project({"Cloud": _cloud(n)})
+    figures = []
+    registry.add_figure_hook(lambda fig, args: figures.append(fig))
+    scatter.main(["--datafile", "Cloud", "-x", "X", "-y", "Y", *argv])
+    return figures[0].axes[0].collections[0]
+
+
+def test_marker_size_follows_the_number_of_points(make_project, capsys):
+    """Without --marker_size: the style's data marker for a few points, smaller as they fill the axes,
+    never below the smallest size whose colour reads (with a notice pointing to hexbin)."""
+    largest = plt.rcParams["lines.markersize"] ** 2
+    few, some, many = (_marker_areas(make_project, n).get_sizes()[0] for n in (20, 2000, 50000))
+    assert few == pytest.approx(largest)
+    assert scatter.SMALLEST_MARKER**2 * largest < some < largest
+    assert many == pytest.approx(scatter.SMALLEST_MARKER**2 * largest)
+    assert capsys.readouterr().out.count("hexbin") == 1  # only the crowded figure
+    # 2000 discs of that size cover about the stated share of the axes (the size is chosen when the points are
+    # drawn; the measured layout then trims the axes a little to fit the labels).
+    figure = _marker_areas(make_project, 2000).figure
+    box = figure.axes[0].get_position()
+    axes_area = box.width * box.height * np.prod(figure.get_size_inches()) * 72**2
+    assert 2000 * np.pi / 4 * some / axes_area == pytest.approx(scatter.COVERAGE, rel=0.15)
+    # An explicit size is kept, and --sizeby spreads around the adaptive size.
+    assert _marker_areas(make_project, 2000, "--marker_size", "5").get_sizes()[0] == 5
+    sized = _marker_areas(make_project, 2000, "--sizeby", "C").get_sizes()
+    assert sized.min() == pytest.approx(some / 4) and sized.max() == pytest.approx(some * 4)
+
+
+def test_colorby_points_are_drawn_in_a_fixed_random_order(make_project):
+    """Overlapping points: the row order does not decide which colours stay visible, and reruns agree."""
+    first = _marker_areas(make_project, 500, "--colorby", "C").get_array()
+    again = _marker_areas(make_project, 500, "--colorby", "C").get_array()
+    assert np.array_equal(first, again) and not np.array_equal(first, np.linspace(-1, 1, 500))
+    assert np.allclose(np.sort(first), np.linspace(-1, 1, 500))

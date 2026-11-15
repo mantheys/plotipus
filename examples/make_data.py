@@ -2,7 +2,7 @@
 figures of docs/options.md): Distributions.pkl, and the files derived from
 it: the per-config files of the --configs example, Moments.pkl for the table
 and scalar-cell cat examples and Yields.pkl for the stacked cat example;
-and Posterior.pkl, the posterior samples of the corner-plot example.
+and Posterior.pkl, Oscillation.pkl and Volume.pkl, the posterior samples of the corner-plot examples.
 
     python make_data.py          # into input/data
     python make_data.py DIR      # into DIR (the gallery's data)
@@ -195,4 +195,41 @@ combined = np.linalg.inv(precision)
 posterior.append(("Combined", rng.multivariate_normal(combined @ weighted_mean, combined, 40000)))
 pd.DataFrame([{"Experiment": experiment, "Strength": draws[:, 0], "Mass": draws[:, 1], "Width": np.exp(draws[:, 2])}
               for experiment, draws in posterior]).to_pickle(out / "Posterior.pkl")
+# Oscillation: a posterior with the shapes that one interval per parameter cannot describe, after the fits of
+# neutrino oscillation experiments: a mixing parameter with two peaks (one on each side of 0.5), a cyclic phase
+# whose peak sits at the end of its axis, a mass splitting, a second mixing parameter that the data measure well,
+# a label per draw for a discrete hypothesis that was sampled with the parameters (the mass ordering), and a
+# derived parameter, a function of the two mixings and the phase. Two rows of independent draws: the posterior
+# and the prior (flat in each parameter), whose derived parameter is far from flat.
+def invariant(mixing, small, phase):
+    return np.sqrt(0.307 * 0.693 * mixing * (1 - mixing) * small) * (1 - small) * np.sin(phase)
+
+
+draws = 80000
+normal = rng.random(draws) < 0.78
+upper = rng.random(draws) < np.where(normal, 0.74, 0.62)
+mixing = np.where(upper, rng.normal(0.565, 0.017, draws), rng.normal(0.458, 0.015, draws))
+phase = rng.normal(np.where(normal, 0.86, -0.52) * np.pi, np.where(normal, 0.21, 0.17) * np.pi)
+phase = (phase + np.pi) % (2 * np.pi) - np.pi  # cyclic: stored in [-pi, pi)
+splitting = rng.normal(np.where(normal, 2.45, 2.42) + 0.6 * (mixing - 0.52), 0.035)
+small = rng.normal(0.0221, 0.0007, draws)
+flat = {"Mixing": rng.uniform(0.38, 0.64, draws), "Phase": rng.uniform(-np.pi, np.pi, draws),
+        "Splitting": rng.uniform(2.25, 2.65, draws), "Small": rng.uniform(0.019, 0.025, draws)}
+pd.DataFrame([
+    {"Sample": "Posterior", "Mixing": mixing, "Phase": phase / np.pi, "Splitting": splitting, "Small": small,
+     "Invariant": invariant(mixing, small, phase), "Ordering": np.where(normal, "normal", "inverted")},
+    {"Sample": "Prior", "Mixing": flat["Mixing"], "Phase": flat["Phase"] / np.pi, "Splitting": flat["Splitting"],
+     "Small": flat["Small"], "Invariant": invariant(flat["Mixing"], flat["Small"], flat["Phase"]),
+     "Ordering": np.where(rng.random(draws) < 0.5, "normal", "inverted")},
+]).to_pickle(out / "Oscillation.pkl")
+# Volume: weighted draws with their log-likelihood, for a model whose posterior is shaped by the prior volume.
+# The fraction f of an extra component is bounded at 0; the component's scale m matters only when f is not 0, so
+# small f has more prior volume and the marginal posterior of f is highest at the bound, while the likelihood
+# peaks at f = 0.07. Draws from the flat prior, weighted by the likelihood (the ones that carry weight are kept).
+draws = 600000
+fraction, scale, rate = rng.uniform(0, 0.25, draws), rng.uniform(3.0, 4.3, draws), rng.uniform(62, 80, draws)
+chi2 = ((fraction - 0.07) / 0.04) ** 2 + (fraction / 0.02) ** 2 * ((scale - 3.55) / 0.4) ** 2 + ((rate - 68 - 45 * fraction) / 0.9) ** 2
+keep = chi2 < 30
+pd.DataFrame([{"Model": "Extra component", "Fraction": fraction[keep], "Scale": scale[keep], "Rate": rate[keep],
+               "Weight": np.exp(-0.5 * chi2[keep]), "LogLike": -0.5 * chi2[keep]}]).to_pickle(out / "Volume.pkl")
 print(f"Example data written to {out}")

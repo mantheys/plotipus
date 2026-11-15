@@ -15,6 +15,7 @@ chosen (roadmap § Decisions), and the work is split into the briefs in
 | [styles/](styles/) | candidate style files, renders, and the side-by-side sheets in `styles/compare/` |
 | [roadmap.md](roadmap.md) | ordered implementation work with effort and risk, and the maintainer's decisions |
 | [tasks/](tasks/00-README.md) | one brief per agent session (T01–T24): order, parallel waves, definition of done |
+| [corner-plots.md](corner-plots.md) | posterior corner plots: what the tools and papers do, ranked proposals (T25.21–T25.28) and mock-ups (`corner_mockups.py`, `corner/`) |
 | [TODO.md](TODO.md) | charts and features left out of scope for now |
 | [repro/](repro/) | data generator and command lists that reproduce every bug and probe |
 
