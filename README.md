@@ -11,17 +11,25 @@
        alt="The plotipus mascot: a cartoon platypus diving through a water disc, drawn by plotipus itself">
 </p>
 
-Publication plots and tables from pickled pandas DataFrames, driven by plain
-text command lists.
+Every figure and table of your analysis, from the results you saved once.
+plotipus turns the pandas DataFrames an analysis writes into publication
+figures and LaTeX tables, one plain-text command each. Website, with the
+gallery and the styles: **https://mantheys.github.io/plotipus/**
 
-* **You are a scientist, not a designer.** One short command per figure, and
-  every figure comes out clean and consistent, with a look of your own.
-* **Produce the data once, plot it without limits.** A well-built DataFrame
-  is all you ever need to save: it is your immutable source, and every
-  figure and table is redrawn from it.
-* **Strict format requirements, unlimited versatility.** Journal styles,
-  experiment-wide conventions and collaboration rules are a style file or a
-  plugin away, without touching your analysis.
+* **Reproducible by construction.** Save the results once as DataFrames;
+  every figure is a command over them. Keep the command lists under version
+  control and redraw a talk, a paper or a thesis from scratch in one run.
+* **One command list, every medium.** Slides, a journal column, the web,
+  light or dark: each at its printed size. A ratio panel never changes a
+  figure's size; only side-by-side panels make it wider.
+* **The statistics physics needs.** Data as points with Poisson (Garwood)
+  intervals, simulation as histograms with their bands, two-parameter
+  confidence levels, credible regions. What plotipus fills in, it says.
+* **The whole result chain.** Data against simulation, fits and pulls,
+  stacks and significance, Brazil bands, Δχ² contours, posterior corner
+  plots, and the LaTeX tables of the same numbers. Journal styles,
+  experiment headers and collaboration rules are a style file or a plugin
+  away, without touching your analysis.
 
 Analysis code writes its results as `.pkl` DataFrames (one row per series,
 with whole arrays in the cells); plotipus turns them into figures and LaTeX
@@ -169,9 +177,27 @@ five of them with plotipus's defaults, side by side.
 
 ## Gallery
 
-`make -C examples gallery` draws one example for every working row of the
-[chart catalogue](docs/design/catalogue.md), for slides and paper, on the page
-`examples/gallery/output/gallery.md` ([more](examples/gallery/README.md)).
+The [web gallery](https://mantheys.github.io/plotipus/#gallery) shows the
+figures of the [options reference](docs/options.md), grouped by task (data
+and simulation, fits, searches, likelihood and Bayesian, detector
+performance), each with the rows of example data it reads, its command, and
+its figure for slides or a paper column. `make -C examples gallery` draws one
+example for every working row of the [chart catalogue](docs/design/catalogue.md),
+for slides and paper, on the page `examples/gallery/output/gallery.md`
+([more](examples/gallery/README.md)).
+
+## When to use plotipus
+
+plotipus draws with matplotlib and works next to the other plotting
+libraries; each has its job.
+
+| Reach for | when you want |
+|---|---|
+| [matplotlib](https://matplotlib.org/) | full control over every line and label of one figure, in code |
+| [seaborn](https://seaborn.pydata.org/) | to explore a tidy table in a notebook, with statistical summaries |
+| [plotly](https://plotly.com/python/) | interactive figures, dashboards and 3D views |
+| [mplhep](https://scikit-hep.org/mplhep/) | your experiment's look on histograms you build in code (hist and boost-histogram objects) |
+| **plotipus** | all the figures and tables of an analysis, redrawn from its saved results by plain-text commands: reproducible, sized per medium, and with the uncertainties a physics result needs |
 
 ## Plot kinds
 
@@ -209,6 +235,16 @@ Every kind also takes `--text X Y 'TEXT'` (with `--arrow X2 Y2`) and `--region '
 * [Python](docs/python.md): using plotipus from Python code.
 * [Contributing](CONTRIBUTING.md): development install, tests and
   regenerating the examples.
+
+## Citing
+
+If plotipus helped make figures of a publication or a thesis, please cite
+the archived release you used: the DOI
+[10.5281/zenodo.24044061](https://doi.org/10.5281/zenodo.24044061) always
+resolves to the latest one, and Zenodo lists each version's own DOI.
+[CITATION.cff](CITATION.cff) holds the citation (GitHub offers it under "Cite
+this repository"), and the [website](https://mantheys.github.io/plotipus/#cite)
+gives it as BibTeX.
 
 ## License
 

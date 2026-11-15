@@ -28,11 +28,33 @@ After a change, rebuild the examples from scratch with `examples/Makefile`
 make -C examples             # delete generated data and outputs, then rebuild all
 make -C examples clean       # only delete them (input/data/*.pkl, output/)
 make -C examples plots       # rebuild data and plots without deleting first
-make -C examples docs        # re-render the figures of docs/options.md
+make -C examples docs        # re-render the figures of docs/options.md, for slides and paper
 make -C examples mascot      # re-render the mascot and the tutorial figures
 make -C examples famous      # re-render the famous plots and the README images
 make -C examples gallery     # build the gallery page (examples/gallery)
 ```
+
+## The website
+
+`web/` holds the page at https://mantheys.github.io/plotipus/. CI builds and
+publishes it on every push to `main` that passes lint and tests (the `pages`
+job runs `web/deploy.sh`). To preview it:
+
+```bash
+python web/build.py                   # writes build/site
+python -m http.server -d build/site   # open http://localhost:8000
+```
+
+The page takes its content from the repository, so the docs stay the source:
+
+- the gallery's figures and commands from `docs/options.md` and
+  `docs/images/options` (slides) and `docs/images/options/paper`, both
+  rendered by `make -C examples docs`; each card's data excerpt from the
+  example data, which `build.py` regenerates with `examples/make_data.py`;
+- the gallery's task groups from `TASKS` in `web/build.py`: a new figure of
+  `docs/options.md` belongs in one of them (the build warns otherwise);
+- the citation from `CITATION.cff`;
+- the style viewer from `docs/design/styles` (`python docs/design/styles/render.py`).
 
 ## Missing features
 

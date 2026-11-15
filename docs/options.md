@@ -43,7 +43,10 @@ sidebands and the signal region, with errors, for `cat --stacked`).
 experiments and their combination, one row each, for the posterior corner
 plot. The commands
 are the example list, `examples/input/plots/example_scripts.txt`;
-`make -C examples docs` renders them again into `docs/images/options`.
+`make -C examples docs` renders them again into `docs/images/options`, and
+into `docs/images/options/paper` for a paper column: the
+[web gallery](https://mantheys.github.io/plotipus/#gallery) shows both, with
+the rows of example data each command reads.
 
 ## Shared options
 
