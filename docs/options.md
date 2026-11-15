@@ -751,6 +751,28 @@ the marginal. These probabilities are not significances.
 plotipus map --datafile Oscillation --select Sample -s Posterior --corner Mixing Phase Splitting --contour --corner_levels 68 90 --corner_labels '$\sin^2\theta_{23}$' '$\delta/\pi$' '$\Delta m^2$ ($10^{-3}$ eV$^2$)' --corner_interval hdi --corner_cyclic Phase -1 1 --corner_split Mixing 0.5 --corner_split Ordering --corner_split_marginals --prior_odds 1 --no_corner_titles --bins 40 --title 'Posterior corner plot: the probability of each hypothesis'
 ```
 
+**Smooth marginals, outliers and axis ranges.** `--corner_marginal kde` draws
+each marginal as a smooth curve, a Gaussian kernel density estimate, instead
+of steps; `--corner_bw` sets the kernel width in the units of the variable, or
+`scott` (default) or `silverman`, the rules of thumb at the sample's effective
+size, so that autocorrelated or heavily weighted draws are smoothed more. The
+highest-density intervals (`--corner_interval hdi`) are read from the curve
+that is drawn; a cyclic axis is smoothed around its end and a bounded one
+reflected at its bound. The prior and the split marginals follow.
+`--corner_points` adds the draws that lie outside the outermost region of each
+pair panel as dots in the sample's colour, at most 1500 per panel, chosen at
+random (the same ones each time) in proportion to their weight, so that the
+tails the region leaves out stay visible. `--corner_range VARIABLE LOW HIGH`
+(repeatable) sets the axis of one variable instead of its `--percentile`
+range; the bins span it, and the intervals and the sample size still use every
+draw. A cyclic variable spans its period and takes no range.
+
+![Posterior corner plot with kernel-density marginals, the draws outside the outer region as dots and the mass and width axes restricted](images/options/smooth.png)
+
+```bash
+plotipus map --datafile Posterior --corner Strength Mass Width --contour --select Experiment -s 'Experiment A' --contour_sigmas 1 2 --corner_labels '$\mu$' '$m$ (GeV)' '$\Gamma$ (GeV)' --corner_marginal kde --corner_points --corner_range Mass 123 127 --corner_range Width 1 3.8 --bins 40 --title 'Posterior corner plot: smooth marginals, the draws outside the outer region and chosen axis ranges' --output_suffix smooth
+```
+
 **The upper triangle.** `--corner_upper` fills the cell above the diagonal
 of each pair with a second view of it; the legend then goes above the grid.
 

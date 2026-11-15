@@ -141,6 +141,18 @@ def build_parser():
     add("--corner_bound", nargs=3, action="append", default=None, metavar=("VARIABLE", "LOW", "HIGH"),
         help="Hard bounds of a --corner variable ('nan' for none; repeatable): nothing is smoothed across them, and a "
         "marginal that is highest at one gets a one-sided limit holding the outermost level.")
+    add("--corner_range", nargs=3, action="append", default=None, metavar=("VARIABLE", "LOW", "HIGH"),
+        help="With --corner: the axis range of one variable (repeatable), instead of its --percentile range; the bins "
+        "span it. The statistics still use every draw.")
+    add("--corner_marginal", default="step", choices=["step", "kde"],
+        help="With --corner --contour: the marginals as step histograms (step) or as smooth kernel density estimates "
+        "(kde); the highest-density intervals are read from the curve that is drawn.")
+    add("--corner_bw", type=str, default="scott", metavar="WIDTH",
+        help="With --corner_marginal kde: the kernel width in units of the variable, or scott (default) or silverman "
+        "for the rules of thumb at the sample's effective size.")
+    add("--corner_points", action="store_true", default=False,
+        help="With --corner --contour: the draws outside the outermost region of each pair panel as dots in the "
+        "sample's colour (at most %d per panel, drawn at random in proportion to their weight)." % POINTS_MAX)
     add("--corner_split", nargs="+", action="append", default=None, metavar="VARIABLE VALUE | COLUMN",
         help="Posterior probability of the two sides of a value of a --corner variable, or of each value of a label "
         "column (one label per draw or per row; repeatable): written in the legend with its Monte Carlo error and the "
@@ -555,11 +567,14 @@ def draw_histogram_figure(rows, args, kdx):
     return save(fig, args, kdx, suffix="hist2d.png")
 
 
-def corner_edges(values, args):
-    """Bin edges of one --corner variable over its --percentile range,
-    --bins wide (integer-aligned for integer-valued data, never narrower than
-    one unit)."""
-    low, high = np.percentile(values, args.percentile[0]), np.percentile(values, args.percentile[1])
+def corner_edges(values, args, limits=None):
+    """Bin edges of one --corner variable over its --percentile range (or the
+    ``limits`` given, --corner_range), --bins wide (integer-aligned for
+    integer-valued data, never narrower than one unit)."""
+    if limits is not None:
+        low, high = limits
+    else:
+        low, high = np.percentile(values, args.percentile[0]), np.percentile(values, args.percentile[1])
     nbins = args.bins or style.nbins
     nbins = nbins[0] if isinstance(nbins, (list, tuple)) else int(nbins)
     if is_integer_valued(values):
@@ -745,6 +760,30 @@ def corner_variable_info(args, samples):
     return info
 
 
+def corner_ranges(args, info=None):
+    """--corner_range as {variable index: (low, high)}; None, after an error
+    message, for a variable that is not drawn, a range that cannot be read or
+    a cyclic variable (its axis is one period)."""
+    ranges = {}
+    for name, low, high in args.corner_range or []:
+        if name not in args.corner:
+            rprint(f"[red]Error:[/red] --corner_range {name}: not one of the --corner variables ({', '.join(args.corner)})")
+            return None
+        index = args.corner.index(name)
+        try:
+            low, high = float(low), float(high)
+        except ValueError:
+            low = high = np.nan
+        if not low < high:
+            rprint(f"[red]Error:[/red] --corner_range {name}: LOW and HIGH are numbers with LOW below HIGH")
+            return None
+        if info is not None and info[index]["cyclic"] is not None:
+            rprint(f"[red]Error:[/red] --corner_range {name}: a cyclic variable spans its period (--corner_cyclic)")
+            return None
+        ranges[index] = (low, high)
+    return ranges
+
+
 def corner_posterior_edges(values, args, info):
     """Bin edges of a posterior's variable: one period of a cyclic variable;
     else :func:`corner_edges`, which stop at a --corner_bound and start from
@@ -832,6 +871,8 @@ def draw_corner_regions(ax, sample, c, r, xedges, yedges, fractions, args, alpha
     if not levels:
         return
     xc, yc, drawn = _contour_grid(density, xedges, yedges, pads)
+    if args.corner_points:
+        draw_outside_points(ax, sample, c, r, xedges, yedges, density, levels[0])
     bands = sample["bands"][:len(levels)][::-1]
     ax.contourf(xc, yc, drawn.T, levels=levels + [np.inf], colors=bands, alpha=alpha, zorder=2)
     ax.contour(xc, yc, drawn.T, levels=levels, colors=[sample["color"]], linewidths=0.6 * args.contour_linewidth,
@@ -846,6 +887,21 @@ def draw_corner_regions(ax, sample, c, r, xedges, yedges, fractions, args, alpha
                 grid = _contour_grid(resampled, xedges, yedges, pads)[2]
                 ax.contour(xc, yc, grid.T, levels=[level], colors=[sample["color"]],
                            linewidths=0.25 * args.contour_linewidth, alpha=0.45, zorder=2.6)
+
+
+def draw_outside_points(ax, sample, c, r, xedges, yedges, density, level):
+    """The draws that fall in a bin below the outermost region's ``level`` of
+    the smoothed ``density``, as dots: at most POINTS_MAX, chosen at random
+    (the same ones every time) in proportion to their weight."""
+    x, y = sample["columns"][c], sample["columns"][r]
+    i, j = posterior.bin_index(x, xedges), posterior.bin_index(y, yedges)
+    inside = (i >= 0) & (j >= 0)
+    outside = np.flatnonzero(inside)[density[i[inside], j[inside]] < level]
+    if outside.size > POINTS_MAX:
+        weights = sample["weights"]
+        p = None if weights is None else weights[outside] / weights[outside].sum()
+        outside = np.random.default_rng(1000 * c + r).choice(outside, POINTS_MAX, replace=False, p=p)
+    ax.scatter(x[outside], y[outside], s=1.5, color=sample["color"], alpha=0.5, linewidths=0, zorder=1.8, rasterized=True)
 
 
 def corner_summary(sample, index, edges, info, args, level, outer):
@@ -867,7 +923,9 @@ def corner_summary(sample, index, edges, info, args, level, outer):
     error = posterior.quantile_error(values, weights, 0.5, sample["ess"])
     bounded = np.isfinite(bound).any() and cyclic is None
     if cyclic is not None or mode == "hdi" or (bounded and mode in (None, "limit")):
-        fine, density = posterior.fine_density(values, weights, edges, cyclic is not None, bound)
+        fine, density = posterior.fine_density(values, weights, edges, cyclic is not None, bound,
+                                               **({} if marginal_sigma(sample, index, edges, args) is None
+                                                  else {"sigma": marginal_sigma(sample, index, edges, args)}))
         pieces, peak = posterior.density_pieces(fine, density, level, cyclic is not None)
         step = fine[1] - fine[0]
         at_low = np.isfinite(bound[0]) and pieces and pieces[0][0] <= bound[0] + 1.5 * step
@@ -896,16 +954,30 @@ def corner_summary(sample, index, edges, info, args, level, outer):
             "method": f"median, central {percent}", "error": error}
 
 
-def draw_corner_marginal(ax, sample, index, edges, summary=None, period=None):
+def marginal_sigma(sample, index, edges, args):
+    """Kernel width, in panel bins, of the smooth marginal of --corner_marginal
+    kde (None: a step histogram)."""
+    if args.corner_marginal != "kde":
+        return None
+    return posterior.kde_sigma(sample["columns"][index], sample["weights"], sample.get("ess"),
+                               (edges[-1] - edges[0]) / (len(edges) - 1), args.corner_bw)
+
+
+def draw_corner_marginal(ax, sample, index, edges, summary=None, period=None, sigma=None, bound=(np.nan, np.nan)):
     """Marginal of one variable: the (weighted) density as a step outline in
-    the sample's colour; with a ``summary`` (a single sample), shaded over
+    the sample's colour (a smooth curve of kernel width ``sigma`` panel bins
+    when given); with a ``summary`` (a single sample), shaded over
     its pieces (a piece past the end of a cyclic axis continues from its
     start), with a line at the median, the mode or the limit. Returns the
     peak density."""
     values, weights, color = sample["columns"][index], sample["weights"], sample["color"]
-    density, _ = np.histogram(values, bins=edges, weights=weights, density=True)
-    density = np.nan_to_num(density)
-    height = lambda x: density[np.clip(np.searchsorted(edges, x, side="right") - 1, 0, len(density) - 1)]  # noqa: E731
+    if sigma is None:
+        density, _ = np.histogram(values, bins=edges, weights=weights, density=True)
+        density = np.nan_to_num(density)
+        shape = edges
+    else:
+        shape, density = posterior.marginal_curve(values, weights, edges, sigma, period is not None, bound)
+    height = lambda x: density[np.clip(np.searchsorted(shape, x, side="right") - 1, 0, len(density) - 1)]  # noqa: E731
     if summary is not None:
         shown = []
         for low, high in summary["pieces"]:
@@ -921,7 +993,10 @@ def draw_corner_marginal(ax, sample, index, edges, summary=None, period=None):
         if summary["kind"] != "pieces":
             centre = summary["centre"] - period if period is not None and summary["centre"] > edges[-1] else summary["centre"]
             ax.plot([centre, centre], [0, float(height(centre))], color=color, linewidth=1.0)
-    ax.stairs(density, edges, color=color, linewidth=1.2)
+    if sigma is None:
+        ax.stairs(density, edges, color=color, linewidth=1.2)
+    else:
+        ax.plot(0.5 * (shape[1:] + shape[:-1]), density, color=color, linewidth=1.2)
     return float(density.max())
 
 
@@ -1071,13 +1146,20 @@ def split_entries(splits, samples, args):
     return entries
 
 
-def draw_split_marginals(ax, sample, parts, index, edges):
+def draw_split_marginals(ax, sample, parts, index, edges, sigma=None, period=None, bound=(np.nan, np.nan)):
     """The parts of a split in a diagonal panel: the density of each part
-    scaled by its share, so that the parts add up to the marginal."""
+    scaled by its share, so that the parts add up to the marginal (smooth
+    curves of kernel width ``sigma`` panel bins when given)."""
     weights = np.ones(len(sample["columns"][index])) if sample["weights"] is None else sample["weights"]
     width = np.diff(edges)
     for k, (_, mask) in enumerate(parts):
-        counts, _ = np.histogram(sample["columns"][index][mask], bins=edges, weights=weights[mask])
+        values = sample["columns"][index][mask]
+        if sigma is not None and mask.any():
+            shape, density = posterior.marginal_curve(values, weights[mask], edges, sigma, period is not None, bound)
+            ax.plot(0.5 * (shape[1:] + shape[:-1]), density * weights[mask].sum() / weights.sum(), color=sample["color"],
+                    linewidth=0.9, linestyle=SPLIT_LINESTYLES[k])
+            continue
+        counts, _ = np.histogram(values, bins=edges, weights=weights[mask])
         ax.stairs(counts / (weights.sum() * width), edges, color=sample["color"], linewidth=0.9, linestyle=SPLIT_LINESTYLES[k])
 
 
@@ -1149,6 +1231,8 @@ def draw_corner_correlation(ax, samples, c, r, cyclic):
 
 # Samples whose titles are stacked above a diagonal panel, one line each in the sample's colour.
 MAX_TITLED = 3
+# Most dots of --corner_points in one panel: more are a blot that hides the regions.
+POINTS_MAX = 1500
 PRIOR_REGION_MAX = 0.8
 SHRINKAGE_LEGEND = r"$\sigma/\sigma_0$, $\Delta/\sigma_0$: width, shift in prior widths"
 
@@ -1221,8 +1305,13 @@ def annotate_truth_level(ax, samples, c, r, edges, truths, args, modes):
     return len(levels)
 
 
-def draw_prior_marginal(ax, values, weights, edges):
-    """The prior of a marginal: its density as a dashed step in the neutral colour, never filled."""
+def draw_prior_marginal(ax, values, weights, edges, sigma=None, period=None, bound=(np.nan, np.nan)):
+    """The prior of a marginal: its density as a dashed step (a smooth curve of kernel width ``sigma`` panel
+    bins when given) in the neutral colour, never filled."""
+    if sigma is not None:
+        shape, density = posterior.marginal_curve(values, weights, edges, sigma, period is not None, bound)
+        ax.plot(0.5 * (shape[1:] + shape[:-1]), density, color=style.role("muted"), linewidth=1.0, linestyle="dashed")
+        return
     density, _ = np.histogram(values, bins=edges, weights=weights)
     total = float(np.sum(weights)) if weights is not None else float(len(values))
     ax.stairs(density / (total * np.diff(edges)), edges, color=style.role("muted"), linewidth=1.0, linestyle="dashed")
@@ -1296,9 +1385,10 @@ def draw_corner_block(fig, grid, n, samples, prior, args, level, outer):
         summary = None
         if len(samples) == 1:
             summary = corner_summary(views[0], 0, edges, {"cyclic": None, "bound": (np.nan, np.nan)}, args, level, outer)
-        peaks = [draw_corner_marginal(ax, view, 0, edges, summary) for view in views]
+        peaks = [draw_corner_marginal(ax, view, 0, edges, summary, sigma=marginal_sigma(view, 0, edges, args)) for view in views]
         if prior is not None:
-            draw_prior_marginal(ax, prior["block"][name], prior["weights"], edges)
+            draw_prior_marginal(ax, prior["block"][name], prior["weights"], edges,
+                                marginal_sigma(dict(prior, columns=[prior["block"][name]]), 0, edges, args))
         ax.set_ylim(0, 1.1 * max(peaks))
         ax.set_xlim(edges[0], edges[-1])
         ax.set_xlabel(label)
@@ -1367,6 +1457,11 @@ def draw_corner_figure(rows, args, kdx):
         edges = [corner_posterior_edges(np.concatenate([s["columns"][i] for s in samples]), args, info[i]) for i in range(n)]
     else:
         edges = [corner_edges(np.concatenate([s["columns"][i] for s in samples]), args) for i in range(n)]
+    limits = corner_ranges(args, info)
+    if limits is None:
+        return None
+    for index, (low, high) in limits.items():
+        edges[index] = corner_edges(np.concatenate([s["columns"][index] for s in samples]), args, (low, high))
     labels = list(args.corner_labels or [])
     labels = [labels[i] if i < len(labels) else resolve_axis_label(None, v, subset) for i, v in enumerate(variables)]
     upper = args.corner_upper if posterior_mode else None
@@ -1457,15 +1552,18 @@ def draw_corner_figure(rows, args, kdx):
                 period = info[r]["cyclic"][1] - info[r]["cyclic"][0] if info[r]["cyclic"] is not None else None
                 if single:
                     summaries[r] = corner_summary(samples[0], r, edges[r], info[r], args, level, fractions[-1])
-                peaks = [draw_corner_marginal(ax, sample, r, edges[r], summaries.get(r), period) for sample in samples]
+                peaks = [draw_corner_marginal(ax, sample, r, edges[r], summaries.get(r), period,
+                                              marginal_sigma(sample, r, edges[r], args), info[r]["bound"]) for sample in samples]
                 if prior is not None:
-                    draw_prior_marginal(ax, prior["columns"][r], prior["weights"], edges[r])
+                    draw_prior_marginal(ax, prior["columns"][r], prior["weights"], edges[r],
+                                        marginal_sigma(prior, r, edges[r], args), period, info[r]["bound"])
                     if single and args.corner_shrinkage and summaries[r]["kind"] == "interval" and period is None:
                         shrinkage[r] = prior_shrinkage(samples[0]["columns"][r], samples[0]["weights"], prior["columns"][r],
                                                        prior["weights"])
                 for split in splits[:1] if args.corner_split_marginals else []:  # one split: its styles name its parts
                     for sample, parts in zip(samples, split["parts"]):
-                        draw_split_marginals(ax, sample, parts, r, edges[r])
+                        draw_split_marginals(ax, sample, parts, r, edges[r], marginal_sigma(sample, r, edges[r], args), period,
+                                             info[r]["bound"])
                 if upper == "profile":
                     draw_marginal_profile(ax, samples[0], r, edges[r], max(peaks))
                 ax.set_ylim(0, 1.1 * max(peaks))
@@ -2856,6 +2954,17 @@ def run(args):
     if args.corner_upper == "sample" and args.contour_hue is None:
         rprint("[red]Error:[/red] --corner_upper sample VALUE draws a value of --contour_hue COLUMN in the upper triangle.")
         return []
+    if args.corner_marginal == "kde":
+        try:
+            ok = float(args.corner_bw) > 0
+        except ValueError:
+            ok = args.corner_bw in ("scott", "silverman")
+        if not ok:
+            rprint("[red]Error:[/red] --corner_bw is a positive width, scott or silverman.")
+            return []
+    if args.corner_range and args.corner is None:
+        rprint("[red]Error:[/red] --corner_range sets the axes of a corner plot: use it with --corner.")
+        return []
     if args.corner_truth_level and not args.corner_truth:
         rprint("[red]Error:[/red] --corner_truth_level says where the reference values lie: give them with --corner_truth.")
         return []
@@ -2872,6 +2981,8 @@ def run(args):
         "--corner_prior": args.corner_prior,
         "--corner_shrinkage": args.corner_shrinkage,
         "--corner_block": args.corner_block,
+        "--corner_points": args.corner_points,
+        "--corner_marginal": args.corner_marginal != "step",
     }
     given = [name for name, value in posterior_only.items() if value]
     if given and not (args.corner and args.contour):

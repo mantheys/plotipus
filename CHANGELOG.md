@@ -41,6 +41,12 @@ a single plot (it was a hairline beside the lower rows).
   diagonal titles are now written, one line per sample in its colour, up to
   three; before, none were; the legend adds "Titles: ...". `--corner_upper`
   takes a mode and, for `sample`, a value.
+- Posterior corner plots, the last open items of T25.2: `--corner_marginal kde`
+  (smooth marginals; `--corner_bw` takes a width, `scott` or `silverman`; the
+  highest-density intervals are read from the curve), `--corner_points` (the
+  draws outside the outermost region as dots, at most 1500 per panel) and
+  `--corner_range VARIABLE LOW HIGH` (the axis of one variable, also for
+  histogram corner plots).
 - Posterior corner plots, continued (T25.26): `--corner_prior VALUE` (the
   `--contour_hue` value holding prior draws: dashed marginals and outer region
   in the neutral colour), `--corner_shrinkage` (σ/σ₀ and Δ/σ₀ under each
