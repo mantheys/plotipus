@@ -120,7 +120,7 @@ def gallery(images, data):
         figures.append({"image": f"images/options/{name}.png",
                         "paper": f"images/options/paper/{name}.png" if paper.exists() else None,
                         "kind": kind, "task": task_of.get(name, list(TASKS)[-1]),
-                        "title": title.group(1) if title else alt, "alt": alt, "command": command, "wide": wide,
+                        "title": title.group(1) if title else alt, "alt": alt, "command": command, "python": python_call(command), "wide": wide,
                         "data": excerpt(command, data), "section": heading,
                         "docs": DOCS_URL + ("#" + github_anchor(heading) if heading else "")})
     if not figures:
@@ -153,6 +153,26 @@ def _options(command):
         elif current is not None:
             options[current].append(token)
     return options
+
+
+def _python_string(text):
+    """A Python literal of text: a raw string when it holds backslashes (LaTeX labels), so that it reads as typed."""
+    if "\\" in text and '"' not in text and not text.endswith("\\"):
+        return f'r"{text}"'
+    return json.dumps(text, ensure_ascii=False)
+
+
+def python_call(command):
+    """The command line as the plotipus.plot call that draws the same figure from Python, one option per line."""
+    tokens = shlex.split(command)
+    lines, current = [_python_string(tokens[1])], None
+    for token in tokens[2:]:
+        if token.startswith("-") and not re.fullmatch(r"-[\d.]+(e-?\d+)?", token):
+            lines.append(current := [_python_string(token)])
+        else:
+            current.append(_python_string(token))
+    body = "".join(f"    {line if isinstance(line, str) else ', '.join(line)},\n" for line in lines)
+    return f"import plotipus\n\nplotipus.plot(\n{body})"
 
 
 def excerpt(command, data):
