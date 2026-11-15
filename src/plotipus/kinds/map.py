@@ -835,8 +835,9 @@ def draw_corner_regions(ax, sample, c, r, xedges, yedges, fractions, args, alpha
             resampled = _smooth(posterior.resampled_counts(counts, total, sample["ess"], rng), sigma, modes)
             (level,) = sample_region_thresholds(resampled, fractions[-1:])
             if np.isfinite(level) and 0 < level < resampled.max():
-                ax.contour(xc, yc, _contour_grid(resampled, xedges, yedges, pads)[2].T, levels=[level], colors=[sample["color"]], linewidths=0.25 * args.contour_linewidth,
-                           alpha=0.45, zorder=2.6)
+                grid = _contour_grid(resampled, xedges, yedges, pads)[2]
+                ax.contour(xc, yc, grid.T, levels=[level], colors=[sample["color"]],
+                           linewidths=0.25 * args.contour_linewidth, alpha=0.45, zorder=2.6)
 
 
 def corner_summary(sample, index, edges, info, args, level, outer):
@@ -1660,7 +1661,7 @@ def corner_legend_handles(samples, fractions, truths, args, methods=(), bands=()
     handles += [Patch(facecolor=to_rgba(base, 0.25), edgecolor="none", label=method) for method in methods]
     if profile:
         muted, ink = style.role("muted"), style.role("ink")
-        for k, (f, m) in enumerate(zip(fractions, fill_mix(len(fractions)))):
+        for f, m in zip(fractions, fill_mix(len(fractions))):
             label = f"Profile, $-2\\Delta\\ln L <$ {chi2.ppf(f, 2):.2f}"
             handles.append(Patch(facecolor=mix_paper(muted, PROFILE_FILL * m), edgecolor=ink, linestyle="dashed", label=label))
         handles.append(Line2D([0], [0], color=ink, marker="*", markersize=7, linestyle="none", label="Best draw"))
