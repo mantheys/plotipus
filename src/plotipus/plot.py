@@ -229,7 +229,8 @@ def _panel_overhangs(fig, panels, renderer):
         above = [lg for lg in _axes_legends(ax) if lg.get_visible() and lg.get_in_layout()
                  and getattr(lg, "_plotipus_placement", {}).get("above")]
         # So does the centred panel title.
-        above += [t for t in (ax.title,) if t.get_visible() and t.get_text() and t.get_in_layout()]
+        above += [t for t in (ax.title, *getattr(ax, "_plotipus_sample_titles", [])) if t.get_visible() and t.get_text()
+                  and t.get_in_layout()]
         for lg in above:
             lg.set_in_layout(False)
         try:
@@ -1070,7 +1071,8 @@ def _place_outside(ax, legend, renderer):
     style = dict(info["style"], loc="lower center")
     entries = max(1, len(legend.get_texts()))
     # Above the panel title and any legend already placed above the axes.
-    above = [t.get_window_extent(renderer) for t in (ax.title, ax._left_title, ax._right_title)
+    above = [t.get_window_extent(renderer) for t in (ax.title, ax._left_title, ax._right_title,
+                                                      *getattr(ax, "_plotipus_sample_titles", []))
              if t.get_visible() and t.get_text()]
     above += [lg.get_window_extent(renderer) for lg in _axes_legends(ax)
               if lg is not legend and getattr(lg, "_plotipus_placement", {}).get("outside")]

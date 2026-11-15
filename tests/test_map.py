@@ -796,9 +796,11 @@ def test_posterior_corner_overlays_hue_values(make_project):
     assert len(grid[1, 0].collections) == 4  # a filled set and its outline per chain
     faces = [grid[1, 0].collections[i].get_facecolor()[0] for i in (0, 2)]
     assert not np.allclose(faces[0][:3], faces[1][:3]) and np.isclose(faces[0][3], 0.6)
-    assert grid[0, 0].get_title() == ""  # several samples: no single summary to write
+    assert grid[0, 0].get_title() == ""  # several samples: one line each, in their colour, not one title
+    lines = grid[0, 0]._plotipus_sample_titles
+    assert [line.get_text()[:2] for line in lines] == ["P ", "P "] and lines[0].get_color() != lines[1].get_color()
     (holder,) = [ax for ax in fig.axes if not ax.axison]
-    assert [t.get_text() for t in holder.get_legend().get_texts()] == ["A", "B", "68.3% (2D region)"]
+    assert [t.get_text() for t in holder.get_legend().get_texts()] == ["A", "B", "68.3% (2D region)", "Titles: median, central 68.3%"]
     # Both chains fit the shared range of each variable.
     assert grid[0, 0].get_xlim()[0] < -2 and grid[0, 0].get_xlim()[1] > 3
 
@@ -1102,6 +1104,69 @@ def test_posterior_corner_is_double_width_on_paper(make_project, capsys):
     assert np.allclose(fig.get_size_inches(), (3.4, 2.55))
     (fig,) = _corner(make_project, config=paper)  # a corner of histograms keeps the column
     assert np.allclose(fig.get_size_inches(), (3.4, 2.55))
+
+
+def test_posterior_corner_titles_of_several_samples(make_project, capsys):
+    """T25.2 (left open by T25.21): one title line per overlaid sample, up to three, each with its own interval."""
+    (fig,) = _posterior(make_project, "--contour_hue", "Chain", "--contour_sigmas", "1")
+    frame = _posterior_frame()
+    lines = _corner_grid(fig)[1, 1]._plotipus_sample_titles
+    for line, name in zip(lines, ("A", "B")):
+        low, median, high = np.percentile(frame[frame["Chain"] == name]["Q"].iloc[0], [15.865, 50, 84.135])
+        assert line.get_text() == f"Q = ${median:.2f}^{{+{high - median:.2f}}}_{{-{median - low:.2f}}}$"
+    # More than three samples: no titles, said once.
+    many = pd.concat([_posterior_frame().assign(Chain=f"C{i}") for i in range(4)])
+    make_project({"Chains": many})
+    figures = _capture()
+    map_kind.main(["--datafile", "Chains", "--corner", "P", "Q", "--contour", "--contour_hue", "Chain"])
+    assert not hasattr(_corner_grid(figures[0])[0, 0], "_plotipus_sample_titles") and "up to 3" in capsys.readouterr().out
+
+
+def test_posterior_corner_second_sample_in_the_upper_triangle(make_project, capsys):
+    """T25.2: --corner_upper sample VALUE draws that value's regions in the mirrored cells, with every sample on the diagonal."""
+    (fig,) = _posterior(make_project, "--contour_hue", "Chain", "--corner_upper", "sample", "B", "--contour_sigmas", "1")
+    grid = _corner_grid(fig)
+    assert set(grid) == {(r, c) for r in range(2) for c in range(2)} | {(0, 1)}
+    frame = _posterior_frame()
+    # The lower triangle keeps chain A alone (P in x, Q in y), the mirrored cell chain B alone (Q in x, P in y: the axes
+    # of the pair exchanged, so that each shares its x with the diagonal panel of its column).
+    assert len(grid[1, 0].collections) == 2 and len(grid[0, 1].collections) == 2
+    paths = lambda ax: np.concatenate([path.vertices for path in ax.collections[1].get_paths()])  # noqa: E731
+    assert abs(np.mean(paths(grid[1, 0])[:, 0]) - 0.0) < 0.3 and abs(np.mean(paths(grid[1, 0])[:, 1]) - 5.0) < 0.3
+    assert abs(np.mean(paths(grid[0, 1])[:, 0]) - 5.0) < 0.3 and abs(np.mean(paths(grid[0, 1])[:, 1]) - 1.0) < 0.3
+    assert grid[0, 1].get_shared_x_axes().joined(grid[0, 1], grid[1, 1]) and grid[0, 1].yaxis.get_label_position() == "right"
+    assert len(grid[0, 0].patches) == 2  # both samples on the diagonal
+    assert not [ax for ax in fig.axes if not ax.axison]  # the legend is above the grid
+    assert not _posterior(make_project, "--contour_hue", "Chain", "--corner_upper", "sample", "Nope")
+    assert "not a value of Chain (A, B)" in capsys.readouterr().out
+    assert not _posterior(make_project, "--corner_upper", "sample", "B")
+    assert not _posterior(make_project, "--contour_hue", "Chain", "--corner_upper", "sample")
+    assert "--corner_upper takes" in capsys.readouterr().out
+
+
+def test_posterior_corner_truth_level(make_project, capsys):
+    """T25.28: the probability below the reference in the title, the content of the smallest region through it by the marker."""
+    (fig,) = _posterior(make_project, "--select", "Chain", "-s", "A", "--corner_truth", "0", "5", "--corner_truth_level",
+                        "--contour_sigmas", "1", "2")
+    grid = _corner_grid(fig)
+    frame = _posterior_frame()
+    values = frame["P"].iloc[0]
+    p = float((values < 0).mean())
+    error = np.sqrt(p * (1 - p) / 20000)
+    assert grid[0, 0].get_title().endswith(f"\n$P$(< Truth) = {p:.3f} $\\pm$ {error:.3f}")
+    # The truth is the centre of chain A, so the smallest region through it holds almost nothing: a few percent.
+    (note,) = [t for t in grid[1, 0].texts if t.get_text().endswith("%")]
+    assert 0 <= float(note.get_text()[:-1]) < 10
+    assert "% at the truth: smallest region through it" in _legend_texts(fig)
+    # A truth far outside the panel gets no note; several samples get one each and a short probability in the title.
+    (fig,) = _posterior(make_project, "--contour_hue", "Chain", "--corner_truth", "50", "5", "--corner_truth_level")
+    assert not [t for t in _corner_grid(fig)[1, 0].texts if t.get_text().endswith("%")]
+    (fig,) = _posterior(make_project, "--contour_hue", "Chain", "--corner_truth", "0.5", "5", "--corner_truth_level")
+    assert len([t for t in _corner_grid(fig)[1, 0].texts if t.get_text().endswith("%")]) == 2
+    assert "$P_<$" in _corner_grid(fig)[0, 0]._plotipus_sample_titles[0].get_text()
+    capsys.readouterr()
+    assert not _posterior(make_project, "--select", "Chain", "-s", "A", "--corner_truth_level")
+    assert "--corner_truth" in capsys.readouterr().out
 
 
 def test_corner_colorbar_spans_the_grid(make_project):

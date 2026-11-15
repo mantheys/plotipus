@@ -659,8 +659,14 @@ interval is shaded, the median is a line, and both are written above the
 panel as `m = 124.95 +0.25 −0.25 GeV` (the unit is taken from the axis
 label; `--no_corner_titles` leaves them out). `--corner_truth V1 V2 ...`
 draws a reference value per variable (`nan` for none) as lines across its
-panels, named `--corner_truth_label` (Truth) in the legend. `--weight COLUMN`
-names per-point weights.
+panels, named `--corner_truth_label` (Truth) in the legend. With
+`--corner_truth_level` the figure also says where the reference lies: under
+each title, the posterior probability of the variable being below it, with its
+Monte Carlo error, and in each pair panel, next to the marker, the content of
+the smallest region that reaches it (2% means the point is deep inside the
+posterior, 99% far out in its tail). Neither is a significance: a probability
+below a value of one marginal and a region content of two variables are not the
+p-value of a hypothesis. `--weight COLUMN` names per-point weights.
 
 The legend, in the empty upper triangle, says how to read the figure: what
 each region holds ("68.3% (2D region)"), which interval the marginals carry
@@ -691,7 +697,9 @@ experiments and their combination), each in its colour
 (`--iterable_color_mapping`, `--iterable_mapping` for the labels), translucent
 so that the regions show through each other. The rows of one value are
 joined, and the binning covers all of them. With several samples the
-diagonal keeps only the outlines.
+diagonal keeps only the outlines, and each title becomes one line per sample,
+in its colour (up to three samples; the legend says "Titles: median, central
+68.3%").
 
 ![Posterior corner plot of two experiments and their combination, one colour each](images/options/posteriors.png)
 
@@ -745,6 +753,19 @@ plotipus map --datafile Oscillation --select Sample -s Posterior --corner Mixing
 
 **The upper triangle.** `--corner_upper` fills the cell above the diagonal
 of each pair with a second view of it; the legend then goes above the grid.
+
+`--corner_upper sample VALUE` draws the regions of one value of
+`--contour_hue` there and the lower triangle keeps the others, so that
+overlaid samples that hide each other (two experiments and their combination)
+each get room. The mirrored panel has the axes of its pair exchanged (the
+variable of its column on x, as the diagonal panel above it), every sample
+keeps its marginal on the diagonal, and each draws its titles as above.
+
+![Posterior corner plot with two experiments below the diagonal and their combination above it, the probability below the true value in each title and the content of the smallest region through the true value by each marker](images/options/upper.png)
+
+```bash
+plotipus map --datafile Posterior --corner Strength Mass Width --contour --contour_hue Experiment --corner_upper sample Combined --contour_sigmas 1 2 --corner_labels '$\mu$' '$m$ (GeV)' '$\Gamma$ (GeV)' --corner_truth 1 125 2.4 --corner_truth_level --bins 40 --percentile 0.5 99.5 --title 'Posterior corner plot: two experiments below the diagonal, their combination above it'
+```
 
 `--corner_upper profile --loglike COLUMN` draws the profile likelihood of
 the same draws: the regions where −2 ln L, minimised over the draws of each
