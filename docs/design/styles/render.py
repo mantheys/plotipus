@@ -49,6 +49,8 @@ COMMANDS = {
     "05_binned_std": "line --datafile Distributions -x Value -y Residual --binned --estimator std --hue Sample --select Distribution -s Exponential --bins 11 --rangex 0 10",
     "06_hist2d": "map --datafile Distributions -x Value -y Smeared --select Distribution -s Exponential --iterable Sample --diagonal --logz",
     "07_contour": "map --datafile Distributions -x MeanScan -y SigmaScan -z Chi2Scan --select Distribution -s Gaussian --iterable Sample --contour --fill_contours",
+    "09_hist2d_panel": "map --datafile Distributions -x Value -y Smeared --select Distribution Sample -s Exponential Simulation --logz",
+    "10_contour_panel": "map --datafile Distributions -x MeanScan -y SigmaScan -z Chi2Scan --select Distribution Sample -s Gaussian Data --contour --fill_contours",
     "08_fit": "line --datafile Distributions -x Bin -y Counts --select Distribution Sample -s Resonance Data --fit --data_hue Data --lower pull --chi2 --max_fit_params 3",
 }
 
