@@ -227,6 +227,15 @@ def list_media(project, medium=None):
     return list(project.media) if project.media else [None]
 
 
+def with_formats(argv, formats):
+    """``--format`` of ``plotipus run`` on a figure command that names none."""
+    if not formats or argv[0] in (SCRIPT, "table"):
+        return argv
+    if "--format" in argv or any(t.startswith("--format=") for t in argv):
+        return argv
+    return [*argv, "--format", *formats]
+
+
 def for_media(argv, media, theme=None):
     """One argument vector per medium (commands naming their own --medium,
     and scripts, are left alone)."""
@@ -252,11 +261,12 @@ def _describe(argv, project):
 
 
 def run_list(name, tables=False, show=False, debug=False, jobs=1, dry_run=False, match=None, check=False,
-             medium=None, theme=None, isolate=None):
+             medium=None, theme=None, isolate=None, formats=None):
     """Run every command of a list; returns the number of failed commands.
     ``dry_run`` prints the translated commands (with the medium, theme,
     width and style layers each resolves to), ``check`` only parses them;
-    ``medium``/``theme`` apply to every plot command. ``isolate`` is fork
+    ``medium``/``theme`` apply to every plot command, ``formats`` (``--format
+    png pdf``) to every figure command that names none. ``isolate`` is fork
     (forked children of a preloaded runner, the default where available) or
     subprocess (a new Python per command)."""
     project = load_project()
@@ -276,6 +286,8 @@ def run_list(name, tables=False, show=False, debug=False, jobs=1, dry_run=False,
         except (KeyError, ValueError) as error:
             failures.append((line, 2, str(error)))
             continue
+        if not tables:
+            argv = with_formats(argv, formats)
         for expanded in ([argv] if tables else for_media(argv, media, theme)):
             planned.append((line, expanded))
 

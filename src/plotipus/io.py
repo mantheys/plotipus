@@ -626,12 +626,52 @@ def _save_style_record(figure_path, rendering):
         json.dump(record, handle, indent=1, default=str)
 
 
+def figure_formats():
+    """File formats matplotlib can write (``png``, ``pdf``, ``svg``, ...)."""
+    from matplotlib.figure import Figure
+
+    return sorted(Figure().canvas.get_supported_filetypes())
+
+
+def _split_extension(name):
+    """``(stem, format)`` of a file name; format None when the name has no
+    extension matplotlib writes (``scan`` or ``1.5_scan`` keep their dots)."""
+    stem, extension = os.path.splitext(name)
+    extension = extension[1:].lower()
+    if extension and extension in figure_formats():
+        return stem, extension
+    return name, None
+
+
+def output_formats(args, default_suffix):
+    """``(suffix, formats)``: the file-name suffix of a figure (with the
+    first format's extension) and every format it is written in.
+
+    ``--format png pdf`` wins; else an extension in ``--output_suffix``
+    (that format alone); else ``[project] formats``; else the extension of
+    the kind's default suffix (png)."""
+    suffix = getattr(args, "output_suffix", None) or default_suffix
+    stem, extension = _split_extension(suffix)
+    requested = getattr(args, "format", None)
+    if isinstance(requested, str):
+        requested = [requested]
+    if requested:
+        formats = list(dict.fromkeys(requested))
+    elif getattr(args, "output_suffix", None) and extension:
+        formats = [extension]
+    else:
+        project = load_project()
+        formats = list(dict.fromkeys(project.formats)) if project.formats else [extension or "png"]
+    return f"{stem}.{formats[0]}", formats
+
+
 def save_figure_to_paths(fig, output_arg, output_file, default_output_dir=None, rprint_func=None, subfolder=None,
-                         sci_in_label=None, log_labels=None, transparent=False):
+                         sci_in_label=None, log_labels=None, transparent=False, formats=None):
     """Save ``fig`` into every --output directory (or the default plot
     directory when none is given); ``sci_in_label`` and ``log_labels`` as in
     :func:`plotipus.plot.finish_tick_labels`; ``transparent`` leaves the
-    figure and axes backgrounds out (--transparent)."""
+    figure and axes backgrounds out (--transparent). ``formats`` writes one
+    file per format (``output_file`` with each extension), from one layout."""
     from .plot import (_shorten_title_to_fit, apply_measured_layout, attach_legends, finish_tick_labels, place_legends,
                        fix_cmr10_glyphs, separate_panel_tick_labels, settle_text_backgrounds, stagger_above_legends,
                        stagger_stacked_ylabels)
@@ -666,10 +706,15 @@ def save_figure_to_paths(fig, output_arg, output_file, default_output_dir=None, 
     rendering = current_rendering()
     if rendering is not None and rendering.folder:
         subfolder = os.path.join(rendering.folder, subfolder) if subfolder else rendering.folder
+    names = [output_file]
+    if formats:
+        stem = _split_extension(output_file)[0]
+        names = [f"{stem}.{fmt}" for fmt in formats]
     for output_dir in _output_dirs(output_arg, default_dir, subfolder):
         os.makedirs(output_dir, exist_ok=True)
-        full_path = os.path.join(output_dir, output_file)
-        fig.savefig(full_path, **({"transparent": True} if transparent else {}))
-        rprint_func(f"[green]Success:[/green] Plot saved to:\n{full_path}")
+        for name in names:
+            full_path = os.path.join(output_dir, name)
+            fig.savefig(full_path, **({"transparent": True} if transparent else {}))
+            rprint_func(f"[green]Success:[/green] Plot saved to:\n{full_path}")
         if rendering is not None and rendering.save_style:
-            _save_style_record(full_path, rendering)
+            _save_style_record(os.path.join(output_dir, names[0]), rendering)

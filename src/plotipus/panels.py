@@ -10,7 +10,7 @@ from rich import print as rprint
 
 from . import registry, style
 from .format import make_title_from_args
-from .io import make_name_from_args, save_figure_to_paths
+from .io import make_name_from_args, output_formats, save_figure_to_paths
 from .plot import (
     add_centered_suptitle,
     apply_note_to_figure,
@@ -452,15 +452,13 @@ def save(fig, args, idx=None, suffix="plot.png", prefix=None):
 
     if target() is not None:
         return None  # an inset pass draws into the main figure
-    suffix = getattr(args, "output_suffix", None) or suffix
-    if "." not in suffix:
-        suffix = f"{suffix}.{getattr(args, 'format', None) or 'png'}"
+    suffix, formats = output_formats(args, suffix)
     prefix = getattr(args, "filename_prefix", None) or prefix
     output_file = make_name_from_args(args, idx, prefix=prefix, suffix=suffix)
     apply_figure_hooks(fig, args)
     save_figure_to_paths(fig, getattr(args, "output", None), output_file, subfolder=getattr(args, "subfolder", None),
                          sci_in_label=getattr(args, "sci_in_label", None), log_labels=getattr(args, "log_labels", None),
-                         transparent=getattr(args, "transparent", False))
+                         transparent=getattr(args, "transparent", False), formats=formats)
     if not getattr(args, "show", False):
         plt.close(fig)
     return output_file

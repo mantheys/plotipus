@@ -19,6 +19,7 @@ working directory is the project root and every setting has its default::
     theme = "light"                 # light | dark
     language = "plotipus"           # plotipus | open | classic
     save_style = false              # write <figure>.style.json next to each figure
+    formats = ["png", "pdf"]        # every figure in these formats (default: png)
 
     [header]                        # the experiment header and watermark
     experiment = "dune"             # a preset: atlas, cms, lhcb, alice, dune
@@ -86,6 +87,7 @@ class Project:
     experiment: str = None
     header: dict = field(default_factory=dict)
     save_style: bool = False
+    formats: list = None
     styles: list = field(default_factory=list)
     rendering: "Rendering" = None
     _changes: tuple = None
@@ -222,6 +224,21 @@ def find_config(start=None):
     return None
 
 
+def _formats(value):
+    """``[project] formats``: a list of file formats (a single string is one)."""
+    if value is None:
+        return None
+    values = [value] if isinstance(value, str) else list(value)
+    from .io import figure_formats
+
+    supported = figure_formats()
+    formats = [str(v).lower().lstrip(".") for v in values]
+    unknown = [f for f in formats if f not in supported]
+    if unknown or not formats:
+        raise ValueError(f"[project] formats: {', '.join(unknown) or 'empty'} not in {', '.join(supported)}")
+    return formats
+
+
 def load_project(start=None, reload=False):
     """Load (once) the project around ``start`` and apply its style/plugins."""
     global _PROJECT
@@ -256,6 +273,7 @@ def load_project(start=None, reload=False):
         theme=section.get("theme"),
         language=_check(section.get("language"), style.LANGUAGES, "[project] language"),
         save_style=bool(section.get("save_style", False)),
+        formats=_formats(section.get("formats")),
     )
     _PROJECT = project
 

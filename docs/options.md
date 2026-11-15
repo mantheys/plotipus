@@ -234,8 +234,14 @@ plotipus line --datafile Keeling -x DecimalDate -y CO2 --hue Series --plot_type 
   Text only: add logos with a figure hook.
 * **Output**: `-o DIR [DIR ...]`, `--subfolder`, `--output_suffix`,
   `--filename_select` (keys that must stay in the generated file name),
-  `--format` (`png` by default, written at 300 dpi). For papers use
-  `--format pdf`: vector output at the printed size, sharp at any zoom.
+  `--format FORMAT [FORMAT ...]` (`png` by default, written at 300 dpi;
+  `--format png pdf` draws the figure once and writes one file per format,
+  with the same name). For papers use `--format pdf`: vector output at the
+  printed size, sharp at any zoom. Without `--format`, an extension in
+  `--output_suffix` sets the format, else `[project] formats` (e.g.
+  `["png", "pdf"]` for every figure of a project), else png;
+  `plotipus run LIST --format png pdf` applies to every figure command of the
+  list that names no format.
   `--transparent` saves without the figure and axes backgrounds, for a
   coloured slide or poster.
 

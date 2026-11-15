@@ -3,7 +3,8 @@
     plotipus <kind> [options]          draw one plot/table (kinds: line, scatter,
                                        hist, map, cat, table)
     plotipus run <list> [--tables]     run a command list (--dry_run, --check, --jobs N, --isolate,
-                                       --medium slides|paper|web|all, --theme light|dark)
+                                       --medium slides|paper|web|all, --theme light|dark,
+                                       --format png pdf)
     plotipus translate <command...>    show the plotipus form of a legacy command
     plotipus init [directory]          create a project skeleton
     plotipus colors [COLUMN ...]       give every hue value of the project a colour of its own, kept in
@@ -27,6 +28,7 @@ output = "output"
 # medium = "slides"            # slides | paper | web
 # media = ["slides", "paper"]  # rendered by plotipus run (--medium all)
 # theme = "light"              # light | dark
+# formats = ["png", "pdf"]     # every figure in these formats (default png)
 # plugins = ["my_plugin"]
 
 # [outputs.plots]
@@ -76,6 +78,9 @@ def main(argv=None):
                             help="Render every plot command for this medium ('all': [project] media); "
                             "default: [project] media, else [project] medium")
         parser.add_argument("--theme", default=None, choices=["light", "dark"], help="Theme of every plot command")
+        parser.add_argument("--format", nargs="+", default=None, metavar="FORMAT", dest="formats",
+                            help="File format(s) of every figure command that names none, e.g. 'png pdf' "
+                            "(default: each command's own, else [project] formats, else png)")
         parser.add_argument("--isolate", default=None, choices=["fork", "subprocess"],
                             help="Run each command in a fork of the preloaded runner (fork, the default where "
                             "available: no imports per command) or in a new Python (subprocess)")
@@ -84,7 +89,7 @@ def main(argv=None):
 
         failures = run_list(options.list, options.tables, options.show, options.debug, options.jobs,
                             options.dry_run, options.match, options.check, options.medium, options.theme,
-                            options.isolate)
+                            options.isolate, options.formats)
         return 1 if failures else 0
     if command == "translate":
         tokens = shlex.split(" ".join(rest)) if len(rest) == 1 else rest

@@ -80,3 +80,14 @@ def test_fork_and_subprocess_draw_the_same_figures(spectra_list):
     (out / name).unlink()
     assert run_list("demo", isolate="fork") == 0
     assert _digest(out / name) == subprocess_digest
+
+
+def test_run_format_applies_to_commands_without_their_own(spectra_list):
+    out = spectra_list(
+        "line --datafile Spectra -x Energy -y Counts --hue Sample --output_suffix both",
+        "line --datafile Spectra -x Energy -y Counts --hue Sample --logy --output_suffix own --format svg",
+    )
+    assert run_list("demo", isolate="fork", formats=["png", "pdf"]) == 0
+    assert (out / "spectra_energy_counts_sample_both.png").exists()
+    assert (out / "spectra_energy_counts_sample_both.pdf").exists()
+    assert sorted(p.name for p in out.glob("*own*")) == ["spectra_energy_counts_sample_logy_own.svg"]
