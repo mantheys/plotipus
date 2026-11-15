@@ -18,6 +18,7 @@ Two ways to get the points:
 import re
 
 import matplotlib.lines as mlines
+import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
 from matplotlib.colors import LogNorm, Normalize
@@ -40,6 +41,11 @@ KIND = "scatter"
 MARKERS = ["o", "s", "^", "D", "v", "P", "X", "*", "h", "p"]
 POINT_MARKERS = ["o", "^", "s", "D", "P", "X", "v", "*"]
 HOLLOW_AREA = 4.0  # a hollow marker is drawn at twice the diameter (four times the area)
+# Marker size from the number of points (no --marker_size): the markers would cover this share of the
+# axes if they were spread evenly, between the style's data marker (lines.markersize, few points) and
+# this fraction of it, the smallest disc whose colour still reads (many points).
+COVERAGE = 0.3
+SMALLEST_MARKER = 0.45
 
 
 def build_parser():
@@ -79,7 +85,9 @@ def build_parser():
     group = parser.add_argument_group("points")
     add = group.add_argument
     add("--colorby", type=str, default=None, help="Column mapped to a continuous colour map (instead of --hue).")
-    add("--marker_size", "--ms", type=float, default=120.0, help="Marker area (default 120).")
+    add("--marker_size", "--ms", type=float, default=None,
+        help="Marker area in points^2 (default: from the number of points, so that the markers cover about a "
+        "third of the axes: the style's data marker for few points, down to the smallest size whose colour reads).")
     add("--sizeby", type=str, default=None,
         help="Column scaling the marker area within [marker_size/scale, marker_size*scale].")
     add("--sizeby_scale", type=float, default=4.0, help="Spread of --sizeby (1 disables it).")
@@ -386,6 +394,31 @@ def explode_points(df, markerby=None, columns=None, hue=None):
         return df
 
 
+def adaptive_marker_area(ax, count):
+    """(area in points^2, whether the smallest size was reached) for ``count``
+    points in ``ax``: discs covering COVERAGE of the axes if spread evenly,
+    no larger than the style's data marker and no smaller than
+    SMALLEST_MARKER of its diameter."""
+    box, figure = ax.get_position(), ax.figure
+    axes_area = box.width * figure.get_figwidth() * box.height * figure.get_figheight() * 72.0**2
+    largest = float(plt.rcParams["lines.markersize"]) ** 2  # scatter's s is the diameter squared
+    smallest = SMALLEST_MARKER**2 * largest
+    ideal = COVERAGE * axes_area / (max(int(count), 1) * np.pi / 4)
+    return float(np.clip(ideal, smallest, largest)), ideal < smallest
+
+
+def resolve_marker_size(ax, count, args):
+    """--marker_size, or the size that suits ``count`` points; past the
+    smallest size, a notice names the alternatives."""
+    if args.marker_size is not None:
+        return args.marker_size
+    area, crowded = adaptive_marker_area(ax, count)
+    if crowded:
+        rprint(f"[yellow]Notice:[/yellow] {count} points overlap even at the smallest marker whose colour reads "
+               f"({np.sqrt(area):.1f} pt): map --map_type hexbin shows their density (--marker_size sets the area)")
+    return area
+
+
 def _sizes(rows, column, base, vmin, vmax, scale):
     if column is None or column not in rows.columns:
         return base
@@ -490,6 +523,7 @@ def draw_points(rows, args, kdx):
     y_columns = [args.y] + ([args.z] if args.z else [])
     fig, axes, _, _ = create_panels(len(y_columns), grid=False)
     markers = _marker_map(rows, args.markerby)
+    base = resolve_marker_size(axes[0], len(rows), args)
 
     size_ranges = None
     size_range = (None, None)
@@ -508,7 +542,7 @@ def draw_points(rows, args, kdx):
 
     def draw_group(group, color, value, marker, hollow):
         vmin, vmax = size_range_of(value)
-        sizes = _sizes(group, args.sizeby, args.marker_size, vmin, vmax, args.sizeby_scale)
+        sizes = _sizes(group, args.sizeby, base, vmin, vmax, args.sizeby_scale)
         for ax, column in zip(axes, y_columns):
             _scatter(ax, group[args.x].to_numpy(), group[column].to_numpy(), color, sizes, marker, hollow)
 
@@ -524,9 +558,11 @@ def draw_points(rows, args, kdx):
             norm, cmap = Normalize(vmin=-reach, vmax=reach), style.diverging_marker_cmap
         last = None
         for value, group, marker, hollow in _marker_groups(rows, args.markerby, markers):
+            # In a fixed random order: where points overlap, the last rows of the data do not hide the rest.
+            group = group.iloc[np.random.default_rng(0).permutation(len(group))]
             colors = group[args.colorby].astype(float).to_numpy()
             vmin, vmax = size_range_of(value)
-            sizes = _sizes(group, args.sizeby, args.marker_size, vmin, vmax, args.sizeby_scale)
+            sizes = _sizes(group, args.sizeby, base, vmin, vmax, args.sizeby_scale)
             if hollow:
                 sizes = np.asarray(sizes) * HOLLOW_AREA
             drawn = []
@@ -569,9 +605,9 @@ def draw_points(rows, args, kdx):
             for gdx, (vmin, vmax) in enumerate(size_ranges.values()):
                 if pd.isna(vmin) or pd.isna(vmax) or vmin == vmax:
                     continue
-                _add_size_legend(axes[-1], label, vmin, vmax, args.marker_size, args.sizeby_scale, locations[gdx % 2])
+                _add_size_legend(axes[-1], label, vmin, vmax, base, args.sizeby_scale, locations[gdx % 2])
         elif size_range[0] is not None and not pd.isna(size_range[0]) and not pd.isna(size_range[1]) and size_range[0] != size_range[1]:
-            _add_size_legend(axes[-1], label, *size_range, args.marker_size, args.sizeby_scale, args.size_legend_loc)
+            _add_size_legend(axes[-1], label, *size_range, base, args.sizeby_scale, args.size_legend_loc)
     if markers is not None:
         _add_marker_legend(axes[0], args.markerby, markers)
 

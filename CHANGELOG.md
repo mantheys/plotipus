@@ -16,12 +16,45 @@ a single plot (it was a hairline beside the lower rows).
   a combination) in its own colour, `--weight COLUMN` takes weighted samples,
   and `--corner_truth V1 V2 ...` (`--corner_truth_label`) marks reference
   values. The legend takes the empty upper triangle.
+- Posterior corner plots say how to read them (T25.21–T25.25, T25.27 and the
+  band of T25.28; design in `docs/design/corner-plots.md`). The legend names
+  what the regions hold ("68.3% (2D region)"), the interval of the marginals
+  and the number of draws, with the effective sample size when it is smaller;
+  plotipus warns when a region rests on too few draws. New options:
+  `--corner_levels 68 90` (content instead of σ), `--corner_interval
+  quantile|hdi|limit`, `--corner_cyclic VAR [LOW HIGH]` (regions and intervals
+  across the end of a periodic axis), `--corner_bound VAR LOW HIGH` (no
+  smoothing across a bound; a one-sided limit where the marginal is highest at
+  it), `--corner_split VAR VALUE | COLUMN` with `--corner_split_marginals` and
+  `--prior_odds` (posterior probabilities of discrete hypotheses, odds and
+  Bayes factors), `--corner_upper profile --loglike COLUMN` (the profile
+  likelihood of the same draws above the diagonal), `--corner_upper corr`
+  (correlation coefficients with their Monte Carlo error), `--corner_mc_error
+  [N]` (the outer region's outline under resampling) and `--corner_band VAR
+  LOW HIGH [LABEL]`.
+- Posterior corner plots, continued (T25.26): `--corner_prior VALUE` (the
+  `--contour_hue` value holding prior draws: dashed marginals and outer region
+  in the neutral colour), `--corner_shrinkage` (σ/σ₀ and Δ/σ₀ under each
+  title, with a warning above 0.9) and `--corner_block COLUMN ...`
+  (`--corner_block_labels`; derived parameters as marginals in the top-right
+  block of the upper triangle, from four variables). On paper a posterior
+  corner plot is now drawn at the `double` width, with a note (`--width
+  single` keeps the column); this changes the size of the existing paper
+  examples `posterior` and `posteriors`.
 - The web medium (`open`, `open-dark`) states its sizing like slides and
   paper: `lower_panels: share` (as before, by default) and `facet_columns: 2`,
   so a row of three or more facets wraps into rows of two instead of growing
   to three plots' width. The style renders of `docs/design/styles` are redrawn
   at the sizes the styles have had since 0.1.0 (a lower panel no longer makes
   them taller).
+- `scatter`: the marker size follows the number of points (the markers cover
+  about 30% of the axes, between the style's data marker and 45% of its
+  diameter) instead of a fixed area of 120 points², which hid the colours on
+  paper and in dense plots; a notice points to `map --map_type hexbin` when
+  even the smallest marker overlaps. `--marker_size` still sets the area, and
+  `--colorby` points are drawn in a fixed random order. Scatter figures
+  without `--marker_size` change; the examples and the gallery no longer pass
+  it.
 - `--transparent` (every kind): saves the figure without its background. The
   mascot of the README is drawn with it; `examples/mascot/dark` and
   `mascot-dark.png` are gone.
