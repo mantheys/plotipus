@@ -2859,12 +2859,20 @@ def run(args):
     if args.corner_truth_level and not args.corner_truth:
         rprint("[red]Error:[/red] --corner_truth_level says where the reference values lie: give them with --corner_truth.")
         return []
-    posterior_only = {"--corner_truth_level": args.corner_truth_level, "--corner_levels": args.corner_levels, "--corner_interval": args.corner_interval,
-                      "--corner_cyclic": args.corner_cyclic, "--corner_bound": args.corner_bound,
-                      "--corner_split": args.corner_split, "--corner_upper": args.corner_upper,
-                      "--corner_mc_error": args.corner_mc_error, "--corner_band": args.corner_band,
-                      "--corner_prior": args.corner_prior, "--corner_shrinkage": args.corner_shrinkage,
-                      "--corner_block": args.corner_block}
+    posterior_only = {
+        "--corner_truth_level": args.corner_truth_level,
+        "--corner_levels": args.corner_levels,
+        "--corner_interval": args.corner_interval,
+        "--corner_cyclic": args.corner_cyclic,
+        "--corner_bound": args.corner_bound,
+        "--corner_split": args.corner_split,
+        "--corner_upper": args.corner_upper,
+        "--corner_mc_error": args.corner_mc_error,
+        "--corner_band": args.corner_band,
+        "--corner_prior": args.corner_prior,
+        "--corner_shrinkage": args.corner_shrinkage,
+        "--corner_block": args.corner_block,
+    }
     given = [name for name, value in posterior_only.items() if value]
     if given and not (args.corner and args.contour):
         rprint(f"[red]Error:[/red] {', '.join(given)} apply to a posterior corner plot (--corner ... --contour).")

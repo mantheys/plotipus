@@ -1127,7 +1127,6 @@ def test_posterior_corner_second_sample_in_the_upper_triangle(make_project, caps
     (fig,) = _posterior(make_project, "--contour_hue", "Chain", "--corner_upper", "sample", "B", "--contour_sigmas", "1")
     grid = _corner_grid(fig)
     assert set(grid) == {(r, c) for r in range(2) for c in range(2)} | {(0, 1)}
-    frame = _posterior_frame()
     # The lower triangle keeps chain A alone (P in x, Q in y), the mirrored cell chain B alone (Q in x, P in y: the axes
     # of the pair exchanged, so that each shares its x with the diagonal panel of its column).
     assert len(grid[1, 0].collections) == 2 and len(grid[0, 1].collections) == 2
