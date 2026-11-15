@@ -187,8 +187,10 @@ def tex_html(text):
         body = match.group(1)
         for command, symbol in TEX_SYMBOLS.items():
             body = re.sub(re.escape(command) + (r"(?![A-Za-z])" if command[-1].isalpha() else ""), lambda _, symbol=symbol: symbol, body)
-        body = re.sub(r"([_^])\{([^{}]*)\}", lambda m: f"<{'sub' if m.group(1) == '_' else 'sup'}>{m.group(2)}</{'sub' if m.group(1) == '_' else 'sup'}>", body)
-        body = re.sub(r"([_^])(\w)", lambda m: f"<{'sub' if m.group(1) == '_' else 'sup'}>{m.group(2)}</{'sub' if m.group(1) == '_' else 'sup'}>", body)
+        def script(m):
+            tag = "sub" if m.group(1) == "_" else "sup"
+            return f"<{tag}>{m.group(2) or m.group(3)}</{tag}>"
+        body = re.sub(r"([_^])(?:\{([^{}]*)\}|(\w))", script, body)
         if "\\" in body:
             raise SystemExit(f"web/build.py: LaTeX in a table cell is beyond tex_html: {match.group(0)}")
         return body.replace(" - ", " − ").replace("-", "−")
