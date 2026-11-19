@@ -238,12 +238,16 @@ def run_events(df, args, spec):
     add_centered_suptitle(fig, make_title_from_args(args), fontsize=style.titlefontsize)
     apply_common_figure_margins(fig)
     apply_note_to_figure(fig, args.note)
-    from ..io import save_figure_to_paths
+    from types import SimpleNamespace
+
+    from ..io import output_formats, save_figure_to_paths
     from ..panels import apply_figure_hooks
 
-    name = _output_name(args, row, spec.name)
+    # The name ignores --output_suffix; --format and [project] formats apply.
+    name, formats = output_formats(SimpleNamespace(format=getattr(args, "format", None)), _output_name(args, row, spec.name))
     apply_figure_hooks(fig, args)
     save_figure_to_paths(fig, args.output, name, subfolder=args.subfolder, sci_in_label=getattr(args, "sci_in_label", None),
-                         log_labels=getattr(args, "log_labels", None), transparent=getattr(args, "transparent", False))
+                         log_labels=getattr(args, "log_labels", None), transparent=getattr(args, "transparent", False),
+                         formats=formats)
     plt.close(fig)
     return name

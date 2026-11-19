@@ -74,12 +74,23 @@ def _log_labels_item(value):
     return value
 
 
+def _figure_format(value):
+    from ..io import figure_formats
+
+    value = value.lower().lstrip(".")
+    if value not in figure_formats():
+        raise argparse.ArgumentTypeError(f"unknown format {value!r} (one of {', '.join(figure_formats())})")
+    return value
+
+
 def add_output_args(parser):
     add = parser.add_argument
     add("--output_suffix", type=str, default=None,
         help="Last part of the output file name (default: the kind, e.g. 'line.png').")
     add("--filename_prefix", type=str, default=None, help="First part of the output file name.")
-    add("--format", type=str, default=None, help="File format when --output_suffix has no extension (default png).")
+    add("--format", nargs="+", type=_figure_format, default=None, metavar="FORMAT",
+        help="File format(s) of the figure, e.g. 'png pdf': drawn once, written once per format with the same "
+        "name (default: an extension in --output_suffix, else [project] formats, else png).")
     add("--show", action="store_true", default=False, help="Keep figures open (interactive use).")
     add("--transparent", action="store_true", default=False,
         help="Save with a transparent background (figure and axes) instead of the style's paper colour, "

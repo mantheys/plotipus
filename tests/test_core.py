@@ -19,6 +19,7 @@ from plotipus.legacy import expand_abbreviations, option_values, rename
 from plotipus.lower import group_difference, operation_series, pairwise, parse_lower
 from plotipus.selection import filter_dataframe
 from plotipus.transforms import combine, edges_from_centers, merge_groups, mirror, rebin_rows
+from plotipus.kinds import line as line_kind
 
 
 def ns(**kwargs):
@@ -583,3 +584,54 @@ def test_transparent_saves_without_background(tmp_path):
         plt.close(fig)
         image = imread(tmp_path / f"figure_{transparent}.png")
         assert image[5, 5, 3] == alpha and image[image.shape[0] // 4, image.shape[1] // 2, 3] == alpha
+
+
+# --- Output formats (--format, [project] formats, plotipus run --format) ---
+
+def _formats_frame():
+    x = np.arange(0.5, 10, 1.0)
+    return pd.DataFrame([{"Energy": x, "Counts": np.exp(-x / 3), "Sample": "A"}])
+
+
+def test_format_writes_every_format_from_one_command(make_project):
+    out = make_project({"Spectra": _formats_frame()})
+    line_kind.main(["--datafile", "Spectra", "-x", "Energy", "-y", "Counts", "--format", "png", "pdf", "svg"])
+    names = sorted(p.name for p in out.iterdir())
+    assert names == ["spectra_energy_counts_line.pdf", "spectra_energy_counts_line.png", "spectra_energy_counts_line.svg"]
+    assert (out / "spectra_energy_counts_line.pdf").read_bytes().startswith(b"%PDF")
+
+
+def test_format_replaces_the_default_extension(make_project):
+    # --format pdf alone used to be ignored unless --output_suffix had no extension.
+    out = make_project({"Spectra": _formats_frame()})
+    line_kind.main(["--datafile", "Spectra", "-x", "Energy", "-y", "Counts", "--format", "pdf"])
+    assert [p.name for p in out.iterdir()] == ["spectra_energy_counts_line.pdf"]
+
+
+def test_format_with_an_output_suffix_extension(make_project):
+    out = make_project({"Spectra": _formats_frame()})
+    line_kind.main(["--datafile", "Spectra", "-x", "Energy", "-y", "Counts", "--output_suffix", "scan.png",
+              "--format", "pdf", "png"])
+    assert sorted(p.name for p in out.iterdir()) == ["spectra_energy_counts_scan.pdf", "spectra_energy_counts_scan.png"]
+
+
+def test_project_formats_and_explicit_extension(make_project):
+    out = make_project({"Spectra": _formats_frame()}, 'formats = ["png", "pdf"]\n')
+    line_kind.main(["--datafile", "Spectra", "-x", "Energy", "-y", "Counts"])
+    line_kind.main(["--datafile", "Spectra", "-x", "Energy", "-y", "Counts", "--logy", "--output_suffix", "only.png"])
+    assert sorted(p.name for p in out.iterdir()) == ["spectra_energy_counts_line.pdf", "spectra_energy_counts_line.png",
+                                                     "spectra_energy_counts_logy_only.png"]
+
+
+def test_default_output_is_unchanged_by_the_format_machinery(make_project):
+    out = make_project({"Spectra": _formats_frame()})
+    line_kind.main(["--datafile", "Spectra", "-x", "Energy", "-y", "Counts"])
+    first = (out / "spectra_energy_counts_line.png").read_bytes()
+    line_kind.main(["--datafile", "Spectra", "-x", "Energy", "-y", "Counts", "--format", "png", "pdf"])
+    assert (out / "spectra_energy_counts_line.png").read_bytes() == first
+
+
+def test_unknown_format_is_an_argument_error(make_project):
+    make_project({"Spectra": _formats_frame()})
+    with pytest.raises(SystemExit):
+        line_kind.main(["--datafile", "Spectra", "-x", "Energy", "-y", "Counts", "--format", "docx"])

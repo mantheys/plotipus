@@ -264,7 +264,8 @@ enforceable version. Where the two differ, this guide is the target.
 ## O. Output
 
 - **O1. Formats.** ✅ Slides: PNG at 300 dpi. Paper: PDF, vector, at the
-  printed size (`--format pdf`).
+  printed size (`--format pdf`). Both from one command with `--format png
+  pdf`, or for a whole project with `[project] formats`.
 - **O2. Every figure is reproducible** from a line of a command list
   (`<list>_scripts.txt`) and the project's `plotipus.toml`. No figure is
   edited after it is drawn.

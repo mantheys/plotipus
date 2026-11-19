@@ -16,6 +16,7 @@ media = ["slides", "paper"]  # rendered by --medium all and plotipus run
 theme = "light"              # light | dark
 language = "plotipus"        # plotipus | open | classic
 save_style = false           # write <figure>.style.json next to each figure
+formats = ["png", "pdf"]     # every figure in these formats (default: png)
 
 [outputs.plots]              # extra output directories per command list
 paper = ["../paper/figures"]
@@ -206,8 +207,9 @@ defines `setup(registry)` and can register:
 One command per line; blank lines and lines starting with `#` or `%` are
 skipped. A line is `<kind> [options]` or a project script (`scripts/x.py ...`,
 run with the current Python). `plotipus run LIST` accepts `--jobs N`,
-`--match TEXT`, `--dry_run` (print the commands) and `--check` (only parse
-them).
+`--match TEXT`, `--dry_run` (print the commands), `--check` (only parse
+them) and `--format png pdf` (the formats of every figure command that names
+none).
 
 The runner imports plotipus and every kind once and warms up matplotlib's
 text layout, then runs each command in a fork of itself (`--isolate fork`,

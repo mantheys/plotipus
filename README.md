@@ -216,7 +216,9 @@ Every kind also takes `--text X Y 'TEXT'` (with `--arrow X2 Y2`) and `--region '
 (see [Shared options](docs/options.md#shared-options)).
 
 `plotipus <kind> --help` lists every option. Figures are saved as PNG at
-300 dpi; for papers use `--format pdf` (vector, at the printed size).
+300 dpi; for papers use `--format pdf` (vector, at the printed size), or
+`--format png pdf` (or `formats = ["png", "pdf"]` in `plotipus.toml`) for
+both from one command.
 
 ## Further reading
 

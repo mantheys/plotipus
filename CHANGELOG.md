@@ -70,6 +70,14 @@ a single plot (it was a hairline beside the lower rows).
   `--colorby` points are drawn in a fixed random order. Scatter figures
   without `--marker_size` change; the examples and the gallery no longer pass
   it.
+- Several output formats from one command (#20): `--format png pdf` (every
+  figure kind) draws the figure once and writes one file per format, with the
+  same name; `[project] formats = ["png", "pdf"]` sets the formats of every
+  figure of a project, and `plotipus run LIST --format png pdf` those of every
+  figure command of a list that names none. An extension in `--output_suffix`
+  still means that format alone unless `--format` is given. Fixed on the way:
+  `--format pdf` was ignored unless `--output_suffix` was given without an
+  extension (the default suffixes end in `.png`), so it wrote a PNG.
 - `--transparent` (every kind): saves the figure without its background. The
   mascot of the README is drawn with it; `examples/mascot/dark` and
   `mascot-dark.png` are gone.
