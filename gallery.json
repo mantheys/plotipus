@@ -1,0 +1,1464 @@
+{
+ "tasks": [
+  "Data and simulation",
+  "Fits and residuals",
+  "Searches and significance",
+  "Likelihood and Bayesian",
+  "Detector performance",
+  "Comparisons and presentation"
+ ],
+ "figures": [
+  {
+   "image": "images/options/datamc.png",
+   "paper": "images/options/paper/datamc.png",
+   "kind": "line",
+   "task": "Data and simulation",
+   "title": "Data against simulation",
+   "alt": "Landau data as points over the simulation as a step histogram, with the data/simulation ratio",
+   "command": "plotipus line --datafile Distributions -x Bin -y Counts --hue Sample --select Distribution -s Landau --data_hue Data --errory --lower ratio --labelx x --lower_labely 'Data / Sim.' --title 'Data against simulation'",
+   "python": "import plotipus\n\nplotipus.plot(\n    \"line\",\n    \"--datafile\", \"Distributions\",\n    \"-x\", \"Bin\",\n    \"-y\", \"Counts\",\n    \"--hue\", \"Sample\",\n    \"--select\", \"Distribution\",\n    \"-s\", \"Landau\",\n    \"--data_hue\", \"Data\",\n    \"--errory\",\n    \"--lower\", \"ratio\",\n    \"--labelx\", \"x\",\n    \"--lower_labely\", \"Data / Sim.\",\n    \"--title\", \"Data against simulation\",\n)",
+   "wide": false,
+   "data": {
+    "file": "input/data/Distributions.pkl",
+    "shown": 2,
+    "total": 23,
+    "columns": [
+     "Sample",
+     "Bin",
+     "Counts",
+     "CountsError"
+    ],
+    "rows": [
+     [
+      "Data",
+      "[…, 0.875, 1.12, 1.38, …] (48)",
+      "[…, 1, 32, 173, …] (48)",
+      "[…, 1, 5.66, 13.2, …] (48)"
+     ],
+     [
+      "Simulation",
+      "[…, 0.875, 1.12, 1.38, …] (48)",
+      "[…, 1.3, 31, 159, …] (48)",
+      "[…, 0.361, 1.76, 3.98, …] (48)"
+     ]
+    ]
+   },
+   "section": "Data and simulation",
+   "docs": "https://github.com/mantheys/plotipus/blob/main/docs/options.md#data-and-simulation"
+  },
+  {
+   "image": "images/options/datastack.png",
+   "paper": "images/options/paper/datastack.png",
+   "kind": "line",
+   "task": "Data and simulation",
+   "title": "Data against stacked simulation",
+   "alt": "Data points over the stacked background and signal simulation with a hatched uncertainty band, and the data/simulation ratio",
+   "command": "plotipus line --datafile Distributions -x Bin -y Counts --hue Sample --select Distribution -s Resonance --data_hue Data --stacked --errory --lower ratio --labelx 'Mass (GeV)' --labely 'Events / 2 GeV' --lower_labely 'Data / Sim.' --title 'Data against stacked simulation'",
+   "python": "import plotipus\n\nplotipus.plot(\n    \"line\",\n    \"--datafile\", \"Distributions\",\n    \"-x\", \"Bin\",\n    \"-y\", \"Counts\",\n    \"--hue\", \"Sample\",\n    \"--select\", \"Distribution\",\n    \"-s\", \"Resonance\",\n    \"--data_hue\", \"Data\",\n    \"--stacked\",\n    \"--errory\",\n    \"--lower\", \"ratio\",\n    \"--labelx\", \"Mass (GeV)\",\n    \"--labely\", \"Events / 2 GeV\",\n    \"--lower_labely\", \"Data / Sim.\",\n    \"--title\", \"Data against stacked simulation\",\n)",
+   "wide": false,
+   "data": {
+    "file": "input/data/Distributions.pkl",
+    "shown": 3,
+    "total": 23,
+    "columns": [
+     "Sample",
+     "Bin",
+     "Counts",
+     "CountsError"
+    ],
+    "rows": [
+     [
+      "Data",
+      "[101, 103, 105, …] (30)",
+      "[400, 344, 340, …] (30)",
+      "[20, 18.5, 18.4, …] (30)"
+     ],
+     [
+      "Background",
+      "[101, 103, 105, …] (30)",
+      "[366, 346, 327, …] (30)",
+      "[6.05, 5.88, 5.72, …] (30)"
+     ],
+     [
+      "Signal",
+      "[…, 119, 121, 123, …] (30)",
+      "[…, 1.9, 19.7, 68.9, …] (30)",
+      "[…, 0.436, 1.4, 2.62, …] (30)"
+     ]
+    ]
+   },
+   "section": "Data and simulation",
+   "docs": "https://github.com/mantheys/plotipus/blob/main/docs/options.md#data-and-simulation"
+  },
+  {
+   "image": "images/options/encodings.png",
+   "paper": "images/options/paper/encodings.png",
+   "kind": "line",
+   "task": "Data and simulation",
+   "title": "Colour by --hue, data and simulation by --style",
+   "alt": "Three distributions coloured by --hue, normalised; --style separates the data (points) from the simulation (steps)",
+   "command": "plotipus line --datafile Distributions -x Bin -y Counts --hue Distribution --style Sample --data_hue Data --select Distribution -s Exponential Landau Chi-squared --errory --density --labelx x --title 'Colour by --hue, data and simulation by --style'",
+   "python": "import plotipus\n\nplotipus.plot(\n    \"line\",\n    \"--datafile\", \"Distributions\",\n    \"-x\", \"Bin\",\n    \"-y\", \"Counts\",\n    \"--hue\", \"Distribution\",\n    \"--style\", \"Sample\",\n    \"--data_hue\", \"Data\",\n    \"--select\", \"Distribution\",\n    \"-s\", \"Exponential\", \"Landau\", \"Chi-squared\",\n    \"--errory\",\n    \"--density\",\n    \"--labelx\", \"x\",\n    \"--title\", \"Colour by --hue, data and simulation by --style\",\n)",
+   "wide": false,
+   "data": {
+    "file": "input/data/Distributions.pkl",
+    "shown": 6,
+    "total": 23,
+    "columns": [
+     "Distribution",
+     "Sample",
+     "Bin",
+     "Counts",
+     "CountsError"
+    ],
+    "rows": [
+     [
+      "Exponential",
+      "Data",
+      "[0.125, 0.375, 0.625, …] (48)",
+      "[257, 233, 181, …] (48)",
+      "[16, 15.3, 13.5, …] (48)"
+     ],
+     [
+      "Landau",
+      "Data",
+      "[…, 0.875, 1.12, 1.38, …] (48)",
+      "[…, 1, 32, 173, …] (48)",
+      "[…, 1, 5.66, 13.2, …] (48)"
+     ],
+     [
+      "Chi-squared",
+      "Data",
+      "[0.125, 0.375, 0.625, …] (48)",
+      "[52, 91, 114, …] (48)",
+      "[7.21, 9.54, 10.7, …] (48)"
+     ]
+    ]
+   },
+   "section": "Shared options",
+   "docs": "https://github.com/mantheys/plotipus/blob/main/docs/options.md#shared-options"
+  },
+  {
+   "image": "images/options/errors.png",
+   "paper": "images/options/paper/errors.png",
+   "kind": "line",
+   "task": "Data and simulation",
+   "title": "Error bars from the CountsError column",
+   "alt": "Gaussian counts with error bars",
+   "command": "plotipus line --datafile Distributions -x Bin -y Counts --hue Sample --select Distribution -s Gaussian --data_hue Data --errory --labelx x --title 'Error bars from the CountsError column'",
+   "python": "import plotipus\n\nplotipus.plot(\n    \"line\",\n    \"--datafile\", \"Distributions\",\n    \"-x\", \"Bin\",\n    \"-y\", \"Counts\",\n    \"--hue\", \"Sample\",\n    \"--select\", \"Distribution\",\n    \"-s\", \"Gaussian\",\n    \"--data_hue\", \"Data\",\n    \"--errory\",\n    \"--labelx\", \"x\",\n    \"--title\", \"Error bars from the CountsError column\",\n)",
+   "wide": false,
+   "data": {
+    "file": "input/data/Distributions.pkl",
+    "shown": 2,
+    "total": 23,
+    "columns": [
+     "Sample",
+     "Bin",
+     "Counts",
+     "CountsError"
+    ],
+    "rows": [
+     [
+      "Data",
+      "[…, -3.5, -3.3, -3.1, …] (40)",
+      "[…, 1, 0, 1, …] (40)",
+      "[…, 1, 0, 1, …] (40)"
+     ],
+     [
+      "Simulation",
+      "[-3.9, -3.7, -3.5, …] (40)",
+      "[0.2, 0.1, 0.5, …] (40)",
+      "[0.141, 0.1, 0.224, …] (40)"
+     ]
+    ]
+   },
+   "section": "Shared options",
+   "docs": "https://github.com/mantheys/plotipus/blob/main/docs/options.md#shared-options"
+  },
+  {
+   "image": "images/options/bands.png",
+   "paper": "images/options/paper/bands.png",
+   "kind": "line",
+   "task": "Data and simulation",
+   "title": "Error bands on a log scale",
+   "alt": "Exponential counts with error bands on a log scale",
+   "command": "plotipus line --datafile Distributions -x Bin -y Counts --hue Sample --select Distribution -s Exponential --data_hue Data --errory --errory_type bands --logy --labelx x --title 'Error bands on a log scale'",
+   "python": "import plotipus\n\nplotipus.plot(\n    \"line\",\n    \"--datafile\", \"Distributions\",\n    \"-x\", \"Bin\",\n    \"-y\", \"Counts\",\n    \"--hue\", \"Sample\",\n    \"--select\", \"Distribution\",\n    \"-s\", \"Exponential\",\n    \"--data_hue\", \"Data\",\n    \"--errory\",\n    \"--errory_type\", \"bands\",\n    \"--logy\",\n    \"--labelx\", \"x\",\n    \"--title\", \"Error bands on a log scale\",\n)",
+   "wide": false,
+   "data": {
+    "file": "input/data/Distributions.pkl",
+    "shown": 2,
+    "total": 23,
+    "columns": [
+     "Sample",
+     "Bin",
+     "Counts",
+     "CountsError"
+    ],
+    "rows": [
+     [
+      "Data",
+      "[0.125, 0.375, 0.625, …] (48)",
+      "[257, 233, 181, …] (48)",
+      "[16, 15.3, 13.5, …] (48)"
+     ],
+     [
+      "Simulation",
+      "[0.125, 0.375, 0.625, …] (48)",
+      "[231, 211, 176, …] (48)",
+      "[4.81, 4.59, 4.19, …] (48)"
+     ]
+    ]
+   },
+   "section": "Shared options",
+   "docs": "https://github.com/mantheys/plotipus/blob/main/docs/options.md#shared-options"
+  },
+  {
+   "image": "images/options/configs.png",
+   "paper": "images/options/paper/configs.png",
+   "kind": "line",
+   "task": "Data and simulation",
+   "title": "One file per config",
+   "alt": "Landau data and simulation read from one file per config, data as points",
+   "command": "plotipus line --datafile Histogram --configs data simulation --names landau -x Bin -y Counts --by_config --data_hue data --errory --labelx x --title 'One file per config'",
+   "python": "import plotipus\n\nplotipus.plot(\n    \"line\",\n    \"--datafile\", \"Histogram\",\n    \"--configs\", \"data\", \"simulation\",\n    \"--names\", \"landau\",\n    \"-x\", \"Bin\",\n    \"-y\", \"Counts\",\n    \"--by_config\",\n    \"--data_hue\", \"data\",\n    \"--errory\",\n    \"--labelx\", \"x\",\n    \"--title\", \"One file per config\",\n)",
+   "wide": false,
+   "data": {
+    "file": "input/data/{data,simulation}_landau_Histogram.pkl",
+    "shown": 2,
+    "total": 2,
+    "columns": [
+     "Config",
+     "Bin",
+     "Counts",
+     "CountsError"
+    ],
+    "rows": [
+     [
+      "data",
+      "[…, 0.875, 1.12, 1.38, …] (48)",
+      "[…, 1, 32, 173, …] (48)",
+      "[…, 1, 5.66, 13.2, …] (48)"
+     ],
+     [
+      "simulation",
+      "[…, 0.875, 1.12, 1.38, …] (48)",
+      "[…, 1.3, 31, 159, …] (48)",
+      "[…, 0.361, 1.76, 3.98, …] (48)"
+     ]
+    ]
+   },
+   "section": "Shared options",
+   "docs": "https://github.com/mantheys/plotipus/blob/main/docs/options.md#shared-options"
+  },
+  {
+   "image": "images/options/facets.png",
+   "paper": "images/options/paper/facets.png",
+   "kind": "line",
+   "task": "Data and simulation",
+   "title": "Prebinned counts, one panel per distribution",
+   "alt": "Data and simulation of three distributions, one panel each",
+   "command": "plotipus line --datafile Distributions -x Bin -y Counts --hue Sample --variable_column Distribution --variables Gaussian Poisson Exponential --data_hue Data --errory --labelx x --title 'Prebinned counts, one panel per distribution'",
+   "python": "import plotipus\n\nplotipus.plot(\n    \"line\",\n    \"--datafile\", \"Distributions\",\n    \"-x\", \"Bin\",\n    \"-y\", \"Counts\",\n    \"--hue\", \"Sample\",\n    \"--variable_column\", \"Distribution\",\n    \"--variables\", \"Gaussian\", \"Poisson\", \"Exponential\",\n    \"--data_hue\", \"Data\",\n    \"--errory\",\n    \"--labelx\", \"x\",\n    \"--title\", \"Prebinned counts, one panel per distribution\",\n)",
+   "wide": false,
+   "data": {
+    "file": "input/data/Distributions.pkl",
+    "shown": 6,
+    "total": 23,
+    "columns": [
+     "Distribution",
+     "Sample",
+     "Bin",
+     "Counts",
+     "CountsError"
+    ],
+    "rows": [
+     [
+      "Gaussian",
+      "Data",
+      "[…, -3.5, -3.3, -3.1, …] (40)",
+      "[…, 1, 0, 1, …] (40)",
+      "[…, 1, 0, 1, …] (40)"
+     ],
+     [
+      "Gaussian",
+      "Simulation",
+      "[-3.9, -3.7, -3.5, …] (40)",
+      "[0.2, 0.1, 0.5, …] (40)",
+      "[0.141, 0.1, 0.224, …] (40)"
+     ]
+    ]
+   },
+   "section": "Shared options",
+   "docs": "https://github.com/mantheys/plotipus/blob/main/docs/options.md#shared-options"
+  },
+  {
+   "image": "images/options/flow.png",
+   "paper": "images/options/paper/flow.png",
+   "kind": "hist",
+   "task": "Data and simulation",
+   "title": "Histogram of samples with under/overflow",
+   "alt": "Breit-Wigner samples with the long tails collected in the first and last bins",
+   "command": "plotipus hist --datafile Distributions -x Value --hue Sample --weight Weight --select Distribution -s Breit-Wigner --data_hue Data --bins 40 --rangex 81 101 --flow show --labelx 'Mass (GeV)' --title 'Histogram of samples with under/overflow'",
+   "python": "import plotipus\n\nplotipus.plot(\n    \"hist\",\n    \"--datafile\", \"Distributions\",\n    \"-x\", \"Value\",\n    \"--hue\", \"Sample\",\n    \"--weight\", \"Weight\",\n    \"--select\", \"Distribution\",\n    \"-s\", \"Breit-Wigner\",\n    \"--data_hue\", \"Data\",\n    \"--bins\", \"40\",\n    \"--rangex\", \"81\", \"101\",\n    \"--flow\", \"show\",\n    \"--labelx\", \"Mass (GeV)\",\n    \"--title\", \"Histogram of samples with under/overflow\",\n)",
+   "wide": false,
+   "data": {
+    "file": "input/data/Distributions.pkl",
+    "shown": 2,
+    "total": 23,
+    "columns": [
+     "Sample",
+     "Value",
+     "Weight"
+    ],
+    "rows": [
+     [
+      "Data",
+      "[87, 85.8, 88.7, …] (2000)",
+      "[1, 1, 1, …] (2000)"
+     ],
+     [
+      "Simulation",
+      "[90.7, 91.5, 90.9, …] (20000)",
+      "[0.1, 0.1, 0.1, …] (20000)"
+     ]
+    ]
+   },
+   "section": "Histograms",
+   "docs": "https://github.com/mantheys/plotipus/blob/main/docs/options.md#histograms"
+  },
+  {
+   "image": "images/options/kde.png",
+   "paper": "images/options/paper/kde.png",
+   "kind": "hist",
+   "task": "Data and simulation",
+   "title": "Data points over a kernel density estimate",
+   "alt": "Data points with Poisson errors over the kernel density estimate of the simulation, weighted to the data",
+   "command": "plotipus hist --datafile Distributions -x Value --hue Sample --weight Weight --select Distribution -s Log-normal --data_hue Data --hist_type kde --bins 40 --rangex 0 6 --labelx x --title 'Data points over a kernel density estimate'",
+   "python": "import plotipus\n\nplotipus.plot(\n    \"hist\",\n    \"--datafile\", \"Distributions\",\n    \"-x\", \"Value\",\n    \"--hue\", \"Sample\",\n    \"--weight\", \"Weight\",\n    \"--select\", \"Distribution\",\n    \"-s\", \"Log-normal\",\n    \"--data_hue\", \"Data\",\n    \"--hist_type\", \"kde\",\n    \"--bins\", \"40\",\n    \"--rangex\", \"0\", \"6\",\n    \"--labelx\", \"x\",\n    \"--title\", \"Data points over a kernel density estimate\",\n)",
+   "wide": false,
+   "data": {
+    "file": "input/data/Distributions.pkl",
+    "shown": 2,
+    "total": 23,
+    "columns": [
+     "Sample",
+     "Value",
+     "Weight"
+    ],
+    "rows": [
+     [
+      "Data",
+      "[1.04, 1.37, 1.9, …] (2000)",
+      "[1, 1, 1, …] (2000)"
+     ],
+     [
+      "Simulation",
+      "[2.09, 2.18, 0.578, …] (20000)",
+      "[0.1, 0.1, 0.1, …] (20000)"
+     ]
+    ]
+   },
+   "section": "Histograms",
+   "docs": "https://github.com/mantheys/plotipus/blob/main/docs/options.md#histograms"
+  },
+  {
+   "image": "images/options/datafit.png",
+   "paper": "images/options/paper/datafit.png",
+   "kind": "line",
+   "task": "Fits and residuals",
+   "title": "Data with a signal + background fit",
+   "alt": "Data points with a signal + background fit, its two dashed components, the fit parameters and the pulls",
+   "command": "plotipus line --datafile Distributions -x Bin -y Counts --select Distribution Sample -s Resonance Data --fit --data_hue Data --lower pull --chi2 --max_fit_params 3 --labelx 'Mass (GeV)' --labely 'Events / 2 GeV' --title 'Data with a signal + background fit'",
+   "python": "import plotipus\n\nplotipus.plot(\n    \"line\",\n    \"--datafile\", \"Distributions\",\n    \"-x\", \"Bin\",\n    \"-y\", \"Counts\",\n    \"--select\", \"Distribution\", \"Sample\",\n    \"-s\", \"Resonance\", \"Data\",\n    \"--fit\",\n    \"--data_hue\", \"Data\",\n    \"--lower\", \"pull\",\n    \"--chi2\",\n    \"--max_fit_params\", \"3\",\n    \"--labelx\", \"Mass (GeV)\",\n    \"--labely\", \"Events / 2 GeV\",\n    \"--title\", \"Data with a signal + background fit\",\n)",
+   "wide": false,
+   "data": {
+    "file": "input/data/Distributions.pkl",
+    "shown": 1,
+    "total": 23,
+    "columns": [
+     "Bin",
+     "Counts",
+     "CountsError",
+     "FitFunctionLabel"
+    ],
+    "rows": [
+     [
+      "[101, 103, 105, …] (30)",
+      "[400, 344, 340, …] (30)",
+      "[20, 18.5, 18.4, …] (30)",
+      "Signal + background"
+     ]
+    ]
+   },
+   "section": "Fits",
+   "docs": "https://github.com/mantheys/plotipus/blob/main/docs/options.md#fits"
+  },
+  {
+   "image": "images/options/fit.png",
+   "paper": "images/options/paper/fit.png",
+   "kind": "line",
+   "task": "Fits and residuals",
+   "title": "Stored fit with pulls",
+   "alt": "Gaussian data with its stored fit, parameters and pulls",
+   "command": "plotipus line --datafile Distributions -x Bin -y Counts --select Distribution Sample -s Gaussian Data --plot_type errorbar --errory --fit --lower pull --labelx x --title 'Stored fit with pulls'",
+   "python": "import plotipus\n\nplotipus.plot(\n    \"line\",\n    \"--datafile\", \"Distributions\",\n    \"-x\", \"Bin\",\n    \"-y\", \"Counts\",\n    \"--select\", \"Distribution\", \"Sample\",\n    \"-s\", \"Gaussian\", \"Data\",\n    \"--plot_type\", \"errorbar\",\n    \"--errory\",\n    \"--fit\",\n    \"--lower\", \"pull\",\n    \"--labelx\", \"x\",\n    \"--title\", \"Stored fit with pulls\",\n)",
+   "wide": false,
+   "data": {
+    "file": "input/data/Distributions.pkl",
+    "shown": 1,
+    "total": 23,
+    "columns": [
+     "Bin",
+     "Counts",
+     "CountsError",
+     "FitFunctionLabel"
+    ],
+    "rows": [
+     [
+      "[…, -3.5, -3.3, -3.1, …] (40)",
+      "[…, 1, 0, 1, …] (40)",
+      "[…, 1, 0, 1, …] (40)",
+      "Gaussian"
+     ]
+    ]
+   },
+   "section": "Lower panels",
+   "docs": "https://github.com/mantheys/plotipus/blob/main/docs/options.md#lower-panels"
+  },
+  {
+   "image": "images/options/ratio.png",
+   "paper": "images/options/paper/ratio.png",
+   "kind": "line",
+   "task": "Fits and residuals",
+   "title": "Peak-aligned shapes and their ratio",
+   "alt": "Simulated Exponential, Landau and Log-normal shapes, normalised, with their ratio to the Exponential in a lower panel",
+   "command": "plotipus line --datafile Distributions -x Bin -y Counts --hue Distribution --select Sample Distribution -s Simulation Exponential Landau Log-normal --errory --peak --shift peak --lower ratio --reference_value Landau --labelx x --lower_labely 'Ratio to Landau' --title 'Peak-aligned shapes and their ratio'",
+   "python": "import plotipus\n\nplotipus.plot(\n    \"line\",\n    \"--datafile\", \"Distributions\",\n    \"-x\", \"Bin\",\n    \"-y\", \"Counts\",\n    \"--hue\", \"Distribution\",\n    \"--select\", \"Sample\", \"Distribution\",\n    \"-s\", \"Simulation\", \"Exponential\", \"Landau\", \"Log-normal\",\n    \"--errory\",\n    \"--peak\",\n    \"--shift\", \"peak\",\n    \"--lower\", \"ratio\",\n    \"--reference_value\", \"Landau\",\n    \"--labelx\", \"x\",\n    \"--lower_labely\", \"Ratio to Landau\",\n    \"--title\", \"Peak-aligned shapes and their ratio\",\n)",
+   "wide": false,
+   "data": {
+    "file": "input/data/Distributions.pkl",
+    "shown": 3,
+    "total": 23,
+    "columns": [
+     "Distribution",
+     "Bin",
+     "Counts",
+     "CountsError"
+    ],
+    "rows": [
+     [
+      "Exponential",
+      "[0.125, 0.375, 0.625, …] (48)",
+      "[231, 211, 176, …] (48)",
+      "[4.81, 4.59, 4.19, …] (48)"
+     ],
+     [
+      "Landau",
+      "[…, 0.875, 1.12, 1.38, …] (48)",
+      "[…, 1.3, 31, 159, …] (48)",
+      "[…, 0.361, 1.76, 3.98, …] (48)"
+     ],
+     [
+      "Log-normal",
+      "[0.125, 0.375, 0.625, …] (48)",
+      "[0.4, 28.4, 137, …] (48)",
+      "[0.2, 1.69, 3.7, …] (48)"
+     ]
+    ]
+   },
+   "section": "Lower panels",
+   "docs": "https://github.com/mantheys/plotipus/blob/main/docs/options.md#lower-panels"
+  },
+  {
+   "image": "images/options/column.png",
+   "paper": "images/options/paper/column.png",
+   "kind": "line",
+   "task": "Fits and residuals",
+   "title": "Lower panel from a stored column",
+   "alt": "Poisson counts with the stored Pull column in a lower panel",
+   "command": "plotipus line --datafile Distributions -x Bin -y Counts --hue Sample --select Distribution -s Poisson --data_hue Data --errory --lower column:Pull --labelx k --lower_labely Pull --title 'Lower panel from a stored column'",
+   "python": "import plotipus\n\nplotipus.plot(\n    \"line\",\n    \"--datafile\", \"Distributions\",\n    \"-x\", \"Bin\",\n    \"-y\", \"Counts\",\n    \"--hue\", \"Sample\",\n    \"--select\", \"Distribution\",\n    \"-s\", \"Poisson\",\n    \"--data_hue\", \"Data\",\n    \"--errory\",\n    \"--lower\", \"column:Pull\",\n    \"--labelx\", \"k\",\n    \"--lower_labely\", \"Pull\",\n    \"--title\", \"Lower panel from a stored column\",\n)",
+   "wide": false,
+   "data": {
+    "file": "input/data/Distributions.pkl",
+    "shown": 2,
+    "total": 23,
+    "columns": [
+     "Sample",
+     "Bin",
+     "Counts",
+     "CountsError"
+    ],
+    "rows": [
+     [
+      "Data",
+      "[0, 1, 2, …] (15)",
+      "[25, 158, 282, …] (15)",
+      "[5, 12.6, 16.8, …] (15)"
+     ],
+     [
+      "Simulation",
+      "[0, 1, 2, …] (15)",
+      "[36.7, 150, 290, …] (15)",
+      "[1.92, 3.88, 5.38, …] (15)"
+     ]
+    ]
+   },
+   "section": "Lower panels",
+   "docs": "https://github.com/mantheys/plotipus/blob/main/docs/options.md#lower-panels"
+  },
+  {
+   "image": "images/options/significance.png",
+   "paper": "images/options/paper/significance.png",
+   "kind": "line",
+   "task": "Searches and significance",
+   "title": "Stacked simulation and the signal significance",
+   "alt": "Stacked background and signal simulation with the signal significance S/sqrt(B) in a lower panel",
+   "command": "plotipus line --datafile Distributions -x Bin -y Counts --hue Sample --select Distribution Sample -s Resonance Background Signal --stacked --errory --lower group --reference_group Signal --other_group Background --group_significance --lower_labely '$S/\\sqrt{B}$' --labelx 'Mass (GeV)' --labely 'Events / 2 GeV' --title 'Stacked simulation and the signal significance'",
+   "python": "import plotipus\n\nplotipus.plot(\n    \"line\",\n    \"--datafile\", \"Distributions\",\n    \"-x\", \"Bin\",\n    \"-y\", \"Counts\",\n    \"--hue\", \"Sample\",\n    \"--select\", \"Distribution\", \"Sample\",\n    \"-s\", \"Resonance\", \"Background\", \"Signal\",\n    \"--stacked\",\n    \"--errory\",\n    \"--lower\", \"group\",\n    \"--reference_group\", \"Signal\",\n    \"--other_group\", \"Background\",\n    \"--group_significance\",\n    \"--lower_labely\", r\"$S/\\sqrt{B}$\",\n    \"--labelx\", \"Mass (GeV)\",\n    \"--labely\", \"Events / 2 GeV\",\n    \"--title\", \"Stacked simulation and the signal significance\",\n)",
+   "wide": false,
+   "data": {
+    "file": "input/data/Distributions.pkl",
+    "shown": 2,
+    "total": 23,
+    "columns": [
+     "Sample",
+     "Bin",
+     "Counts",
+     "CountsError"
+    ],
+    "rows": [
+     [
+      "Background",
+      "[101, 103, 105, …] (30)",
+      "[366, 346, 327, …] (30)",
+      "[6.05, 5.88, 5.72, …] (30)"
+     ],
+     [
+      "Signal",
+      "[…, 119, 121, 123, …] (30)",
+      "[…, 1.9, 19.7, 68.9, …] (30)",
+      "[…, 0.436, 1.4, 2.62, …] (30)"
+     ]
+    ]
+   },
+   "section": "Lower panels",
+   "docs": "https://github.com/mantheys/plotipus/blob/main/docs/options.md#lower-panels"
+  },
+  {
+   "image": "images/options/yields.png",
+   "paper": "images/options/paper/yields.png",
+   "kind": "cat",
+   "task": "Searches and significance",
+   "title": "Yields per mass region",
+   "alt": "Yields of the background and signal simulation stacked per mass region, with the data as points",
+   "command": "plotipus cat --datafile Yields -x Region --hue Sample -y Counts --errory --kind bar --stacked --data_hue Data --labely Events --title 'Yields per mass region'",
+   "python": "import plotipus\n\nplotipus.plot(\n    \"cat\",\n    \"--datafile\", \"Yields\",\n    \"-x\", \"Region\",\n    \"--hue\", \"Sample\",\n    \"-y\", \"Counts\",\n    \"--errory\",\n    \"--kind\", \"bar\",\n    \"--stacked\",\n    \"--data_hue\", \"Data\",\n    \"--labely\", \"Events\",\n    \"--title\", \"Yields per mass region\",\n)",
+   "wide": false,
+   "data": {
+    "file": "input/data/Yields.pkl",
+    "shown": 9,
+    "total": 9,
+    "columns": [
+     "Sample",
+     "Region",
+     "Counts",
+     "CountsError"
+    ],
+    "rows": [
+     [
+      "Data",
+      "Low sideband",
+      "2923",
+      "54.1"
+     ],
+     [
+      "Background",
+      "Low sideband",
+      "2814",
+      "16.8"
+     ],
+     [
+      "Signal",
+      "Low sideband",
+      "1.9",
+      "0.436"
+     ]
+    ]
+   },
+   "section": "Categories and scatter",
+   "docs": "https://github.com/mantheys/plotipus/blob/main/docs/options.md#categories-and-scatter"
+  },
+  {
+   "image": "images/options/overlays.png",
+   "paper": "images/options/paper/overlays.png",
+   "kind": "line",
+   "task": "Searches and significance",
+   "title": "A shaded region and a line label",
+   "alt": "Breit-Wigner peak with the full width at half maximum shaded and a horizontal line at half maximum labelled with the width",
+   "command": "plotipus line --datafile Distributions -x Bin -y Counts --hue Sample --select Distribution -s Breit-Wigner --data_hue Data --errory --vertical_band 89.94 92.44 --horizontal 128 --horizontal_label 'FWHM = 2.50 GeV' --labelx 'Mass (GeV)' --title 'A shaded region and a line label'",
+   "python": "import plotipus\n\nplotipus.plot(\n    \"line\",\n    \"--datafile\", \"Distributions\",\n    \"-x\", \"Bin\",\n    \"-y\", \"Counts\",\n    \"--hue\", \"Sample\",\n    \"--select\", \"Distribution\",\n    \"-s\", \"Breit-Wigner\",\n    \"--data_hue\", \"Data\",\n    \"--errory\",\n    \"--vertical_band\", \"89.94\", \"92.44\",\n    \"--horizontal\", \"128\",\n    \"--horizontal_label\", \"FWHM = 2.50 GeV\",\n    \"--labelx\", \"Mass (GeV)\",\n    \"--title\", \"A shaded region and a line label\",\n)",
+   "wide": false,
+   "data": {
+    "file": "input/data/Distributions.pkl",
+    "shown": 2,
+    "total": 23,
+    "columns": [
+     "Sample",
+     "Bin",
+     "Counts",
+     "CountsError"
+    ],
+    "rows": [
+     [
+      "Data",
+      "[81.2, 81.8, 82.2, …] (40)",
+      "[5, 1, 4, …] (40)",
+      "[2.24, 1, 2, …] (40)"
+     ],
+     [
+      "Simulation",
+      "[81.2, 81.8, 82.2, …] (40)",
+      "[4.8, 4.5, 4, …] (40)",
+      "[0.693, 0.671, 0.632, …] (40)"
+     ]
+    ]
+   },
+   "section": "Shared options",
+   "docs": "https://github.com/mantheys/plotipus/blob/main/docs/options.md#shared-options"
+  },
+  {
+   "image": "images/options/contours.png",
+   "paper": "images/options/paper/contours.png",
+   "kind": "map",
+   "task": "Likelihood and Bayesian",
+   "title": "Confidence regions of a $\\Delta\\chi^2$ scan",
+   "alt": "68.3, 95.4 and 99.7% confidence regions of the Gaussian mean and width, data and simulation",
+   "command": "plotipus map --datafile Distributions -x MeanScan -y SigmaScan -z Chi2Scan --select Distribution -s Gaussian --iterable Sample --contour --fill_contours --labelx '$\\mu$' --labely '$\\sigma$' --title 'Confidence regions of a $\\Delta\\chi^2$ scan'",
+   "python": "import plotipus\n\nplotipus.plot(\n    \"map\",\n    \"--datafile\", \"Distributions\",\n    \"-x\", \"MeanScan\",\n    \"-y\", \"SigmaScan\",\n    \"-z\", \"Chi2Scan\",\n    \"--select\", \"Distribution\",\n    \"-s\", \"Gaussian\",\n    \"--iterable\", \"Sample\",\n    \"--contour\",\n    \"--fill_contours\",\n    \"--labelx\", r\"$\\mu$\",\n    \"--labely\", r\"$\\sigma$\",\n    \"--title\", r\"Confidence regions of a $\\Delta\\chi^2$ scan\",\n)",
+   "wide": true,
+   "data": {
+    "file": "input/data/Distributions.pkl",
+    "shown": 2,
+    "total": 23,
+    "columns": [
+     "Sample",
+     "MeanScan",
+     "SigmaScan",
+     "Chi2Scan"
+    ],
+    "rows": [
+     [
+      "Data",
+      "[-0.12, -0.116, -0.112, …] (61)",
+      "[0.85, 0.854, 0.858, …] (61)",
+      "61 × 61 grid"
+     ],
+     [
+      "Simulation",
+      "[-0.12, -0.116, -0.112, …] (61)",
+      "[0.85, 0.854, 0.858, …] (61)",
+      "61 × 61 grid"
+     ]
+    ]
+   },
+   "section": "Contours",
+   "docs": "https://github.com/mantheys/plotipus/blob/main/docs/options.md#contours"
+  },
+  {
+   "image": "images/options/sigmas.png",
+   "paper": "images/options/paper/sigmas.png",
+   "kind": "map",
+   "task": "Likelihood and Bayesian",
+   "title": "A bivariate Gaussian and its 1, 2 and 3 sigma regions",
+   "alt": "Data and simulation of a correlated bivariate Gaussian with their 68.3, 95.4 and 99.7% regions",
+   "command": "plotipus map --datafile Distributions -x X -y Y --select Distribution -s 'Bivariate Gaussian' --iterable Sample --contour --bins 30 --logz --title 'A bivariate Gaussian and its 1, 2 and 3 sigma regions'",
+   "python": "import plotipus\n\nplotipus.plot(\n    \"map\",\n    \"--datafile\", \"Distributions\",\n    \"-x\", \"X\",\n    \"-y\", \"Y\",\n    \"--select\", \"Distribution\",\n    \"-s\", \"Bivariate Gaussian\",\n    \"--iterable\", \"Sample\",\n    \"--contour\",\n    \"--bins\", \"30\",\n    \"--logz\",\n    \"--title\", \"A bivariate Gaussian and its 1, 2 and 3 sigma regions\",\n)",
+   "wide": true,
+   "data": {
+    "file": "input/data/Distributions.pkl",
+    "shown": 2,
+    "total": 23,
+    "columns": [
+     "Sample",
+     "X",
+     "Y"
+    ],
+    "rows": [
+     [
+      "Data",
+      "[1.9, -0.417, 1.63, …] (2000)",
+      "[1.54, 0.539, 1.84, …] (2000)"
+     ],
+     [
+      "Simulation",
+      "[0.524, 0.604, 1.27, …] (20000)",
+      "[-0.339, -0.456, 0.822, …] (20000)"
+     ]
+    ]
+   },
+   "section": "Contours",
+   "docs": "https://github.com/mantheys/plotipus/blob/main/docs/options.md#contours"
+  },
+  {
+   "image": "images/options/posterior.png",
+   "paper": "images/options/paper/posterior.png",
+   "kind": "map",
+   "task": "Likelihood and Bayesian",
+   "title": "Posterior corner plot: credible regions and marginals",
+   "alt": "Posterior corner plot of three fit parameters: 68.3 and 95.4% credible regions, marginals with their median and interval, the injected values, and a legend that names each",
+   "command": "plotipus map --datafile Posterior --corner Strength Mass Width --contour --select Experiment -s 'Experiment A' --contour_sigmas 1 2 --corner_labels '$\\mu$' '$m$ (GeV)' '$\\Gamma$ (GeV)' --corner_truth 1 125 2.4 --bins 40 --title 'Posterior corner plot: credible regions and marginals'",
+   "python": "import plotipus\n\nplotipus.plot(\n    \"map\",\n    \"--datafile\", \"Posterior\",\n    \"--corner\", \"Strength\", \"Mass\", \"Width\",\n    \"--contour\",\n    \"--select\", \"Experiment\",\n    \"-s\", \"Experiment A\",\n    \"--contour_sigmas\", \"1\", \"2\",\n    \"--corner_labels\", r\"$\\mu$\", \"$m$ (GeV)\", r\"$\\Gamma$ (GeV)\",\n    \"--corner_truth\", \"1\", \"125\", \"2.4\",\n    \"--bins\", \"40\",\n    \"--title\", \"Posterior corner plot: credible regions and marginals\",\n)",
+   "wide": false,
+   "data": {
+    "file": "input/data/Posterior.pkl",
+    "shown": 1,
+    "total": 3,
+    "columns": [
+     "Strength",
+     "Mass",
+     "Width"
+    ],
+    "rows": [
+     [
+      "[0.961, 1.25, 1.34, …] (40000)",
+      "[126, 125, 125, …] (40000)",
+      "[2.41, 2.63, 2.02, …] (40000)"
+     ]
+    ]
+   },
+   "section": "Hexbin and corner plots",
+   "docs": "https://github.com/mantheys/plotipus/blob/main/docs/options.md#hexbin-and-corner-plots"
+  },
+  {
+   "image": "images/options/posteriors.png",
+   "paper": "images/options/paper/posteriors.png",
+   "kind": "map",
+   "task": "Likelihood and Bayesian",
+   "title": "Posterior corner plot: two experiments and their combination",
+   "alt": "Posterior corner plot of two experiments and their combination, one colour each",
+   "command": "plotipus map --datafile Posterior --corner Strength Mass Width --contour --contour_hue Experiment --contour_sigmas 1 2 --corner_labels '$\\mu$' '$m$ (GeV)' '$\\Gamma$ (GeV)' --corner_truth 1 125 2.4 --bins 40 --percentile 0.5 99.5 --title 'Posterior corner plot: two experiments and their combination'",
+   "python": "import plotipus\n\nplotipus.plot(\n    \"map\",\n    \"--datafile\", \"Posterior\",\n    \"--corner\", \"Strength\", \"Mass\", \"Width\",\n    \"--contour\",\n    \"--contour_hue\", \"Experiment\",\n    \"--contour_sigmas\", \"1\", \"2\",\n    \"--corner_labels\", r\"$\\mu$\", \"$m$ (GeV)\", r\"$\\Gamma$ (GeV)\",\n    \"--corner_truth\", \"1\", \"125\", \"2.4\",\n    \"--bins\", \"40\",\n    \"--percentile\", \"0.5\", \"99.5\",\n    \"--title\", \"Posterior corner plot: two experiments and their combination\",\n)",
+   "wide": false,
+   "data": {
+    "file": "input/data/Posterior.pkl",
+    "shown": 3,
+    "total": 3,
+    "columns": [
+     "Experiment",
+     "Strength",
+     "Mass",
+     "Width"
+    ],
+    "rows": [
+     [
+      "Experiment A",
+      "[0.961, 1.25, 1.34, …] (40000)",
+      "[126, 125, 125, …] (40000)",
+      "[2.41, 2.63, 2.02, …] (40000)"
+     ],
+     [
+      "Experiment B",
+      "[0.958, 1.29, 0.969, …] (40000)",
+      "[125, 125, 126, …] (40000)",
+      "[2.64, 1.65, 2.91, …] (40000)"
+     ],
+     [
+      "Combined",
+      "[1.11, 0.952, 1.2, …] (40000)",
+      "[125, 125, 124, …] (40000)",
+      "[2.55, 2.52, 1.89, …] (40000)"
+     ]
+    ]
+   },
+   "section": "Hexbin and corner plots",
+   "docs": "https://github.com/mantheys/plotipus/blob/main/docs/options.md#hexbin-and-corner-plots"
+  },
+  {
+   "image": "images/options/intervals.png",
+   "paper": "images/options/paper/intervals.png",
+   "kind": "map",
+   "task": "Likelihood and Bayesian",
+   "title": "Posterior corner plot: two peaks and a cyclic phase",
+   "alt": "Posterior corner plot of a parameter with two peaks, a cyclic phase and a third parameter with the band of another experiment: a highest-density region in two pieces and an interval that wraps around the end of the axis",
+   "command": "plotipus map --datafile Oscillation --select Sample -s Posterior --corner Mixing Phase Splitting --contour --contour_sigmas 1 2 --corner_labels '$\\sin^2\\theta_{23}$' '$\\delta/\\pi$' '$\\Delta m^2$ ($10^{-3}$ eV$^2$)' --corner_interval hdi --corner_cyclic Phase -1 1 --corner_band Splitting 2.47 2.51 'Other experiment' --bins 40 --title 'Posterior corner plot: two peaks and a cyclic phase'",
+   "python": "import plotipus\n\nplotipus.plot(\n    \"map\",\n    \"--datafile\", \"Oscillation\",\n    \"--select\", \"Sample\",\n    \"-s\", \"Posterior\",\n    \"--corner\", \"Mixing\", \"Phase\", \"Splitting\",\n    \"--contour\",\n    \"--contour_sigmas\", \"1\", \"2\",\n    \"--corner_labels\", r\"$\\sin^2\\theta_{23}$\", r\"$\\delta/\\pi$\", r\"$\\Delta m^2$ ($10^{-3}$ eV$^2$)\",\n    \"--corner_interval\", \"hdi\",\n    \"--corner_cyclic\", \"Phase\", \"-1\", \"1\",\n    \"--corner_band\", \"Splitting\", \"2.47\", \"2.51\", \"Other experiment\",\n    \"--bins\", \"40\",\n    \"--title\", \"Posterior corner plot: two peaks and a cyclic phase\",\n)",
+   "wide": false,
+   "data": {
+    "file": "input/data/Oscillation.pkl",
+    "shown": 1,
+    "total": 2,
+    "columns": [
+     "Mixing",
+     "Phase",
+     "Splitting"
+    ],
+    "rows": [
+     [
+      "[0.543, 0.571, 0.553, …] (80000)",
+      "[0.617, 0.991, 0.93, …] (80000)",
+      "[2.5, 2.51, 2.38, …] (80000)"
+     ]
+    ]
+   },
+   "section": "Hexbin and corner plots",
+   "docs": "https://github.com/mantheys/plotipus/blob/main/docs/options.md#hexbin-and-corner-plots"
+  },
+  {
+   "image": "images/options/hypotheses.png",
+   "paper": "images/options/paper/hypotheses.png",
+   "kind": "map",
+   "task": "Likelihood and Bayesian",
+   "title": "Posterior corner plot: the probability of each hypothesis",
+   "alt": "Posterior corner plot with the probability of each side of sin²θ23 = 0.5 and of each mass ordering in the legend, and the marginals split into the two sides",
+   "command": "plotipus map --datafile Oscillation --select Sample -s Posterior --corner Mixing Phase Splitting --contour --corner_levels 68 90 --corner_labels '$\\sin^2\\theta_{23}$' '$\\delta/\\pi$' '$\\Delta m^2$ ($10^{-3}$ eV$^2$)' --corner_interval hdi --corner_cyclic Phase -1 1 --corner_split Mixing 0.5 --corner_split Ordering --corner_split_marginals --prior_odds 1 --no_corner_titles --bins 40 --title 'Posterior corner plot: the probability of each hypothesis'",
+   "python": "import plotipus\n\nplotipus.plot(\n    \"map\",\n    \"--datafile\", \"Oscillation\",\n    \"--select\", \"Sample\",\n    \"-s\", \"Posterior\",\n    \"--corner\", \"Mixing\", \"Phase\", \"Splitting\",\n    \"--contour\",\n    \"--corner_levels\", \"68\", \"90\",\n    \"--corner_labels\", r\"$\\sin^2\\theta_{23}$\", r\"$\\delta/\\pi$\", r\"$\\Delta m^2$ ($10^{-3}$ eV$^2$)\",\n    \"--corner_interval\", \"hdi\",\n    \"--corner_cyclic\", \"Phase\", \"-1\", \"1\",\n    \"--corner_split\", \"Mixing\", \"0.5\",\n    \"--corner_split\", \"Ordering\",\n    \"--corner_split_marginals\",\n    \"--prior_odds\", \"1\",\n    \"--no_corner_titles\",\n    \"--bins\", \"40\",\n    \"--title\", \"Posterior corner plot: the probability of each hypothesis\",\n)",
+   "wide": false,
+   "data": {
+    "file": "input/data/Oscillation.pkl",
+    "shown": 1,
+    "total": 2,
+    "columns": [
+     "Mixing",
+     "Phase",
+     "Splitting"
+    ],
+    "rows": [
+     [
+      "[0.543, 0.571, 0.553, …] (80000)",
+      "[0.617, 0.991, 0.93, …] (80000)",
+      "[2.5, 2.51, 2.38, …] (80000)"
+     ]
+    ]
+   },
+   "section": "Hexbin and corner plots",
+   "docs": "https://github.com/mantheys/plotipus/blob/main/docs/options.md#hexbin-and-corner-plots"
+  },
+  {
+   "image": "images/options/profile.png",
+   "paper": "images/options/paper/profile.png",
+   "kind": "map",
+   "task": "Likelihood and Bayesian",
+   "title": "Posterior below the diagonal, profile likelihood above",
+   "alt": "Posterior corner plot with the credible regions below the diagonal and the profile-likelihood regions of the same draws above it; the marginal of f carries a one-sided limit",
+   "command": "plotipus map --datafile Volume --corner Fraction Scale Rate --contour --weight Weight --contour_sigmas 1 2 --corner_labels '$f$' '$m$' '$h$' --corner_bound Fraction 0 nan --corner_upper profile --loglike LogLike --bins 36 --title 'Posterior below the diagonal, profile likelihood above'",
+   "python": "import plotipus\n\nplotipus.plot(\n    \"map\",\n    \"--datafile\", \"Volume\",\n    \"--corner\", \"Fraction\", \"Scale\", \"Rate\",\n    \"--contour\",\n    \"--weight\", \"Weight\",\n    \"--contour_sigmas\", \"1\", \"2\",\n    \"--corner_labels\", \"$f$\", \"$m$\", \"$h$\",\n    \"--corner_bound\", \"Fraction\", \"0\", \"nan\",\n    \"--corner_upper\", \"profile\",\n    \"--loglike\", \"LogLike\",\n    \"--bins\", \"36\",\n    \"--title\", \"Posterior below the diagonal, profile likelihood above\",\n)",
+   "wide": false,
+   "data": {
+    "file": "input/data/Volume.pkl",
+    "shown": 1,
+    "total": 1,
+    "columns": [
+     "Fraction",
+     "Scale",
+     "Rate",
+     "Weight"
+    ],
+    "rows": [
+     [
+      "[0.0671, 0.00444, 0.0191, …] (155716)",
+      "[3.05, 4.05, 4.09, …] (155716)",
+      "[68.3, 63.6, 73, …] (155716)",
+      "[1.51e-06, 4.75e-07, 5.49e-06, …] (155716)"
+     ]
+    ]
+   },
+   "section": "Hexbin and corner plots",
+   "docs": "https://github.com/mantheys/plotipus/blob/main/docs/options.md#hexbin-and-corner-plots"
+  },
+  {
+   "image": "images/options/upper.png",
+   "paper": "images/options/paper/upper.png",
+   "kind": "map",
+   "task": "Likelihood and Bayesian",
+   "title": "Posterior corner plot: two experiments below the diagonal, their combination above it",
+   "alt": "Posterior corner plot with two experiments below the diagonal and their combination above it, the probability below the true value in each title and the content of the smallest region through the true value by each marker",
+   "command": "plotipus map --datafile Posterior --corner Strength Mass Width --contour --contour_hue Experiment --corner_upper sample Combined --contour_sigmas 1 2 --corner_labels '$\\mu$' '$m$ (GeV)' '$\\Gamma$ (GeV)' --corner_truth 1 125 2.4 --corner_truth_level --bins 40 --percentile 0.5 99.5 --title 'Posterior corner plot: two experiments below the diagonal, their combination above it'",
+   "python": "import plotipus\n\nplotipus.plot(\n    \"map\",\n    \"--datafile\", \"Posterior\",\n    \"--corner\", \"Strength\", \"Mass\", \"Width\",\n    \"--contour\",\n    \"--contour_hue\", \"Experiment\",\n    \"--corner_upper\", \"sample\", \"Combined\",\n    \"--contour_sigmas\", \"1\", \"2\",\n    \"--corner_labels\", r\"$\\mu$\", \"$m$ (GeV)\", r\"$\\Gamma$ (GeV)\",\n    \"--corner_truth\", \"1\", \"125\", \"2.4\",\n    \"--corner_truth_level\",\n    \"--bins\", \"40\",\n    \"--percentile\", \"0.5\", \"99.5\",\n    \"--title\", \"Posterior corner plot: two experiments below the diagonal, their combination above it\",\n)",
+   "wide": false,
+   "data": {
+    "file": "input/data/Posterior.pkl",
+    "shown": 3,
+    "total": 3,
+    "columns": [
+     "Experiment",
+     "Strength",
+     "Mass",
+     "Width"
+    ],
+    "rows": [
+     [
+      "Experiment A",
+      "[0.961, 1.25, 1.34, …] (40000)",
+      "[126, 125, 125, …] (40000)",
+      "[2.41, 2.63, 2.02, …] (40000)"
+     ],
+     [
+      "Experiment B",
+      "[0.958, 1.29, 0.969, …] (40000)",
+      "[125, 125, 126, …] (40000)",
+      "[2.64, 1.65, 2.91, …] (40000)"
+     ],
+     [
+      "Combined",
+      "[1.11, 0.952, 1.2, …] (40000)",
+      "[125, 125, 124, …] (40000)",
+      "[2.55, 2.52, 1.89, …] (40000)"
+     ]
+    ]
+   },
+   "section": "Hexbin and corner plots",
+   "docs": "https://github.com/mantheys/plotipus/blob/main/docs/options.md#hexbin-and-corner-plots"
+  },
+  {
+   "image": "images/options/smooth.png",
+   "paper": "images/options/paper/smooth.png",
+   "kind": "map",
+   "task": "Likelihood and Bayesian",
+   "title": "Posterior corner plot: smooth marginals, the draws outside the outer region and chosen axis ranges",
+   "alt": "Posterior corner plot with kernel-density marginals, the draws outside the outer region as dots and the mass and width axes restricted",
+   "command": "plotipus map --datafile Posterior --corner Strength Mass Width --contour --select Experiment -s 'Experiment A' --contour_sigmas 1 2 --corner_labels '$\\mu$' '$m$ (GeV)' '$\\Gamma$ (GeV)' --corner_marginal kde --corner_points --corner_range Mass 123 127 --corner_range Width 1 3.8 --bins 40 --title 'Posterior corner plot: smooth marginals, the draws outside the outer region and chosen axis ranges' --output_suffix smooth",
+   "python": "import plotipus\n\nplotipus.plot(\n    \"map\",\n    \"--datafile\", \"Posterior\",\n    \"--corner\", \"Strength\", \"Mass\", \"Width\",\n    \"--contour\",\n    \"--select\", \"Experiment\",\n    \"-s\", \"Experiment A\",\n    \"--contour_sigmas\", \"1\", \"2\",\n    \"--corner_labels\", r\"$\\mu$\", \"$m$ (GeV)\", r\"$\\Gamma$ (GeV)\",\n    \"--corner_marginal\", \"kde\",\n    \"--corner_points\",\n    \"--corner_range\", \"Mass\", \"123\", \"127\",\n    \"--corner_range\", \"Width\", \"1\", \"3.8\",\n    \"--bins\", \"40\",\n    \"--title\", \"Posterior corner plot: smooth marginals, the draws outside the outer region and chosen axis ranges\",\n    \"--output_suffix\", \"smooth\",\n)",
+   "wide": false,
+   "data": {
+    "file": "input/data/Posterior.pkl",
+    "shown": 1,
+    "total": 3,
+    "columns": [
+     "Strength",
+     "Mass",
+     "Width"
+    ],
+    "rows": [
+     [
+      "[0.961, 1.25, 1.34, …] (40000)",
+      "[126, 125, 125, …] (40000)",
+      "[2.41, 2.63, 2.02, …] (40000)"
+     ]
+    ]
+   },
+   "section": "Hexbin and corner plots",
+   "docs": "https://github.com/mantheys/plotipus/blob/main/docs/options.md#hexbin-and-corner-plots"
+  },
+  {
+   "image": "images/options/correlations.png",
+   "paper": "images/options/paper/correlations.png",
+   "kind": "map",
+   "task": "Likelihood and Bayesian",
+   "title": "Posterior corner plot: correlations and the Monte Carlo error of the outer region",
+   "alt": "Posterior corner plot with the correlation coefficient of each pair in the upper triangle and the 99.7% outline of 30 resamplings",
+   "command": "plotipus map --datafile Posterior --corner Strength Mass Width --contour --select Experiment -s 'Experiment A' --contour_sigmas 1 2 3 --corner_labels '$\\mu$' '$m$ (GeV)' '$\\Gamma$ (GeV)' --corner_upper corr --corner_mc_error --bins 40 --title 'Posterior corner plot: correlations and the Monte Carlo error of the outer region'",
+   "python": "import plotipus\n\nplotipus.plot(\n    \"map\",\n    \"--datafile\", \"Posterior\",\n    \"--corner\", \"Strength\", \"Mass\", \"Width\",\n    \"--contour\",\n    \"--select\", \"Experiment\",\n    \"-s\", \"Experiment A\",\n    \"--contour_sigmas\", \"1\", \"2\", \"3\",\n    \"--corner_labels\", r\"$\\mu$\", \"$m$ (GeV)\", r\"$\\Gamma$ (GeV)\",\n    \"--corner_upper\", \"corr\",\n    \"--corner_mc_error\",\n    \"--bins\", \"40\",\n    \"--title\", \"Posterior corner plot: correlations and the Monte Carlo error of the outer region\",\n)",
+   "wide": false,
+   "data": {
+    "file": "input/data/Posterior.pkl",
+    "shown": 1,
+    "total": 3,
+    "columns": [
+     "Strength",
+     "Mass",
+     "Width"
+    ],
+    "rows": [
+     [
+      "[0.961, 1.25, 1.34, …] (40000)",
+      "[126, 125, 125, …] (40000)",
+      "[2.41, 2.63, 2.02, …] (40000)"
+     ]
+    ]
+   },
+   "section": "Hexbin and corner plots",
+   "docs": "https://github.com/mantheys/plotipus/blob/main/docs/options.md#hexbin-and-corner-plots"
+  },
+  {
+   "image": "images/options/prior.png",
+   "paper": "images/options/paper/prior.png",
+   "kind": "map",
+   "task": "Likelihood and Bayesian",
+   "title": "Posterior corner plot: the prior, and a derived parameter in the block",
+   "alt": "Posterior corner plot of four parameters with their prior, the width and shift of each marginal in prior widths, and a derived parameter in the block of the upper triangle, whose prior is far from flat",
+   "command": "plotipus map --datafile Oscillation --corner Mixing Small Phase Splitting --contour --contour_hue Sample --corner_prior Prior --contour_sigmas 1 2 --corner_labels '$\\sin^2\\theta_{23}$' '$\\sin^2\\theta_{13}$' '$\\delta/\\pi$' '$\\Delta m^2$ ($10^{-3}$ eV$^2$)' --corner_interval hdi --corner_cyclic Phase -1 1 --corner_shrinkage --corner_block Invariant --corner_block_labels '$J$' --bins 40 --title 'Posterior corner plot: the prior, and a derived parameter in the block'",
+   "python": "import plotipus\n\nplotipus.plot(\n    \"map\",\n    \"--datafile\", \"Oscillation\",\n    \"--corner\", \"Mixing\", \"Small\", \"Phase\", \"Splitting\",\n    \"--contour\",\n    \"--contour_hue\", \"Sample\",\n    \"--corner_prior\", \"Prior\",\n    \"--contour_sigmas\", \"1\", \"2\",\n    \"--corner_labels\", r\"$\\sin^2\\theta_{23}$\", r\"$\\sin^2\\theta_{13}$\", r\"$\\delta/\\pi$\", r\"$\\Delta m^2$ ($10^{-3}$ eV$^2$)\",\n    \"--corner_interval\", \"hdi\",\n    \"--corner_cyclic\", \"Phase\", \"-1\", \"1\",\n    \"--corner_shrinkage\",\n    \"--corner_block\", \"Invariant\",\n    \"--corner_block_labels\", \"$J$\",\n    \"--bins\", \"40\",\n    \"--title\", \"Posterior corner plot: the prior, and a derived parameter in the block\",\n)",
+   "wide": false,
+   "data": {
+    "file": "input/data/Oscillation.pkl",
+    "shown": 2,
+    "total": 2,
+    "columns": [
+     "Sample",
+     "Mixing",
+     "Small",
+     "Phase",
+     "Splitting"
+    ],
+    "rows": [
+     [
+      "Posterior",
+      "[0.543, 0.571, 0.553, …] (80000)",
+      "[0.0223, 0.0207, 0.0222, …] (80000)",
+      "[0.617, 0.991, 0.93, …] (80000)",
+      "[2.5, 2.51, 2.38, …] (80000)"
+     ],
+     [
+      "Prior",
+      "[0.477, 0.462, 0.567, …] (80000)",
+      "[0.0197, 0.0218, 0.0227, …] (80000)",
+      "[0.612, -0.146, 0.444, …] (80000)",
+      "[2.56, 2.43, 2.45, …] (80000)"
+     ]
+    ]
+   },
+   "section": "Hexbin and corner plots",
+   "docs": "https://github.com/mantheys/plotipus/blob/main/docs/options.md#hexbin-and-corner-plots"
+  },
+  {
+   "image": "images/options/corner.png",
+   "paper": "images/options/paper/corner.png",
+   "kind": "map",
+   "task": "Likelihood and Bayesian",
+   "title": "Corner plot: every pair of three variables",
+   "alt": "Corner plot of the true and measured values of a log-normal sample and their ratio",
+   "command": "plotipus map --datafile Distributions --corner Value Smeared Response --select Distribution Sample -s Log-normal Simulation --corner_labels True Measured 'Measured / True' --bins 30 --percentile 0 99 --logz --title 'Corner plot: every pair of three variables'",
+   "python": "import plotipus\n\nplotipus.plot(\n    \"map\",\n    \"--datafile\", \"Distributions\",\n    \"--corner\", \"Value\", \"Smeared\", \"Response\",\n    \"--select\", \"Distribution\", \"Sample\",\n    \"-s\", \"Log-normal\", \"Simulation\",\n    \"--corner_labels\", \"True\", \"Measured\", \"Measured / True\",\n    \"--bins\", \"30\",\n    \"--percentile\", \"0\", \"99\",\n    \"--logz\",\n    \"--title\", \"Corner plot: every pair of three variables\",\n)",
+   "wide": false,
+   "data": {
+    "file": "input/data/Distributions.pkl",
+    "shown": 1,
+    "total": 23,
+    "columns": [
+     "Value",
+     "Smeared",
+     "Response"
+    ],
+    "rows": [
+     [
+      "[2.09, 2.18, 0.578, …] (20000)",
+      "[2.02, 2.15, 0.688, …] (20000)",
+      "[0.969, 0.984, 1.19, …] (20000)"
+     ]
+    ]
+   },
+   "section": "Hexbin and corner plots",
+   "docs": "https://github.com/mantheys/plotipus/blob/main/docs/options.md#hexbin-and-corner-plots"
+  },
+  {
+   "image": "images/options/binned.png",
+   "paper": "images/options/paper/binned.png",
+   "kind": "line",
+   "task": "Detector performance",
+   "title": "Binned estimator: resolution",
+   "alt": "Resolution (standard deviation of measured - true) against the true value, data and simulation",
+   "command": "plotipus line --datafile Distributions -x Value -y Residual --binned --estimator std --hue Sample --data_hue Data --select Distribution -s Exponential --bins 11 --rangex 0 10 --labelx True --labely 'Measured - True' --title 'Binned estimator: resolution'",
+   "python": "import plotipus\n\nplotipus.plot(\n    \"line\",\n    \"--datafile\", \"Distributions\",\n    \"-x\", \"Value\",\n    \"-y\", \"Residual\",\n    \"--binned\",\n    \"--estimator\", \"std\",\n    \"--hue\", \"Sample\",\n    \"--data_hue\", \"Data\",\n    \"--select\", \"Distribution\",\n    \"-s\", \"Exponential\",\n    \"--bins\", \"11\",\n    \"--rangex\", \"0\", \"10\",\n    \"--labelx\", \"True\",\n    \"--labely\", \"Measured - True\",\n    \"--title\", \"Binned estimator: resolution\",\n)",
+   "wide": false,
+   "data": {
+    "file": "input/data/Distributions.pkl",
+    "shown": 2,
+    "total": 23,
+    "columns": [
+     "Sample",
+     "Value",
+     "Residual"
+    ],
+    "rows": [
+     [
+      "Data",
+      "[0.0686, 0.872, 6.78, …] (2000)",
+      "[0.087, 0.339, -0.0471, …] (2000)"
+     ],
+     [
+      "Simulation",
+      "[0.596, 0.924, 0.0549, …] (20000)",
+      "[0.244, -0.134, 0.283, …] (20000)"
+     ]
+    ]
+   },
+   "section": "Binned estimators",
+   "docs": "https://github.com/mantheys/plotipus/blob/main/docs/options.md#binned-estimators"
+  },
+  {
+   "image": "images/options/box.png",
+   "paper": "images/options/paper/box.png",
+   "kind": "line",
+   "task": "Detector performance",
+   "title": "Box plots per bin",
+   "alt": "Box plots of measured - true per bin of the true value, simulation",
+   "command": "plotipus line --datafile Distributions -x Value -y Residual --binned --plot_type box --select Distribution Sample -s Exponential Simulation --bins 11 --rangex 0 10 --labelx True --labely 'Measured - True' --title 'Box plots per bin'",
+   "python": "import plotipus\n\nplotipus.plot(\n    \"line\",\n    \"--datafile\", \"Distributions\",\n    \"-x\", \"Value\",\n    \"-y\", \"Residual\",\n    \"--binned\",\n    \"--plot_type\", \"box\",\n    \"--select\", \"Distribution\", \"Sample\",\n    \"-s\", \"Exponential\", \"Simulation\",\n    \"--bins\", \"11\",\n    \"--rangex\", \"0\", \"10\",\n    \"--labelx\", \"True\",\n    \"--labely\", \"Measured - True\",\n    \"--title\", \"Box plots per bin\",\n)",
+   "wide": false,
+   "data": {
+    "file": "input/data/Distributions.pkl",
+    "shown": 1,
+    "total": 23,
+    "columns": [
+     "Value",
+     "Residual"
+    ],
+    "rows": [
+     [
+      "[0.596, 0.924, 0.0549, …] (20000)",
+      "[0.244, -0.134, 0.283, …] (20000)"
+     ]
+    ]
+   },
+   "section": "Binned estimators",
+   "docs": "https://github.com/mantheys/plotipus/blob/main/docs/options.md#binned-estimators"
+  },
+  {
+   "image": "images/options/violin.png",
+   "paper": "images/options/paper/violin.png",
+   "kind": "line",
+   "task": "Detector performance",
+   "title": "Violin plots per bin",
+   "alt": "Violin plots of measured - true per bin of the true value, simulation",
+   "command": "plotipus line --datafile Distributions -x Value -y Residual --binned --plot_type violin --select Distribution Sample -s Exponential Simulation --bins 11 --rangex 0 10 --labelx True --labely 'Measured - True' --title 'Violin plots per bin'",
+   "python": "import plotipus\n\nplotipus.plot(\n    \"line\",\n    \"--datafile\", \"Distributions\",\n    \"-x\", \"Value\",\n    \"-y\", \"Residual\",\n    \"--binned\",\n    \"--plot_type\", \"violin\",\n    \"--select\", \"Distribution\", \"Sample\",\n    \"-s\", \"Exponential\", \"Simulation\",\n    \"--bins\", \"11\",\n    \"--rangex\", \"0\", \"10\",\n    \"--labelx\", \"True\",\n    \"--labely\", \"Measured - True\",\n    \"--title\", \"Violin plots per bin\",\n)",
+   "wide": false,
+   "data": {
+    "file": "input/data/Distributions.pkl",
+    "shown": 1,
+    "total": 23,
+    "columns": [
+     "Value",
+     "Residual"
+    ],
+    "rows": [
+     [
+      "[0.596, 0.924, 0.0549, …] (20000)",
+      "[0.244, -0.134, 0.283, …] (20000)"
+     ]
+    ]
+   },
+   "section": "Binned estimators",
+   "docs": "https://github.com/mantheys/plotipus/blob/main/docs/options.md#binned-estimators"
+  },
+  {
+   "image": "images/options/colorbar.png",
+   "paper": "images/options/paper/colorbar.png",
+   "kind": "map",
+   "task": "Detector performance",
+   "title": "2D histograms with a shared colorbar",
+   "alt": "True against measured value for data and simulation, sharing one log colour scale",
+   "command": "plotipus map --datafile Distributions -x Value -y Smeared --select Distribution -s Exponential --iterable Sample --diagonal --logz --matchx --labelx True --labely Measured --title '2D histograms with a shared colorbar'",
+   "python": "import plotipus\n\nplotipus.plot(\n    \"map\",\n    \"--datafile\", \"Distributions\",\n    \"-x\", \"Value\",\n    \"-y\", \"Smeared\",\n    \"--select\", \"Distribution\",\n    \"-s\", \"Exponential\",\n    \"--iterable\", \"Sample\",\n    \"--diagonal\",\n    \"--logz\",\n    \"--matchx\",\n    \"--labelx\", \"True\",\n    \"--labely\", \"Measured\",\n    \"--title\", \"2D histograms with a shared colorbar\",\n)",
+   "wide": true,
+   "data": {
+    "file": "input/data/Distributions.pkl",
+    "shown": 2,
+    "total": 23,
+    "columns": [
+     "Sample",
+     "Value",
+     "Smeared"
+    ],
+    "rows": [
+     [
+      "Data",
+      "[0.0686, 0.872, 6.78, …] (2000)",
+      "[0.156, 1.21, 6.73, …] (2000)"
+     ],
+     [
+      "Simulation",
+      "[0.596, 0.924, 0.0549, …] (20000)",
+      "[0.84, 0.791, 0.338, …] (20000)"
+     ]
+    ]
+   },
+   "section": "Colorbars",
+   "docs": "https://github.com/mantheys/plotipus/blob/main/docs/options.md#colorbars"
+  },
+  {
+   "image": "images/options/hexbin.png",
+   "paper": "images/options/paper/hexbin.png",
+   "kind": "map",
+   "task": "Detector performance",
+   "title": "A bivariate Gaussian in hexagonal bins",
+   "alt": "A correlated bivariate Gaussian in hexagonal bins on a log colour scale",
+   "command": "plotipus map --datafile Distributions -x X -y Y --select Distribution Sample -s 'Bivariate Gaussian' Simulation --map_type hexbin --bins 30 --logz --title 'A bivariate Gaussian in hexagonal bins'",
+   "python": "import plotipus\n\nplotipus.plot(\n    \"map\",\n    \"--datafile\", \"Distributions\",\n    \"-x\", \"X\",\n    \"-y\", \"Y\",\n    \"--select\", \"Distribution\", \"Sample\",\n    \"-s\", \"Bivariate Gaussian\", \"Simulation\",\n    \"--map_type\", \"hexbin\",\n    \"--bins\", \"30\",\n    \"--logz\",\n    \"--title\", \"A bivariate Gaussian in hexagonal bins\",\n)",
+   "wide": false,
+   "data": {
+    "file": "input/data/Distributions.pkl",
+    "shown": 1,
+    "total": 23,
+    "columns": [
+     "X",
+     "Y"
+    ],
+    "rows": [
+     [
+      "[0.524, 0.604, 1.27, …] (20000)",
+      "[-0.339, -0.456, 0.822, …] (20000)"
+     ]
+    ]
+   },
+   "section": "Hexbin and corner plots",
+   "docs": "https://github.com/mantheys/plotipus/blob/main/docs/options.md#hexbin-and-corner-plots"
+  },
+  {
+   "image": "images/options/scatter.png",
+   "paper": "images/options/paper/scatter.png",
+   "kind": "scatter",
+   "task": "Detector performance",
+   "title": "Points coloured by a third column",
+   "alt": "True against measured values of exponential samples coloured by their residual",
+   "command": "plotipus scatter --datafile Distributions -x Value -y Response --colorby Residual --select Distribution Sample -s Exponential Data --rangey 0.5 1.5 --labelx True --labely 'Measured / True' --title 'Points coloured by a third column'",
+   "python": "import plotipus\n\nplotipus.plot(\n    \"scatter\",\n    \"--datafile\", \"Distributions\",\n    \"-x\", \"Value\",\n    \"-y\", \"Response\",\n    \"--colorby\", \"Residual\",\n    \"--select\", \"Distribution\", \"Sample\",\n    \"-s\", \"Exponential\", \"Data\",\n    \"--rangey\", \"0.5\", \"1.5\",\n    \"--labelx\", \"True\",\n    \"--labely\", \"Measured / True\",\n    \"--title\", \"Points coloured by a third column\",\n)",
+   "wide": false,
+   "data": {
+    "file": "input/data/Distributions.pkl",
+    "shown": 1,
+    "total": 23,
+    "columns": [
+     "Value",
+     "Response",
+     "Residual"
+    ],
+    "rows": [
+     [
+      "[0.0686, 0.872, 6.78, …] (2000)",
+      "[2.27, 1.39, 0.993, …] (2000)",
+      "[0.087, 0.339, -0.0471, …] (2000)"
+     ]
+    ]
+   },
+   "section": "Categories and scatter",
+   "docs": "https://github.com/mantheys/plotipus/blob/main/docs/options.md#categories-and-scatter"
+  },
+  {
+   "image": "images/options/hue.png",
+   "paper": "images/options/paper/hue.png",
+   "kind": "scatter",
+   "task": "Detector performance",
+   "title": "Points coloured by group (--hue)",
+   "alt": "True against measured values of Gaussian, exponential and log-normal data, one colour each",
+   "command": "plotipus scatter --datafile Distributions -x Value -y Response --hue Distribution --select Sample Distribution Distribution Distribution -s Data Gaussian Exponential Log-normal --rangey 0.5 1.5 --legend_loc 'lower right' --labelx True --labely 'Measured / True' --title 'Points coloured by group (--hue)'",
+   "python": "import plotipus\n\nplotipus.plot(\n    \"scatter\",\n    \"--datafile\", \"Distributions\",\n    \"-x\", \"Value\",\n    \"-y\", \"Response\",\n    \"--hue\", \"Distribution\",\n    \"--select\", \"Sample\", \"Distribution\", \"Distribution\", \"Distribution\",\n    \"-s\", \"Data\", \"Gaussian\", \"Exponential\", \"Log-normal\",\n    \"--rangey\", \"0.5\", \"1.5\",\n    \"--legend_loc\", \"lower right\",\n    \"--labelx\", \"True\",\n    \"--labely\", \"Measured / True\",\n    \"--title\", \"Points coloured by group (--hue)\",\n)",
+   "wide": false,
+   "data": {
+    "file": "input/data/Distributions.pkl",
+    "shown": 3,
+    "total": 23,
+    "columns": [
+     "Distribution",
+     "Value",
+     "Response"
+    ],
+    "rows": [
+     [
+      "Gaussian",
+      "[0.346, 0.822, 0.33, …] (2000)",
+      "[1.08, 1.2, 1.7, …] (2000)"
+     ],
+     [
+      "Exponential",
+      "[0.0686, 0.872, 6.78, …] (2000)",
+      "[2.27, 1.39, 0.993, …] (2000)"
+     ],
+     [
+      "Log-normal",
+      "[1.04, 1.37, 1.9, …] (2000)",
+      "[0.944, 0.988, 0.996, …] (2000)"
+     ]
+    ]
+   },
+   "section": "Categories and scatter",
+   "docs": "https://github.com/mantheys/plotipus/blob/main/docs/options.md#categories-and-scatter"
+  },
+  {
+   "image": "images/options/moments.png",
+   "paper": "images/options/paper/moments.png",
+   "kind": "cat",
+   "task": "Comparisons and presentation",
+   "title": "One scalar per row: spread of each sample",
+   "alt": "Standard deviation of seven distributions, simulation as bars and data as points",
+   "command": "plotipus cat --datafile Moments -x Config --hue Sample -y Value --errory --select Variable Config Config Config Config Config Config Config -s Std Gaussian Poisson Binomial Exponential Uniform Log-normal Chi-squared --kind bar --data_hue Data --labelx Distribution --labely 'Standard deviation' --title 'One scalar per row: spread of each sample'",
+   "python": "import plotipus\n\nplotipus.plot(\n    \"cat\",\n    \"--datafile\", \"Moments\",\n    \"-x\", \"Config\",\n    \"--hue\", \"Sample\",\n    \"-y\", \"Value\",\n    \"--errory\",\n    \"--select\", \"Variable\", \"Config\", \"Config\", \"Config\", \"Config\", \"Config\", \"Config\", \"Config\",\n    \"-s\", \"Std\", \"Gaussian\", \"Poisson\", \"Binomial\", \"Exponential\", \"Uniform\", \"Log-normal\", \"Chi-squared\",\n    \"--kind\", \"bar\",\n    \"--data_hue\", \"Data\",\n    \"--labelx\", \"Distribution\",\n    \"--labely\", \"Standard deviation\",\n    \"--title\", \"One scalar per row: spread of each sample\",\n)",
+   "wide": false,
+   "data": {
+    "file": "input/data/Moments.pkl",
+    "shown": 14,
+    "total": 42,
+    "columns": [
+     "Config",
+     "Sample",
+     "Value",
+     "ValueError"
+    ],
+    "rows": [
+     [
+      "Gaussian",
+      "Data",
+      "1.01",
+      "0.0159"
+     ],
+     [
+      "Gaussian",
+      "Simulation",
+      "0.99",
+      "0.00495"
+     ]
+    ]
+   },
+   "section": "Categories and scatter",
+   "docs": "https://github.com/mantheys/plotipus/blob/main/docs/options.md#categories-and-scatter"
+  },
+  {
+   "image": "images/options/ranking.png",
+   "paper": "images/options/paper/ranking.png",
+   "kind": "cat",
+   "task": "Comparisons and presentation",
+   "title": "Ranked spreads: horizontal lollipops",
+   "alt": "Standard deviations of seven distributions as horizontal lollipops, sorted, with the data as points",
+   "command": "plotipus cat --datafile Moments -x Config --hue Sample -y Value --errory --select Variable Config Config Config Config Config Config Config -s Std Gaussian Poisson Binomial Exponential Uniform Log-normal Chi-squared --kind lollipop --orient h --sort desc --data_hue Data --labelx Distribution --labely 'Standard deviation' --title 'Ranked spreads: horizontal lollipops'",
+   "python": "import plotipus\n\nplotipus.plot(\n    \"cat\",\n    \"--datafile\", \"Moments\",\n    \"-x\", \"Config\",\n    \"--hue\", \"Sample\",\n    \"-y\", \"Value\",\n    \"--errory\",\n    \"--select\", \"Variable\", \"Config\", \"Config\", \"Config\", \"Config\", \"Config\", \"Config\", \"Config\",\n    \"-s\", \"Std\", \"Gaussian\", \"Poisson\", \"Binomial\", \"Exponential\", \"Uniform\", \"Log-normal\", \"Chi-squared\",\n    \"--kind\", \"lollipop\",\n    \"--orient\", \"h\",\n    \"--sort\", \"desc\",\n    \"--data_hue\", \"Data\",\n    \"--labelx\", \"Distribution\",\n    \"--labely\", \"Standard deviation\",\n    \"--title\", \"Ranked spreads: horizontal lollipops\",\n)",
+   "wide": false,
+   "data": {
+    "file": "input/data/Moments.pkl",
+    "shown": 14,
+    "total": 42,
+    "columns": [
+     "Config",
+     "Sample",
+     "Value",
+     "ValueError"
+    ],
+    "rows": [
+     [
+      "Gaussian",
+      "Data",
+      "1.01",
+      "0.0159"
+     ],
+     [
+      "Gaussian",
+      "Simulation",
+      "0.99",
+      "0.00495"
+     ]
+    ]
+   },
+   "section": "Categories and scatter",
+   "docs": "https://github.com/mantheys/plotipus/blob/main/docs/options.md#categories-and-scatter"
+  },
+  {
+   "image": "images/options/violins.png",
+   "paper": "images/options/paper/violins.png",
+   "kind": "cat",
+   "task": "Comparisons and presentation",
+   "title": "Samples as distributions: violins",
+   "alt": "Data as hollow violins next to the simulation for four distributions",
+   "command": "plotipus cat --datafile Distributions -x Distribution -y Value --hue Sample --select Distribution Distribution Distribution Distribution -s Gaussian Exponential Log-normal Chi-squared --data_hue Data --kind violin --labely Value --title 'Samples as distributions: violins'",
+   "python": "import plotipus\n\nplotipus.plot(\n    \"cat\",\n    \"--datafile\", \"Distributions\",\n    \"-x\", \"Distribution\",\n    \"-y\", \"Value\",\n    \"--hue\", \"Sample\",\n    \"--select\", \"Distribution\", \"Distribution\", \"Distribution\", \"Distribution\",\n    \"-s\", \"Gaussian\", \"Exponential\", \"Log-normal\", \"Chi-squared\",\n    \"--data_hue\", \"Data\",\n    \"--kind\", \"violin\",\n    \"--labely\", \"Value\",\n    \"--title\", \"Samples as distributions: violins\",\n)",
+   "wide": false,
+   "data": {
+    "file": "input/data/Distributions.pkl",
+    "shown": 8,
+    "total": 23,
+    "columns": [
+     "Distribution",
+     "Sample",
+     "Value"
+    ],
+    "rows": [
+     [
+      "Gaussian",
+      "Data",
+      "[0.346, 0.822, 0.33, …] (2000)"
+     ],
+     [
+      "Gaussian",
+      "Simulation",
+      "[-0.869, 1.65, -0.231, …] (20000)"
+     ]
+    ]
+   },
+   "section": "Categories and scatter",
+   "docs": "https://github.com/mantheys/plotipus/blob/main/docs/options.md#categories-and-scatter"
+  },
+  {
+   "image": "images/options/palette.png",
+   "paper": "images/options/paper/palette.png",
+   "kind": "line",
+   "task": "Comparisons and presentation",
+   "title": "The okabe-ito palette",
+   "alt": "Data of four distributions, normalised, as points in the okabe-ito palette",
+   "command": "plotipus line --datafile Distributions -x Bin -y Counts --hue Distribution --select Sample Distribution -s Data Exponential Landau Chi-squared Log-normal --errory --density --palette okabe-ito --labelx x --title 'The okabe-ito palette'",
+   "python": "import plotipus\n\nplotipus.plot(\n    \"line\",\n    \"--datafile\", \"Distributions\",\n    \"-x\", \"Bin\",\n    \"-y\", \"Counts\",\n    \"--hue\", \"Distribution\",\n    \"--select\", \"Sample\", \"Distribution\",\n    \"-s\", \"Data\", \"Exponential\", \"Landau\", \"Chi-squared\", \"Log-normal\",\n    \"--errory\",\n    \"--density\",\n    \"--palette\", \"okabe-ito\",\n    \"--labelx\", \"x\",\n    \"--title\", \"The okabe-ito palette\",\n)",
+   "wide": false,
+   "data": {
+    "file": "input/data/Distributions.pkl",
+    "shown": 4,
+    "total": 23,
+    "columns": [
+     "Distribution",
+     "Bin",
+     "Counts",
+     "CountsError"
+    ],
+    "rows": [
+     [
+      "Exponential",
+      "[0.125, 0.375, 0.625, …] (48)",
+      "[257, 233, 181, …] (48)",
+      "[16, 15.3, 13.5, …] (48)"
+     ],
+     [
+      "Landau",
+      "[…, 0.875, 1.12, 1.38, …] (48)",
+      "[…, 1, 32, 173, …] (48)",
+      "[…, 1, 5.66, 13.2, …] (48)"
+     ],
+     [
+      "Log-normal",
+      "[…, 0.375, 0.625, 0.875, …] (48)",
+      "[…, 15, 152, 265, …] (48)",
+      "[…, 3.87, 12.3, 16.3, …] (48)"
+     ]
+    ]
+   },
+   "section": "Shared options",
+   "docs": "https://github.com/mantheys/plotipus/blob/main/docs/options.md#shared-options"
+  },
+  {
+   "image": "images/options/rate.png",
+   "paper": "images/options/paper/rate.png",
+   "kind": "line",
+   "task": "Comparisons and presentation",
+   "title": "A rate: the power of ten in the label",
+   "alt": "Exponential counts as a rate of order 1e-5 Hz: plain tick numbers, with the common power of ten in the y label",
+   "command": "plotipus line --datafile Distributions -x Bin -y Counts --hue Sample --select Distribution -s Exponential --data_hue Data --errory --multiply 1e-7 --labelx x --labely 'Rate per bin (Hz)' --title 'A rate: the power of ten in the label'",
+   "python": "import plotipus\n\nplotipus.plot(\n    \"line\",\n    \"--datafile\", \"Distributions\",\n    \"-x\", \"Bin\",\n    \"-y\", \"Counts\",\n    \"--hue\", \"Sample\",\n    \"--select\", \"Distribution\",\n    \"-s\", \"Exponential\",\n    \"--data_hue\", \"Data\",\n    \"--errory\",\n    \"--multiply\", \"1e-7\",\n    \"--labelx\", \"x\",\n    \"--labely\", \"Rate per bin (Hz)\",\n    \"--title\", \"A rate: the power of ten in the label\",\n)",
+   "wide": false,
+   "data": {
+    "file": "input/data/Distributions.pkl",
+    "shown": 2,
+    "total": 23,
+    "columns": [
+     "Sample",
+     "Bin",
+     "Counts",
+     "CountsError"
+    ],
+    "rows": [
+     [
+      "Data",
+      "[0.125, 0.375, 0.625, …] (48)",
+      "[257, 233, 181, …] (48)",
+      "[16, 15.3, 13.5, …] (48)"
+     ],
+     [
+      "Simulation",
+      "[0.125, 0.375, 0.625, …] (48)",
+      "[231, 211, 176, …] (48)",
+      "[4.81, 4.59, 4.19, …] (48)"
+     ]
+    ]
+   },
+   "section": "Shared options",
+   "docs": "https://github.com/mantheys/plotipus/blob/main/docs/options.md#shared-options"
+  }
+ ]
+}
