@@ -130,6 +130,10 @@ def build_parser():
     add("--caption_file", type=str, default=None,
         help="Caption read from a file (path, or name in the project's captions_dir setting)")
     add("--header_title", type=str, default=None, help="Title row above \\toprule")
+    add("--heading", type=str, default=None,
+        help="Centred heading line above the tabular (writes \\centering and the text), for tables without a caption")
+    add("--footer_rows", nargs="+", default=None, metavar="ROW",
+        help="LaTeX rows appended after a \\midrule at the bottom of the table, e.g. reference values not in the data")
     add("--label", type=str, default=None, help="\\label after the caption")
     add("--table_env", type=str, default="table*", help="Float environment; 'none' writes only the tabular")
     add("--bare", action="store_true", help="Shorthand for --table_env none")
@@ -668,6 +672,11 @@ def run(args):
         if args.title:
             title_row = f"\\multicolumn{{{width}}}{{c}}{{{args.title}}} \\\\\n\\midrule\n"
             tabular = tabular.replace("\\toprule\n", "\\toprule\n" + title_row, 1)
+        if args.footer_rows:
+            rows = "".join(row.strip().removesuffix("\\\\").rstrip() + " \\\\\n" for row in args.footer_rows)
+            tabular = tabular.replace("\\bottomrule", f"\\midrule\n{rows}\\bottomrule", 1)
+        if args.heading:
+            tabular = f"\\centering\n{args.heading}\\\\\n{tabular}"
         if caption is not None and args.table_env != "none":
             label = f"\\label{{{args.label}}}\n" if args.label else ""
             tabular = (f"\\begin{{{args.table_env}}}[t]\n{tabular}\\caption{{{caption}}}\n{label}"
