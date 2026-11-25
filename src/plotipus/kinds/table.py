@@ -10,6 +10,7 @@ error (``{y}Error``), a percentile band (``--error_band``) or alone.
 
 import html
 import os
+import re
 from pathlib import Path
 
 import numpy as np
@@ -132,6 +133,8 @@ def build_parser():
     add("--header_title", type=str, default=None, help="Title row above \\toprule")
     add("--heading", type=str, default=None,
         help="Centred heading line above the tabular (writes \\centering and the text), for tables without a caption")
+    add("--flat_header", action="store_true",
+        help="One header row when the column group title is empty (-t ''): row label and column titles together")
     add("--footer_rows", nargs="+", default=None, metavar="ROW",
         help="LaTeX rows appended after a \\midrule at the bottom of the table, e.g. reference values not in the data")
     add("--label", type=str, default=None, help="\\label after the caption")
@@ -667,6 +670,9 @@ def run(args):
             tabular = table.to_latex(index=False, column_format="l" + "c" * (table.shape[1] - 1),
                                      multicolumn_format="c", bold_rows=False, escape=False)
         width = table.shape[1]
+        if args.flat_header:
+            # Drop an empty column-group row: its row-label cell moves down to the column titles.
+            tabular = re.sub(r"^(.*?) & \\multicolumn\{\d+\}\{c\}\{\} \\\\\n *& ", r"\1 & ", tabular, count=1, flags=re.M)
         if args.header_title:
             tabular = tabular.replace("\\toprule\n", f"\\multicolumn{{{width}}}{{c}}{{{args.header_title}}} \\\\\n\\toprule\n", 1)
         if args.title:
